@@ -37,7 +37,12 @@ export type GraphReplayState = {
   activeEdges: Set<string>;
 };
 
-const KNOWN_AGENTS = ['SlipRecognition', 'ContextVerification', 'PatternClassification', 'Reflection'];
+const KNOWN_AGENTS = [
+  'SlipRecognition',
+  'ContextVerification',
+  'PatternClassification',
+  'Reflection'
+];
 const ACTIVE_WINDOW_MS = 5_000;
 
 export const GRAPH_NODES: GraphNodeDefinition[] = [
@@ -46,25 +51,34 @@ export const GRAPH_NODES: GraphNodeDefinition[] = [
   { id: 'wal_fetch', label: 'WAL Fetch', kind: 'wal', column: 'left' },
   { id: 'wal_normalize', label: 'Normalize', kind: 'wal', column: 'left' },
   { id: 'odds', label: 'Odds', kind: 'system', column: 'left' },
-  ...KNOWN_AGENTS.map((agent) => ({ id: agent, label: agent, kind: 'agent' as const, column: 'middle' as const })),
+  ...KNOWN_AGENTS.map((agent) => ({
+    id: agent,
+    label: agent,
+    kind: 'agent' as const,
+    column: 'middle' as const
+  })),
   { id: 'decision', label: 'Decision', kind: 'system', column: 'middle' },
   { id: 'snapshot_saved', label: 'Snapshot', kind: 'system', column: 'right' },
   { id: 'bet_logged', label: 'Bet Logged', kind: 'system', column: 'right' },
   { id: 'outcome', label: 'Outcome', kind: 'system', column: 'right' },
-  { id: 'edge_report', label: 'Edge Report', kind: 'system', column: 'right' },
+  { id: 'edge_report', label: 'Edge Report', kind: 'system', column: 'right' }
 ];
 
 export const GRAPH_EDGES: GraphEdgeDefinition[] = [
   { id: 'slip-wal-search', source: 'slip', target: 'wal_search' },
   { id: 'wal-search-fetch', source: 'wal_search', target: 'wal_fetch' },
   { id: 'wal-fetch-normalize', source: 'wal_fetch', target: 'wal_normalize' },
-  ...KNOWN_AGENTS.map((agent) => ({ id: `normalize-${agent}`, source: 'wal_normalize', target: agent })),
+  ...KNOWN_AGENTS.map((agent) => ({
+    id: `normalize-${agent}`,
+    source: 'wal_normalize',
+    target: agent
+  })),
   ...KNOWN_AGENTS.map((agent) => ({ id: `${agent}-decision`, source: agent, target: 'decision' })),
   { id: 'decision-snapshot', source: 'decision', target: 'snapshot_saved' },
   { id: 'snapshot-bet', source: 'snapshot_saved', target: 'bet_logged' },
   { id: 'snapshot-outcome', source: 'snapshot_saved', target: 'outcome' },
   { id: 'outcome-edge', source: 'outcome', target: 'edge_report' },
-  { id: 'odds-decision', source: 'odds', target: 'decision' },
+  { id: 'odds-decision', source: 'odds', target: 'decision' }
 ];
 
 const EDGE_LOOKUP = new Map(GRAPH_EDGES.map((edge) => [edge.id, edge]));
@@ -78,6 +92,20 @@ function parseMillis(value?: string): number {
 function parseAgentId(payload?: Record<string, unknown>): string | undefined {
   const raw = payload?.agent_id ?? payload?.agentId ?? payload?.agent;
   return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+}
+
+function riskSignalScore(payload?: Record<string, unknown>): number {
+  if (!payload) return 0;
+  const confidence = typeof payload.confidence === 'number' ? payload.confidence : null;
+  const riskTag = typeof payload.risk_tag === 'string' ? payload.risk_tag.toLowerCase() : '';
+  const rationale = typeof payload.rationale === 'string' ? payload.rationale.toLowerCase() : '';
+  if (riskTag === 'high' || rationale.includes('volatile') || rationale.includes('variance')) {
+    return 1;
+  }
+  if (confidence !== null && confidence < 0.55) {
+    return 1;
+  }
+  return 0;
 }
 
 function nodeIdsForEvent(event: ControlPlaneEvent): string[] {
@@ -147,12 +175,15 @@ function edgeIdsForEvent(event: ControlPlaneEvent): string[] {
   }
 }
 
-export function reconstructGraphState(events: ControlPlaneEvent[], asOfTimestamp?: number): GraphReplayState {
+export function reconstructGraphState(
+  events: ControlPlaneEvent[],
+  asOfTimestamp?: number
+): GraphReplayState {
   const sorted = [...events].sort((a, b) => parseMillis(a.created_at) - parseMillis(b.created_at));
   const latestEventTime = parseMillis(sorted.at(-1)?.created_at);
   const now = asOfTimestamp ?? (latestEventTime || Date.now());
   const nodeState: Record<string, NodeState> = Object.fromEntries(
-    GRAPH_NODES.map((node) => [node.id, { status: 'idle' as const }]),
+    GRAPH_NODES.map((node) => [node.id, { status: 'idle' as const }])
   );
 
   const activeEdges = new Set<string>();
@@ -167,7 +198,7 @@ export function reconstructGraphState(events: ControlPlaneEvent[], asOfTimestamp
       nodeState[nodeId] = {
         status: event.event_name === 'agent_error' ? 'error' : 'active',
         lastEvent: event,
-        lastActivityAt: eventMs,
+        lastActivityAt: eventMs
       };
       if (existing.status === 'error' && event.event_name !== 'agent_error') {
         nodeState[nodeId].status = 'active';
@@ -206,18 +237,30 @@ type AgentNodeGraphProps = {
   showDemoLabel?: boolean;
 };
 
-function classForNodeStatus(status: NodeStatus) {
-  if (status === 'error') return 'border-rose-400/70 bg-rose-500/10 shadow-[0_0_24px_rgba(251,113,133,0.38)]';
-  if (status === 'active') return 'node-active border-cyan-300/80 bg-cyan-400/10 shadow-[0_0_24px_rgba(34,211,238,0.35)]';
+function classForNodeStatus(status: NodeStatus, risky = false) {
+  if (status === 'error')
+    return 'border-rose-400/70 bg-rose-500/10 shadow-[0_0_24px_rgba(251,113,133,0.38)]';
+  if (status === 'active' && risky)
+    return 'node-risky border-amber-300/80 bg-amber-400/10 shadow-[0_0_24px_rgba(251,191,36,0.35)]';
+  if (status === 'active')
+    return 'node-active border-cyan-300/80 bg-cyan-400/10 shadow-[0_0_24px_rgba(34,211,238,0.35)]';
   return 'border-slate-700 bg-slate-900/85';
 }
 
-export function AgentNodeGraph({ events, state, selectedNodeId, onNodeSelect, className, traceId, showDemoLabel }: AgentNodeGraphProps) {
+export function AgentNodeGraph({
+  events,
+  state,
+  selectedNodeId,
+  onNodeSelect,
+  className,
+  traceId,
+  showDemoLabel
+}: AgentNodeGraphProps) {
   const nodePositions = useMemo(() => {
     const byColumn = {
       left: GRAPH_NODES.filter((node) => node.column === 'left'),
       middle: GRAPH_NODES.filter((node) => node.column === 'middle'),
-      right: GRAPH_NODES.filter((node) => node.column === 'right'),
+      right: GRAPH_NODES.filter((node) => node.column === 'right')
     };
 
     const placeColumn = (column: keyof typeof byColumn, xPct: number) => {
@@ -225,21 +268,33 @@ export function AgentNodeGraph({ events, state, selectedNodeId, onNodeSelect, cl
       return columnNodes.map((node, index) => ({
         ...node,
         x: xPct,
-        y: ((index + 1) / (columnNodes.length + 1)) * 100,
+        y: ((index + 1) / (columnNodes.length + 1)) * 100
       }));
     };
 
     return [...placeColumn('left', 18), ...placeColumn('middle', 50), ...placeColumn('right', 82)];
   }, []);
 
-  const lookup = useMemo(() => Object.fromEntries(nodePositions.map((node) => [node.id, node])), [nodePositions]);
+  const lookup = useMemo(
+    () => Object.fromEntries(nodePositions.map((node) => [node.id, node])),
+    [nodePositions]
+  );
 
   return (
     <section className={className}>
       <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
         <div className="relative min-h-[460px] min-w-[860px] overflow-hidden rounded-lg border border-slate-800 graph-grid">
-          {showDemoLabel ? <p className="absolute right-3 top-3 z-30 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-[11px] text-amber-200">Demo (no trace_id)</p> : null}
-          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          {showDemoLabel ? (
+            <p className="absolute right-3 top-3 z-30 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-[11px] text-amber-200">
+              Demo (no trace_id)
+            </p>
+          ) : null}
+          <svg
+            className="absolute inset-0 h-full w-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden
+          >
             {GRAPH_EDGES.map((edge) => {
               const source = lookup[edge.source];
               const target = lookup[edge.target];
@@ -247,7 +302,14 @@ export function AgentNodeGraph({ events, state, selectedNodeId, onNodeSelect, cl
               const active = state.activeEdges.has(edge.id);
               return (
                 <g key={edge.id}>
-                  <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} stroke="rgba(148,163,184,0.35)" strokeWidth="0.35" />
+                  <line
+                    x1={source.x}
+                    y1={source.y}
+                    x2={target.x}
+                    y2={target.y}
+                    stroke="rgba(148,163,184,0.35)"
+                    strokeWidth="0.35"
+                  />
                   {active ? (
                     <line
                       x1={source.x}
@@ -269,23 +331,28 @@ export function AgentNodeGraph({ events, state, selectedNodeId, onNodeSelect, cl
             const nodeState = state.nodeState[node.id] ?? { status: 'idle' as const };
             const active = nodeState.status === 'active';
             const selected = selectedNodeId === node.id;
+            const risky = riskSignalScore(nodeState.lastEvent?.payload) > 0;
             return (
               <button
                 key={node.id}
                 type="button"
                 aria-label={`${node.label} node`}
                 onClick={() => onNodeSelect?.(node.id)}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-2 text-[11px] font-medium text-slate-200 transition ${classForNodeStatus(nodeState.status)} ${selected ? 'ring-2 ring-cyan-300/70' : ''}`}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-2 text-[11px] font-medium text-slate-200 transition ${classForNodeStatus(nodeState.status, risky)} ${selected ? 'ring-2 ring-cyan-300/70' : ''}`}
                 style={{ left: `${node.x}%`, top: `${node.y}%` }}
               >
                 <span className="pointer-events-none block whitespace-nowrap">{node.label}</span>
                 {active ? <span className="sr-only">active</span> : null}
+                {risky && nodeState.status !== 'idle' ? (
+                  <span className="block text-[10px] text-amber-200">Risky</span>
+                ) : null}
               </button>
             );
           })}
 
           <div className="absolute bottom-2 left-2 rounded border border-slate-800/80 bg-slate-950/80 px-2 py-1 text-[11px] text-slate-400">
-            Trace: <span className="font-mono text-slate-300">{traceId || 'not provided'}</span> · Events: {events.length}
+            Trace: <span className="font-mono text-slate-300">{traceId || 'not provided'}</span> ·
+            Events: {events.length}
           </div>
         </div>
       </div>
@@ -296,11 +363,18 @@ export function AgentNodeGraph({ events, state, selectedNodeId, onNodeSelect, cl
             linear-gradient(to right, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
             linear-gradient(to bottom, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
             radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.1), transparent 45%);
-          background-size: 32px 32px, 32px 32px, auto;
+          background-size:
+            32px 32px,
+            32px 32px,
+            auto;
         }
 
         .node-active {
           animation: nodePulse 1.2s ease-in-out infinite;
+        }
+
+        .node-risky {
+          animation: riskyPulse 1s ease-in-out infinite;
         }
 
         .edge-travel {
@@ -314,6 +388,18 @@ export function AgentNodeGraph({ events, state, selectedNodeId, onNodeSelect, cl
           }
           50% {
             transform: scale(1.04);
+          }
+        }
+
+        @keyframes riskyPulse {
+          0%,
+          100% {
+            transform: scale(1);
+            filter: saturate(1);
+          }
+          50% {
+            transform: scale(1.06);
+            filter: saturate(1.3);
           }
         }
 
