@@ -1,4 +1,4 @@
-import type { StoredBet } from './runtimeDb';
+import type { StoredBet } from './runtimeStore';
 
 const confidenceBucket = (value: number): string => {
   const pct = value * 100;

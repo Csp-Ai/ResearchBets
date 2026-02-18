@@ -26,6 +26,7 @@ export const buildResearchSnapshot = async (
       tier: options?.tier ?? 'free',
       environment: context.environment ?? 'dev',
       seed: input.seed ?? context.requestId,
+      requestId: context.requestId,
       traceId: context.traceId ?? `trace-${context.requestId}`,
       runId: context.runId ?? `run-${context.requestId}`,
     },
