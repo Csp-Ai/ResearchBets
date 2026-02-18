@@ -39,7 +39,8 @@ async function emitEvent(input: {
     | 'model_quickrun_failed'
     | 'insight_node_created'
     | 'live_games_opened'
-    | 'live_game_opened';
+    | 'live_game_opened'
+    | 'insight_graph_updated';
   traceId: string;
   runId: string;
   requestId?: string;
@@ -72,7 +73,12 @@ async function persistNode(input: ReturnType<typeof buildInsightNode>): Promise<
     evidence: input.evidence,
     confidence: input.confidence,
     timestamp: input.timestamp,
+    decayHalfLife: input.decay_half_life,
     decayHalfLifeMinutes: input.decay_half_life_minutes,
+    attribution: {
+      sourceBook: input.attribution?.source_book,
+      modelVersion: input.attribution?.model_version
+    },
     marketImplied: input.market_implied,
     modelImplied: input.model_implied,
     delta: input.delta
@@ -111,7 +117,7 @@ export async function recordMarketLoaded(input: {
       gameId: game.gameId,
       agentKey: 'market_loader',
       track: 'baseline',
-      insightType: 'line_move',
+      insightType: 'market_snapshot',
       claim: `Market snapshot for ${game.label} from ${game.source}.`,
       confidence: game.degraded ? 0.52 : 0.7,
       marketImplied: game.implied.home,
@@ -183,7 +189,7 @@ export async function getOrRunQuickModel(input: {
       gameId: input.game.gameId,
       agentKey: 'quick_model',
       track: 'hybrid',
-      insightType: 'matchup_stat',
+      insightType: 'model_snapshot',
       claim: `Quick model estimated probabilities for ${input.game.label}.`,
       confidence: 0.58,
       modelImplied: snapshot.modelHome,
@@ -199,7 +205,7 @@ export async function getOrRunQuickModel(input: {
       gameId: input.game.gameId,
       agentKey: 'delta_engine',
       track: 'hybrid',
-      insightType: 'market_delta',
+      insightType: 'delta_snapshot',
       claim: 'Delta is not a pick; it is a market-model probability difference.',
       confidence: 0.61,
       marketImplied: input.game.implied.home,

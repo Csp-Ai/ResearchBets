@@ -13,7 +13,7 @@ export const EvidenceItemSchema = z.object({
   raw: z.record(z.unknown()).optional(),
   reliability: z.number().min(0).max(1).optional(),
   tags: z.array(z.string()).optional(),
-  suspicious: z.boolean().optional(),
+  suspicious: z.boolean().optional()
 });
 
 export const ClaimSchema = z.object({
@@ -21,7 +21,7 @@ export const ClaimSchema = z.object({
   text: z.string().min(1),
   confidence: z.number().min(0).max(1),
   rationale: z.string().min(1),
-  evidenceIds: z.array(z.string().min(1)).min(1),
+  evidenceIds: z.array(z.string().min(1)).min(1)
 });
 
 export const ResearchReportSchema = z
@@ -36,7 +36,7 @@ export const ResearchReportSchema = z
     summary: z.string().min(1),
     confidenceSummary: z.object({
       averageClaimConfidence: z.number().min(0).max(1),
-      deterministic: z.literal(true),
+      deterministic: z.literal(true)
     }),
     risks: z.array(z.string()),
     assumptions: z.array(z.string()),
@@ -48,12 +48,22 @@ export const ResearchReportSchema = z
             insightId: z.string().min(1),
             claim: z.string().min(1),
             confidence: z.number().min(0).max(1),
-            impactDelta: z.number().min(0),
-          }),
+            impactDelta: z.number().min(0)
+          })
         ),
         disagreementProxyByType: z.record(z.number()),
+        performance: z
+          .object({
+            edges_total: z.number(),
+            edges_confirmed: z.number(),
+            edges_missed: z.number(),
+            calibration_score: z.number(),
+            avg_delta: z.number(),
+            disagreement_rate: z.number()
+          })
+          .optional()
       })
-      .optional(),
+      .optional()
   })
   .superRefine((report, ctx) => {
     const ids = new Set(report.evidence.map((e) => e.id));
@@ -63,7 +73,7 @@ export const ResearchReportSchema = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['claims', i, 'evidenceIds', j],
-            message: `Unknown evidence ${id}`,
+            message: `Unknown evidence ${id}`
           });
         }
       });
