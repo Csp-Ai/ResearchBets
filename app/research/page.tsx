@@ -12,6 +12,7 @@ import {
 import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
 import { TerminalLoopShell } from '@/src/components/TerminalLoopShell';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
+import { DecisionCard, type DecisionCardData } from '@/src/components/DecisionCard';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
 import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 import { runUiAction } from '@/src/core/ui/actionContract';
@@ -156,6 +157,34 @@ export default function ResearchPage() {
     [events, liveMode, replayTimestamp]
   );
   const selectedNode = GRAPH_NODES.find((node) => node.id === selectedNodeId);
+
+  const latestDecisionPayload = useMemo(() => {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      if (event?.event_name === 'agent_scored_decision') return event.payload ?? {};
+    }
+    return {};
+  }, [events]);
+
+  const researchDecisionCard = useMemo<DecisionCardData>(() => {
+    const scoreRaw = latestDecisionPayload.score;
+    const confidence = typeof scoreRaw === 'number' ? scoreRaw : null;
+    const riskTag =
+      typeof latestDecisionPayload.risk_tag === 'string' ? latestDecisionPayload.risk_tag : null;
+    const rationale =
+      typeof latestDecisionPayload.rationale === 'string'
+        ? latestDecisionPayload.rationale
+        : undefined;
+
+    return {
+      title: activeGame ? `Terminal Decision Artifact · ${activeGame.label}` : 'Terminal Decision Artifact',
+      confidence,
+      volatilityTag: riskTag,
+      volatilityReasons: rationale ? [rationale] : [],
+      fragilityVariables: [],
+      evidenceSources: activeGame ? [activeGame.source] : []
+    };
+  }, [activeGame, latestDecisionPayload]);
 
   const runSearch = async () => {
     const outcome = await runUiAction({
@@ -432,6 +461,9 @@ export default function ResearchPage() {
           </button>
         </form>
         <p className="mt-2 text-xs text-slate-400">{status}</p>
+        <div className="mt-4">
+          <DecisionCard data={researchDecisionCard} />
+        </div>
 
         {advancedView ? (
           <div className="mt-5 space-y-3">

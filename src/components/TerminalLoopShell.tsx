@@ -57,16 +57,6 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   const chainTraceId = traceId || snapshot?.traceId || fallbackTraceId;
   const router = useRouter();
 
-  const navigateWithAction = async (actionId: string, href: string) => {
-    await runUiAction({
-      actionName: actionId,
-      actionId: `ui_${createClientRequestId()}`,
-      traceId: chainTraceId,
-      properties: { href, session_id: session?.sessionId ?? 'anonymous', user_id: session?.userId ?? 'anonymous' },
-      execute: async () => ({ ok: true, source: 'live' })
-    });
-    router.push(href);
-  };
 
   useEffect(() => {
     const anonSessionId = ensureAnonSessionId();
