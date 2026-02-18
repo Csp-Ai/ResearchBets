@@ -114,6 +114,7 @@ jobs:
           RIA_MODE: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
           GIT_BASE_REF: ${{ github.event.pull_request.base.sha }}
           GIT_HEAD_REF: ${{ github.sha }}
+          RIA_ALLOW_BASELINE: '0'
         run: npm run ria:audit
       - name: Upload RIA artifacts
         if: always()
