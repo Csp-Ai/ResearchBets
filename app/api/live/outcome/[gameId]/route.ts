@@ -3,12 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
-import { computeEdgeRealization } from '@/src/core/metrics/edgeRealization';
-import { getCachedQuickModel } from '@/src/core/live/liveModel';
+import { InsightNodeSchema, MarketSnapshotSchema } from '@/src/core/contracts/terminalSchemas';
 import { resolveGameFromRegistry } from '@/src/core/games/registry';
-import { getMarketSnapshot } from '@/src/core/markets/marketData';
-import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 import { buildInsightNode } from '@/src/core/insights/insightGraph';
+import { getCachedQuickModel } from '@/src/core/live/liveModel';
+import { getMarketSnapshot } from '@/src/core/markets/marketData';
+import { computeEdgeRealization } from '@/src/core/metrics/edgeRealization';
+import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 const TTL_MS = 5 * 60_000;
 const outcomeCache = new Map<string, { expiresAt: number; value: Record<string, unknown> }>();
@@ -32,7 +33,29 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
     return NextResponse.json(cached.value);
   }
 
-  const snapshot = await getMarketSnapshot({ sport });
+  const snapshotResult = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport }));
+  if (!snapshotResult.success) {
+    const fallbackSnapshot = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport: 'NFL' }));
+    const fallbackGame = fallbackSnapshot.success
+      ? fallbackSnapshot.data.games.find((entry) => entry.gameId === params.gameId) ?? null
+      : null;
+
+    return NextResponse.json({
+      ok: false,
+      source: 'demo',
+      degraded: true,
+      error_code: 'schema_invalid',
+      data: fallbackGame
+        ? {
+            gameId: params.gameId,
+            finalScore: deterministicScore(params.gameId),
+            winner: 'push'
+          }
+        : null
+    });
+  }
+
+  const snapshot = snapshotResult.data;
   const game = snapshot.games.find((entry) => entry.gameId === params.gameId);
   if (!game)
     return NextResponse.json(
@@ -84,6 +107,11 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
     confidence: 0.72,
     attribution: { source_book: game.source, model_version: 'live-v0' }
   });
+
+  const validatedOutcomeNode = InsightNodeSchema.safeParse(outcomeNode);
+  if (!validatedOutcomeNode.success) {
+    return NextResponse.json({ ok: false, source: 'demo', degraded: true, error_code: 'schema_invalid' });
+  }
 
   await store.saveInsightNode({
     insightId: outcomeNode.insight_id,
