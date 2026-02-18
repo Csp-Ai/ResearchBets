@@ -65,6 +65,7 @@ export const settleRecommendation = async (
   if (!recommendation) throw new Error(`Recommendation ${recommendationId} not found`);
   const result = await store.getGameResult(recommendation.gameId);
   if (!result) throw new Error(`Result for game ${recommendation.gameId} not found`);
+  if (!result.isFinal) throw new Error(`Result for game ${recommendation.gameId} is not final`);
 
   const closing = await resolveClosingOdds({
     gameId: recommendation.gameId,
@@ -76,6 +77,7 @@ export const settleRecommendation = async (
     store,
   });
 
+  if (!closing) throw new Error(`No closing odds for game ${recommendation.gameId}`);
   const outcome = settleOutcomeFromPayload(recommendation.selection, recommendation.marketType, recommendation.line, result.payload);
   const clvLine = computeLineCLV({ marketType: recommendation.marketType, placedLine: recommendation.line, closingLine: closing?.line ?? null });
   const clvPrice = computePriceCLV({ placedPrice: recommendation.price, closingPrice: closing?.price ?? null });
@@ -90,6 +92,9 @@ export const settleRecommendation = async (
     clvLine,
     clvPrice,
     settledAt: new Date().toISOString(),
+    resolutionReason: closing.resolutionReason ?? null,
+    sourceUrl: closing.sourceUrl ?? null,
+    sourceDomain: closing.sourceDomain ?? null,
   });
 
   await emitter.emit({
@@ -133,6 +138,7 @@ export const settleBet = async (
 
   const result = await store.getGameResult(bet.gameId);
   if (!result) throw new Error(`Result for game ${bet.gameId} not found`);
+  if (!result.isFinal) throw new Error(`Result for game ${bet.gameId} is not final`);
 
   const closing = await resolveClosingOdds({
     gameId: bet.gameId,
@@ -144,8 +150,12 @@ export const settleBet = async (
     store,
   });
 
-  bet.closingLine = closing?.line ?? null;
-  bet.closingPrice = closing?.price ?? null;
+  if (!closing) throw new Error(`No closing odds for game ${bet.gameId}`);
+  bet.closingLine = closing.line ?? null;
+  bet.closingPrice = closing.price ?? null;
+  bet.resolutionReason = closing.resolutionReason ?? null;
+  bet.sourceUrl = closing.sourceUrl ?? null;
+  bet.sourceDomain = closing.sourceDomain ?? null;
   bet.clvLine = computeLineCLV({ marketType: bet.marketType, placedLine: bet.placedLine ?? bet.line ?? null, closingLine: bet.closingLine });
   bet.clvPrice = computePriceCLV({ placedPrice: bet.placedPrice ?? bet.odds, closingPrice: bet.closingPrice });
   const rawOutcome = settleOutcomeFromPayload(bet.selection, bet.marketType, bet.line ?? bet.placedLine ?? null, result.payload);
@@ -198,14 +208,58 @@ export const runSettlementForGame = async (
   const bets = await store.listBets();
   const gameBets = bets.filter((bet) => bet.gameId === gameId && bet.status === 'pending');
   for (const bet of gameBets) {
-    await settleBet(bet.id, requestContext, emitter, store);
+    try {
+      await settleBet(bet.id, requestContext, emitter, store);
+    } catch (error) {
+      await emitter.emit({
+        event_name: 'agent_error',
+        timestamp: new Date().toISOString(),
+        request_id: requestContext.requestId,
+        trace_id: requestContext.traceId,
+        run_id: requestContext.runId,
+        session_id: requestContext.sessionId,
+        user_id: requestContext.userId,
+        agent_id: requestContext.agentId,
+        model_version: requestContext.modelVersion,
+        properties: {
+          status: 'error',
+          error_code: 'settlement_failed',
+          error_type: 'missing_or_provisional_data',
+          error_message: error instanceof Error ? error.message : String(error),
+          retryable: false,
+        },
+      });
+      throw error;
+    }
   }
 
   const recs = await store.listRecommendationsByGame(gameId);
   for (const rec of recs) {
     const existing = await store.getRecommendationOutcome(rec.id);
     if (!existing) {
-      await settleRecommendation(rec.id, requestContext, emitter, store);
+      try {
+        await settleRecommendation(rec.id, requestContext, emitter, store);
+      } catch (error) {
+        await emitter.emit({
+          event_name: 'agent_error',
+          timestamp: new Date().toISOString(),
+          request_id: requestContext.requestId,
+          trace_id: requestContext.traceId,
+          run_id: requestContext.runId,
+          session_id: requestContext.sessionId,
+          user_id: requestContext.userId,
+          agent_id: requestContext.agentId,
+          model_version: requestContext.modelVersion,
+          properties: {
+            status: 'error',
+            error_code: 'recommendation_settlement_failed',
+            error_type: 'missing_or_provisional_data',
+            error_message: error instanceof Error ? error.message : String(error),
+            retryable: false,
+          },
+        });
+        throw error;
+      }
     }
   }
 };

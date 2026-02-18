@@ -90,6 +90,15 @@ describe('recommendation logging and settlement', () => {
       book: 'book',
       capturedAt: new Date().toISOString(),
       gameStartsAt: new Date(Date.now() + 10_000).toISOString(),
+      sourceUrl: 'https://book.test/odds',
+      sourceDomain: 'book.test',
+      fetchedAt: new Date().toISOString(),
+      publishedAt: null,
+      parserVersion: 'test',
+      checksum: 'abc',
+      stalenessMs: 0,
+      freshnessScore: 1,
+      resolutionReason: 'closing',
     });
 
     await store.saveGameResult({
@@ -98,6 +107,15 @@ describe('recommendation logging and settlement', () => {
       payload: { home_score: 110, away_score: 100 },
       completedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
+      isFinal: true,
+      sourceUrl: 'https://results.test/game1',
+      sourceDomain: 'results.test',
+      fetchedAt: new Date().toISOString(),
+      publishedAt: null,
+      parserVersion: 'test',
+      checksum: 'xyz',
+      stalenessMs: 0,
+      freshnessScore: 1,
     });
 
     await settleBet(

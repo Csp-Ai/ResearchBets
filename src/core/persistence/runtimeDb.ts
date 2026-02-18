@@ -12,6 +12,7 @@ import type {
   RuntimeStore,
   SessionRecord,
   StoredBet,
+  WebCacheRecord,
 } from './runtimeStore';
 
 export interface RuntimeDb {
@@ -26,6 +27,7 @@ export interface RuntimeDb {
   recommendationOutcomes: RecommendationOutcome[];
   experiments: ExperimentRecord[];
   experimentAssignments: ExperimentAssignment[];
+  webCache: WebCacheRecord[];
 }
 
 export const persistenceDb: RuntimeDb = {
@@ -40,6 +42,7 @@ export const persistenceDb: RuntimeDb = {
   recommendationOutcomes: [],
   experiments: [],
   experimentAssignments: [],
+  webCache: [],
 };
 
 export class MemoryRuntimeStore implements RuntimeStore {
@@ -152,6 +155,25 @@ export class MemoryRuntimeStore implements RuntimeStore {
     return persistenceDb.gameResults.find((item) => item.gameId === gameId) ?? null;
   }
 
+
+
+  async saveWebCache(record: WebCacheRecord): Promise<void> {
+    const existingIndex = persistenceDb.webCache.findIndex((item) => item.url === record.url && item.fetchedAt === record.fetchedAt);
+    if (existingIndex >= 0) {
+      persistenceDb.webCache[existingIndex] = record;
+      return;
+    }
+    persistenceDb.webCache.unshift(record);
+  }
+
+  async getLatestWebCacheByUrl(url: string): Promise<WebCacheRecord | null> {
+    return (
+      persistenceDb.webCache
+        .filter((item) => item.url === url)
+        .sort((a, b) => new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime())[0] ?? null
+    );
+  }
+
   async saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void> {
     const existingIndex = persistenceDb.recommendationOutcomes.findIndex((item) => item.recommendationId === outcome.recommendationId);
     if (existingIndex >= 0) {
@@ -208,4 +230,5 @@ export const resetRuntimeDb = (): void => {
   persistenceDb.recommendationOutcomes.length = 0;
   persistenceDb.experiments.length = 0;
   persistenceDb.experimentAssignments.length = 0;
+  persistenceDb.webCache.length = 0;
 };

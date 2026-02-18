@@ -35,6 +35,9 @@ export interface StoredBet {
   confidence: number;
   createdAt: string;
   settledAt: string | null;
+  resolutionReason?: string | null;
+  sourceUrl?: string | null;
+  sourceDomain?: string | null;
 }
 
 export interface AgentRecommendation {
@@ -72,6 +75,15 @@ export interface OddsSnapshot {
   book: string;
   capturedAt: string;
   gameStartsAt: string | null;
+  sourceUrl: string | null;
+  sourceDomain: string | null;
+  fetchedAt: string;
+  publishedAt: string | null;
+  parserVersion: string;
+  checksum: string;
+  stalenessMs: number;
+  freshnessScore: number;
+  resolutionReason: string | null;
 }
 
 export interface GameResultRecord {
@@ -80,6 +92,28 @@ export interface GameResultRecord {
   payload: Record<string, unknown>;
   completedAt: string;
   createdAt: string;
+  isFinal: boolean;
+  sourceUrl: string | null;
+  sourceDomain: string | null;
+  fetchedAt: string;
+  publishedAt: string | null;
+  parserVersion: string;
+  checksum: string;
+  stalenessMs: number;
+  freshnessScore: number;
+}
+
+export interface WebCacheRecord {
+  id: string;
+  url: string;
+  domain: string;
+  fetchedAt: string;
+  status: number;
+  etag: string | null;
+  lastModified: string | null;
+  contentHash: string;
+  responseBody: string;
+  expiresAt: string | null;
 }
 
 export interface RecommendationOutcome {
@@ -92,6 +126,9 @@ export interface RecommendationOutcome {
   clvLine: number | null;
   clvPrice: number | null;
   settledAt: string;
+  resolutionReason: string | null;
+  sourceUrl: string | null;
+  sourceDomain: string | null;
 }
 
 export interface ExperimentRecord {
@@ -138,6 +175,8 @@ export interface RuntimeStore {
   listOddsSnapshots(gameId: string, market: string, selection: string): Promise<OddsSnapshot[]>;
   saveGameResult(result: GameResultRecord): Promise<void>;
   getGameResult(gameId: string): Promise<GameResultRecord | null>;
+  saveWebCache(record: WebCacheRecord): Promise<void>;
+  getLatestWebCacheByUrl(url: string): Promise<WebCacheRecord | null>;
   saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void>;
   getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null>;
   saveExperiment(experiment: ExperimentRecord): Promise<void>;
