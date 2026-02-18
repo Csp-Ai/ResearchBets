@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PerformanceAnalyzer.output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["roi", "win_rate", "confidence"],
+  "properties": {
+    "roi": { "type": "number" },
+    "win_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

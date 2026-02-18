@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "InjuryScout.output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "player_id", "availability", "impact_score", "confidence"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "player_id": { "type": "string" },
+    "availability": { "type": "string" },
+    "impact_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

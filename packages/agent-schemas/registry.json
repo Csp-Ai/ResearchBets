@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "agents": [
+    {
+      "agent_id": "LineWatcher",
+      "objective": "Monitor market line movement and publish normalized line snapshots.",
+      "input_schema": "packages/agent-schemas/LineWatcher.input.schema.json",
+      "output_schema": "packages/agent-schemas/LineWatcher.output.schema.json",
+      "confidence_model": "bounded_score_0_1",
+      "assumptions": [
+        "Market feeds are available and time-synchronized.",
+        "Odds values are provided in a supported format."
+      ],
+      "kpi": [
+        "line_update_latency_ms",
+        "snapshot_completeness_rate"
+      ],
+      "logging_fields": [
+        "agent_id",
+        "event_id",
+        "source_book",
+        "market",
+        "timestamp"
+      ],
+      "lifecycle_state": "draft"
+    },
+    {
+      "agent_id": "SharpMoneyDetector",
+      "objective": "Detect potential sharp-money activity from market movement and ticket/handle deltas.",
+      "input_schema": "packages/agent-schemas/SharpMoneyDetector.input.schema.json",
+      "output_schema": "packages/agent-schemas/SharpMoneyDetector.output.schema.json",
+      "confidence_model": "calibrated_probability",
+      "assumptions": [
+        "Ticket and handle data are sampled on a consistent interval.",
+        "Outlier filtering has been applied upstream."
+      ],
+      "kpi": [
+        "signal_precision",
+        "signal_recall"
+      ],
+      "logging_fields": [
+        "agent_id",
+        "event_id",
+        "market",
+        "signal_type",
+        "timestamp"
+      ],
+      "lifecycle_state": "draft"
+    },
+    {
+      "agent_id": "InjuryScout",
+      "objective": "Track injury and availability updates and emit structured impact assessments.",
+      "input_schema": "packages/agent-schemas/InjuryScout.input.schema.json",
+      "output_schema": "packages/agent-schemas/InjuryScout.output.schema.json",
+      "confidence_model": "source_weighted_score",
+      "assumptions": [
+        "Source reliability weights are maintained externally.",
+        "Player-team mapping is current."
+      ],
+      "kpi": [
+        "update_freshness_minutes",
+        "false_alert_rate"
+      ],
+      "logging_fields": [
+        "agent_id",
+        "event_id",
+        "player_id",
+        "status",
+        "timestamp"
+      ],
+      "lifecycle_state": "draft"
+    },
+    {
+      "agent_id": "MatchupModeler",
+      "objective": "Generate matchup-level projections from team and player features.",
+      "input_schema": "packages/agent-schemas/MatchupModeler.input.schema.json",
+      "output_schema": "packages/agent-schemas/MatchupModeler.output.schema.json",
+      "confidence_model": "prediction_interval",
+      "assumptions": [
+        "Feature pipeline versions are pinned.",
+        "Training data is representative of deployment context."
+      ],
+      "kpi": [
+        "mae",
+        "calibration_error"
+      ],
+      "logging_fields": [
+        "agent_id",
+        "event_id",
+        "model_version",
+        "feature_set_version",
+        "timestamp"
+      ],
+      "lifecycle_state": "draft"
+    },
+    {
+      "agent_id": "BetSlipExtractor",
+      "objective": "Extract structured selections from unstructured bet slip artifacts.",
+      "input_schema": "packages/agent-schemas/BetSlipExtractor.input.schema.json",
+      "output_schema": "packages/agent-schemas/BetSlipExtractor.output.schema.json",
+      "confidence_model": "field_level_confidence",
+      "assumptions": [
+        "Source media quality meets OCR minimum thresholds.",
+        "Sportsbook syntax dictionary is available."
+      ],
+      "kpi": [
+        "field_extraction_accuracy",
+        "parse_success_rate"
+      ],
+      "logging_fields": [
+        "agent_id",
+        "event_id",
+        "source_type",
+        "parse_status",
+        "timestamp"
+      ],
+      "lifecycle_state": "draft"
+    },
+    {
+      "agent_id": "PerformanceAnalyzer",
+      "objective": "Analyze realized bet outcomes and generate performance diagnostics.",
+      "input_schema": "packages/agent-schemas/PerformanceAnalyzer.input.schema.json",
+      "output_schema": "packages/agent-schemas/PerformanceAnalyzer.output.schema.json",
+      "confidence_model": "statistical_significance",
+      "assumptions": [
+        "Settled outcomes are complete and reconciled.",
+        "Stake and payout units are normalized."
+      ],
+      "kpi": [
+        "roi",
+        "max_drawdown"
+      ],
+      "logging_fields": [
+        "agent_id",
+        "event_id",
+        "analysis_window",
+        "metric_set",
+        "timestamp"
+      ],
+      "lifecycle_state": "draft"
+    }
+  ]
+}

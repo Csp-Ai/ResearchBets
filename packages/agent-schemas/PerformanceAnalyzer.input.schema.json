@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PerformanceAnalyzer.input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["analysis_window", "settled_bets"],
+  "properties": {
+    "analysis_window": { "type": "string" },
+    "settled_bets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stake", "payout"],
+        "properties": {
+          "stake": { "type": "number", "minimum": 0 },
+          "payout": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
