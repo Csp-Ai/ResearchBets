@@ -4,11 +4,13 @@ import { NextResponse } from 'next/server';
 
 import { emitLivePageEvent, getCachedQuickModel } from '@/src/core/live/liveModel';
 import { getPlayerPropsMomentum } from '@/src/core/live/playerProps';
+import { resolveGameFromRegistry } from '@/src/core/games/registry';
 import { getMarketSnapshot } from '@/src/core/markets/marketData';
 
 export async function GET(request: Request, { params }: { params: { gameId: string } }) {
   const { searchParams } = new URL(request.url);
-  const sport = searchParams.get('sport') ?? 'NFL';
+  const registryGame = resolveGameFromRegistry(params.gameId);
+  const sport = searchParams.get('sport') ?? registryGame?.league ?? 'NFL';
   const traceId = searchParams.get('trace_id') ?? randomUUID();
   const runId = `live_game_${randomUUID()}`;
 

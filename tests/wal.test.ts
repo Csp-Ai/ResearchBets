@@ -45,7 +45,7 @@ describe('wal', () => {
     const emitter = new InMemoryEventEmitter();
     await store.saveBet({
       id: 'b1', userId: 'u1', sessionId: 's1', snapshotId: 'ss', traceId: 't1', runId: 'r1', selection: 'home', gameId: 'g1', marketType: 'spread',
-      line: -3.5, odds: 1.91, stake: 100, status: 'pending', outcome: null, settledProfit: null, confidence: 0.7, createdAt: new Date().toISOString(), settledAt: null,
+      line: -3.5, oddsFormat: 'american', price: -110, odds: 1.91, placedPrice: -110, placedOdds: 1.909091, stake: 100, status: 'pending', outcome: null, settledProfit: null, confidence: 0.7, createdAt: new Date().toISOString(), settledAt: null,
     });
     await captureOddsSnapshot({ requestId: 'r1', traceId: 't1', runId: 'r1', sessionId: 's1', userId: 'u1', agentId: 'a1', modelVersion: 'v1', gameId: 'g1', market: 'spread', marketType: 'spread', selection: 'home', line: -2.5, price: -120, book: 'book', sourceUrl: 'https://source.test/odds', sourceDomain: 'source.test', fetchedAt: new Date().toISOString(), parserVersion: 'v1', checksum: '123', stalenessMs: 0, freshnessScore: 1, consensusLevel: 'two_source_agree', sourcesUsed: ['source.test','backup.test'], disagreementScore: 0 }, emitter, store);
     await ingestGameResult('g1', { home_score: 10, away_score: 7, is_final: false }, { requestId: 'r1', traceId: 't1', runId: 'r1', sessionId: 's1', userId: 'u1', agentId: 'a1', modelVersion: 'v1' }, emitter, store);
@@ -61,7 +61,7 @@ describe('wal', () => {
     const closing = await resolveClosingOdds({ gameId: 'g1', market: 'spread', selection: 'home', requestContext: { requestId: 'r1', traceId: 't1', runId: 'run1', sessionId: 's1', userId: 'u1', agentId: 'a1', modelVersion: 'v1' }, emitter, store });
     expect(closing?.resolutionReason).toBe('stale_fallback');
 
-    await store.saveBet({ id: 'b1', userId: 'u1', sessionId: 's1', snapshotId: 'x', traceId: 't1', runId: 'run1', selection: 'home', gameId: 'g1', marketType: 'spread', line: -3.5, odds: -110, stake: 100, status: 'settled', outcome: 'won', settledProfit: 90, confidence: 0.8, createdAt: now, settledAt: now, closingLine: -3.5, closingPrice: -110, clvLine: 0.2, clvPrice: 1.1, sourceDomain: 'source.test', resolutionReason: 'stale_fallback' });
+    await store.saveBet({ id: 'b1', userId: 'u1', sessionId: 's1', snapshotId: 'x', traceId: 't1', runId: 'run1', selection: 'home', gameId: 'g1', marketType: 'spread', line: -3.5, oddsFormat: 'american', price: -110, odds: 1.91, placedPrice: -110, placedOdds: 1.909091, stake: 100, status: 'settled', outcome: 'won', settledProfit: 90.91, confidence: 0.8, createdAt: now, settledAt: now, closingLine: -3.5, closingPrice: -110, clvLine: 0.2, clvPrice: 1.1, sourceDomain: 'source.test', resolutionReason: 'stale_fallback' });
     const report = await generateEdgeReport({ window: '30d', requestContext: { requestId: 'r1', traceId: 't1', runId: 'run1', sessionId: 's1', userId: 'u1', agentId: 'a1', modelVersion: 'v1' }, emitter }, store);
     expect(report).toHaveProperty('data_quality');
     expect(report).toHaveProperty('cohort_sizes');

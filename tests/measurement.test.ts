@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 
 import { InMemoryEventEmitter } from '../src/core/control-plane/emitter';
 import { computeLineCLV, computePriceCLV } from '../src/core/measurement/clv';
+import { calculateRoiPercent } from '../src/core/measurement/oddsFormat';
 import { logAgentRecommendation } from '../src/core/measurement/recommendations';
 import { settleBet } from '../src/core/measurement/settlement';
 import { MemoryRuntimeStore, resetRuntimeDb } from '../src/core/persistence/runtimeDb';
@@ -15,6 +16,7 @@ describe('clv', () => {
     expect(computeLineCLV({ marketType: 'spread', placedLine: -3.5, closingLine: -2.5 })).toBe(1);
     expect(computeLineCLV({ marketType: 'moneyline', placedLine: null, closingLine: null })).toBeNull();
     expect(computePriceCLV({ placedPrice: -110, closingPrice: -125 })).toBeGreaterThan(0);
+    expect(computePriceCLV({ placedPrice: 1.91, closingPrice: 2.2, placedFormat: 'decimal', closingFormat: 'decimal' })).toBeLessThan(0);
   });
 });
 
@@ -66,9 +68,12 @@ describe('recommendation logging and settlement', () => {
       gameId: 'game1',
       marketType: 'spread',
       line: -3.5,
+      oddsFormat: 'american',
+      price: -110,
       odds: 1.91,
       placedLine: -3.5,
       placedPrice: -110,
+      placedOdds: 1.909091,
       followedAi: true,
       stake: 100,
       status: 'pending',
@@ -135,6 +140,8 @@ describe('recommendation logging and settlement', () => {
     expect(settled?.status).toBe('settled');
     expect(settled?.clvLine).toBe(1);
     expect(settled?.clvPrice).not.toBeNull();
+    expect(settled?.settledProfit).toBe(90.91);
+    expect(calculateRoiPercent(settled?.settledProfit ?? 0, settled?.stake ?? 1)).toBe(90.91);
   });
 
   it('runs end-to-end measurement smoke pipeline', async () => {
@@ -164,7 +171,7 @@ describe('recommendation logging and settlement', () => {
     );
 
     await store.saveBet({
-      id: 'bet2', userId: 'u1', sessionId: 's1', snapshotId: 'snap2', traceId: 'tr2', runId: 'run2', selection: 'home', gameId: 'game2', marketType: 'spread', line: -4.5, odds: 1.95, placedLine: -4.5, placedPrice: -105, recommendedId: recId, followedAi: true, stake: 100, status: 'pending', outcome: null, settledProfit: null, confidence: 0.75, createdAt: new Date().toISOString(), settledAt: null,
+      id: 'bet2', userId: 'u1', sessionId: 's1', snapshotId: 'snap2', traceId: 'tr2', runId: 'run2', selection: 'home', gameId: 'game2', marketType: 'spread', line: -4.5, oddsFormat: 'american', price: -105, odds: 1.95, placedLine: -4.5, placedPrice: -105, placedOdds: 1.952381, recommendedId: recId, followedAi: true, stake: 100, status: 'pending', outcome: null, settledProfit: null, confidence: 0.75, createdAt: new Date().toISOString(), settledAt: null,
     });
 
     const now = new Date().toISOString();

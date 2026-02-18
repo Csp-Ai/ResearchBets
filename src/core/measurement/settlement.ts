@@ -5,6 +5,7 @@ import type { RuntimeStore, StoredBet } from '../persistence/runtimeStore';
 import { getRuntimeStore } from '../persistence/runtimeStoreProvider';
 
 import { computeLineCLV, computePriceCLV } from './clv';
+import { calculateProfit } from './oddsFormat';
 import { resolveClosingOdds } from './odds';
 
 const settleOutcomeFromPayload = (
@@ -157,13 +158,20 @@ export const settleBet = async (
   bet.sourceUrl = closing.sourceUrl ?? null;
   bet.sourceDomain = closing.sourceDomain ?? null;
   bet.clvLine = computeLineCLV({ marketType: bet.marketType, placedLine: bet.placedLine ?? bet.line ?? null, closingLine: bet.closingLine });
-  bet.clvPrice = computePriceCLV({ placedPrice: bet.placedPrice ?? bet.odds, closingPrice: bet.closingPrice });
+  bet.clvPrice = computePriceCLV({
+    placedPrice: bet.placedPrice ?? bet.price ?? bet.odds,
+    closingPrice: bet.closingPrice,
+    placedFormat: bet.oddsFormat ?? 'american',
+    closingFormat: 'american',
+  });
   const rawOutcome = settleOutcomeFromPayload(bet.selection, bet.marketType, bet.line ?? bet.placedLine ?? null, result.payload);
   bet.outcome = rawOutcome === 'void' ? 'push' : rawOutcome;
   bet.status = 'settled';
   bet.settledAt = new Date().toISOString();
-  bet.settledProfit =
-    bet.outcome === 'won' ? Number((bet.stake * ((bet.placedPrice ?? bet.odds) - 1)).toFixed(2)) : bet.outcome === 'lost' ? -bet.stake : 0;
+  if (!bet.oddsFormat || bet.placedPrice == null) {
+    throw new Error(`Bet ${bet.id} missing odds_format or placed_price`);
+  }
+  bet.settledProfit = calculateProfit({ stake: bet.stake, format: bet.oddsFormat, price: bet.placedPrice, outcome: bet.outcome });
   await store.saveBet(bet);
 
   if (bet.recommendedId) {

@@ -1,4 +1,4 @@
-import { DEMO_GAMES } from '../games/catalog';
+import { getGamesByLeague } from '../games/registry';
 
 import { impliedProbabilitiesFromLines } from './impliedProbabilities';
 
@@ -52,32 +52,6 @@ const demoLineByGameId: Record<string, DemoLine> = {
   UFC_DEMO_1: { gameId: 'UFC_DEMO_1', homeMoneyline: -175, awayMoneyline: 154 }
 };
 
-const EXTRA_DEMO_GAMES = [
-  {
-    gameId: 'MLB_DEMO_1',
-    label: 'LAD @ ATL',
-    league: 'MLB',
-    startsAt: new Date(Date.now() + 21_600_000).toISOString(),
-    source: 'demo' as const
-  },
-  {
-    gameId: 'SOCCER_DEMO_1',
-    label: 'ARS @ MCI',
-    league: 'Soccer',
-    startsAt: new Date(Date.now() + 28_800_000).toISOString(),
-    source: 'demo' as const
-  },
-  {
-    gameId: 'UFC_DEMO_1',
-    label: 'Pereira vs Aspinall',
-    league: 'UFC',
-    startsAt: new Date(Date.now() + 50_400_000).toISOString(),
-    source: 'demo' as const
-  }
-];
-
-const ALL_DEMO_GAMES = [...DEMO_GAMES, ...EXTRA_DEMO_GAMES];
-
 interface SnapshotCacheValue {
   expiresAt: number;
   value: MarketSnapshot;
@@ -129,9 +103,7 @@ async function loadWebSnapshot(_sport: string): Promise<MarketSnapshot | null> {
 }
 
 function loadDemoSnapshot(sport: string): MarketSnapshot {
-  const games = ALL_DEMO_GAMES.filter(
-    (game) => game.league.toLowerCase() === sport.toLowerCase()
-  ).map((game) => {
+  const games = getGamesByLeague(sport).map((game) => {
     const teams = parseTeams(game.label);
     const line = demoLineByGameId[game.gameId] ?? { gameId: game.gameId };
     const impliedPair = impliedProbabilitiesFromLines({

@@ -1,9 +1,11 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { createClientRequestId, ensureAnonSessionId } from '../core/identifiers/session';
+import { runUiAction } from '../core/ui/actionContract';
+import { buildNavigationHref } from '../core/ui/navigation';
 
 type Session = { sessionId: string; userId: string; anonSessionId?: string };
 type Snapshot = {
@@ -51,6 +53,9 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   } | null>(null);
   const [edge, setEdge] = useState<EdgeReport | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [fallbackTraceId] = useState(() => traceId || createClientRequestId());
+  const chainTraceId = traceId || snapshot?.traceId || fallbackTraceId;
+  const router = useRouter();
 
   useEffect(() => {
     const anonSessionId = ensureAnonSessionId();
@@ -78,12 +83,12 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   }, []);
 
   useEffect(() => {
-    const activeTrace = traceId ?? snapshot?.traceId;
+    const activeTrace = chainTraceId;
     if (!activeTrace) return;
     fetch(`/api/events?trace_id=${activeTrace}&limit=10`)
       .then((res) => res.json())
       .then((data) => setEvents(data.events ?? []));
-  }, [snapshot?.traceId, traceId]);
+  }, [chainTraceId]);
 
   const startSnapshot = async () => {
     if (!session) return;
@@ -116,19 +121,25 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
           Analyze evidence and outcomes in terminal form; not betting advice.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
+          <button type="button" onClick={startSnapshot} className="rounded bg-sky-600 px-3 py-2 text-sm font-medium">Continue Research</button>
           <button
             type="button"
-            onClick={startSnapshot}
-            className="rounded bg-sky-600 px-3 py-2 text-sm font-medium"
+            onClick={() => {
+              void navigateWithAction('open_pending_bets', '/pending-bets');
+            }}
+            className="rounded border border-slate-700 px-3 py-2 text-sm"
           >
-            Continue terminal research
-          </button>
-          <Link href="/pending-bets" className="rounded border border-slate-700 px-3 py-2 text-sm">
             Pending Bets
-          </Link>
-          <Link href="/dashboard" className="rounded border border-slate-700 px-3 py-2 text-sm">
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void navigateWithAction('open_dashboard', '/dashboard');
+            }}
+            className="rounded border border-slate-700 px-3 py-2 text-sm"
+          >
             Performance Dashboard
-          </Link>
+          </button>
         </div>
         <p className="mt-3 text-xs font-mono text-slate-400">
           30d ROI: {dashboard?.roi ?? 0}% · Win rate: {dashboard?.winRate ?? 0}%
@@ -158,12 +169,22 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
             ))}
           </ul>
           <div className="mt-4">
-            <Link
-              href={`/research?snapshotId=${snapshot.reportId}&trace_id=${snapshot.traceId}`}
+            <button
+              type="button"
+              onClick={() => {
+                void navigateWithAction(
+                  'open_research_result',
+                  buildNavigationHref({
+                    pathname: '/research',
+                    traceId: snapshot.traceId || chainTraceId,
+                    params: { snapshotId: snapshot.reportId }
+                  })
+                );
+              }}
               className="rounded border border-slate-700 px-3 py-2 text-sm"
             >
-              Log this research result
-            </Link>
+              Log this result
+            </button>
           </div>
         </section>
       ) : null}

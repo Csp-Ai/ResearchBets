@@ -36,13 +36,21 @@ export async function runUiAction<T>(input: {
   traceId?: string;
   actionId?: string;
   requestId?: string;
+  properties?: Record<string, unknown>;
   execute: () => Promise<ActionEnvelope<T>>;
 }): Promise<ActionEnvelope<T>> {
   const traceId = input.traceId ?? createClientRequestId();
   const actionId = input.actionId ?? createClientRequestId();
   const requestId = input.requestId ?? createClientRequestId();
 
-  await emitUiActionEvent({ eventName: 'ui_action_started', traceId, actionId, actionName: input.actionName, requestId });
+  await emitUiActionEvent({
+    eventName: 'ui_action_started',
+    traceId,
+    actionId,
+    actionName: input.actionName,
+    requestId,
+    properties: input.properties,
+  });
 
   try {
     const envelope = await input.execute();
@@ -53,7 +61,7 @@ export async function runUiAction<T>(input: {
         actionId,
         actionName: input.actionName,
         requestId,
-        properties: { source: envelope.source, degraded: envelope.degraded ?? false },
+        properties: { ...input.properties, source: envelope.source, degraded: envelope.degraded ?? false },
       });
       return envelope;
     }
@@ -64,7 +72,7 @@ export async function runUiAction<T>(input: {
       actionId,
       actionName: input.actionName,
       requestId,
-      properties: { error_code: envelope.error_code ?? 'action_failed' },
+      properties: { ...input.properties, error_code: envelope.error_code ?? 'action_failed' },
     });
     return envelope;
   } catch (error) {
@@ -74,7 +82,7 @@ export async function runUiAction<T>(input: {
       actionId,
       actionName: input.actionName,
       requestId,
-      properties: { error_code: 'exception', message: error instanceof Error ? error.message : 'unknown' },
+      properties: { ...input.properties, error_code: 'exception', message: error instanceof Error ? error.message : 'unknown' },
     });
     return { ok: false, source: 'demo', error_code: 'exception' };
   }

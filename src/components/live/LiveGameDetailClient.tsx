@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { createClientRequestId } from '@/src/core/identifiers/session';
 import { runUiAction } from '@/src/core/ui/actionContract';
+import { buildNavigationHref } from '@/src/core/ui/navigation';
 
 type PropMomentum = {
   propId: string;
@@ -56,14 +57,17 @@ export function LiveGameDetailClient({
   const [selectedProp, setSelectedProp] = useState<PropMomentum | null>(null);
   const [status, setStatus] = useState('Loading market detail terminal…');
   const [traceId, setTraceId] = useState(initialTraceId ?? '');
+  const [fallbackTraceId] = useState(() => createClientRequestId());
+  const currentTraceId = traceId || fallbackTraceId;
   const router = useRouter();
 
   useEffect(() => {
     void runUiAction({
       actionName: 'open_live_game_detail',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: gameId, sport },
       execute: async () => {
-        const resolvedTrace = traceId || createClientRequestId();
+        const resolvedTrace = currentTraceId;
         const response = await fetch(
           `/api/live/game/${encodeURIComponent(gameId)}?sport=${encodeURIComponent(sport)}&trace_id=${encodeURIComponent(resolvedTrace)}`
         );
@@ -88,7 +92,8 @@ export function LiveGameDetailClient({
     if (!payload) return;
     const action = await runUiAction({
       actionName: 'run_quick_model',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: payload.game.gameId, sport: payload.game.sport },
       execute: async () => {
         const response = await fetch('/api/live/model', {
           method: 'POST',
@@ -96,7 +101,7 @@ export function LiveGameDetailClient({
           body: JSON.stringify({
             gameId: payload.game.gameId,
             sport: payload.game.sport,
-            traceId: traceId || createClientRequestId()
+            traceId: currentTraceId
           })
         });
         if (!response.ok)
@@ -120,10 +125,11 @@ export function LiveGameDetailClient({
     if (!payload) return;
     const action = await runUiAction({
       actionName: 'load_post_game_intelligence',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: payload.game.gameId, sport: payload.game.sport },
       execute: async () => {
         const response = await fetch(
-          `/api/live/outcome/${encodeURIComponent(payload.game.gameId)}?sport=${encodeURIComponent(payload.game.sport)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`
+          `/api/live/outcome/${encodeURIComponent(payload.game.gameId)}?sport=${encodeURIComponent(payload.game.sport)}&trace_id=${encodeURIComponent(currentTraceId)}`
         );
         if (!response.ok)
           return { ok: false, source: 'demo' as const, error_code: 'outcome_unavailable' };
@@ -145,7 +151,8 @@ export function LiveGameDetailClient({
     const delta = modelProbability - payload.game.implied.home;
     const action = await runUiAction({
       actionName: 'track_prop_edge',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: payload.game.gameId, prop_id: prop.propId },
       execute: async () => {
         const response = await fetch('/api/live/props/track', {
           method: 'POST',
@@ -158,7 +165,7 @@ export function LiveGameDetailClient({
             line: prop.line,
             modelProbability,
             delta,
-            traceId: traceId || createClientRequestId()
+            traceId: currentTraceId
           })
         });
         if (!response.ok)
@@ -176,10 +183,15 @@ export function LiveGameDetailClient({
     if (!payload) return;
     const outcomeAction = await runUiAction({
       actionName: 'open_in_research',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: payload.game.gameId, sport: payload.game.sport },
       execute: async () => {
         router.push(
-          `/research?gameId=${encodeURIComponent(payload.game.gameId)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`
+          buildNavigationHref({
+            pathname: '/research',
+            traceId: currentTraceId,
+            params: { gameId: payload.game.gameId }
+          })
         );
         return { ok: true, source: 'live' as const };
       }
