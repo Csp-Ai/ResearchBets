@@ -1,6 +1,7 @@
 import type { ControlPlaneEvent } from '../control-plane/events';
 import type { ResearchReport } from '../evidence/evidenceSchema';
 import type { MarketType } from '../markets/marketType';
+import type { OddsFormat } from '../measurement/oddsFormat';
 
 export interface SessionRecord {
   sessionId: string;
@@ -20,11 +21,14 @@ export interface StoredBet {
   marketType?: MarketType | null;
   line?: number | null;
   book?: string | null;
+  oddsFormat?: OddsFormat | null;
+  price?: number | null;
   odds: number;
   recommendedId?: string | null;
   followedAi?: boolean;
   placedLine?: number | null;
   placedPrice?: number | null;
+  placedOdds?: number | null;
   closingLine?: number | null;
   closingPrice?: number | null;
   clvLine?: number | null;

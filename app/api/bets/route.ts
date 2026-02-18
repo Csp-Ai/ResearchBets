@@ -1,11 +1,35 @@
 import { randomUUID } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { requireIdempotencyKey, withIdempotency } from '@/src/core/control-plane/idempotency';
 import type { StoredBet } from '@/src/core/persistence/runtimeStore';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
+import { normalizeOdds } from '@/src/core/measurement/oddsFormat';
+
+const createBetSchema = z.object({
+  userId: z.string(),
+  sessionId: z.string(),
+  snapshotId: z.string(),
+  traceId: z.string(),
+  runId: z.string(),
+  selection: z.string(),
+  gameId: z.string().nullable().optional(),
+  marketType: z.enum(['spread', 'total', 'moneyline']).nullable().optional(),
+  line: z.number().nullable().optional(),
+  book: z.string().nullable().optional(),
+  oddsFormat: z.enum(['american', 'decimal', 'implied']),
+  price: z.number(),
+  recommendedId: z.string().nullable().optional(),
+  followedAi: z.boolean().optional(),
+  placedLine: z.number().nullable().optional(),
+  placedPrice: z.number().nullable().optional(),
+  stake: z.number(),
+  confidence: z.number(),
+  idempotencyKey: z.string().optional(),
+});
 
 export async function GET(request: Request) {
   const store = getRuntimeStore();
@@ -17,9 +41,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const store = getRuntimeStore();
-  const body = (await request.json()) as Omit<StoredBet, 'id' | 'createdAt' | 'status' | 'outcome' | 'settledAt' | 'settledProfit'> & {
-    idempotencyKey?: string;
-  };
+  const body = createBetSchema.parse(await request.json());
 
   const idempotencyKey = requireIdempotencyKey(body.idempotencyKey ?? null);
 
@@ -29,6 +51,9 @@ export async function POST(request: Request) {
     key: idempotencyKey,
     store,
     handler: async () => {
+      const normalizedOdds = normalizeOdds(body.price, body.oddsFormat);
+      const placedPrice = body.placedPrice ?? body.price;
+      const placedOdds = normalizeOdds(placedPrice, body.oddsFormat).decimalOdds;
       const bet: StoredBet = {
         id: randomUUID(),
         userId: body.userId,
@@ -41,11 +66,14 @@ export async function POST(request: Request) {
         marketType: body.marketType ?? null,
         line: body.line ?? null,
         book: body.book ?? null,
-        odds: body.odds,
+        oddsFormat: body.oddsFormat,
+        price: body.price,
+        odds: normalizedOdds.decimalOdds,
         recommendedId: body.recommendedId ?? null,
         followedAi: body.followedAi ?? Boolean(body.recommendedId),
         placedLine: body.placedLine ?? body.line ?? null,
-        placedPrice: body.placedPrice ?? body.odds ?? null,
+        placedPrice,
+        placedOdds,
         closingLine: null,
         closingPrice: null,
         clvLine: null,
