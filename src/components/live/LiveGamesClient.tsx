@@ -25,6 +25,28 @@ type LiveGame = {
   } | null;
 };
 
+type Freshness = {
+  source: 'live' | 'cache' | 'demo';
+  asOfIso: string | null;
+  stale: boolean;
+  degraded: boolean;
+};
+
+type MarketResponse = {
+  trace_id?: string;
+  source?: string;
+  degraded?: boolean;
+  data?: {
+    snapshot?: {
+      games?: LiveGame[];
+      as_of_iso?: string;
+      cache_status?: 'hit' | 'miss' | 'stale';
+      degraded?: boolean;
+      source?: 'DEMO' | 'derived' | 'scraped';
+    };
+  };
+};
+
 const SPORTS = ['NFL', 'NBA', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
 const LIVE_GAMES_COPY = [
@@ -35,10 +57,22 @@ const LIVE_GAMES_COPY = [
   'Quick model complete. Delta panel updated (delta is not a pick).',
   'Quick model unavailable; market-only terminal view remains available.',
   'Unable to open game details; retry from cached rows.',
-  'No live market rows returned. Try another sport or continue with deterministic demo rows via the tabs.'
+  'No live market rows returned. Try another sport or continue with deterministic demo rows via the tabs.',
+  'Market Pulse',
+  'STALE',
+  'DEGRADED'
 ] as const;
 
 const asPercent = (value: number): string => `${(value * 100).toFixed(1)}%`;
+
+const resolvePulseSource = (
+  cacheStatus?: 'hit' | 'miss' | 'stale',
+  marketSource?: 'DEMO' | 'derived' | 'scraped'
+): Freshness['source'] => {
+  if (marketSource === 'DEMO') return 'demo';
+  if (cacheStatus === 'hit' || cacheStatus === 'stale') return 'cache';
+  return 'live';
+};
 
 export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const [sport, setSport] = useState(initialSport);
@@ -48,6 +82,12 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const currentTraceId = traceId || fallbackTraceId;
   const [games, setGames] = useState<LiveGame[]>([]);
   const [status, setStatus] = useState('Loading live market board…');
+  const [freshness, setFreshness] = useState<Freshness>({
+    source: 'cache',
+    asOfIso: null,
+    stale: false,
+    degraded: false
+  });
   const router = useRouter();
 
   const loadGames = useCallback(
@@ -186,7 +226,26 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   return (
     <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
       <h1 className="text-2xl font-semibold">Live Market Terminal</h1>
-      <p className="text-xs text-slate-400">Market Pulse · {status}</p>
+      <div className="rounded border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300">
+        <p className="font-medium text-slate-100">Market Pulse</p>
+        <p>
+          Source: {freshness.source}
+          {freshness.asOfIso ? ` · As of ${new Date(freshness.asOfIso).toLocaleTimeString()}` : ''}
+        </p>
+        <div className="mt-1 flex gap-2">
+          {freshness.stale ? (
+            <span className="rounded border border-amber-500/60 px-2 py-0.5 text-[11px] text-amber-300">
+              STALE
+            </span>
+          ) : null}
+          {freshness.degraded ? (
+            <span className="rounded border border-orange-500/60 px-2 py-0.5 text-[11px] text-orange-300">
+              DEGRADED
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <p className="text-xs text-slate-400">{status}</p>
 
       <div className="flex flex-wrap gap-2">
         {SPORTS.map((item) => (

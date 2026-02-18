@@ -72,6 +72,15 @@ const LIVE_GAME_DETAIL_COPY = [
   'No heuristic signals available for this snapshot.'
 ] as const;
 
+const resolvePulseSource = (
+  cacheStatus?: 'hit' | 'miss' | 'stale',
+  marketSource?: string
+): 'live' | 'cache' | 'demo' => {
+  if (marketSource === 'DEMO') return 'demo';
+  if (cacheStatus === 'hit' || cacheStatus === 'stale') return 'cache';
+  return 'live';
+};
+
 export function LiveGameDetailClient({
   gameId,
   sport,
@@ -124,9 +133,9 @@ export function LiveGameDetailClient({
         setStatus('Market detail loaded in research terminal.');
         return {
           ok: true,
-          data: next,
+          data: envelope.data,
           source: 'cache' as const,
-          degraded: next.game.source === 'DEMO'
+          degraded: envelope.data.game.source === 'DEMO'
         };
       }
     });
@@ -277,9 +286,26 @@ export function LiveGameDetailClient({
   return (
     <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
       <h1 className="text-2xl font-semibold">{payload.game.label}</h1>
-      <p className="text-xs text-slate-400">
-        Source {payload.game.source} · {status}
-      </p>
+      <div className="rounded border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300">
+        <p className="font-medium text-slate-100">Market Pulse</p>
+        <p>
+          Source: {resolvePulseSource(payload.cache_status, payload.game.source)}
+          {payload.as_of_iso ? ` · As of ${new Date(payload.as_of_iso).toLocaleTimeString()}` : ''}
+        </p>
+        <div className="mt-1 flex gap-2">
+          {payload.cache_status === 'stale' ? (
+            <span className="rounded border border-amber-500/60 px-2 py-0.5 text-[11px] text-amber-300">
+              STALE
+            </span>
+          ) : null}
+          {payload.game.source === 'DEMO' ? (
+            <span className="rounded border border-orange-500/60 px-2 py-0.5 text-[11px] text-orange-300">
+              DEGRADED
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <p className="text-xs text-slate-400">{status}</p>
 
       <div className="rounded border border-slate-800 bg-slate-950 p-3 text-sm">
         <p>

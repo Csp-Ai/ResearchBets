@@ -86,8 +86,26 @@ export interface MarketSnapshot {
   loadedAt: string;
   source: MarketSource;
   degraded: boolean;
+  as_of_iso: string;
+  age_ms: number;
+  cache_status: 'hit' | 'miss' | 'stale';
   games: MarketGame[];
 }
+
+const withFreshness = (
+  snapshot: Omit<MarketSnapshot, 'as_of_iso' | 'age_ms' | 'cache_status'>,
+  cacheStatus: MarketSnapshot['cache_status'],
+  asOfIso?: string
+): MarketSnapshot => {
+  const timestamp = asOfIso ?? snapshot.loadedAt;
+  const ageMs = Math.max(0, Date.now() - Date.parse(timestamp));
+  return {
+    ...snapshot,
+    as_of_iso: timestamp,
+    age_ms: ageMs,
+    cache_status: cacheStatus
+  };
+};
 
 const parseTeams = (label: string): { awayTeam: string; homeTeam: string } => {
   const [away = 'Away', home = 'Home'] = label.split('@').map((item) => item.trim());
@@ -134,13 +152,16 @@ function loadDemoSnapshot(sport: string): MarketSnapshot {
     } satisfies MarketGame;
   });
 
-  return {
-    sport,
-    loadedAt: new Date().toISOString(),
-    source: 'DEMO',
-    degraded: games.some((game) => game.degraded),
-    games
-  };
+  return withFreshness(
+    {
+      sport,
+      loadedAt: new Date().toISOString(),
+      source: 'DEMO',
+      degraded: games.some((game) => game.degraded),
+      games
+    },
+    'miss'
+  );
 }
 
 export async function getMarketSnapshot(input: {
@@ -149,12 +170,25 @@ export async function getMarketSnapshot(input: {
 }): Promise<MarketSnapshot> {
   const cacheKey = `${input.sport.toLowerCase()}:${input.dateRange?.start ?? 'none'}:${input.dateRange?.end ?? 'none'}`;
   const cached = snapshotCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return { ...cached.value, source: cached.value.source === 'DEMO' ? 'DEMO' : 'derived' };
+  if (cached?.expiresAt && cached.expiresAt > Date.now()) {
+    return withFreshness(
+      {
+        ...cached.value,
+        source: cached.value.source === 'DEMO' ? 'DEMO' : 'derived'
+      },
+      'hit',
+      cached.value.as_of_iso
+    );
   }
 
-  const webSnapshot = await loadWebSnapshot(input.sport);
-  const snapshot = webSnapshot ?? loadDemoSnapshot(input.sport);
-  snapshotCache.set(cacheKey, { value: snapshot, expiresAt: Date.now() + MARKET_TTL_MS });
-  return snapshot;
+  try {
+    const webSnapshot = await loadWebSnapshot(input.sport);
+    const snapshot = webSnapshot ?? loadDemoSnapshot(input.sport);
+    const missSnapshot = withFreshness(snapshot, 'miss');
+    snapshotCache.set(cacheKey, { value: missSnapshot, expiresAt: Date.now() + MARKET_TTL_MS });
+    return missSnapshot;
+  } catch {
+    if (!cached) return withFreshness(loadDemoSnapshot(input.sport), 'miss');
+    return withFreshness(cached.value, 'stale', cached.value.as_of_iso);
+  }
 }
