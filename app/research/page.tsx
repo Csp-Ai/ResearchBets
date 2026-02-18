@@ -144,8 +144,8 @@ export default function ResearchPage() {
         if (rows.length > 0) setActiveGame(rows[0] ?? null);
         setStatus(
           rows.length > 0
-            ? `Found ${rows.length} games (${payload.source ?? 'demo'}).`
-            : 'Showing best available demo games.'
+            ? `Found ${rows.length} games for terminal review (${payload.source ?? 'demo'}).`
+            : 'Showing best available demo games for research terminal review.'
         );
         return {
           ok: true,
@@ -155,7 +155,7 @@ export default function ResearchPage() {
         };
       }
     });
-    if (!outcome.ok) setStatus('Search failed. Showing cached/demo games.');
+    if (!outcome.ok) setStatus('Search failed. Showing cached/demo games for terminal review.');
   };
 
   const selectGame = async (game: GameRow) => {
@@ -183,7 +183,7 @@ export default function ResearchPage() {
         };
       }
     });
-    if (!outcome.ok) setStatus('Unable to select game right now.');
+    if (!outcome.ok) setStatus('Unable to select game in terminal right now.');
   };
 
   const submit = async (formData: FormData) => {
@@ -219,7 +219,7 @@ export default function ResearchPage() {
       }
     });
 
-    setStatus(tracked.ok ? 'Bet logged for analysis.' : 'Failed to log bet.');
+    setStatus(tracked.ok ? 'Position logged for research analysis.' : 'Failed to log position.');
   };
 
   const runAnalysis = async () => {
@@ -252,12 +252,12 @@ export default function ResearchPage() {
           })
         );
         setStatus(
-          `Analysis started for ${activeGame?.label ?? activeGame?.gameId ?? 'demo game'}.`
+          `Research run started for ${activeGame?.label ?? activeGame?.gameId ?? 'demo game'}.`
         );
         return { ok: true, data, source: 'live' as const };
       }
     });
-    if (!outcome.ok) setStatus('Analysis unavailable. Retrying with demo context later.');
+    if (!outcome.ok) setStatus('Research run unavailable. Retrying with demo context later.');
   };
 
   const openLiveGames = async () => {
@@ -273,7 +273,7 @@ export default function ResearchPage() {
         return { ok: true, source: 'live' as const };
       }
     });
-    if (!outcome.ok) setStatus('Unable to open Live Games right now.');
+    if (!outcome.ok) setStatus('Unable to open Live Market Terminal right now.');
   };
 
   const shareView = async () => {
@@ -298,36 +298,39 @@ export default function ResearchPage() {
       <TerminalLoopShell traceId={chainTraceId} />
 
       <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-        <h1 className="text-2xl font-semibold">Log Research Outcome</h1>
+        <h1 className="text-2xl font-semibold">Research Terminal Log</h1>
         <p className="text-sm text-slate-400">
-          Snapshot: {snapshotId || 'Not started'} · Trace: {chainTraceId || 'Pending'} · Game:{' '}
+          Snapshot: {snapshotId || 'Not started'} · Trace: {traceId || 'Pending'} · Active game:{' '}
           {activeGame ? `${activeGame.label} (${activeGame.source})` : 'none'}
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Research output supports decisions; it is not deterministic advice.
         </p>
 
         <div className="mt-4 rounded border border-slate-800 bg-slate-950/50 p-3">
           <p className="text-xs text-slate-400">
-            Game search (always falls through to best-available demo games)
+            Market search (falls through to best-available demo games for terminal continuity)
           </p>
           <div className="mt-2 flex gap-2">
             <input
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               className="flex-1 rounded bg-slate-900 p-2 text-sm"
-              placeholder="Search games"
+              placeholder="Search games or leagues"
             />
             <button
               type="button"
               onClick={runSearch}
               className="rounded bg-cyan-600 px-3 py-2 text-sm"
             >
-              Search
+              Search market
             </button>
             <button
               type="button"
               onClick={runAnalysis}
               className="rounded bg-indigo-600 px-3 py-2 text-sm"
             >
-              Run analysis
+              Run research
             </button>
             <button
               type="button"
@@ -341,7 +344,7 @@ export default function ResearchPage() {
               onClick={openLiveGames}
               className="rounded bg-emerald-600 px-3 py-2 text-sm"
             >
-              See Live Games
+              Open Live Terminal
             </button>
           </div>
           <ul className="mt-3 max-h-36 space-y-1 overflow-y-auto text-xs">
@@ -366,14 +369,14 @@ export default function ResearchPage() {
             className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-cyan-400/70"
             aria-pressed={advancedView}
           >
-            {advancedView ? 'Hide Advanced View' : 'Advanced View'}
+            {advancedView ? 'Hide Terminal Diagnostics' : 'Terminal Diagnostics'}
           </button>
         </div>
         <form action={submit} className="mt-4 grid gap-3 text-sm">
           <input
             className="rounded bg-slate-950 p-2"
             name="selection"
-            placeholder="Selection"
+            placeholder="Position label"
             defaultValue="BOS -3.5"
           />
           <input
@@ -391,11 +394,11 @@ export default function ResearchPage() {
           <input
             className="rounded bg-slate-950 p-2"
             name="confidence"
-            placeholder="Confidence"
+            placeholder="Model confidence"
             defaultValue="0.68"
           />
           <button type="submit" className="rounded bg-sky-600 px-3 py-2 font-medium">
-            Track bet
+            Log position
           </button>
         </form>
         <p className="mt-2 text-xs text-slate-400">{status}</p>

@@ -55,7 +55,7 @@ export function LiveGameDetailClient({
   const [payload, setPayload] = useState<DetailPayload | null>(null);
   const [outcome, setOutcome] = useState<OutcomePayload | null>(null);
   const [selectedProp, setSelectedProp] = useState<PropMomentum | null>(null);
-  const [status, setStatus] = useState('Loading game detail…');
+  const [status, setStatus] = useState('Loading market detail terminal…');
   const [traceId, setTraceId] = useState(initialTraceId ?? '');
   const [fallbackTraceId] = useState(() => createClientRequestId());
   const currentTraceId = traceId || fallbackTraceId;
@@ -76,7 +76,7 @@ export function LiveGameDetailClient({
         const next = (await response.json()) as DetailPayload & { trace_id?: string };
         setPayload(next);
         setTraceId(next.trace_id ?? resolvedTrace);
-        setStatus('Live detail loaded.');
+        setStatus('Market detail loaded in research terminal.');
         return {
           ok: true,
           data: next,
@@ -114,7 +114,11 @@ export function LiveGameDetailClient({
         return { ok: true, data: next.data, source: next.source };
       }
     });
-    setStatus(action.ok ? 'Quick model loaded.' : 'Quick model failed; market remains visible.');
+    setStatus(
+      action.ok
+        ? 'Quick model loaded. Delta updated (delta is not a pick).'
+        : 'Quick model failed; market view remains visible.'
+    );
   };
 
   const loadOutcome = async () => {
@@ -134,7 +138,11 @@ export function LiveGameDetailClient({
         return { ok: true, data: next, source: 'demo' as const };
       }
     });
-    setStatus(action.ok ? 'Post-game intelligence loaded.' : 'Post-game intelligence unavailable.');
+    setStatus(
+      action.ok
+        ? 'Post-game intelligence loaded for research review.'
+        : 'Post-game intelligence unavailable.'
+    );
   };
 
   const trackProp = async (prop: PropMomentum) => {
@@ -165,7 +173,9 @@ export function LiveGameDetailClient({
         return { ok: true, source: 'live' as const };
       }
     });
-    setStatus(action.ok ? 'Prop tracking confirmed.' : 'Unable to track prop.');
+    setStatus(
+      action.ok ? 'Prop research tracking confirmed.' : 'Unable to track prop research item.'
+    );
     if (action.ok) setSelectedProp(null);
   };
 
@@ -186,7 +196,7 @@ export function LiveGameDetailClient({
         return { ok: true, source: 'live' as const };
       }
     });
-    if (!outcomeAction.ok) setStatus('Unable to open research view.');
+    if (!outcomeAction.ok) setStatus('Unable to open research terminal view.');
   };
 
   const delta = useMemo(
@@ -224,8 +234,9 @@ export function LiveGameDetailClient({
             ? `H ${pct(payload.model.modelHome)} / A ${pct(payload.model.modelAway)}`
             : 'Model pending'}
         </p>
-        <p title="Delta is not a pick. It’s a difference between implied probabilities.">
-          Delta: {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`}
+        <p title="Delta is not a pick. It reflects market-model probability difference only.">
+          Delta (not a pick):{' '}
+          {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`}
         </p>
         <div className="mt-2 flex gap-2">
           {!payload.model ? (
@@ -234,7 +245,7 @@ export function LiveGameDetailClient({
               onClick={runQuickModel}
               className="rounded bg-indigo-600 px-3 py-1.5 text-xs"
             >
-              Run quick model
+              Run quick model pass
             </button>
           ) : null}
           <button
@@ -242,19 +253,21 @@ export function LiveGameDetailClient({
             onClick={loadOutcome}
             className="rounded bg-slate-700 px-3 py-1.5 text-xs"
           >
-            Load outcome intelligence
+            Load outcome research
           </button>
         </div>
       </div>
 
       {outcome ? (
         <div className="rounded border border-slate-800 bg-slate-950 p-3 text-sm">
-          <h2 className="text-sm font-semibold">Post-Game Intelligence</h2>
+          <h2 className="text-sm font-semibold">Post-Game Research Review</h2>
           <p>
             Market implied vs model implied (pre-game): {pct(outcome.data.marketImplied)} vs{' '}
             {pct(outcome.data.modelImplied)}
           </p>
-          <p>Delta: {(outcome.data.delta * 100).toFixed(2)}%</p>
+          <p title="Delta is not a pick. It reflects market-model probability difference only.">
+            Delta (not a pick): {(outcome.data.delta * 100).toFixed(2)}%
+          </p>
           <p>
             Final outcome: {outcome.data.finalScore.home}-{outcome.data.finalScore.away} (
             {outcome.data.winner})
@@ -306,14 +319,14 @@ export function LiveGameDetailClient({
 
       {selectedProp ? (
         <div className="rounded border border-cyan-700 bg-slate-950 p-3 text-xs">
-          <h3 className="text-sm font-semibold">EdgeCard · {selectedProp.player}</h3>
+          <h3 className="text-sm font-semibold">Research Card · {selectedProp.player}</h3>
           <p>Line: {selectedProp.line}</p>
           <p>Hit rate: {pct(selectedProp.last10HitRate)}</p>
           <p>Volatility reason: {selectedProp.volatilityTag}</p>
           <p>Market movement: stable demo baseline</p>
           <p>Model probability: {pct(payload.model?.modelHome ?? payload.game.implied.home)}</p>
-          <p>
-            Delta:{' '}
+          <p title="Delta is not a pick. It reflects market-model probability difference only.">
+            Delta (not a pick):{' '}
             {(
               ((payload.model?.modelHome ?? payload.game.implied.home) -
                 payload.game.implied.home) *
@@ -328,7 +341,7 @@ export function LiveGameDetailClient({
               onClick={() => trackProp(selectedProp)}
               className="rounded bg-cyan-600 px-3 py-1"
             >
-              Track this prop
+              Track this research item
             </button>
             <button
               type="button"
@@ -346,7 +359,7 @@ export function LiveGameDetailClient({
         onClick={openResearch}
         className="rounded bg-cyan-600 px-3 py-2 text-sm"
       >
-        Open in Research
+        Open in Research Terminal
       </button>
     </section>
   );
