@@ -48,10 +48,21 @@ Our job is to:
 
 * Summarizes legs, context, and creates prop-first trace rationale
 
+### `SnapshotReplayView`
+
+* Located in: `features/snapshot/SnapshotReplayView.tsx`
+* Renders each leg insight: market label, hit rate bar, volatility badge, matchup context, and optional replay toggle (when `traceId` + `?replay=1`)
+
+### `getParlayCorrelationScore`, `summarizeParlayRisk`
+
+* Located in: `src/core/parlay/parlayRisk.ts`
+* Scores risk of multi-leg bets, flags same-game correlation, and estimates variance strength
+
 ### UI Path: `/features/betslip` ➝ `/research/snapshot/[id]`
 
 * All UI should start with slip or player input
 * Render insight tiles with trend/risk/matchup BEFORE full graphs or data
+* `/research` enters replay mode automatically when `?replay=1`
 
 ---
 
@@ -63,6 +74,7 @@ Our job is to:
 * Generate leg insight via `buildPropLegInsight`
 * Scope research summaries by `marketType`
 * Show trend/matchup/risk before stats volume
+* Extend `SnapshotReplayView` for any insight UI updates
 
 ### 🧪 Tests must:
 
@@ -70,6 +82,7 @@ Our job is to:
 * Assert normalized market typing
 * Confirm snapshot summaries are scoped to props
 * Assert leg insight tags (hit rate, trend, volatility)
+* Cover parlay scoring logic with mock legs
 
 ---
 
@@ -93,6 +106,7 @@ Our job is to:
 * Add leg ➝ get instant snapshot risk summary
 * View rationale if they want depth (trace graph optional)
 * Return to track what worked ("3PM props hit 5/6 for you last week")
+* View `/research/snapshot/[id]` with replay = instant trust
 
 ---
 
@@ -116,12 +130,14 @@ This keeps us building. Every dollar keeps the engine open-source, transparent, 
 
   * `marketType.ts`, `buildPropLegInsight.ts`, `buildResearchSnapshot.ts`
   * `ResearchSnapshotAgent.ts`, `extract.ts`, `BetSlipIngestionForm.tsx`
+  * `SnapshotReplayView.tsx`, `parlayRisk.ts`
 * Use comment tags like `// @codex-insight` and `// @market-aware` to embed guidance
 * Codex completions should favor:
 
   * Prop-type first logic
   * Risk-tag-driven UI
   * Snapshot-aware routing
+  * Parlay leg summary logic over raw duplication
 
 ---
 
