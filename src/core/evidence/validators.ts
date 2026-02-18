@@ -1,20 +1,19 @@
 import { z } from 'zod';
 
-export const EvidenceSourceTypeSchema = z.enum(['odds', 'injury', 'stats', 'news', 'model', 'other']);
-
 export const EvidenceItemSchema = z.object({
   id: z.string().min(1),
-  sourceType: EvidenceSourceTypeSchema,
+  sourceType: z.enum(['odds', 'injury', 'stats', 'news', 'model', 'other']),
   sourceName: z.string().min(1),
   sourceUrl: z.string().url().optional(),
   retrievedAt: z.string().datetime(),
   observedAt: z.string().datetime().optional(),
   contentExcerpt: z.string().min(1),
   contentHash: z.string().min(1),
-  licenseHint: z.string().min(1).optional(),
+  licenseHint: z.string().optional(),
   raw: z.record(z.unknown()).optional(),
   reliability: z.number().min(0).max(1).optional(),
   tags: z.array(z.string()).optional(),
+  suspicious: z.boolean().optional(),
 });
 
 export const ClaimSchema = z.object({
@@ -23,7 +22,6 @@ export const ClaimSchema = z.object({
   confidence: z.number().min(0).max(1),
   rationale: z.string().min(1),
   evidenceIds: z.array(z.string().min(1)).min(1),
-  relatedEntities: z.array(z.string()).optional(),
 });
 
 export const ResearchReportSchema = z
@@ -36,38 +34,24 @@ export const ResearchReportSchema = z
     claims: z.array(ClaimSchema),
     evidence: z.array(EvidenceItemSchema),
     summary: z.string().min(1),
-    risks: z.array(z.string()),
     confidenceSummary: z.object({
       averageClaimConfidence: z.number().min(0).max(1),
       deterministic: z.literal(true),
     }),
+    risks: z.array(z.string()),
     assumptions: z.array(z.string()),
   })
-  .superRefine((report, issueContext) => {
-    const evidenceIds = new Set(report.evidence.map((item) => item.id));
-
-    report.claims.forEach((claim, claimIndex) => {
-      if (claim.evidenceIds.length === 0) {
-        issueContext.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['claims', claimIndex, 'evidenceIds'],
-          message: 'Every claim must reference at least one evidence item.',
-        });
-        return;
-      }
-
-      claim.evidenceIds.forEach((evidenceId, evidenceIndex) => {
-        if (!evidenceIds.has(evidenceId)) {
-          issueContext.addIssue({
+  .superRefine((report, ctx) => {
+    const ids = new Set(report.evidence.map((e) => e.id));
+    report.claims.forEach((claim, i) => {
+      claim.evidenceIds.forEach((id, j) => {
+        if (!ids.has(id)) {
+          ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['claims', claimIndex, 'evidenceIds', evidenceIndex],
-            message: `Evidence id ${evidenceId} is not present in report evidence.`,
+            path: ['claims', i, 'evidenceIds', j],
+            message: `Unknown evidence ${id}`,
           });
         }
       });
     });
   });
-
-export type EvidenceItemValidated = z.infer<typeof EvidenceItemSchema>;
-export type ClaimValidated = z.infer<typeof ClaimSchema>;
-export type ResearchReportValidated = z.infer<typeof ResearchReportSchema>;

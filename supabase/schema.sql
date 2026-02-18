@@ -117,3 +117,58 @@ create table if not exists public.user_kpi_daily (
 
 create index if not exists idx_user_kpi_daily_date on public.user_kpi_daily (date desc);
 create index if not exists idx_user_kpi_daily_user_id_date on public.user_kpi_daily (user_id, date desc);
+
+-- Core economic loop tables
+create table if not exists public.profiles (
+  user_id uuid primary key,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.research_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  session_id uuid not null,
+  run_id text not null,
+  trace_id text not null,
+  confidence numeric(5,4),
+  report_json jsonb not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.bets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  session_id uuid not null,
+  snapshot_id uuid,
+  run_id text,
+  trace_id text,
+  selection text not null,
+  odds numeric(8,4) not null,
+  stake numeric(12,2) not null,
+  status text not null check (status in ('pending', 'settled')),
+  outcome text check (outcome in ('won', 'lost', 'push')),
+  settled_profit numeric(12,2),
+  confidence numeric(5,4),
+  created_at timestamptz not null default timezone('utc', now()),
+  settled_at timestamptz
+);
+
+create table if not exists public.events_analytics (
+  id uuid primary key default gen_random_uuid(),
+  event_name text not null,
+  trace_id text not null,
+  run_id text,
+  session_id text not null,
+  user_id text not null,
+  properties_json jsonb not null,
+  timestamp timestamptz not null
+);
+
+create table if not exists public.idempotency_keys (
+  key text not null,
+  endpoint text not null,
+  user_id text not null,
+  response_hash text not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  primary key (key, endpoint, user_id)
+);

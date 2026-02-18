@@ -13,6 +13,7 @@ export interface EvidenceItem {
   raw?: Record<string, unknown>;
   reliability?: number;
   tags?: string[];
+  suspicious?: boolean;
 }
 
 export interface Claim {
@@ -21,7 +22,6 @@ export interface Claim {
   confidence: number;
   rationale: string;
   evidenceIds: string[];
-  relatedEntities?: string[];
 }
 
 export interface ResearchReport {
