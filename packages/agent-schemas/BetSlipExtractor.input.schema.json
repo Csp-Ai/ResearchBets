@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "BetSlipExtractor.input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_type", "payload"],
+  "properties": {
+    "source_type": { "type": "string", "enum": ["image", "text", "pdf"] },
+    "payload": { "type": "string" },
+    "event_context": { "type": "string" }
+  }
+}

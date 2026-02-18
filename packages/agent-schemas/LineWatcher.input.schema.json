@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "LineWatcher.input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "market", "books"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "market": { "type": "string" },
+    "books": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["book", "line"],
+        "properties": {
+          "book": { "type": "string" },
+          "line": { "type": "number" }
+        }
+      }
+    }
+  }
+}
