@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { buildResearchSnapshot } from '../../flows/research-snapshot/buildResearchSnapshot';
+import { InMemoryEventEmitter } from '../../core/control-plane/emitter';
+import { buildResearchSnapshot } from '../../flows/researchSnapshot/buildResearchSnapshot';
 import { ResearchReportSchema } from '../../core/evidence/validators';
 import type { AgentDefinition } from '../../core/agent-runtime/types';
 
@@ -23,12 +24,22 @@ export const ResearchSnapshotAgent: AgentDefinition<ResearchSnapshotAgentInput, 
   version: '0.1.0',
   inputSchema: ResearchSnapshotInputSchema,
   outputSchema: ResearchReportSchema,
-  handler: async (context, input) =>
-    buildResearchSnapshot(input, {
-      requestId: context.requestId,
-      runId: context.runId,
-      traceId: context.traceId,
-      environment: context.environment,
-      userId: context.userId,
-    }),
+  handler: async (context, input) => {
+    const emitter = new InMemoryEventEmitter();
+    return buildResearchSnapshot(
+      {
+        subject: `${input.sport}:${input.league}:${input.awayTeam}@${input.homeTeam}`,
+        sessionId: context.sessionId ?? `session_${context.requestId}`,
+        userId: context.userId ?? `anon_${context.requestId}`,
+        tier: 'free',
+        environment: context.environment ?? 'dev',
+        seed: input.seed ?? context.requestId,
+        requestId: context.requestId,
+        traceId: context.traceId ?? `trace_${context.requestId}`,
+        runId: context.runId ?? `run_${context.requestId}`,
+      },
+      emitter,
+      process.env,
+    );
+  },
 };

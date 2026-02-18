@@ -8,7 +8,7 @@ import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function POST(request: Request) {
   const store = getRuntimeStore();
-  const body = (await request.json().catch(() => ({}))) as { sessionId?: string };
+  const body = (await request.json().catch(() => ({}))) as { sessionId?: string; anonSessionId?: string };
   const session = await ensureSession(body.sessionId, store);
   const emitter = new DbEventEmitter(store);
 
@@ -17,12 +17,12 @@ export async function POST(request: Request) {
     timestamp: new Date().toISOString(),
     request_id: randomUUID(),
     trace_id: randomUUID(),
-    session_id: session.sessionId,
+    session_id: body.anonSessionId ?? session.sessionId,
     user_id: session.userId,
     agent_id: 'session_manager',
     model_version: 'runtime-deterministic-v1',
     properties: {},
   });
 
-  return NextResponse.json(session);
+  return NextResponse.json({ ...session, anonSessionId: body.anonSessionId ?? session.sessionId });
 }

@@ -10,12 +10,13 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     subject: string;
     sessionId: string;
-    userId: string;
+    userId?: string;
     tier?: 'free' | 'premium';
     seed?: string;
+    requestId?: string;
   };
 
-  const requestId = randomUUID();
+  const requestId = body.requestId ?? randomUUID();
   const runId = randomUUID();
   const traceId = randomUUID();
   const store = getRuntimeStore();
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     {
       subject: body.subject,
       sessionId: body.sessionId,
-      userId: body.userId,
+      userId: body.userId ?? body.sessionId,
       tier: body.tier ?? 'free',
       environment: process.env.NODE_ENV === 'production' ? 'prod' : 'dev',
       seed: body.seed ?? 'demo-seed',

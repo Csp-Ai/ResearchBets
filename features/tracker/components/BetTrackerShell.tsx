@@ -5,12 +5,12 @@ import { DashboardOverview } from '@/features/research/components/DashboardOverv
 import { useBetTracker } from '@/features/tracker/state/useBetTracker';
 
 export function BetTrackerShell() {
-  const { bets, addBet, settleBet } = useBetTracker();
+  const { bets, settleBet } = useBetTracker();
 
   return (
     <div className="space-y-6">
       <DashboardOverview bets={bets} />
-      <BetSlipIngestionForm onConfirm={addBet} />
+      <BetSlipIngestionForm />
       <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
         <h2 className="text-xl font-semibold">Tracked Bets</h2>
         <ul className="mt-4 space-y-3">

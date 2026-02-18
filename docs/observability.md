@@ -190,3 +190,27 @@ Required event-specific fields:
 - `settlement_blocked` (boolean)
 - `sources_used` (array of string)
 - `disagreement_score` (number)
+
+### 15) `slip_submitted`
+Emitted when a raw slip payload is persisted.
+
+Required event-specific fields:
+- `slip_id` (string)
+- `source` (string): `paste` | `upload`
+- `checksum` (string)
+
+### 16) `slip_extracted`
+Emitted when deterministic extraction succeeds.
+
+Required event-specific fields:
+- `slip_id` (string)
+- `extracted_legs_count` (integer)
+
+### 17) `slip_extract_failed`
+Emitted when extraction fails.
+
+Required event-specific fields:
+- `slip_id` (string)
+- `error` (string)
+
+All UI-origin events should include `anon_session_id` via `session_id`, plus `trace_id`, `request_id`, and RFC3339 timestamps.

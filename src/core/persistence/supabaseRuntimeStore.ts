@@ -13,6 +13,7 @@ import type {
   RecommendationOutcome,
   RuntimeStore,
   SessionRecord,
+  SlipSubmission,
   StoredBet,
   WebCacheRecord,
 } from './runtimeStore';
@@ -37,6 +38,7 @@ const TABLES = {
   experiments: 'experiments',
   experimentAssignments: 'experiment_assignments',
   webCache: 'web_cache',
+  slipSubmissions: 'slip_submissions',
 } as const;
 
 const mapBet = (data: Record<string, unknown>): StoredBet => ({
@@ -185,6 +187,27 @@ export class SupabaseRuntimeStore implements RuntimeStore {
   async saveEvent(event: ControlPlaneEvent): Promise<void> {
     const { error } = await this.client.from(TABLES.events).insert(event);
     if (error) throw error;
+  }
+
+  async listEvents(query: { traceId?: string; limit?: number } = {}): Promise<ControlPlaneEvent[]> {
+    let dbQuery = this.client.from(TABLES.events).select('*').order('timestamp', { ascending: false }).limit(query.limit ?? 50);
+    if (query.traceId) dbQuery = dbQuery.eq('trace_id', query.traceId);
+    const { data, error } = await dbQuery;
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      event_name: row.event_name as ControlPlaneEvent['event_name'],
+      timestamp: row.timestamp as string,
+      request_id: row.request_id as string,
+      trace_id: row.trace_id as string,
+      run_id: (row.run_id as string | null) ?? undefined,
+      session_id: (row.session_id as string | null) ?? undefined,
+      user_id: (row.user_id as string | null) ?? undefined,
+      agent_id: row.agent_id as string,
+      model_version: row.model_version as string,
+      confidence: (row.confidence as number | null) ?? undefined,
+      assumptions: (row.assumptions as string[] | null) ?? undefined,
+      properties: (row.properties as Record<string, unknown>) ?? {},
+    }));
   }
 
   async getIdempotencyRecord<T>(endpoint: string, userId: string, key: string): Promise<IdempotencyRecord<T> | null> {
@@ -504,6 +527,100 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       userId: (data.user_id as string | null) ?? null,
       anonSessionId: (data.anon_session_id as string | null) ?? null,
       createdAt: data.created_at as string,
+    };
+  }
+
+  async createSlipSubmission(submission: SlipSubmission): Promise<void> {
+    const { error } = await this.client.from(TABLES.slipSubmissions).upsert({
+      id: submission.id,
+      anon_session_id: submission.anonSessionId,
+      user_id: submission.userId,
+      created_at: submission.createdAt,
+      source: submission.source,
+      raw_text: submission.rawText,
+      parse_status: submission.parseStatus,
+      extracted_legs: submission.extractedLegs,
+      trace_id: submission.traceId,
+      request_id: submission.requestId,
+      checksum: submission.checksum,
+    });
+    if (error) throw error;
+  }
+
+  async getSlipSubmission(id: string): Promise<SlipSubmission | null> {
+    const { data, error } = await this.client.from(TABLES.slipSubmissions).select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      anonSessionId: (data.anon_session_id as string | null) ?? null,
+      userId: (data.user_id as string | null) ?? null,
+      createdAt: data.created_at as string,
+      source: data.source as SlipSubmission['source'],
+      rawText: data.raw_text as string,
+      parseStatus: data.parse_status as SlipSubmission['parseStatus'],
+      extractedLegs: (data.extracted_legs as Record<string, unknown>[] | null) ?? null,
+      traceId: data.trace_id as string,
+      requestId: data.request_id as string,
+      checksum: data.checksum as string,
+    };
+  }
+
+  async listSlipSubmissions(query: { anonSessionId?: string; userId?: string; limit?: number }): Promise<SlipSubmission[]> {
+    let dbQuery = this.client.from(TABLES.slipSubmissions).select('*').order('created_at', { ascending: false }).limit(query.limit ?? 25);
+    if (query.anonSessionId) dbQuery = dbQuery.eq('anon_session_id', query.anonSessionId);
+    if (query.userId) dbQuery = dbQuery.eq('user_id', query.userId);
+    const { data, error } = await dbQuery;
+    if (error) throw error;
+    return (data ?? []).map((item) => ({
+      id: item.id as string,
+      anonSessionId: (item.anon_session_id as string | null) ?? null,
+      userId: (item.user_id as string | null) ?? null,
+      createdAt: item.created_at as string,
+      source: item.source as SlipSubmission['source'],
+      rawText: item.raw_text as string,
+      parseStatus: item.parse_status as SlipSubmission['parseStatus'],
+      extractedLegs: (item.extracted_legs as Record<string, unknown>[] | null) ?? null,
+      traceId: item.trace_id as string,
+      requestId: item.request_id as string,
+      checksum: item.checksum as string,
+    }));
+  }
+
+  async updateSlipSubmission(
+    id: string,
+    patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>,
+  ): Promise<SlipSubmission | null> {
+    const { data, error } = await this.client
+      .from(TABLES.slipSubmissions)
+      .update({
+        anon_session_id: patch.anonSessionId,
+        user_id: patch.userId,
+        source: patch.source,
+        raw_text: patch.rawText,
+        parse_status: patch.parseStatus,
+        extracted_legs: patch.extractedLegs,
+        trace_id: patch.traceId,
+        request_id: patch.requestId,
+        checksum: patch.checksum,
+      })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      anonSessionId: (data.anon_session_id as string | null) ?? null,
+      userId: (data.user_id as string | null) ?? null,
+      createdAt: data.created_at as string,
+      source: data.source as SlipSubmission['source'],
+      rawText: data.raw_text as string,
+      parseStatus: data.parse_status as SlipSubmission['parseStatus'],
+      extractedLegs: (data.extracted_legs as Record<string, unknown>[] | null) ?? null,
+      traceId: data.trace_id as string,
+      requestId: data.request_id as string,
+      checksum: data.checksum as string,
     };
   }
 }

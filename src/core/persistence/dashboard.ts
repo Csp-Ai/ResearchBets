@@ -1,4 +1,5 @@
 import type { StoredBet } from './runtimeStore';
+import { complianceText } from '../policy/text';
 
 const confidenceBucket = (value: number): string => {
   const pct = value * 100;
@@ -42,16 +43,16 @@ export const buildInsights = (bets: StoredBet[]): string[] => {
   const summary = summarizeBets(bets);
   const insights: string[] = [];
   if (summary.byBucket['80-100']?.roi && summary.byBucket['80-100'].roi > summary.roi) {
-    insights.push('High-confidence bets are outperforming baseline ROI; size stakes slightly higher there.');
+    insights.push(complianceText.outperforming);
   }
   if (summary.winRate < 45 && summary.settledCount >= 4) {
-    insights.push('Win rate is below 45%; tighten claim evidence threshold before logging bets.');
+    insights.push(complianceText.lowWinRate);
   }
   if (summary.pendingCount > summary.settledCount) {
-    insights.push('You have more pending than settled bets; settle open tickets to improve feedback loop speed.');
+    insights.push(complianceText.pendingBacklog);
   }
   if (insights.length === 0) {
-    insights.push('Sample size is small; keep logging and settling bets to unlock stronger insights.');
+    insights.push(complianceText.smallSample);
   }
   return insights.slice(0, 6);
 };

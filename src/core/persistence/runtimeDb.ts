@@ -11,6 +11,7 @@ import type {
   RecommendationOutcome,
   RuntimeStore,
   SessionRecord,
+  SlipSubmission,
   StoredBet,
   WebCacheRecord,
 } from './runtimeStore';
@@ -28,6 +29,7 @@ export interface RuntimeDb {
   experiments: ExperimentRecord[];
   experimentAssignments: ExperimentAssignment[];
   webCache: WebCacheRecord[];
+  slipSubmissions: SlipSubmission[];
 }
 
 export const persistenceDb: RuntimeDb = {
@@ -43,6 +45,7 @@ export const persistenceDb: RuntimeDb = {
   experiments: [],
   experimentAssignments: [],
   webCache: [],
+  slipSubmissions: [],
 };
 
 export class MemoryRuntimeStore implements RuntimeStore {
@@ -91,6 +94,14 @@ export class MemoryRuntimeStore implements RuntimeStore {
 
   async saveEvent(event: ControlPlaneEvent): Promise<void> {
     persistenceDb.events.push(event);
+  }
+
+  async listEvents(query: { traceId?: string; limit?: number } = {}): Promise<ControlPlaneEvent[]> {
+    const filtered = query.traceId
+      ? persistenceDb.events.filter((event) => event.trace_id === query.traceId)
+      : [...persistenceDb.events];
+    const sorted = [...filtered].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return sorted.slice(0, query.limit ?? 50);
   }
 
   async getIdempotencyRecord<T>(endpoint: string, userId: string, key: string): Promise<IdempotencyRecord<T> | null> {
@@ -216,6 +227,39 @@ export class MemoryRuntimeStore implements RuntimeStore {
       (item) => item.experimentName === experimentName && item.subjectKey === subjectKey,
     ) ?? null;
   }
+
+  async createSlipSubmission(submission: SlipSubmission): Promise<void> {
+    const existingIndex = persistenceDb.slipSubmissions.findIndex((item) => item.id === submission.id);
+    if (existingIndex >= 0) {
+      persistenceDb.slipSubmissions[existingIndex] = submission;
+      return;
+    }
+    persistenceDb.slipSubmissions.unshift(submission);
+  }
+
+  async getSlipSubmission(id: string): Promise<SlipSubmission | null> {
+    return persistenceDb.slipSubmissions.find((item) => item.id === id) ?? null;
+  }
+
+  async listSlipSubmissions(query: { anonSessionId?: string; userId?: string; limit?: number }): Promise<SlipSubmission[]> {
+    const filtered = persistenceDb.slipSubmissions.filter((item) => {
+      if (query.anonSessionId && item.anonSessionId !== query.anonSessionId) return false;
+      if (query.userId && item.userId !== query.userId) return false;
+      return true;
+    });
+    return filtered.slice(0, query.limit ?? 25);
+  }
+
+  async updateSlipSubmission(
+    id: string,
+    patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>,
+  ): Promise<SlipSubmission | null> {
+    const existing = await this.getSlipSubmission(id);
+    if (!existing) return null;
+    const updated = { ...existing, ...patch };
+    await this.createSlipSubmission(updated);
+    return updated;
+  }
 }
 
 export const resetRuntimeDb = (): void => {
@@ -231,4 +275,5 @@ export const resetRuntimeDb = (): void => {
   persistenceDb.experiments.length = 0;
   persistenceDb.experimentAssignments.length = 0;
   persistenceDb.webCache.length = 0;
+  persistenceDb.slipSubmissions.length = 0;
 };

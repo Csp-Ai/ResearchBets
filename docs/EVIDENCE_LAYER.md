@@ -28,7 +28,7 @@ Defined in `src/core/evidence/evidenceSchema.ts` and validated with Zod in `src/
 
 ## Research Snapshot Flow
 
-Entry point: `src/flows/research-snapshot/buildResearchSnapshot.ts`
+Entry point: `src/flows/researchSnapshot/buildResearchSnapshot.ts`
 
 1. Fetches providers in parallel through the `SourceProvider` interface.
 2. Normalizes and deduplicates evidence by `sourceType + contentExcerpt hash`.
