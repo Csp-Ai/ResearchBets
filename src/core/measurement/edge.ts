@@ -71,6 +71,10 @@ export const generateEdgeReport = async (
 ): Promise<Record<string, unknown>> => {
   const allBets = filterWindow(await store.listBets(), window);
   const followed = allBets.filter((bet) => bet.followedAi || !!bet.recommendedId);
+  const gameIds = [...new Set(allBets.map((bet) => bet.gameId).filter((id): id is string => Boolean(id)))];
+  const gameResults = await Promise.all(gameIds.map((gameId) => store.getGameResult(gameId)));
+  const confirmedResults = gameResults.filter((item) => item && item.consensusLevel !== 'conflict').length;
+  const blockedSettlements = gameResults.filter((item) => item && item.consensusLevel === 'conflict').length;
   const notFollowed = allBets.filter((bet) => !(bet.followedAi || !!bet.recommendedId));
   const makeStats = (bets: StoredBet[]) => {
     const line = bets.map((b) => b.clvLine).filter((v): v is number => v != null);
@@ -89,6 +93,28 @@ export const generateEdgeReport = async (
     if ((bet.resolutionReason ?? '').includes('fallback') || (bet.resolutionReason ?? '').includes('last_')) fallbackClosing += 1;
     else if (bet.closingLine != null || bet.closingPrice != null) authoritativeClosing += 1;
     if ((bet.resolutionReason ?? '').includes('stale')) staleDataOccurrences += 1;
+  }
+
+  const topSourceDomains: Record<string, number> = {};
+  let recStalenessCount = 0;
+  let recStalenessTotal = 0;
+  let closingStalenessCount = 0;
+  let closingStalenessTotal = 0;
+  for (const bet of allBets) {
+    const snapshots = bet.gameId && bet.marketType ? await store.listOddsSnapshots(bet.gameId, bet.marketType, bet.selection) : [];
+    const recommendationSnapshot = snapshots[snapshots.length - 1];
+    const closingSnapshot = snapshots[0];
+    if (recommendationSnapshot) {
+      recStalenessTotal += recommendationSnapshot.stalenessMs;
+      recStalenessCount += 1;
+    }
+    if (closingSnapshot) {
+      closingStalenessTotal += closingSnapshot.stalenessMs;
+      closingStalenessCount += 1;
+      for (const source of closingSnapshot.sourcesUsed) {
+        topSourceDomains[source] = (topSourceDomains[source] ?? 0) + 1;
+      }
+    }
   }
 
   const lineCI = stderrCI(
@@ -113,6 +139,11 @@ export const generateEdgeReport = async (
         Object.entries(resultsByDomain).map(([domain, count]) => [domain, Number(((count / Math.max(1, allBets.length)) * 100).toFixed(2))]),
       ),
       stale_data_occurrences: staleDataOccurrences,
+      results_confirmed_by_consensus_pct: gameResults.length ? Number(((confirmedResults / gameResults.length) * 100).toFixed(2)) : 0,
+      settlement_blocked_consensus_conflict_pct: gameResults.length ? Number(((blockedSettlements / gameResults.length) * 100).toFixed(2)) : 0,
+      top_source_domains: Object.entries(topSourceDomains).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([domain, count]) => ({ domain, count })),
+      avg_staleness_ms_recommendation_time: recStalenessCount ? Number((recStalenessTotal / recStalenessCount).toFixed(2)) : 0,
+      avg_staleness_ms_closing_time: closingStalenessCount ? Number((closingStalenessTotal / closingStalenessCount).toFixed(2)) : 0,
     },
     cohort_sizes: { total: allBets.length, followed: followed.length, not_followed: notFollowed.length },
   };

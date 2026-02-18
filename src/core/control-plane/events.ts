@@ -25,6 +25,8 @@ export const ControlPlaneEventNameSchema = z.enum([
   'data_normalized',
   'odds_snapshot_captured',
   'game_result_ingested',
+  'consensus_evaluated',
+  'consensus_conflict',
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {

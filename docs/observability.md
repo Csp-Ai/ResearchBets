@@ -172,3 +172,21 @@ Required event-specific fields:
 - `settlement_status` (string)
 - `settled_at` (RFC 3339)
 - `is_final` (boolean)
+
+### 13) `consensus_evaluated`
+Emitted when WAL evaluates multi-source consensus.
+
+Required event-specific fields:
+- `data_type` (string): `odds` | `results`
+- `consensus_level` (string): `single_source` | `two_source_agree` | `three_source_agree` | `conflict`
+- `sources_used` (array of string)
+- `disagreement_score` (number)
+
+### 14) `consensus_conflict`
+Emitted when results consensus blocks settlement.
+
+Required event-specific fields:
+- `data_type` (string)
+- `settlement_blocked` (boolean)
+- `sources_used` (array of string)
+- `disagreement_score` (number)

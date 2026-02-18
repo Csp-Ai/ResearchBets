@@ -99,6 +99,9 @@ describe('recommendation logging and settlement', () => {
       stalenessMs: 0,
       freshnessScore: 1,
       resolutionReason: 'closing',
+      consensusLevel: 'two_source_agree',
+      sourcesUsed: ['source.test', 'book.test'],
+      disagreementScore: 0,
     });
 
     await store.saveGameResult({
@@ -116,6 +119,9 @@ describe('recommendation logging and settlement', () => {
       checksum: 'xyz',
       stalenessMs: 0,
       freshnessScore: 1,
+      consensusLevel: 'two_source_agree',
+      sourcesUsed: ['results.test', 'backup.test'],
+      disagreementScore: 0,
     });
 
     await settleBet(
@@ -130,4 +136,55 @@ describe('recommendation logging and settlement', () => {
     expect(settled?.clvLine).toBe(1);
     expect(settled?.clvPrice).not.toBeNull();
   });
+
+  it('runs end-to-end measurement smoke pipeline', async () => {
+    const store = new MemoryRuntimeStore();
+    const emitter = new InMemoryEventEmitter();
+    const recId = await logAgentRecommendation(
+      {
+        sessionId: 's1',
+        userId: 'u1',
+        requestId: 'req2',
+        traceId: 'tr2',
+        runId: 'run2',
+        agentId: 'agent_a',
+        agentVersion: 'v1',
+        gameId: 'game2',
+        marketType: 'spread',
+        market: 'spread',
+        selection: 'home',
+        line: -4.5,
+        price: -105,
+        confidence: 0.75,
+        rationale: { why: 'signal' },
+        evidenceRefs: { ids: ['e2'] },
+      },
+      emitter,
+      store,
+    );
+
+    await store.saveBet({
+      id: 'bet2', userId: 'u1', sessionId: 's1', snapshotId: 'snap2', traceId: 'tr2', runId: 'run2', selection: 'home', gameId: 'game2', marketType: 'spread', line: -4.5, odds: 1.95, placedLine: -4.5, placedPrice: -105, recommendedId: recId, followedAi: true, stake: 100, status: 'pending', outcome: null, settledProfit: null, confidence: 0.75, createdAt: new Date().toISOString(), settledAt: null,
+    });
+
+    const now = new Date().toISOString();
+    await store.saveOddsSnapshot({
+      id: 'od2', gameId: 'game2', market: 'spread', marketType: 'spread', selection: 'home', line: -3.5, price: -115, book: 'book', capturedAt: now, gameStartsAt: new Date(Date.now() + 3600000).toISOString(), sourceUrl: 'https://book.test/odds2', sourceDomain: 'book.test', fetchedAt: now, publishedAt: null, parserVersion: 'test', checksum: 'abc2', stalenessMs: 0, freshnessScore: 1, resolutionReason: 'closing', consensusLevel: 'two_source_agree', sourcesUsed: ['book.test','agg.test'], disagreementScore: 0.01,
+    });
+
+    await store.saveGameResult({
+      id: 'gr2', gameId: 'game2', payload: { home_score: 24, away_score: 17 }, completedAt: now, createdAt: now, isFinal: true, sourceUrl: 'https://results.test/game2', sourceDomain: 'results.test', fetchedAt: now, publishedAt: null, parserVersion: 'test', checksum: 'xyz2', stalenessMs: 0, freshnessScore: 1, consensusLevel: 'two_source_agree', sourcesUsed: ['results.test','official.test'], disagreementScore: 0,
+    });
+
+    await settleBet('bet2', { requestId: 'req2', traceId: 'tr2', runId: 'run2', sessionId: 's1', userId: 'u1', agentId: 'settler', modelVersion: 'v2' }, emitter, store);
+
+    const settled = await store.getBet('bet2');
+    expect(settled?.status).toBe('settled');
+    expect(settled?.clvLine).toBeGreaterThan(0);
+
+    const { generateEdgeReport } = await import('../src/core/measurement/edge');
+    const report = await generateEdgeReport({ window: '30d', requestContext: { requestId: 'req2', traceId: 'tr2', runId: 'run2', sessionId: 's1', userId: 'u1', agentId: 'edge', modelVersion: 'v2' }, emitter }, store);
+    expect(report).toHaveProperty('data_quality.results_confirmed_by_consensus_pct');
+  });
+
 });
