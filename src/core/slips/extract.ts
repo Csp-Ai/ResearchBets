@@ -1,3 +1,6 @@
+import { asMarketType } from '../markets/marketType';
+
+// Refer to MarketType for all prop logic. Do not hardcode string markets.
 export type ExtractedLeg = {
   selection: string;
   market?: string;
@@ -14,7 +17,9 @@ export const extractLegs = (rawText: string): ExtractedLeg[] => {
         .filter((item) => typeof item === 'object' && item !== null)
         .map((item) => ({
           selection: String((item as Record<string, unknown>).selection ?? 'Unknown'),
-          market: (item as Record<string, unknown>).market ? String((item as Record<string, unknown>).market) : undefined,
+          market: (item as Record<string, unknown>).market
+            ? asMarketType(String((item as Record<string, unknown>).market), 'points')
+            : undefined,
           odds: (item as Record<string, unknown>).odds ? String((item as Record<string, unknown>).odds) : undefined,
         }));
     }
@@ -34,7 +39,7 @@ export const extractLegs = (rawText: string): ExtractedLeg[] => {
       const selection = match.groups.selection?.trim() || line;
       return {
         selection,
-        market: match.groups.market?.toLowerCase(),
+        market: match.groups.market ? asMarketType(match.groups.market, 'points') : undefined,
         odds: match.groups.odds,
       };
     });

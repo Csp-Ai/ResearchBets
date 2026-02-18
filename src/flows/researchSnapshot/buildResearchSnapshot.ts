@@ -13,6 +13,8 @@ import { getRuntimeStore } from '../../core/persistence/runtimeStoreProvider';
 import { asMarketType, type MarketType } from '../../core/markets/marketType';
 import { logAgentRecommendation, logFinalRecommendation } from '../../core/measurement/recommendations';
 
+// Refer to MarketType for all prop logic. Do not hardcode string markets.
+
 export interface BuildResearchSnapshotInput {
   subject: string;
   sessionId: string;
@@ -65,6 +67,7 @@ export const buildResearchSnapshot = async (
   env: Record<string, string | undefined> = process.env,
   store: RuntimeStore = getRuntimeStore(),
 ): Promise<ResearchReport> => {
+  const scopedMarketType = asMarketType(input.marketType, 'points');
   const startedAt = Date.now();
   const registry = new ConnectorRegistry(env);
   [OddsConnector, InjuriesConnector, StatsConnector, NewsConnector].forEach((connector) => registry.register(connector));
@@ -119,7 +122,7 @@ export const buildResearchSnapshot = async (
   const claims: Claim[] = safeEvidence.slice(0, 3).map((item, idx) => ({
     id: `claim_${idx + 1}`,
     text: `Evidence-backed signal from ${item.sourceName}: ${item.contentExcerpt}`,
-    rationale: 'Rules engine generated claim from normalized deterministic evidence.',
+    rationale: `Rules engine generated ${scopedMarketType}-scoped claim from normalized deterministic evidence.`,
     evidenceIds: [item.id],
     confidence: confidence(input.seed, safeEvidence.length, idx),
   }));
@@ -134,7 +137,7 @@ export const buildResearchSnapshot = async (
     subject: input.subject,
     claims,
     evidence: safeEvidence,
-    summary: `Snapshot generated with ${safeEvidence.length} evidence items and ${claims.length} claims.`,
+    summary: `Snapshot generated with ${safeEvidence.length} evidence items and ${claims.length} ${scopedMarketType}-scoped claims.`,
     confidenceSummary: { averageClaimConfidence: Number(avg.toFixed(4)), deterministic: true },
     risks: ['Evidence is connector-scoped and tier-gated.'],
     assumptions: ['Confidence is deterministic heuristic, not calibrated.'],
@@ -153,7 +156,7 @@ export const buildResearchSnapshot = async (
       agentId: 'research_snapshot',
       agentVersion: 'runtime-deterministic-v1',
       gameId: input.subject,
-      marketType: asMarketType(input.marketType, 'points'),
+      marketType: scopedMarketType,
       market: 'snapshot_claim',
       selection: claims[0].text,
       line: null,

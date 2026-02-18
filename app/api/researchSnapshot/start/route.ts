@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { asMarketType } from '@/src/core/markets/marketType';
 import { buildResearchSnapshot } from '@/src/flows/researchSnapshot/buildResearchSnapshot';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
     userId?: string;
     tier?: 'free' | 'premium';
     seed?: string;
+    marketType?: string;
     requestId?: string;
   };
 
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
       requestId,
       traceId,
       runId,
+      marketType: asMarketType(body.marketType, 'points'),
     },
     emitter,
     process.env,

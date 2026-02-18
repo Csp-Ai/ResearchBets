@@ -1,63 +1,43 @@
-# ResearchBets MVP
+# ResearchBets
 
-ResearchBets is an AI-assisted sports research product built around one loop:
+ResearchBets is a **copilot for player prop bettors**.
 
-**Upload Slip → Extract → Verify Context → Identify Pattern → Surface Assumptions → Save → Post-Game Reflection**
+North Star: **Slip ingestion ➝ leg insights ➝ auto research ➝ risk framing** so bettors can move from noisy slips to confident, traceable decisions.
 
-## Core Product Principle
+## Product Loop
 
-Do not build a betting AI. Build a thinking system.
+1. Bettor uploads or pastes a slip.
+2. System extracts each leg and normalizes the market via `MarketType`.
+3. UI shows market-specific context (hit rate, matchup notes, injuries, trend, risk tags).
+4. Snapshot pipeline produces recommendation evidence and reasoning for follow-through.
 
-The product edge is:
-- structure,
-- verification,
-- and post-game reflection.
+## Canonical Prop Architecture
 
-## MVP Scope (NBA-first)
+`MarketType` is the canonical market enum used across ingestion, persistence, measurement, and UX.
 
-1. **Today's Games**: schedule, confirmed lineups, totals/spreads, and injury feed.
-2. **Slip Upload**: screenshot/text upload, extracted legs, user edits, extraction confidence.
-3. **Research Output**: strictly ordered Facts → Context → Patterns → Assumptions.
-4. **Post-Game Review**: leg outcomes + structured reflection output.
+- Ingestion parsing: `src/core/slips/extract.ts`
+- Snapshot composition: `src/flows/researchSnapshot/buildResearchSnapshot.ts`
+- Runtime persistence: `src/core/persistence/runtimeStore.ts`
+- Recommendation measurement: `src/core/measurement/recommendations.ts`
+- Market normalization source of truth: `src/core/markets/marketType.ts`
 
-Authentication is optional for saving history; research workflows remain usable anonymously.
+## Core Components
 
-## Minimal Viable Intelligence (4-agent pipeline)
+- **SlipIngestion**: capture raw slips + normalize markets.
+- **SnapshotAgent**: produce deterministic research snapshots scoped by market.
+- **Graph View**: trace runtime events and orchestration nodes.
+- **EvidenceDrawer**: inspect claims, evidence, and event-level detail.
 
-ResearchBets deliberately uses a pipeline (not a free-form swarm):
+## LLM / Copilot Primary Context Files
 
-1. **SlipRecognition**
-   - Converts unstructured sportsbook input into structured legs.
-   - No opinions, only extraction.
-2. **ContextVerification**
-   - Reads immutable context (starters, injuries, pace, spread/total, recent usage).
-   - Produces timestamped evidence records.
-3. **PatternClassification**
-   - Labels slip construction patterns and surfaces assumptions.
-   - Keeps facts and inference separated.
-4. **Reflection**
-   - Post-game comparison of assumptions vs outcomes.
-   - No predictions, no advice, no blame.
+Keep these files clean and declarative; they are the highest-value context for Copilot/Codex:
 
-Every agent reads JSON and outputs JSON. Downstream agents cannot rewrite upstream facts.
+- `src/core/markets/marketType.ts`
+- `src/flows/researchSnapshot/buildResearchSnapshot.ts`
+- `src/core/slips/extract.ts`
+- `src/agents/researchSnapshot/ResearchSnapshotAgent.ts`
 
-## Evidence Metadata Contract
-
-Every claim-like item should be represented as:
-
-```json
-{
-  "claim": "",
-  "evidence": "",
-  "source_type": "",
-  "timestamp": "",
-  "confidence": 0.0
-}
-```
-
-This evidence layer is mandatory for trust and auditability.
-
-## Local Development Setup
+## Local Development
 
 ```bash
 npm install
@@ -65,11 +45,10 @@ cp .env.example .env.local
 npm run dev
 ```
 
-## Quality gates
+## Quality Gates
 
 ```bash
 npm run lint
 npm run typecheck
-npm run format
-node scripts/validate-agent-registry
+npm run test
 ```

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { executeAgent } from '../../../core/agent-runtime/executeAgent';
 import { InMemoryEventEmitter } from '../../../core/control-plane/emitter';
 import { ResearchReportSchema } from '../../../core/evidence/validators';
+import { MemoryRuntimeStore } from '../../../core/persistence/runtimeDb';
 import { buildResearchSnapshot } from '../../../flows/researchSnapshot/buildResearchSnapshot';
 import { ResearchSnapshotAgent } from '../ResearchSnapshotAgent';
 
@@ -65,5 +66,55 @@ describe('ResearchSnapshotAgent', () => {
     );
 
     expect(first.evidence.map((item) => item.contentHash)).toEqual(second.evidence.map((item) => item.contentHash));
+  });
+
+  it('persists marketType-scoped recommendations with prop fallback', async () => {
+    process.env.ODDS_CONNECTOR_KEY = 'x';
+    process.env.STATS_CONNECTOR_KEY = 'x';
+    process.env.NEWS_CONNECTOR_KEY = 'x';
+
+    const store = new MemoryRuntimeStore();
+    const gameId = `${baseInput.sport}:${baseInput.league}:${baseInput.awayTeam}@${baseInput.homeTeam}`;
+
+    await buildResearchSnapshot(
+      {
+        subject: gameId,
+        sessionId: 's3',
+        userId: 'u3',
+        tier: 'free',
+        environment: 'dev',
+        seed: 'seed-abc',
+        requestId: 'req-3',
+        traceId: 'trace-3',
+        runId: 'run-3',
+      },
+      new InMemoryEventEmitter(),
+      process.env,
+      store,
+    );
+
+    const fallbackRecommendations = await store.listRecommendationsByGame(gameId);
+    expect(fallbackRecommendations[0]?.marketType).toBe('points');
+
+    await buildResearchSnapshot(
+      {
+        subject: gameId,
+        sessionId: 's4',
+        userId: 'u4',
+        tier: 'free',
+        environment: 'dev',
+        seed: 'seed-def',
+        requestId: 'req-4',
+        traceId: 'trace-4',
+        runId: 'run-4',
+        marketType: 'rebounds',
+      },
+      new InMemoryEventEmitter(),
+      process.env,
+      store,
+    );
+
+    const scopedRecommendations = await store.listRecommendationsByGame(gameId);
+    expect(scopedRecommendations.some((recommendation) => recommendation.marketType === 'rebounds')).toBe(true);
   });
 });
