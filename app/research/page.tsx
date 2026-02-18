@@ -13,6 +13,7 @@ import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
 import { TerminalLoopShell } from '@/src/components/TerminalLoopShell';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
+import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 import { runUiAction } from '@/src/core/ui/actionContract';
 import { buildNavigationHref } from '@/src/core/ui/navigation';
 import { useTraceEvents } from '@/src/hooks/useTraceEvents';
@@ -24,6 +25,24 @@ type GameRow = {
   startsAt: string;
   source: 'live' | 'demo';
 };
+
+
+const RESEARCH_PAGE_COPY = [
+  'Found {n} games for terminal review ({source}).',
+  'Showing best available demo games for research terminal review.',
+  'Search failed. Showing cached/demo games for terminal review.',
+  'Unable to select game in terminal right now.',
+  'Position logged for research analysis.',
+  'Failed to log position.',
+  'Research run started for {game}.',
+  'Research run unavailable. Retrying with demo context later.',
+  'Unable to open Live Market Terminal right now.',
+  'Share link copied to clipboard.',
+  'Unable to copy share card link.',
+  'Research output supports decisions; it is not deterministic advice.',
+  'Market search (falls through to best-available demo games for terminal continuity)',
+  'Waiting for trace events…'
+] as const;
 
 function toProgressTimestamp(events: ControlPlaneEvent[], progress: number): number {
   if (events.length === 0) return Date.now();
@@ -65,6 +84,17 @@ export default function ResearchPage() {
 
   const hasTraceId = Boolean(chainTraceId);
   const usingDemo = !hasTraceId;
+
+  useEffect(() => {
+    validateCopyPolicyInDev([
+      {
+        id: 'research.page',
+        surface: 'research',
+        file: 'app/research/page.tsx',
+        strings: RESEARCH_PAGE_COPY
+      }
+    ]);
+  }, []);
 
   useEffect(() => {
     void runUiAction({

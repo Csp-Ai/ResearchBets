@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { createClientRequestId } from '@/src/core/identifiers/session';
+import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 import { runUiAction } from '@/src/core/ui/actionContract';
 import { buildNavigationHref } from '@/src/core/ui/navigation';
 
@@ -24,6 +25,17 @@ type LiveGame = {
 };
 
 const SPORTS = ['NFL', 'NBA', 'MLB', 'Soccer', 'UFC', 'NHL'];
+
+const LIVE_GAMES_COPY = [
+  'Loading live market board…',
+  'Research Terminal board refreshed from cached/demo snapshot.',
+  'No rows yet. Showing deterministic demo market rows.',
+  'Live feed degraded. Demo market rows stay visible for terminal workflow.',
+  'Quick model complete. Delta panel updated (delta is not a pick).',
+  'Quick model unavailable; market-only terminal view remains available.',
+  'Unable to open game details; retry from cached rows.',
+  'No live market rows returned. Try another sport or continue with deterministic demo rows via the tabs.'
+] as const;
 
 const asPercent = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
@@ -74,6 +86,17 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
       setGames([]);
     }
   };
+
+  useEffect(() => {
+    validateCopyPolicyInDev([
+      {
+        id: 'live.games.client',
+        surface: 'live',
+        file: 'src/components/live/LiveGamesClient.tsx',
+        strings: LIVE_GAMES_COPY
+      }
+    ]);
+  }, []);
 
   useEffect(() => {
     void loadGames(sport);

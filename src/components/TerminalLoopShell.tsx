@@ -124,6 +124,16 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
 
   const timeline = useMemo(() => selectTimelineEvents(events), [events]);
 
+  const navigateWithAction = async (actionName: string, destination: string) => {
+    const outcome = await runUiAction({
+      actionName,
+      traceId: chainTraceId,
+      execute: async () => ({ ok: true, source: 'live' as const, data: { destination } })
+    });
+    if (!outcome.ok) return;
+    router.push(destination);
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-slate-800 bg-slate-900/90 p-6">
