@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 
+import { consolidateAgentProgress } from '../core/agents/progress';
+
 export type ControlPlaneEvent = {
   id?: string;
   event_name: string;
@@ -187,6 +189,19 @@ export function reconstructGraphState(
   );
 
   const activeEdges = new Set<string>();
+
+  if (process.env.NODE_ENV !== 'production') {
+    const progressEvents = sorted
+      .filter((event) => event.event_name === 'agent_invocation_completed' || event.event_name === 'agent_invocation_started')
+      .map((event) => ({
+        agentKey: String(event.payload?.agent_id ?? event.payload?.agentId ?? 'unknown'),
+        track: (String(event.payload?.track ?? 'baseline') === 'hybrid' ? 'hybrid' : 'baseline') as 'baseline' | 'hybrid',
+        progress: Number(event.payload?.progress ?? (event.event_name === 'agent_invocation_completed' ? 100 : 45)),
+        status: (event.event_name === 'agent_invocation_completed' ? 'completed' : 'running') as 'completed' | 'running',
+        finalVerdict: typeof event.payload?.final_verdict === 'string' ? String(event.payload?.final_verdict) : undefined,
+      }));
+    consolidateAgentProgress(progressEvents, KNOWN_AGENTS, true);
+  }
 
   for (const event of sorted) {
     const eventMs = parseMillis(event.created_at);

@@ -10,6 +10,7 @@ import type {
   OddsSnapshot,
   RecommendationOutcome,
   RuntimeStore,
+  InsightNodeRecord,
   SessionRecord,
   SlipSubmission,
   StoredBet,
@@ -30,6 +31,7 @@ export interface RuntimeDb {
   experimentAssignments: ExperimentAssignment[];
   webCache: WebCacheRecord[];
   slipSubmissions: SlipSubmission[];
+  insightNodes: InsightNodeRecord[];
 }
 
 export const persistenceDb: RuntimeDb = {
@@ -46,6 +48,7 @@ export const persistenceDb: RuntimeDb = {
   experimentAssignments: [],
   webCache: [],
   slipSubmissions: [],
+  insightNodes: [],
 };
 
 export class MemoryRuntimeStore implements RuntimeStore {
@@ -185,6 +188,20 @@ export class MemoryRuntimeStore implements RuntimeStore {
     );
   }
 
+
+  async saveInsightNode(node: InsightNodeRecord): Promise<void> {
+    const existingIndex = persistenceDb.insightNodes.findIndex((item) => item.insightId === node.insightId);
+    if (existingIndex >= 0) {
+      persistenceDb.insightNodes[existingIndex] = node;
+      return;
+    }
+    persistenceDb.insightNodes.unshift(node);
+  }
+
+  async listInsightNodesByRun(runId: string): Promise<InsightNodeRecord[]> {
+    return persistenceDb.insightNodes.filter((item) => item.runId === runId);
+  }
+
   async saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void> {
     const existingIndex = persistenceDb.recommendationOutcomes.findIndex((item) => item.recommendationId === outcome.recommendationId);
     if (existingIndex >= 0) {
@@ -276,4 +293,5 @@ export const resetRuntimeDb = (): void => {
   persistenceDb.experimentAssignments.length = 0;
   persistenceDb.webCache.length = 0;
   persistenceDb.slipSubmissions.length = 0;
+  persistenceDb.insightNodes.length = 0;
 };

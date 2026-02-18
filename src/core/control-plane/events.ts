@@ -31,6 +31,11 @@ export const ControlPlaneEventNameSchema = z.enum([
   'slip_extracted',
   'slip_extract_failed',
   'ui_view_loaded',
+  'ui_action_started',
+  'ui_action_succeeded',
+  'ui_action_failed',
+  'insight_node_created',
+  'insight_graph_built',
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {

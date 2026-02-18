@@ -12,6 +12,7 @@ import type {
   OddsSnapshot,
   RecommendationOutcome,
   RuntimeStore,
+  InsightNodeRecord,
   SessionRecord,
   SlipSubmission,
   StoredBet,
@@ -39,6 +40,7 @@ const TABLES = {
   experimentAssignments: 'experiment_assignments',
   webCache: 'web_cache',
   slipSubmissions: 'slip_submissions',
+  insightNodes: 'insight_nodes',
 } as const;
 
 const mapBet = (data: Record<string, unknown>): StoredBet => ({
@@ -434,6 +436,50 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       responseBody: data.response_body as string,
       expiresAt: (data.expires_at as string | null) ?? null,
     };
+  }
+
+
+  async saveInsightNode(node: InsightNodeRecord): Promise<void> {
+    const { error } = await this.client.from(TABLES.insightNodes).upsert({
+      insight_id: node.insightId,
+      trace_id: node.traceId,
+      run_id: node.runId,
+      game_id: node.gameId,
+      agent_key: node.agentKey,
+      track: node.track,
+      insight_type: node.insightType,
+      claim: node.claim,
+      evidence: node.evidence,
+      confidence: node.confidence,
+      timestamp: node.timestamp,
+      decay_half_life_minutes: node.decayHalfLifeMinutes,
+      market_implied: node.marketImplied,
+      model_implied: node.modelImplied,
+      delta: node.delta,
+    });
+    if (error) throw error;
+  }
+
+  async listInsightNodesByRun(runId: string): Promise<InsightNodeRecord[]> {
+    const { data, error } = await this.client.from(TABLES.insightNodes).select('*').eq('run_id', runId).order('timestamp', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      insightId: row.insight_id as string,
+      traceId: row.trace_id as string,
+      runId: row.run_id as string,
+      gameId: row.game_id as string,
+      agentKey: row.agent_key as string,
+      track: row.track as InsightNodeRecord['track'],
+      insightType: row.insight_type as InsightNodeRecord['insightType'],
+      claim: row.claim as string,
+      evidence: (row.evidence as InsightNodeRecord['evidence']) ?? [],
+      confidence: Number(row.confidence),
+      timestamp: row.timestamp as string,
+      decayHalfLifeMinutes: Number(row.decay_half_life_minutes),
+      marketImplied: row.market_implied == null ? undefined : Number(row.market_implied),
+      modelImplied: row.model_implied == null ? undefined : Number(row.model_implied),
+      delta: row.delta == null ? undefined : Number(row.delta),
+    }));
   }
 
   async saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void> {

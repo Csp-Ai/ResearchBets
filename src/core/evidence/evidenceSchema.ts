@@ -39,4 +39,9 @@ export interface ResearchReport {
   };
   risks: string[];
   assumptions: string[];
+  transparency?: {
+    countsByInsightType: Record<string, number>;
+    fragilityVariables: Array<{ insightId: string; claim: string; confidence: number; impactDelta: number }>;
+    disagreementProxyByType: Record<string, number>;
+  };
 }

@@ -155,6 +155,25 @@ export interface ExperimentAssignment {
   createdAt: string;
 }
 
+
+export interface InsightNodeRecord {
+  insightId: string;
+  traceId: string;
+  runId: string;
+  gameId: string;
+  agentKey: string;
+  track: 'baseline' | 'hybrid';
+  insightType: 'injury' | 'line_move' | 'matchup_stat' | 'narrative' | 'weather' | 'market_delta' | 'correlated_risk';
+  claim: string;
+  evidence: Array<{ source: string; url?: string; snippet?: string }>;
+  confidence: number;
+  timestamp: string;
+  decayHalfLifeMinutes: number;
+  marketImplied?: number;
+  modelImplied?: number;
+  delta?: number;
+}
+
 export interface SlipSubmission {
   id: string;
   anonSessionId: string | null;
@@ -210,6 +229,8 @@ export interface RuntimeStore {
   saveWebCache(record: WebCacheRecord): Promise<void>;
   getLatestWebCacheByUrl(url: string): Promise<WebCacheRecord | null>;
   saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void>;
+  saveInsightNode(node: InsightNodeRecord): Promise<void>;
+  listInsightNodesByRun(runId: string): Promise<InsightNodeRecord[]>;
   getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null>;
   saveExperiment(experiment: ExperimentRecord): Promise<void>;
   getExperiment(name: string): Promise<ExperimentRecord | null>;

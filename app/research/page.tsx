@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import {
   AgentNodeGraph,
@@ -13,7 +13,10 @@ import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
 import { TerminalLoopShell } from '@/src/components/TerminalLoopShell';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
+import { runUiAction } from '@/src/core/ui/actionContract';
 import { useTraceEvents } from '@/src/hooks/useTraceEvents';
+
+type GameRow = { gameId: string; label: string; league: string; startsAt: string; source: 'live' | 'demo' };
 
 function toProgressTimestamp(events: ControlPlaneEvent[], progress: number): number {
   if (events.length === 0) return Date.now();
@@ -25,6 +28,7 @@ function toProgressTimestamp(events: ControlPlaneEvent[], progress: number): num
 }
 
 export default function ResearchPage() {
+  const router = useRouter();
   const search = useSearchParams();
   const snapshotId = search.get('snapshotId') ?? '';
   const traceId = search.get('trace_id') ?? '';
@@ -37,16 +41,30 @@ export default function ResearchPage() {
   const [progress, setProgress] = useState(100);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchText, setSearchText] = useState('NFL');
+  const [games, setGames] = useState<GameRow[]>([]);
+  const [activeGame, setActiveGame] = useState<GameRow | null>(null);
 
-  const { events, loading, error } = useTraceEvents({
-    traceId,
-    limit: 180,
-    pollIntervalMs: 2000,
-    enabled: liveMode,
-  });
+  const { events, loading, error } = useTraceEvents({ traceId, limit: 180, pollIntervalMs: 2000, enabled: liveMode });
 
   const hasTraceId = Boolean(traceId);
   const usingDemo = !hasTraceId;
+
+  useEffect(() => {
+    void runUiAction({
+      actionName: 'game_search',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const res = await fetch(`/api/games/search?q=${encodeURIComponent(searchText)}`);
+        const payload = (await res.json()) as { games?: GameRow[]; source?: 'live' | 'demo'; degraded?: boolean };
+        const rows = payload.games ?? [];
+        setGames(rows);
+        if (rows.length > 0 && !activeGame) setActiveGame(rows[0] ?? null);
+        return { ok: true, data: rows, source: payload.source ?? 'demo', degraded: payload.degraded ?? false };
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!replayMode) return;
@@ -78,19 +96,49 @@ export default function ResearchPage() {
   }, [isPlaying, liveMode, speed]);
 
   const replayTimestamp = useMemo(() => toProgressTimestamp(events, progress), [events, progress]);
-  const graphState = useMemo(
-    () => reconstructGraphState(events, liveMode ? undefined : replayTimestamp),
-    [events, liveMode, replayTimestamp],
-  );
-
+  const graphState = useMemo(() => reconstructGraphState(events, liveMode ? undefined : replayTimestamp), [events, liveMode, replayTimestamp]);
   const selectedNode = GRAPH_NODES.find((node) => node.id === selectedNodeId);
+
+  const runSearch = async () => {
+    const outcome = await runUiAction({
+      actionName: 'game_search',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const res = await fetch(`/api/games/search?q=${encodeURIComponent(searchText)}`);
+        if (!res.ok) return { ok: false, error_code: 'search_failed', source: 'demo' as const };
+        const payload = (await res.json()) as { games?: GameRow[]; source?: 'live' | 'demo'; degraded?: boolean };
+        const rows = payload.games ?? [];
+        setGames(rows);
+        if (rows.length > 0) setActiveGame(rows[0] ?? null);
+        setStatus(rows.length > 0 ? `Found ${rows.length} games (${payload.source ?? 'demo'}).` : 'Showing best available demo games.');
+        return { ok: true, data: rows, source: payload.source ?? 'demo', degraded: payload.degraded ?? false };
+      },
+    });
+    if (!outcome.ok) setStatus('Search failed. Showing cached/demo games.');
+  };
+
+  const selectGame = async (game: GameRow) => {
+    const outcome = await runUiAction({
+      actionName: 'select_game_row',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const res = await fetch(`/api/games/${encodeURIComponent(game.gameId)}`);
+        const payload = await res.json();
+        const selected = (payload.game ?? game) as GameRow;
+        setActiveGame(selected);
+        router.push(`/research?snapshotId=${encodeURIComponent(snapshotId || selected.gameId)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`);
+        return { ok: true, data: selected, source: (payload.source ?? game.source) as 'live' | 'demo', degraded: payload.source === 'demo' };
+      },
+    });
+    if (!outcome.ok) setStatus('Unable to select game right now.');
+  };
 
   const submit = async (formData: FormData) => {
     const anonSessionId = ensureAnonSessionId();
     const bet = {
       sessionId: anonSessionId,
       userId: anonSessionId,
-      snapshotId,
+      snapshotId: snapshotId || activeGame?.gameId || 'DEMO',
       traceId: traceId || createClientRequestId(),
       runId: createClientRequestId(),
       selection: formData.get('selection')?.toString() ?? 'Unknown',
@@ -98,15 +146,55 @@ export default function ResearchPage() {
       stake: Number(formData.get('stake') ?? 100),
       confidence: Number(formData.get('confidence') ?? 0.65),
       idempotencyKey: createClientRequestId(),
+      gameId: activeGame?.gameId ?? null,
     };
 
-    const response = await fetch('/api/bets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bet),
+    const tracked = await runUiAction({
+      actionName: 'track_bet_cta',
+      traceId: bet.traceId,
+      execute: async () => {
+        const response = await fetch('/api/bets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bet) });
+        if (!response.ok) return { ok: false, source: 'live' as const, error_code: 'track_bet_failed' };
+        return { ok: true, source: 'live' as const, data: await response.json() };
+      },
     });
 
-    setStatus(response.ok ? 'Bet logged for analysis.' : 'Failed to log bet.');
+    setStatus(tracked.ok ? 'Bet logged for analysis.' : 'Failed to log bet.');
+  };
+
+  const runAnalysis = async () => {
+    const outcome = await runUiAction({
+      actionName: 'run_analysis',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const anonSessionId = ensureAnonSessionId();
+        const response = await fetch('/api/researchSnapshot/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject: activeGame?.gameId ?? 'NFL_DEMO_1', sessionId: anonSessionId, userId: anonSessionId, tier: 'free', seed: 'demo-seed', requestId: createClientRequestId() }),
+        });
+        const data = await response.json();
+        if (!response.ok) return { ok: false, source: 'demo' as const, error_code: 'analysis_failed' };
+        router.push(`/research?snapshotId=${encodeURIComponent(data.snapshotId)}&trace_id=${encodeURIComponent(data.traceId)}`);
+        setStatus(`Analysis started for ${activeGame?.label ?? activeGame?.gameId ?? 'demo game'}.`);
+        return { ok: true, data, source: 'live' as const };
+      },
+    });
+    if (!outcome.ok) setStatus('Analysis unavailable. Retrying with demo context later.');
+  };
+
+  const shareView = async () => {
+    const outcome = await runUiAction({
+      actionName: 'share_card_export',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const url = typeof window !== 'undefined' ? window.location.href : `/research?snapshotId=${snapshotId}`;
+        await navigator.clipboard.writeText(url);
+        setStatus('Share link copied to clipboard.');
+        return { ok: true, data: { url }, source: 'live' as const };
+      },
+    });
+    if (!outcome.ok) setStatus('Unable to copy share card link.');
   };
 
   return (
@@ -115,7 +203,27 @@ export default function ResearchPage() {
 
       <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
         <h1 className="text-2xl font-semibold">Log Research Outcome</h1>
-        <p className="text-sm text-slate-400">Snapshot: {snapshotId || 'Not started'} · Trace: {traceId || 'Pending'}</p>
+        <p className="text-sm text-slate-400">Snapshot: {snapshotId || 'Not started'} · Trace: {traceId || 'Pending'} · Game: {activeGame ? `${activeGame.label} (${activeGame.source})` : 'none'}</p>
+
+        <div className="mt-4 rounded border border-slate-800 bg-slate-950/50 p-3">
+          <p className="text-xs text-slate-400">Game search (always falls through to best-available demo games)</p>
+          <div className="mt-2 flex gap-2">
+            <input value={searchText} onChange={(event) => setSearchText(event.target.value)} className="flex-1 rounded bg-slate-900 p-2 text-sm" placeholder="Search games" />
+            <button type="button" onClick={runSearch} className="rounded bg-cyan-600 px-3 py-2 text-sm">Search</button>
+            <button type="button" onClick={runAnalysis} className="rounded bg-indigo-600 px-3 py-2 text-sm">Run analysis</button>
+            <button type="button" onClick={shareView} className="rounded border border-slate-700 px-3 py-2 text-sm">Share</button>
+          </div>
+          <ul className="mt-3 max-h-36 space-y-1 overflow-y-auto text-xs">
+            {games.map((game) => (
+              <li key={game.gameId}>
+                <button type="button" onClick={() => selectGame(game)} className="w-full rounded border border-slate-800 bg-slate-900 px-2 py-1 text-left hover:border-cyan-400/60">
+                  {game.label} · {game.league} · {game.gameId} · {game.source}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="mt-3">
           <button type="button" onClick={() => setAdvancedView((current) => !current)} className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-cyan-400/70" aria-pressed={advancedView}>
             {advancedView ? 'Hide Advanced View' : 'Advanced View'}
@@ -126,7 +234,7 @@ export default function ResearchPage() {
           <input className="rounded bg-slate-950 p-2" name="odds" placeholder="Decimal odds" defaultValue="1.91" />
           <input className="rounded bg-slate-950 p-2" name="stake" placeholder="Stake" defaultValue="100" />
           <input className="rounded bg-slate-950 p-2" name="confidence" placeholder="Confidence" defaultValue="0.68" />
-          <button type="submit" className="rounded bg-sky-600 px-3 py-2 font-medium">Save outcome</button>
+          <button type="submit" className="rounded bg-sky-600 px-3 py-2 font-medium">Track bet</button>
         </form>
         <p className="mt-2 text-xs text-slate-400">{status}</p>
 
