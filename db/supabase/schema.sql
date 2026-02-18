@@ -110,3 +110,14 @@ create index if not exists game_results_lookup_idx on public.game_results (game_
 create index if not exists game_results_source_idx on public.game_results (source_domain, fetched_at desc);
 create index if not exists web_cache_url_fetch_idx on public.web_cache (url, fetched_at desc);
 create index if not exists web_cache_domain_fetch_idx on public.web_cache (domain, fetched_at desc);
+
+
+alter table if exists public.odds_snapshots
+  add column if not exists consensus_level text not null default 'single_source',
+  add column if not exists sources_used text[] not null default '{}',
+  add column if not exists disagreement_score numeric not null default 0;
+
+alter table if exists public.game_results
+  add column if not exists consensus_level text not null default 'single_source',
+  add column if not exists sources_used text[] not null default '{}',
+  add column if not exists disagreement_score numeric not null default 0;

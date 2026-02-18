@@ -303,3 +303,14 @@ create policy if not exists ai_recommendations_session_policy on public.ai_recom
 create policy if not exists experiment_assignments_subject_policy on public.experiment_assignments
   for all using (coalesce(auth.uid()::text, anon_session_id) = coalesce(user_id, anon_session_id))
   with check (coalesce(auth.uid()::text, anon_session_id) = coalesce(user_id, anon_session_id));
+
+
+alter table if exists public.odds_snapshots
+  add column if not exists consensus_level text not null default 'single_source',
+  add column if not exists sources_used text[] not null default '{}',
+  add column if not exists disagreement_score numeric not null default 0;
+
+alter table if exists public.game_results
+  add column if not exists consensus_level text not null default 'single_source',
+  add column if not exists sources_used text[] not null default '{}',
+  add column if not exists disagreement_score numeric not null default 0;

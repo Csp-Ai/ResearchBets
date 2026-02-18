@@ -84,6 +84,9 @@ export interface OddsSnapshot {
   stalenessMs: number;
   freshnessScore: number;
   resolutionReason: string | null;
+  consensusLevel: 'single_source' | 'two_source_agree' | 'three_source_agree' | 'conflict';
+  sourcesUsed: string[];
+  disagreementScore: number;
 }
 
 export interface GameResultRecord {
@@ -101,6 +104,9 @@ export interface GameResultRecord {
   checksum: string;
   stalenessMs: number;
   freshnessScore: number;
+  consensusLevel: 'single_source' | 'two_source_agree' | 'three_source_agree' | 'conflict';
+  sourcesUsed: string[];
+  disagreementScore: number;
 }
 
 export interface WebCacheRecord {

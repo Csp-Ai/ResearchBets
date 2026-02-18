@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto';
 import type { EventEmitter } from '../control-plane/emitter';
 import type { RuntimeStore } from '../persistence/runtimeStore';
 import { getRuntimeStore } from '../persistence/runtimeStoreProvider';
+import { findSources } from '../web/search';
 import { walConfig } from '../web/config';
-import { acquireWebData } from '../web/index';
+import { acquireConsensusRecord } from '../web/consensus';
 
 export const ingestGameResult = async (
   gameId: string,
@@ -38,6 +39,9 @@ export const ingestGameResult = async (
     checksum: (payload.checksum as string | undefined) ?? 'manual',
     stalenessMs: Number(payload.staleness_ms ?? 0),
     freshnessScore: Number(payload.freshness_score ?? 1),
+    consensusLevel: (payload.consensus_level as 'single_source' | 'two_source_agree' | 'three_source_agree' | 'conflict' | undefined) ?? 'single_source',
+    sourcesUsed: (payload.sources_used as string[] | undefined) ?? [],
+    disagreementScore: Number(payload.disagreement_score ?? 0),
   });
 
   await emitter.emit({
@@ -57,6 +61,8 @@ export const ingestGameResult = async (
       pnl_amount: 0,
       settled_at: completedAt,
       is_final: isFinal,
+      consensus_level: payload.consensus_level ?? 'single_source',
+      disagreement_score: payload.disagreement_score ?? 0,
     },
   });
 };
@@ -74,15 +80,17 @@ export const acquireAndIngestGameResult = async (
   emitter: EventEmitter,
   store: RuntimeStore = getRuntimeStore(),
 ): Promise<void> => {
-  const wal = await acquireWebData({
-    request: { url: sourceUrl, dataType: 'results', parserHint: 'json', maxStalenessMs: walConfig.resultsStalenessMs },
+  const fallbackSource = { name: 'provided_source', domain: new URL(sourceUrl).hostname.toLowerCase(), url: sourceUrl, trust: 'official' as const };
+  const sources = [fallbackSource, ...findSources({ sport: 'global', kind: 'results' }).filter((item) => item.url !== sourceUrl)];
+  const record = await acquireConsensusRecord({
+    sources,
+    dataType: 'results',
     requestContext,
     emitter,
     store,
   });
-
-  const record = wal.records[0];
   if (!record) return;
+
   await ingestGameResult(
     gameId,
     {
@@ -97,6 +105,9 @@ export const acquireAndIngestGameResult = async (
       checksum: record.checksum,
       staleness_ms: record.stalenessMs,
       freshness_score: record.freshnessScore,
+      consensus_level: record.consensusLevel,
+      sources_used: record.sourcesUsed,
+      disagreement_score: record.disagreementScore,
     },
     requestContext,
     emitter,

@@ -38,6 +38,9 @@ export interface WalNormalizedRecord {
   publishedAt: string | null;
   parserVersion: string;
   checksum: string;
+  consensusLevel?: 'single_source' | 'two_source_agree' | 'three_source_agree' | 'conflict';
+  sourcesUsed?: string[];
+  disagreementScore?: number;
 }
 
 export interface WalAcquireResponse {

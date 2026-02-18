@@ -4,7 +4,8 @@ import type { EventEmitter } from '../control-plane/emitter';
 import type { RuntimeStore } from '../persistence/runtimeStore';
 import { getRuntimeStore } from '../persistence/runtimeStoreProvider';
 import { walConfig } from '../web/config';
-import { acquireWebData } from '../web/index';
+import { findSources } from '../web/search';
+import { acquireConsensusRecord } from '../web/consensus';
 
 import type { MarketType } from './clv';
 
@@ -37,6 +38,9 @@ export interface CaptureOddsInput {
   stalenessMs?: number;
   freshnessScore?: number;
   resolutionReason?: string | null;
+  consensusLevel?: 'single_source' | 'two_source_agree' | 'three_source_agree' | 'conflict';
+  sourcesUsed?: string[];
+  disagreementScore?: number;
 }
 
 export const captureOddsSnapshot = async (
@@ -69,6 +73,9 @@ export const captureOddsSnapshot = async (
     stalenessMs: input.stalenessMs ?? 0,
     freshnessScore: input.freshnessScore ?? 1,
     resolutionReason: input.resolutionReason ?? null,
+    consensusLevel: input.consensusLevel ?? 'single_source',
+    sourcesUsed: input.sourcesUsed ?? (input.sourceDomain ? [input.sourceDomain] : []),
+    disagreementScore: input.disagreementScore ?? 0,
   });
 
   await emitter.emit({
@@ -89,6 +96,8 @@ export const captureOddsSnapshot = async (
       source_url: input.sourceUrl ?? null,
       source_domain: input.sourceDomain ?? null,
       staleness_ms: input.stalenessMs ?? 0,
+      consensus_level: input.consensusLevel ?? 'single_source',
+      disagreement_score: input.disagreementScore ?? 0,
     },
   });
 };
@@ -107,14 +116,16 @@ export const acquireAndCaptureOddsSnapshot = async (
   emitter: EventEmitter,
   store: RuntimeStore = getRuntimeStore(),
 ): Promise<void> => {
-  const wal = await acquireWebData({
-    request: { url: params.sourceUrl, dataType: 'odds', parserHint: 'json', maxStalenessMs: walConfig.oddsStalenessMs },
+  const fallbackSource = { name: 'provided_source', domain: new URL(params.sourceUrl).hostname.toLowerCase(), url: params.sourceUrl, trust: 'official' as const };
+  const sources = [fallbackSource, ...findSources({ sport: 'global', kind: 'odds' }).filter((item) => item.url !== params.sourceUrl)];
+  const record = await acquireConsensusRecord({
+    sources,
+    dataType: 'odds',
     requestContext: params.requestContext,
     emitter,
     store,
   });
 
-  const record = wal.records[0];
   if (!record) return;
 
   await captureOddsSnapshot(
@@ -137,10 +148,37 @@ export const acquireAndCaptureOddsSnapshot = async (
       checksum: record.checksum,
       stalenessMs: record.stalenessMs,
       freshnessScore: record.freshnessScore,
+      consensusLevel: record.consensusLevel ?? 'single_source',
+      sourcesUsed: record.sourcesUsed ?? [record.sourceDomain],
+      disagreementScore: record.disagreementScore ?? 0,
     },
     emitter,
     store,
   );
+};
+
+export const refreshOddsSnapshotIfStale = async (
+  params: {
+    sourceUrl: string;
+    gameId: string;
+    market: string;
+    marketType: MarketType;
+    selection: string;
+    book?: string;
+    gameStartsAt?: string | null;
+    requestContext: { requestId: string; traceId: string; runId: string; sessionId: string; userId: string; agentId: string; modelVersion: string };
+  },
+  emitter: EventEmitter,
+  store: RuntimeStore = getRuntimeStore(),
+): Promise<{ refreshed: boolean }> => {
+  const snapshots = await store.listOddsSnapshots(params.gameId, params.market, params.selection);
+  const latest = snapshots[0];
+  if (latest) {
+    const ageMs = Date.now() - new Date(latest.capturedAt).getTime();
+    if (ageMs <= walConfig.oddsRefreshStalenessMs) return { refreshed: false };
+  }
+  await acquireAndCaptureOddsSnapshot(params, emitter, store);
+  return { refreshed: true };
 };
 
 export const resolveClosingOdds = async ({
@@ -218,6 +256,8 @@ export const resolveClosingOdds = async ({
       selection,
       captured_at: closing.capturedAt,
       resolution_reason: closing.resolutionReason ?? resolutionReason,
+      consensus_level: closing.consensusLevel,
+      disagreement_score: closing.disagreementScore,
     },
   });
 
