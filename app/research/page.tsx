@@ -28,6 +28,7 @@ export default function ResearchPage() {
   const search = useSearchParams();
   const snapshotId = search.get('snapshotId') ?? '';
   const traceId = search.get('trace_id') ?? '';
+  const replayMode = search.get('replay') === '1';
   const [status, setStatus] = useState('');
   const [advancedView, setAdvancedView] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
@@ -46,6 +47,13 @@ export default function ResearchPage() {
 
   const hasTraceId = Boolean(traceId);
   const usingDemo = !hasTraceId;
+
+  useEffect(() => {
+    if (!replayMode) return;
+    setAdvancedView(true);
+    setLiveMode(false);
+    setProgress(0);
+  }, [replayMode]);
 
   useEffect(() => {
     if (liveMode) {

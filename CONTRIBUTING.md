@@ -14,7 +14,9 @@ ResearchBets is a decision engine for prop bettors. Any new ingestion, recommend
    - Ensure `marketType` flows leg ➝ snapshot ➝ recommendation persistence.
 3. **UI renderers must map to canonical market labels.**
    - Example: points → PTS, threes → 3PM, ra → RA, pra → PRA.
-4. **Fallback behavior is mandatory.**
+4. **Any prop UX must use `buildPropLegInsight` or extend it.**
+   - Do not duplicate prop tag/risk/label logic in isolated components.
+5. **Fallback behavior is mandatory.**
    - If incoming market is missing/invalid, fallback with `asMarketType(value, 'points')` and keep behavior deterministic.
 
 ## Test Expectations for Prop Work
