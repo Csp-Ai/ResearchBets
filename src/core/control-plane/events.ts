@@ -36,6 +36,14 @@ export const ControlPlaneEventNameSchema = z.enum([
   'ui_action_failed',
   'insight_node_created',
   'insight_graph_built',
+  'live_games_opened',
+  'market_snapshot_loaded',
+  'model_quickrun_started',
+  'model_quickrun_succeeded',
+  'model_quickrun_failed',
+  'model_snapshot_loaded',
+  'delta_computed',
+  'live_game_opened'
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {
@@ -43,7 +51,7 @@ const requiredPropertiesByEvent: Record<string, string[]> = {
   agent_invocation_completed: ['status', 'output_type', 'duration_ms'],
   agent_scored_decision: ['decision_id', 'market', 'score', 'rationale', 'features'],
   agent_error: ['status', 'error_code', 'error_type', 'error_message', 'retryable'],
-  user_outcome_recorded: ['outcome_id', 'bet_id', 'settlement_status', 'pnl_amount', 'settled_at'],
+  user_outcome_recorded: ['outcome_id', 'bet_id', 'settlement_status', 'pnl_amount', 'settled_at']
 };
 
 export const ControlPlaneEventSchema = z
@@ -59,13 +67,16 @@ export const ControlPlaneEventSchema = z
     model_version: z.string().min(1),
     confidence: z.number().min(0).max(1).nullable().optional(),
     assumptions: z.array(z.string()).nullable().optional(),
-    properties: z.record(z.unknown()).default({}),
+    properties: z.record(z.unknown()).default({})
   })
   .superRefine((event, ctx) => {
     const required = requiredPropertiesByEvent[event.event_name] ?? [];
     for (const key of required) {
       if (!(key in event.properties)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Missing required property ${key} for ${event.event_name}` });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Missing required property ${key} for ${event.event_name}`
+        });
       }
     }
   });
