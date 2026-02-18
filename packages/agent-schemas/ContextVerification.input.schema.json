@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextVerificationInput",
+  "type": "object",
+  "required": ["event_id", "sport", "legs"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "sport": { "type": "string", "enum": ["NBA"] },
+    "legs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["leg_id", "player", "team", "stat_type", "threshold"],
+        "properties": {
+          "leg_id": { "type": "string" },
+          "player": { "type": "string" },
+          "team": { "type": "string" },
+          "stat_type": { "type": "string" },
+          "threshold": { "type": "number" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

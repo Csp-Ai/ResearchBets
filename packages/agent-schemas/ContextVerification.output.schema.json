@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextVerificationOutput",
+  "type": "object",
+  "required": ["event_id", "records"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["leg_id", "claim", "evidence", "source_type", "timestamp", "confidence"],
+        "properties": {
+          "leg_id": { "type": "string" },
+          "claim": { "type": "string" },
+          "evidence": { "type": "string" },
+          "source_type": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

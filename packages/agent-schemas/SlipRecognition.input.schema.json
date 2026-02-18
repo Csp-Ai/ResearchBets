@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SlipRecognitionInput",
+  "type": "object",
+  "required": ["event_id", "sport", "source_type", "raw_slip"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "sport": { "type": "string", "enum": ["NBA"] },
+    "source_type": { "type": "string", "enum": ["image", "text"] },
+    "raw_slip": { "type": "string", "minLength": 1 },
+    "sportsbook": { "type": "string" }
+  },
+  "additionalProperties": false
+}

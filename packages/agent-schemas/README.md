@@ -1,12 +1,26 @@
 # ResearchBets Agent Schemas (`packages/agent-schemas`)
 
 ## Responsibility
-`packages/agent-schemas` defines versioned shared contracts for agent prompts, context payloads, tool calls, intermediate results, and final responses.
+`packages/agent-schemas` defines versioned contracts for the MVP research pipeline:
+
+- SlipRecognition
+- ContextVerification
+- PatternClassification
+- Reflection
+
+## Contract rules
+- All agent stages consume and produce JSON payloads.
+- Upstream factual records are immutable once emitted.
+- Evidence-bearing outputs should include:
+  - `claim`
+  - `evidence`
+  - `source_type`
+  - `timestamp`
+  - `confidence`
 
 ## Interfaces
-- Imported by `services/orchestrator` for routing and scoring workflows.
-- Referenced by `apps/web` for typed API interactions with intelligence endpoints.
-- Coordinated with `packages/shared-types` for domain-level consistency.
+- Imported by `services/orchestrator` for pipeline routing and validation.
+- Referenced by runtime and web layers for typed interactions with research artifacts.
 
 ## Ownership
 - **Primary owner:** Platform Contracts Team

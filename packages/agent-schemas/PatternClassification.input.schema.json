@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatternClassificationInput",
+  "type": "object",
+  "required": ["event_id", "legs", "verified_context"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "legs": { "type": "array", "items": { "type": "object" } },
+    "verified_context": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false
+}
