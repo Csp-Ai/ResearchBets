@@ -8,6 +8,8 @@ export interface EvidenceItem {
   retrievedAt: string;
   observedAt?: string;
   contentExcerpt: string;
+  contentHash: string;
+  licenseHint?: string;
   raw?: Record<string, unknown>;
   reliability?: number;
   tags?: string[];
@@ -31,6 +33,10 @@ export interface ResearchReport {
   claims: Claim[];
   evidence: EvidenceItem[];
   summary: string;
+  confidenceSummary: {
+    averageClaimConfidence: number;
+    deterministic: true;
+  };
   risks: string[];
   assumptions: string[];
 }

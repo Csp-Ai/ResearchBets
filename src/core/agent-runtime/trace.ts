@@ -8,6 +8,12 @@ export const RuntimeEventNameSchema = z.enum([
   'OUTPUT_VALIDATED',
   'RUN_FINISHED',
   'RUN_FAILED',
+  'CONNECTOR_SELECTED',
+  'CONNECTOR_FETCH_STARTED',
+  'CONNECTOR_FETCH_FINISHED',
+  'EVIDENCE_NORMALIZED',
+  'REPORT_VALIDATED',
+  'REPORT_SAVED',
 ]);
 
 export type RuntimeEventName = z.infer<typeof RuntimeEventNameSchema>;
