@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReflectionInput",
+  "type": "object",
+  "required": ["event_id", "pre_game_assumptions", "outcomes"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "pre_game_assumptions": { "type": "array", "items": { "type": "object" } },
+    "outcomes": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false
+}

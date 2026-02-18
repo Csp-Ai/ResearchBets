@@ -1,116 +1,75 @@
-# ResearchBets V2
+# ResearchBets MVP
 
-ResearchBets is an anonymous-first AI sports betting research platform designed around a compounding workflow:
+ResearchBets is an AI-assisted sports research product built around one loop:
 
-**Bet Slip → Confirm → Track → Alert → Insight**
+**Upload Slip → Extract → Verify Context → Identify Pattern → Surface Assumptions → Save → Post-Game Reflection**
 
-This repository contains the production-grade MVP foundation for that loop.
+## Core Product Principle
 
-## Problem
+Do not build a betting AI. Build a thinking system.
 
-Sports bettors often spread research and performance tracking across screenshots, spreadsheets, and disconnected tools. That fragmentation creates blind spots around:
+The product edge is:
+- structure,
+- verification,
+- and post-game reflection.
 
-- bankroll performance,
-- line movement context,
-- and repeatable decision quality.
+## MVP Scope (NBA-first)
 
-ResearchBets solves this by centralizing ingestion, tracking, and insight generation while supporting anonymous-first usage.
+1. **Today's Games**: schedule, confirmed lineups, totals/spreads, and injury feed.
+2. **Slip Upload**: screenshot/text upload, extracted legs, user edits, extraction confidence.
+3. **Research Output**: strictly ordered Facts → Context → Patterns → Assumptions.
+4. **Post-Game Review**: leg outcomes + structured reflection output.
 
-## Product Pillars
+Authentication is optional for saving history; research workflows remain usable anonymously.
 
-1. **Anonymous-first by default**: local session identity with optional auth later for persistence.
-2. **Structured bet ingestion**: typed and validated boundaries using Zod.
-3. **Lifecycle tracking**: open/settled states with ROI visibility.
-4. **Alert-ready architecture**: line movement and event-driven updates prepared by feature boundaries.
-5. **AI insight readiness**: clean service boundaries for future analysis modules.
+## Minimal Viable Intelligence (4-agent pipeline)
 
-## Architecture Overview
+ResearchBets deliberately uses a pipeline (not a free-form swarm):
 
-The codebase follows a feature-based modular architecture:
+1. **SlipRecognition**
+   - Converts unstructured sportsbook input into structured legs.
+   - No opinions, only extraction.
+2. **ContextVerification**
+   - Reads immutable context (starters, injuries, pace, spread/total, recent usage).
+   - Produces timestamped evidence records.
+3. **PatternClassification**
+   - Labels slip construction patterns and surfaces assumptions.
+   - Keeps facts and inference separated.
+4. **Reflection**
+   - Post-game comparison of assumptions vs outcomes.
+   - No predictions, no advice, no blame.
 
-```txt
-app/                     # Next.js App Router pages and layouts
-entities/                # Domain entities, schemas, and type contracts
-features/
-  games/                 # Game-specific UX and logic (planned)
-  research/              # Dashboard and analytics UI
-  betslip/               # Ingestion UX and normalization logic
-  tracker/               # Bet state and settlement flow
-  alerts/                # Line movement alert modules (planned)
-  insights/              # Performance insight modules (planned)
-services/
-  ai/                    # External AI integrations (planned)
-  sports/                # Sportsbook/odds provider integrations (planned)
-lib/                     # Cross-cutting runtime concerns
-db/                      # Database schema and migrations
-docs/                    # Architecture and product documentation
+Every agent reads JSON and outputs JSON. Downstream agents cannot rewrite upstream facts.
+
+## Evidence Metadata Contract
+
+Every claim-like item should be represented as:
+
+```json
+{
+  "claim": "",
+  "evidence": "",
+  "source_type": "",
+  "timestamp": "",
+  "confidence": 0.0
+}
 ```
 
-### Key Decisions
-
-- **Strict TypeScript + Zod** for domain and boundary safety.
-- **Thin pages, rich features** so vertical workflows stay modular.
-- **Supabase-ready schema** with UUID session support and status/outcome constraints.
-- **No auth dependency for MVP**; anonymous session ID is generated in-browser.
+This evidence layer is mandatory for trust and auditability.
 
 ## Local Development Setup
 
-### 1) Install dependencies
-
 ```bash
 npm install
-```
-
-### 2) Configure environment
-
-```bash
 cp .env.example .env.local
-```
-
-Fill `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` when you are ready to connect persistence.
-
-### 3) Run the app
-
-```bash
 npm run dev
 ```
 
-### 4) Quality gates
+## Quality gates
 
 ```bash
 npm run lint
 npm run typecheck
 npm run format
-```
-
-### 5) Apply Supabase schema
-
-Execute SQL in `db/supabase/schema.sql` using the Supabase SQL editor or migration tooling.
-
-## MVP Roadmap
-
-### Phase 1 (in progress)
-
-- [x] Anonymous session identity (localStorage UUID)
-- [x] Bet entity schema and validation
-- [x] Minimal dashboard and ingestion flows
-- [x] Bet tracking state (open/settled)
-- [x] Supabase `bets` table schema
-
-### Phase 2
-
-- [ ] Persist anonymous sessions and bets via Supabase client repositories
-- [ ] Add line movement provider integration in `services/sports`
-- [ ] Build alert subscription and notification workflows
-
-### Phase 3
-
-- [ ] AI-driven performance insight generation
-- [ ] Optional authentication for cross-device persistence
-- [ ] Role-based operational tooling
-
-## First Commit Message Suggestion
-
-```txt
-chore: scaffold ResearchBets V2 MVP architecture and core bet tracking flow
+node scripts/validate-agent-registry
 ```

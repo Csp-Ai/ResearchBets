@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatternClassificationOutput",
+  "type": "object",
+  "required": ["event_id", "patterns", "assumptions"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Volume Anchor",
+          "Script-First Construction",
+          "High Variance Stack",
+          "Ceiling-Dependent",
+          "Correlated Exposure",
+          "Redundant Narrative"
+        ]
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "evidence", "source_type", "timestamp", "confidence"],
+        "properties": {
+          "claim": { "type": "string" },
+          "evidence": { "type": "string" },
+          "source_type": { "type": "string", "enum": ["derived_inference"] },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
