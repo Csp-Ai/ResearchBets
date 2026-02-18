@@ -10,3 +10,11 @@ export async function POST(request: Request) {
   await new DbEventEmitter(getRuntimeStore()).emit(event);
   return NextResponse.json({ ok: true });
 }
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const traceId = searchParams.get('trace_id') ?? undefined;
+  const limit = Number(searchParams.get('limit') ?? 25);
+  const events = await getRuntimeStore().listEvents({ traceId, limit: Number.isFinite(limit) ? limit : 25 });
+  return NextResponse.json({ events });
+}

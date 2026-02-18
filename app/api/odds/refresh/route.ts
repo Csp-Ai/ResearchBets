@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
-import { InMemoryEventEmitter } from '../../../../core/control-plane/emitter';
-import { refreshOddsSnapshotIfStale } from '../../../../core/measurement/odds';
+import { InMemoryEventEmitter } from '@/src/core/control-plane/emitter';
+import { refreshOddsSnapshotIfStale } from '@/src/core/measurement/odds';
 
 export async function POST(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);

@@ -314,3 +314,21 @@ alter table if exists public.game_results
   add column if not exists consensus_level text not null default 'single_source',
   add column if not exists sources_used text[] not null default '{}',
   add column if not exists disagreement_score numeric not null default 0;
+
+create table if not exists public.slip_submissions (
+  id uuid primary key default gen_random_uuid(),
+  anon_session_id text,
+  user_id uuid,
+  created_at timestamptz not null default now(),
+  source text not null check (source in ('paste', 'upload')),
+  raw_text text not null,
+  parse_status text not null check (parse_status in ('received', 'parsed', 'failed')),
+  extracted_legs jsonb,
+  trace_id text not null,
+  request_id text not null,
+  checksum text not null
+);
+
+create index if not exists slip_submissions_anon_session_idx on public.slip_submissions (anon_session_id);
+create index if not exists slip_submissions_created_at_idx on public.slip_submissions (created_at desc);
+create index if not exists slip_submissions_checksum_idx on public.slip_submissions (checksum);

@@ -154,6 +154,31 @@ export interface ExperimentAssignment {
   createdAt: string;
 }
 
+export interface SlipSubmission {
+  id: string;
+  anonSessionId: string | null;
+  userId: string | null;
+  createdAt: string;
+  source: 'paste' | 'upload';
+  rawText: string;
+  parseStatus: 'received' | 'parsed' | 'failed';
+  extractedLegs: Record<string, unknown>[] | null;
+  traceId: string;
+  requestId: string;
+  checksum: string;
+}
+
+export interface SlipSubmissionListQuery {
+  anonSessionId?: string;
+  userId?: string;
+  limit?: number;
+}
+
+export interface RuntimeEventQuery {
+  traceId?: string;
+  limit?: number;
+}
+
 export interface IdempotencyRecord<T> {
   endpoint: string;
   userId: string;
@@ -189,4 +214,9 @@ export interface RuntimeStore {
   getExperiment(name: string): Promise<ExperimentRecord | null>;
   saveExperimentAssignment(assignment: ExperimentAssignment): Promise<void>;
   getExperimentAssignment(experimentName: string, subjectKey: string): Promise<ExperimentAssignment | null>;
+  createSlipSubmission(submission: SlipSubmission): Promise<void>;
+  getSlipSubmission(id: string): Promise<SlipSubmission | null>;
+  listSlipSubmissions(query: SlipSubmissionListQuery): Promise<SlipSubmission[]>;
+  updateSlipSubmission(id: string, patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>): Promise<SlipSubmission | null>;
+  listEvents(query?: RuntimeEventQuery): Promise<ControlPlaneEvent[]>;
 }

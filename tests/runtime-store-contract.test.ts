@@ -11,6 +11,7 @@ class QueryMock {
   eq(): this { return this; }
   order(): this { return this; }
   limit(): this { return this; }
+  update(): this { return this; }
   upsert(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.result); }
   insert(): Promise<{ data: unknown; error: null }> { return Promise.resolve(this.result); }
   maybeSingle(): Promise<{ data: unknown; error: null }> { return Promise.resolve({ data: null, error: null }); }
@@ -47,10 +48,16 @@ const assertStoreContract = async (store: RuntimeStore): Promise<void> => {
   expect(typeof store.getExperiment).toBe('function');
   expect(typeof store.saveExperimentAssignment).toBe('function');
   expect(typeof store.getExperimentAssignment).toBe('function');
+  expect(typeof store.createSlipSubmission).toBe('function');
+  expect(typeof store.getSlipSubmission).toBe('function');
+  expect(typeof store.listSlipSubmissions).toBe('function');
+  expect(typeof store.updateSlipSubmission).toBe('function');
+  expect(typeof store.listEvents).toBe('function');
 
   expect(await store.listBets()).toBeDefined();
   expect(await store.listRecommendationsByGame('g1')).toBeDefined();
   expect(await store.listOddsSnapshots('g1', 'spread', 'home')).toBeDefined();
+  expect(await store.listSlipSubmissions({ limit: 1 })).toBeDefined();
 };
 
 describe('runtime store contract', () => {
