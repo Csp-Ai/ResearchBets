@@ -32,20 +32,6 @@ type Freshness = {
   degraded: boolean;
 };
 
-type MarketResponse = {
-  trace_id?: string;
-  source?: string;
-  degraded?: boolean;
-  data?: {
-    snapshot?: {
-      games?: LiveGame[];
-      as_of_iso?: string;
-      cache_status?: 'hit' | 'miss' | 'stale';
-      degraded?: boolean;
-      source?: 'DEMO' | 'derived' | 'scraped';
-    };
-  };
-};
 
 const SPORTS = ['NFL', 'NBA', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
@@ -65,14 +51,6 @@ const LIVE_GAMES_COPY = [
 
 const asPercent = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
-const resolvePulseSource = (
-  cacheStatus?: 'hit' | 'miss' | 'stale',
-  marketSource?: 'DEMO' | 'derived' | 'scraped'
-): Freshness['source'] => {
-  if (marketSource === 'DEMO') return 'demo';
-  if (cacheStatus === 'hit' || cacheStatus === 'stale') return 'cache';
-  return 'live';
-};
 
 export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const [sport, setSport] = useState(initialSport);
@@ -82,12 +60,12 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const currentTraceId = traceId || fallbackTraceId;
   const [games, setGames] = useState<LiveGame[]>([]);
   const [status, setStatus] = useState('Loading live market board…');
-  const [freshness, setFreshness] = useState<Freshness>({
+  const freshness: Freshness = {
     source: 'cache',
     asOfIso: null,
     stale: false,
     degraded: false
-  });
+  };
   const router = useRouter();
 
   const loadGames = useCallback(

@@ -29,6 +29,8 @@ type HeuristicSignal = {
 
 type DetailPayload = {
   snapshot_loaded_at?: string;
+  as_of_iso?: string;
+  cache_status?: 'hit' | 'miss' | 'stale';
   game: {
     gameId: string;
     label: string;
@@ -127,15 +129,24 @@ export function LiveGameDetailClient({
           }
           return { ok: false, source: 'demo' as const, error_code: 'detail_unavailable' };
         }
-        const next = (await response.json()) as DetailPayload & { trace_id?: string };
-        setPayload(next);
-        setTraceId(next.trace_id ?? resolvedTrace);
+        const envelope = (await response.json()) as {
+          data: DetailPayload | null;
+          trace_id?: string;
+          source?: 'live' | 'cache' | 'demo';
+          degraded?: boolean;
+        };
+        if (!envelope.data) {
+          return { ok: false, source: 'demo' as const, error_code: 'detail_unavailable' };
+        }
+        const detail = envelope.data;
+        setPayload(detail);
+        setTraceId(envelope.trace_id ?? resolvedTrace);
         setStatus('Market detail loaded in research terminal.');
         return {
           ok: true,
-          data: envelope.data,
-          source: 'cache' as const,
-          degraded: envelope.data.game.source === 'DEMO'
+          data: detail,
+          source: envelope.source ?? 'cache',
+          degraded: envelope.degraded ?? detail.game.source === 'DEMO'
         };
       }
     });

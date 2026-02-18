@@ -112,11 +112,12 @@ const parseTeams = (label: string): { awayTeam: string; homeTeam: string } => {
   return { awayTeam: away, homeTeam: home };
 };
 
-const useWebProvider = (): boolean =>
+const isWebProviderEnabled = (): boolean =>
   (process.env.LIVE_MARKETS_WEB_PROVIDER_ENABLED ?? 'false').toLowerCase() === 'true';
 
-async function loadWebSnapshot(_sport: string): Promise<MarketSnapshot | null> {
-  if (!useWebProvider()) return null;
+async function loadWebSnapshot(sport: string): Promise<MarketSnapshot | null> {
+  void sport;
+  if (!isWebProviderEnabled()) return null;
   return null;
 }
 
