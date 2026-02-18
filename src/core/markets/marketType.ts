@@ -1,3 +1,4 @@
+// Refer to MarketType for all prop logic. Do not hardcode string markets.
 export const SUPPORTED_MARKET_TYPES = [
   'spread',
   'total',
@@ -19,4 +20,3 @@ export const asMarketType = (value: string | undefined | null, fallback: MarketT
   const normalized = value.toLowerCase().trim();
   return MARKET_TYPE_SET.has(normalized) ? (normalized as MarketType) : fallback;
 };
-

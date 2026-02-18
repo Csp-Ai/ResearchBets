@@ -6,6 +6,7 @@ import { ResearchReportSchema } from '../../core/evidence/validators';
 import { asMarketType } from '../../core/markets/marketType';
 import type { AgentDefinition } from '../../core/agent-runtime/types';
 
+// Refer to MarketType for all prop logic. Do not hardcode string markets.
 const ResearchSnapshotInputSchema = z.object({
   sport: z.string().min(1),
   league: z.string().min(1),

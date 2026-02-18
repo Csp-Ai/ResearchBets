@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { extractLegs } from '@/src/core/slips/extract';
+import { buildPropLegInsight } from '@/src/core/slips/propInsights';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 const payloadSchema = z.object({
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
 
   try {
     const legs = extractLegs(slip.rawText);
+    const insights = legs.map((leg) => buildPropLegInsight(leg));
     await store.updateSlipSubmission(slip.id, { parseStatus: 'parsed', extractedLegs: legs });
     await new DbEventEmitter(store).emit({
       event_name: 'slip_extracted',
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
       model_version: 'runtime-deterministic-v1',
       properties: { slip_id: slip.id, extracted_legs_count: legs.length },
     });
-    return NextResponse.json({ slip_id: slip.id, extracted_legs: legs, trace_id: slip.traceId });
+    return NextResponse.json({ slip_id: slip.id, extracted_legs: legs, leg_insights: insights, trace_id: slip.traceId });
   } catch (error) {
     await store.updateSlipSubmission(slip.id, { parseStatus: 'failed' });
     await new DbEventEmitter(store).emit({
