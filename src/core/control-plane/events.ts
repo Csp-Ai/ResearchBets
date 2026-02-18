@@ -43,7 +43,14 @@ export const ControlPlaneEventNameSchema = z.enum([
   'model_quickrun_failed',
   'model_snapshot_loaded',
   'delta_computed',
-  'live_game_opened'
+  'live_game_opened',
+  'live_outcome_loaded',
+  'edge_realized_computed',
+  'edge_realized_logged',
+  'calibration_update',
+  'insight_graph_updated',
+  'prop_tracked',
+  'prop_edge_snapshot_created'
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {

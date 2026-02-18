@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { createClientRequestId } from '@/src/core/identifiers/session';
 import { runUiAction } from '@/src/core/ui/actionContract';
@@ -29,6 +29,17 @@ type DetailPayload = {
   props: PropMomentum[];
 };
 
+type OutcomePayload = {
+  data: {
+    winner: 'home' | 'away' | 'push';
+    finalScore: { home: number; away: number };
+    marketImplied: number;
+    modelImplied: number;
+    delta: number;
+    edgeRealized: { expected_value: number; realized_value: number; was_correct: boolean };
+  };
+};
+
 const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
 export function LiveGameDetailClient({
@@ -41,6 +52,8 @@ export function LiveGameDetailClient({
   initialTraceId?: string;
 }) {
   const [payload, setPayload] = useState<DetailPayload | null>(null);
+  const [outcome, setOutcome] = useState<OutcomePayload | null>(null);
+  const [selectedProp, setSelectedProp] = useState<PropMomentum | null>(null);
   const [status, setStatus] = useState('Loading game detail…');
   const [traceId, setTraceId] = useState(initialTraceId ?? '');
   const router = useRouter();
@@ -99,9 +112,59 @@ export function LiveGameDetailClient({
     setStatus(action.ok ? 'Quick model loaded.' : 'Quick model failed; market remains visible.');
   };
 
+  const loadOutcome = async () => {
+    if (!payload) return;
+    const action = await runUiAction({
+      actionName: 'load_post_game_intelligence',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const response = await fetch(
+          `/api/live/outcome/${encodeURIComponent(payload.game.gameId)}?sport=${encodeURIComponent(payload.game.sport)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`
+        );
+        if (!response.ok)
+          return { ok: false, source: 'demo' as const, error_code: 'outcome_unavailable' };
+        const next = (await response.json()) as OutcomePayload;
+        setOutcome(next);
+        return { ok: true, data: next, source: 'demo' as const };
+      }
+    });
+    setStatus(action.ok ? 'Post-game intelligence loaded.' : 'Post-game intelligence unavailable.');
+  };
+
+  const trackProp = async (prop: PropMomentum) => {
+    if (!payload) return;
+    const modelProbability = payload.model?.modelHome ?? payload.game.implied.home;
+    const delta = modelProbability - payload.game.implied.home;
+    const action = await runUiAction({
+      actionName: 'track_prop_edge',
+      traceId: traceId || undefined,
+      execute: async () => {
+        const response = await fetch('/api/live/props/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId: payload.game.gameId,
+            propId: prop.propId,
+            player: prop.player,
+            market: prop.market,
+            line: prop.line,
+            modelProbability,
+            delta,
+            traceId: traceId || createClientRequestId()
+          })
+        });
+        if (!response.ok)
+          return { ok: false, source: 'live' as const, error_code: 'track_prop_failed' };
+        return { ok: true, source: 'live' as const };
+      }
+    });
+    setStatus(action.ok ? 'Prop tracking confirmed.' : 'Unable to track prop.');
+    if (action.ok) setSelectedProp(null);
+  };
+
   const openResearch = async () => {
     if (!payload) return;
-    const outcome = await runUiAction({
+    const outcomeAction = await runUiAction({
       actionName: 'open_in_research',
       traceId: traceId || undefined,
       execute: async () => {
@@ -111,8 +174,13 @@ export function LiveGameDetailClient({
         return { ok: true, source: 'live' as const };
       }
     });
-    if (!outcome.ok) setStatus('Unable to open research view.');
+    if (!outcomeAction.ok) setStatus('Unable to open research view.');
   };
+
+  const delta = useMemo(
+    () => (payload?.model ? payload.model.modelHome - payload.game.implied.home : null),
+    [payload]
+  );
 
   if (!payload)
     return (
@@ -120,8 +188,6 @@ export function LiveGameDetailClient({
         {status}
       </section>
     );
-
-  const delta = payload.model ? payload.model.modelHome - payload.game.implied.home : null;
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
@@ -149,16 +215,59 @@ export function LiveGameDetailClient({
         <p title="Delta is not a pick. It’s a difference between implied probabilities.">
           Delta: {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`}
         </p>
-        {!payload.model ? (
+        <div className="mt-2 flex gap-2">
+          {!payload.model ? (
+            <button
+              type="button"
+              onClick={runQuickModel}
+              className="rounded bg-indigo-600 px-3 py-1.5 text-xs"
+            >
+              Run quick model
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={runQuickModel}
-            className="mt-2 rounded bg-indigo-600 px-3 py-1.5 text-xs"
+            onClick={loadOutcome}
+            className="rounded bg-slate-700 px-3 py-1.5 text-xs"
           >
-            Run quick model
+            Load outcome intelligence
           </button>
-        ) : null}
+        </div>
       </div>
+
+      {outcome ? (
+        <div className="rounded border border-slate-800 bg-slate-950 p-3 text-sm">
+          <h2 className="text-sm font-semibold">Post-Game Intelligence</h2>
+          <p>
+            Market implied vs model implied (pre-game): {pct(outcome.data.marketImplied)} vs{' '}
+            {pct(outcome.data.modelImplied)}
+          </p>
+          <p>Delta: {(outcome.data.delta * 100).toFixed(2)}%</p>
+          <p>
+            Final outcome: {outcome.data.finalScore.home}-{outcome.data.finalScore.away} (
+            {outcome.data.winner})
+          </p>
+          <p>
+            Edge realized: {outcome.data.edgeRealized.realized_value >= 0 ? '+EV' : '-EV'} (
+            {outcome.data.edgeRealized.realized_value.toFixed(4)})
+          </p>
+          <p>
+            Calibration bucket: {(Math.floor(outcome.data.modelImplied * 10) * 10).toFixed(0)}-
+            {(Math.floor(outcome.data.modelImplied * 10) * 10 + 10).toFixed(0)}%
+          </p>
+          <p>
+            Confidence vs result: {pct(outcome.data.modelImplied)} vs{' '}
+            {outcome.data.edgeRealized.was_correct ? 'Correct' : 'Incorrect'}
+          </p>
+          <span className="mt-1 inline-flex rounded bg-slate-800 px-2 py-1 text-xs">
+            {Math.abs(outcome.data.delta) < 0.01
+              ? 'Market Efficient'
+              : outcome.data.edgeRealized.was_correct
+                ? 'Edge Confirmed'
+                : 'Edge Missed'}
+          </span>
+        </div>
+      ) : null}
 
       <div className="rounded border border-slate-800 bg-slate-950 p-3">
         <h2 className="text-sm font-semibold">Player Props Momentum v0</h2>
@@ -170,12 +279,55 @@ export function LiveGameDetailClient({
           ) : null}
           {payload.props.map((prop) => (
             <li key={prop.propId} className="rounded border border-slate-800 p-2">
-              {prop.player} · {prop.market} line {prop.line} · last10 {pct(prop.last10HitRate)} ·{' '}
-              {prop.volatilityTag}
+              <button
+                type="button"
+                onClick={() => setSelectedProp(prop)}
+                className="w-full text-left"
+              >
+                {prop.player} · {prop.market} line {prop.line} · last10 {pct(prop.last10HitRate)} ·{' '}
+                {prop.volatilityTag}
+              </button>
             </li>
           ))}
         </ul>
       </div>
+
+      {selectedProp ? (
+        <div className="rounded border border-cyan-700 bg-slate-950 p-3 text-xs">
+          <h3 className="text-sm font-semibold">EdgeCard · {selectedProp.player}</h3>
+          <p>Line: {selectedProp.line}</p>
+          <p>Hit rate: {pct(selectedProp.last10HitRate)}</p>
+          <p>Volatility reason: {selectedProp.volatilityTag}</p>
+          <p>Market movement: stable demo baseline</p>
+          <p>Model probability: {pct(payload.model?.modelHome ?? payload.game.implied.home)}</p>
+          <p>
+            Delta:{' '}
+            {(
+              ((payload.model?.modelHome ?? payload.game.implied.home) -
+                payload.game.implied.home) *
+              100
+            ).toFixed(2)}
+            %
+          </p>
+          <p>Fragility variables: pace, usage, foul-trouble sensitivity</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => trackProp(selectedProp)}
+              className="rounded bg-cyan-600 px-3 py-1"
+            >
+              Track this prop
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedProp(null)}
+              className="rounded bg-slate-700 px-3 py-1"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <button
         type="button"

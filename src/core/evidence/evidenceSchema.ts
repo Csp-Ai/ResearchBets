@@ -41,7 +41,20 @@ export interface ResearchReport {
   assumptions: string[];
   transparency?: {
     countsByInsightType: Record<string, number>;
-    fragilityVariables: Array<{ insightId: string; claim: string; confidence: number; impactDelta: number }>;
+    fragilityVariables: Array<{
+      insightId: string;
+      claim: string;
+      confidence: number;
+      impactDelta: number;
+    }>;
     disagreementProxyByType: Record<string, number>;
+    performance?: {
+      edges_total: number;
+      edges_confirmed: number;
+      edges_missed: number;
+      calibration_score: number;
+      avg_delta: number;
+      disagreement_rate: number;
+    };
   };
 }

@@ -155,6 +155,47 @@ export interface ExperimentAssignment {
   createdAt: string;
 }
 
+export interface OutcomeSnapshotRecord {
+  gameId: string;
+  winner: 'home' | 'away' | 'push';
+  homeScore: number;
+  awayScore: number;
+  spreadResult: 'home_cover' | 'away_cover' | 'push' | 'n/a';
+  totalResult: 'over' | 'under' | 'push' | 'n/a';
+  closingLineDelta: number;
+  completed: boolean;
+  source: 'live' | 'demo';
+  computedAt: string;
+}
+
+export interface EdgeRealizedRecord {
+  id: string;
+  gameId: string;
+  traceId: string;
+  runId: string;
+  marketImplied: number;
+  modelImplied: number;
+  delta: number;
+  outcome: 0 | 1;
+  expectedValue: number;
+  realizedValue: number;
+  wasCorrect: boolean;
+  closingLineMovement: number;
+  edgeDirection: 'home' | 'away';
+  computedAt: string;
+}
+
+export interface UserTrackedBetRecord {
+  id: string;
+  gameId: string;
+  propId: string;
+  player: string;
+  market: string;
+  line: number;
+  modelProbability: number;
+  delta: number;
+  trackedAt: string;
+}
 
 export interface InsightNodeRecord {
   insightId: string;
@@ -163,12 +204,30 @@ export interface InsightNodeRecord {
   gameId: string;
   agentKey: string;
   track: 'baseline' | 'hybrid';
-  insightType: 'injury' | 'line_move' | 'matchup_stat' | 'narrative' | 'weather' | 'market_delta' | 'correlated_risk';
+  insightType:
+    | 'injury'
+    | 'line_move'
+    | 'matchup_stat'
+    | 'narrative'
+    | 'weather'
+    | 'market_delta'
+    | 'correlated_risk'
+    | 'market_snapshot'
+    | 'model_snapshot'
+    | 'delta_snapshot'
+    | 'outcome_snapshot'
+    | 'edge_realized'
+    | 'calibration_update';
   claim: string;
   evidence: Array<{ source: string; url?: string; snippet?: string }>;
   confidence: number;
   timestamp: string;
+  decayHalfLife: number;
   decayHalfLifeMinutes: number;
+  attribution?: {
+    sourceBook?: string;
+    modelVersion?: string;
+  };
   marketImplied?: number;
   modelImplied?: number;
   delta?: number;
@@ -217,7 +276,11 @@ export interface RuntimeStore {
   saveBet(bet: StoredBet): Promise<void>;
   getBet(betId: string): Promise<StoredBet | null>;
   saveEvent(event: ControlPlaneEvent): Promise<void>;
-  getIdempotencyRecord<T>(endpoint: string, userId: string, key: string): Promise<IdempotencyRecord<T> | null>;
+  getIdempotencyRecord<T>(
+    endpoint: string,
+    userId: string,
+    key: string
+  ): Promise<IdempotencyRecord<T> | null>;
   saveIdempotencyRecord<T>(record: IdempotencyRecord<T>): Promise<void>;
   saveRecommendation(recommendation: AgentRecommendation): Promise<void>;
   listRecommendationsByGame(gameId: string): Promise<AgentRecommendation[]>;
@@ -231,14 +294,26 @@ export interface RuntimeStore {
   saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void>;
   saveInsightNode(node: InsightNodeRecord): Promise<void>;
   listInsightNodesByRun(runId: string): Promise<InsightNodeRecord[]>;
+  saveOutcomeSnapshot(snapshot: OutcomeSnapshotRecord): Promise<void>;
+  getOutcomeSnapshot(gameId: string): Promise<OutcomeSnapshotRecord | null>;
+  saveEdgeRealized(edge: EdgeRealizedRecord): Promise<void>;
+  listEdgeRealized(): Promise<EdgeRealizedRecord[]>;
+  saveTrackedProp(prop: UserTrackedBetRecord): Promise<void>;
+  listTrackedProps(gameId?: string): Promise<UserTrackedBetRecord[]>;
   getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null>;
   saveExperiment(experiment: ExperimentRecord): Promise<void>;
   getExperiment(name: string): Promise<ExperimentRecord | null>;
   saveExperimentAssignment(assignment: ExperimentAssignment): Promise<void>;
-  getExperimentAssignment(experimentName: string, subjectKey: string): Promise<ExperimentAssignment | null>;
+  getExperimentAssignment(
+    experimentName: string,
+    subjectKey: string
+  ): Promise<ExperimentAssignment | null>;
   createSlipSubmission(submission: SlipSubmission): Promise<void>;
   getSlipSubmission(id: string): Promise<SlipSubmission | null>;
   listSlipSubmissions(query: SlipSubmissionListQuery): Promise<SlipSubmission[]>;
-  updateSlipSubmission(id: string, patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>): Promise<SlipSubmission | null>;
+  updateSlipSubmission(
+    id: string,
+    patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>
+  ): Promise<SlipSubmission | null>;
   listEvents(query?: RuntimeEventQuery): Promise<ControlPlaneEvent[]>;
 }

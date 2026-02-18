@@ -13,10 +13,13 @@ import type {
   RecommendationOutcome,
   RuntimeStore,
   InsightNodeRecord,
+  OutcomeSnapshotRecord,
+  EdgeRealizedRecord,
+  UserTrackedBetRecord,
   SessionRecord,
   SlipSubmission,
   StoredBet,
-  WebCacheRecord,
+  WebCacheRecord
 } from './runtimeStore';
 
 const createSupabaseClient = (): SupabaseClient => {
@@ -41,6 +44,9 @@ const TABLES = {
   webCache: 'web_cache',
   slipSubmissions: 'slip_submissions',
   insightNodes: 'insight_nodes',
+  outcomeSnapshots: 'outcome_snapshots',
+  edgeRealized: 'edge_realized',
+  trackedProps: 'tracked_props'
 } as const;
 
 const mapBet = (data: Record<string, unknown>): StoredBet => ({
@@ -73,7 +79,7 @@ const mapBet = (data: Record<string, unknown>): StoredBet => ({
   settledAt: (data.settled_at as string | null) ?? null,
   resolutionReason: (data.resolution_reason as string | null) ?? null,
   sourceUrl: (data.source_url as string | null) ?? null,
-  sourceDomain: (data.source_domain as string | null) ?? null,
+  sourceDomain: (data.source_domain as string | null) ?? null
 });
 
 const mapRecommendation = (data: Record<string, unknown>): AgentRecommendation => ({
@@ -97,7 +103,7 @@ const mapRecommendation = (data: Record<string, unknown>): AgentRecommendation =
   confidence: Number(data.confidence),
   rationale: (data.rationale as Record<string, unknown>) ?? {},
   evidenceRefs: (data.evidence_refs as Record<string, unknown>) ?? {},
-  createdAt: data.created_at as string,
+  createdAt: data.created_at as string
 });
 
 export class SupabaseRuntimeStore implements RuntimeStore {
@@ -115,23 +121,37 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       .maybeSingle();
     if (error) throw error;
     if (!data) return null;
-    return { sessionId: data.session_id as string, userId: data.user_id as string, lastSeenAt: data.last_seen_at as string };
+    return {
+      sessionId: data.session_id as string,
+      userId: data.user_id as string,
+      lastSeenAt: data.last_seen_at as string
+    };
   }
 
   async upsertSession(session: SessionRecord): Promise<void> {
     const { error } = await this.client
       .from(TABLES.sessions)
-      .upsert({ session_id: session.sessionId, user_id: session.userId, last_seen_at: session.lastSeenAt });
+      .upsert({
+        session_id: session.sessionId,
+        user_id: session.userId,
+        last_seen_at: session.lastSeenAt
+      });
     if (error) throw error;
   }
 
   async saveSnapshot(report: ResearchReport): Promise<void> {
-    const { error } = await this.client.from(TABLES.snapshots).upsert({ report_id: report.reportId, report });
+    const { error } = await this.client
+      .from(TABLES.snapshots)
+      .upsert({ report_id: report.reportId, report });
     if (error) throw error;
   }
 
   async getSnapshot(reportId: string): Promise<ResearchReport | null> {
-    const { data, error } = await this.client.from(TABLES.snapshots).select('report').eq('report_id', reportId).maybeSingle();
+    const { data, error } = await this.client
+      .from(TABLES.snapshots)
+      .select('report')
+      .eq('report_id', reportId)
+      .maybeSingle();
     if (error) throw error;
     return (data?.report as ResearchReport | undefined) ?? null;
   }
@@ -175,13 +195,17 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       settled_at: bet.settledAt,
       resolution_reason: bet.resolutionReason,
       source_url: bet.sourceUrl,
-      source_domain: bet.sourceDomain,
+      source_domain: bet.sourceDomain
     });
     if (error) throw error;
   }
 
   async getBet(betId: string): Promise<StoredBet | null> {
-    const { data, error } = await this.client.from(TABLES.bets).select('*').eq('id', betId).maybeSingle();
+    const { data, error } = await this.client
+      .from(TABLES.bets)
+      .select('*')
+      .eq('id', betId)
+      .maybeSingle();
     if (error) throw error;
     return data ? mapBet(data as Record<string, unknown>) : null;
   }
@@ -192,7 +216,11 @@ export class SupabaseRuntimeStore implements RuntimeStore {
   }
 
   async listEvents(query: { traceId?: string; limit?: number } = {}): Promise<ControlPlaneEvent[]> {
-    let dbQuery = this.client.from(TABLES.events).select('*').order('timestamp', { ascending: false }).limit(query.limit ?? 50);
+    let dbQuery = this.client
+      .from(TABLES.events)
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(query.limit ?? 50);
     if (query.traceId) dbQuery = dbQuery.eq('trace_id', query.traceId);
     const { data, error } = await dbQuery;
     if (error) throw error;
@@ -208,11 +236,15 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       model_version: row.model_version as string,
       confidence: (row.confidence as number | null) ?? undefined,
       assumptions: (row.assumptions as string[] | null) ?? undefined,
-      properties: (row.properties as Record<string, unknown>) ?? {},
+      properties: (row.properties as Record<string, unknown>) ?? {}
     }));
   }
 
-  async getIdempotencyRecord<T>(endpoint: string, userId: string, key: string): Promise<IdempotencyRecord<T> | null> {
+  async getIdempotencyRecord<T>(
+    endpoint: string,
+    userId: string,
+    key: string
+  ): Promise<IdempotencyRecord<T> | null> {
     const { data, error } = await this.client
       .from(TABLES.idempotency)
       .select('*')
@@ -228,7 +260,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       key: data.key as string,
       response: data.response_json as T,
       responseHash: data.response_hash as string,
-      createdAt: data.created_at as string,
+      createdAt: data.created_at as string
     };
   }
 
@@ -239,7 +271,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       key: record.key,
       response_json: record.response,
       response_hash: record.responseHash,
-      created_at: record.createdAt,
+      created_at: record.createdAt
     });
     if (error) throw error;
   }
@@ -266,7 +298,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       confidence: recommendation.confidence,
       rationale: recommendation.rationale,
       evidence_refs: recommendation.evidenceRefs,
-      created_at: recommendation.createdAt,
+      created_at: recommendation.createdAt
     });
     if (error) throw error;
   }
@@ -282,7 +314,11 @@ export class SupabaseRuntimeStore implements RuntimeStore {
   }
 
   async getRecommendation(recommendationId: string): Promise<AgentRecommendation | null> {
-    const { data, error } = await this.client.from(TABLES.recommendations).select('*').eq('id', recommendationId).maybeSingle();
+    const { data, error } = await this.client
+      .from(TABLES.recommendations)
+      .select('*')
+      .eq('id', recommendationId)
+      .maybeSingle();
     if (error) throw error;
     return data ? mapRecommendation(data as Record<string, unknown>) : null;
   }
@@ -310,12 +346,16 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       resolution_reason: snapshot.resolutionReason,
       consensus_level: snapshot.consensusLevel,
       sources_used: snapshot.sourcesUsed,
-      disagreement_score: snapshot.disagreementScore,
+      disagreement_score: snapshot.disagreementScore
     });
     if (error) throw error;
   }
 
-  async listOddsSnapshots(gameId: string, market: string, selection: string): Promise<OddsSnapshot[]> {
+  async listOddsSnapshots(
+    gameId: string,
+    market: string,
+    selection: string
+  ): Promise<OddsSnapshot[]> {
     const { data, error } = await this.client
       .from(TABLES.oddsSnapshots)
       .select('*')
@@ -346,7 +386,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       resolutionReason: (row.resolution_reason as string | null) ?? null,
       consensusLevel: (row.consensus_level as OddsSnapshot['consensusLevel']) ?? 'single_source',
       sourcesUsed: (row.sources_used as string[] | null) ?? [],
-      disagreementScore: Number(row.disagreement_score ?? 0),
+      disagreementScore: Number(row.disagreement_score ?? 0)
     }));
   }
 
@@ -368,13 +408,17 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       freshness_score: result.freshnessScore,
       consensus_level: result.consensusLevel,
       sources_used: result.sourcesUsed,
-      disagreement_score: result.disagreementScore,
+      disagreement_score: result.disagreementScore
     });
     if (error) throw error;
   }
 
   async getGameResult(gameId: string): Promise<GameResultRecord | null> {
-    const { data, error } = await this.client.from(TABLES.gameResults).select('*').eq('game_id', gameId).maybeSingle();
+    const { data, error } = await this.client
+      .from(TABLES.gameResults)
+      .select('*')
+      .eq('game_id', gameId)
+      .maybeSingle();
     if (error) throw error;
     if (!data) return null;
     return {
@@ -392,9 +436,10 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       checksum: data.checksum as string,
       stalenessMs: Number(data.staleness_ms ?? 0),
       freshnessScore: Number(data.freshness_score ?? 1),
-      consensusLevel: (data.consensus_level as GameResultRecord['consensusLevel']) ?? 'single_source',
+      consensusLevel:
+        (data.consensus_level as GameResultRecord['consensusLevel']) ?? 'single_source',
       sourcesUsed: (data.sources_used as string[] | null) ?? [],
-      disagreementScore: Number(data.disagreement_score ?? 0),
+      disagreementScore: Number(data.disagreement_score ?? 0)
     };
   }
 
@@ -409,7 +454,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       last_modified: record.lastModified,
       content_hash: record.contentHash,
       response_body: record.responseBody,
-      expires_at: record.expiresAt,
+      expires_at: record.expiresAt
     });
     if (error) throw error;
   }
@@ -434,10 +479,9 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       lastModified: (data.last_modified as string | null) ?? null,
       contentHash: data.content_hash as string,
       responseBody: data.response_body as string,
-      expiresAt: (data.expires_at as string | null) ?? null,
+      expiresAt: (data.expires_at as string | null) ?? null
     };
   }
-
 
   async saveInsightNode(node: InsightNodeRecord): Promise<void> {
     const { error } = await this.client.from(TABLES.insightNodes).upsert({
@@ -452,16 +496,22 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       evidence: node.evidence,
       confidence: node.confidence,
       timestamp: node.timestamp,
+      decay_half_life: node.decayHalfLife,
       decay_half_life_minutes: node.decayHalfLifeMinutes,
+      attribution: node.attribution ?? null,
       market_implied: node.marketImplied,
       model_implied: node.modelImplied,
-      delta: node.delta,
+      delta: node.delta
     });
     if (error) throw error;
   }
 
   async listInsightNodesByRun(runId: string): Promise<InsightNodeRecord[]> {
-    const { data, error } = await this.client.from(TABLES.insightNodes).select('*').eq('run_id', runId).order('timestamp', { ascending: true });
+    const { data, error } = await this.client
+      .from(TABLES.insightNodes)
+      .select('*')
+      .eq('run_id', runId)
+      .order('timestamp', { ascending: true });
     if (error) throw error;
     return (data ?? []).map((row) => ({
       insightId: row.insight_id as string,
@@ -475,10 +525,130 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       evidence: (row.evidence as InsightNodeRecord['evidence']) ?? [],
       confidence: Number(row.confidence),
       timestamp: row.timestamp as string,
+      decayHalfLife: Number(row.decay_half_life ?? row.decay_half_life_minutes),
       decayHalfLifeMinutes: Number(row.decay_half_life_minutes),
+      attribution: (row.attribution as InsightNodeRecord['attribution'] | null) ?? undefined,
       marketImplied: row.market_implied == null ? undefined : Number(row.market_implied),
       modelImplied: row.model_implied == null ? undefined : Number(row.model_implied),
-      delta: row.delta == null ? undefined : Number(row.delta),
+      delta: row.delta == null ? undefined : Number(row.delta)
+    }));
+  }
+
+  async saveOutcomeSnapshot(snapshot: OutcomeSnapshotRecord): Promise<void> {
+    const { error } = await this.client.from(TABLES.outcomeSnapshots).upsert({
+      game_id: snapshot.gameId,
+      winner: snapshot.winner,
+      home_score: snapshot.homeScore,
+      away_score: snapshot.awayScore,
+      spread_result: snapshot.spreadResult,
+      total_result: snapshot.totalResult,
+      closing_line_delta: snapshot.closingLineDelta,
+      completed: snapshot.completed,
+      source: snapshot.source,
+      computed_at: snapshot.computedAt
+    });
+    if (error) throw error;
+  }
+
+  async getOutcomeSnapshot(gameId: string): Promise<OutcomeSnapshotRecord | null> {
+    const { data, error } = await this.client
+      .from(TABLES.outcomeSnapshots)
+      .select('*')
+      .eq('game_id', gameId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      gameId: data.game_id as string,
+      winner: data.winner as OutcomeSnapshotRecord['winner'],
+      homeScore: Number(data.home_score),
+      awayScore: Number(data.away_score),
+      spreadResult: data.spread_result as OutcomeSnapshotRecord['spreadResult'],
+      totalResult: data.total_result as OutcomeSnapshotRecord['totalResult'],
+      closingLineDelta: Number(data.closing_line_delta ?? 0),
+      completed: Boolean(data.completed),
+      source: data.source as OutcomeSnapshotRecord['source'],
+      computedAt: data.computed_at as string
+    };
+  }
+
+  async saveEdgeRealized(edge: EdgeRealizedRecord): Promise<void> {
+    const { error } = await this.client.from(TABLES.edgeRealized).upsert({
+      id: edge.id,
+      game_id: edge.gameId,
+      trace_id: edge.traceId,
+      run_id: edge.runId,
+      market_implied: edge.marketImplied,
+      model_implied: edge.modelImplied,
+      delta: edge.delta,
+      outcome: edge.outcome,
+      expected_value: edge.expectedValue,
+      realized_value: edge.realizedValue,
+      was_correct: edge.wasCorrect,
+      closing_line_movement: edge.closingLineMovement,
+      edge_direction: edge.edgeDirection,
+      computed_at: edge.computedAt
+    });
+    if (error) throw error;
+  }
+
+  async listEdgeRealized(): Promise<EdgeRealizedRecord[]> {
+    const { data, error } = await this.client
+      .from(TABLES.edgeRealized)
+      .select('*')
+      .order('computed_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      gameId: row.game_id as string,
+      traceId: row.trace_id as string,
+      runId: row.run_id as string,
+      marketImplied: Number(row.market_implied),
+      modelImplied: Number(row.model_implied),
+      delta: Number(row.delta),
+      outcome: Number(row.outcome) as 0 | 1,
+      expectedValue: Number(row.expected_value),
+      realizedValue: Number(row.realized_value),
+      wasCorrect: Boolean(row.was_correct),
+      closingLineMovement: Number(row.closing_line_movement ?? 0),
+      edgeDirection: row.edge_direction as EdgeRealizedRecord['edgeDirection'],
+      computedAt: row.computed_at as string
+    }));
+  }
+
+  async saveTrackedProp(prop: UserTrackedBetRecord): Promise<void> {
+    const { error } = await this.client.from(TABLES.trackedProps).upsert({
+      id: prop.id,
+      game_id: prop.gameId,
+      prop_id: prop.propId,
+      player: prop.player,
+      market: prop.market,
+      line: prop.line,
+      model_probability: prop.modelProbability,
+      delta: prop.delta,
+      tracked_at: prop.trackedAt
+    });
+    if (error) throw error;
+  }
+
+  async listTrackedProps(gameId?: string): Promise<UserTrackedBetRecord[]> {
+    let query = this.client
+      .from(TABLES.trackedProps)
+      .select('*')
+      .order('tracked_at', { ascending: false });
+    if (gameId) query = query.eq('game_id', gameId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      gameId: row.game_id as string,
+      propId: row.prop_id as string,
+      player: row.player as string,
+      market: row.market as string,
+      line: Number(row.line),
+      modelProbability: Number(row.model_probability),
+      delta: Number(row.delta),
+      trackedAt: row.tracked_at as string
     }));
   }
 
@@ -495,7 +665,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       settled_at: outcome.settledAt,
       resolution_reason: outcome.resolutionReason,
       source_url: outcome.sourceUrl,
-      source_domain: outcome.sourceDomain,
+      source_domain: outcome.sourceDomain
     });
     if (error) throw error;
   }
@@ -520,26 +690,35 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       settledAt: data.settled_at as string,
       resolutionReason: (data.resolution_reason as string | null) ?? null,
       sourceUrl: (data.source_url as string | null) ?? null,
-      sourceDomain: (data.source_domain as string | null) ?? null,
+      sourceDomain: (data.source_domain as string | null) ?? null
     };
   }
 
   async saveExperiment(experiment: ExperimentRecord): Promise<void> {
     const { error } = await this.client
       .from(TABLES.experiments)
-      .upsert({ id: experiment.id, name: experiment.name, description: experiment.description, created_at: experiment.createdAt });
+      .upsert({
+        id: experiment.id,
+        name: experiment.name,
+        description: experiment.description,
+        created_at: experiment.createdAt
+      });
     if (error) throw error;
   }
 
   async getExperiment(name: string): Promise<ExperimentRecord | null> {
-    const { data, error } = await this.client.from(TABLES.experiments).select('*').eq('name', name).maybeSingle();
+    const { data, error } = await this.client
+      .from(TABLES.experiments)
+      .select('*')
+      .eq('name', name)
+      .maybeSingle();
     if (error) throw error;
     if (!data) return null;
     return {
       id: data.id as string,
       name: data.name as string,
       description: (data.description as string | null) ?? null,
-      createdAt: data.created_at as string,
+      createdAt: data.created_at as string
     };
   }
 
@@ -551,12 +730,15 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       subject_key: assignment.subjectKey,
       user_id: assignment.userId,
       anon_session_id: assignment.anonSessionId,
-      created_at: assignment.createdAt,
+      created_at: assignment.createdAt
     });
     if (error) throw error;
   }
 
-  async getExperimentAssignment(experimentName: string, subjectKey: string): Promise<ExperimentAssignment | null> {
+  async getExperimentAssignment(
+    experimentName: string,
+    subjectKey: string
+  ): Promise<ExperimentAssignment | null> {
     const { data, error } = await this.client
       .from(TABLES.experimentAssignments)
       .select('*')
@@ -572,7 +754,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       subjectKey: data.subject_key as string,
       userId: (data.user_id as string | null) ?? null,
       anonSessionId: (data.anon_session_id as string | null) ?? null,
-      createdAt: data.created_at as string,
+      createdAt: data.created_at as string
     };
   }
 
@@ -588,13 +770,17 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       extracted_legs: submission.extractedLegs,
       trace_id: submission.traceId,
       request_id: submission.requestId,
-      checksum: submission.checksum,
+      checksum: submission.checksum
     });
     if (error) throw error;
   }
 
   async getSlipSubmission(id: string): Promise<SlipSubmission | null> {
-    const { data, error } = await this.client.from(TABLES.slipSubmissions).select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.client
+      .from(TABLES.slipSubmissions)
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
     if (error) throw error;
     if (!data) return null;
     return {
@@ -608,12 +794,20 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       extractedLegs: (data.extracted_legs as Record<string, unknown>[] | null) ?? null,
       traceId: data.trace_id as string,
       requestId: data.request_id as string,
-      checksum: data.checksum as string,
+      checksum: data.checksum as string
     };
   }
 
-  async listSlipSubmissions(query: { anonSessionId?: string; userId?: string; limit?: number }): Promise<SlipSubmission[]> {
-    let dbQuery = this.client.from(TABLES.slipSubmissions).select('*').order('created_at', { ascending: false }).limit(query.limit ?? 25);
+  async listSlipSubmissions(query: {
+    anonSessionId?: string;
+    userId?: string;
+    limit?: number;
+  }): Promise<SlipSubmission[]> {
+    let dbQuery = this.client
+      .from(TABLES.slipSubmissions)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(query.limit ?? 25);
     if (query.anonSessionId) dbQuery = dbQuery.eq('anon_session_id', query.anonSessionId);
     if (query.userId) dbQuery = dbQuery.eq('user_id', query.userId);
     const { data, error } = await dbQuery;
@@ -629,13 +823,13 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       extractedLegs: (item.extracted_legs as Record<string, unknown>[] | null) ?? null,
       traceId: item.trace_id as string,
       requestId: item.request_id as string,
-      checksum: item.checksum as string,
+      checksum: item.checksum as string
     }));
   }
 
   async updateSlipSubmission(
     id: string,
-    patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>,
+    patch: Partial<Omit<SlipSubmission, 'id' | 'createdAt'>>
   ): Promise<SlipSubmission | null> {
     const { data, error } = await this.client
       .from(TABLES.slipSubmissions)
@@ -648,7 +842,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
         extracted_legs: patch.extractedLegs,
         trace_id: patch.traceId,
         request_id: patch.requestId,
-        checksum: patch.checksum,
+        checksum: patch.checksum
       })
       .eq('id', id)
       .select('*')
@@ -666,7 +860,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       extractedLegs: (data.extracted_legs as Record<string, unknown>[] | null) ?? null,
       traceId: data.trace_id as string,
       requestId: data.request_id as string,
-      checksum: data.checksum as string,
+      checksum: data.checksum as string
     };
   }
 }
