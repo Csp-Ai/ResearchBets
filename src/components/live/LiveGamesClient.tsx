@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { createLivePoller } from '@/src/core/live/polling';
 import { createClientRequestId } from '@/src/core/identifiers/session';
 import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 import { runUiAction } from '@/src/core/ui/actionContract';
@@ -89,52 +90,51 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   });
   const router = useRouter();
 
-  const loadGames = async (selectedSport: string) => {
-    const action = await runUiAction({
-      actionName: 'see_live_games',
-      traceId: currentTraceId,
-      properties: { sport: selectedSport },
-      execute: async () => {
-        const nextTraceId = currentTraceId;
-        const response = await fetch(
-          `/api/live/market?sport=${encodeURIComponent(selectedSport)}&trace_id=${encodeURIComponent(nextTraceId)}`
-        );
-        if (!response.ok)
-          return { ok: false, source: 'demo' as const, error_code: 'live_market_failed' };
-        const payload = (await response.json()) as MarketResponse;
-        const snapshot = payload.data?.snapshot;
-        const rows = snapshot?.games ?? [];
-        const degraded = snapshot?.degraded ?? payload.degraded ?? false;
-        const stale = snapshot?.cache_status === 'stale';
+  const loadGames = useCallback(
+    async (selectedSport: string) => {
+      const action = await runUiAction({
+        actionName: 'see_live_games',
+        traceId: currentTraceId,
+        properties: { sport: selectedSport },
+        execute: async () => {
+          const nextTraceId = currentTraceId;
+          const response = await fetch(
+            `/api/live/market?sport=${encodeURIComponent(selectedSport)}&trace_id=${encodeURIComponent(nextTraceId)}`
+          );
+          if (!response.ok) {
+            if (response.status === 429) {
+              throw { status: response.status, message: 'live_market_rate_limited' };
+            }
+            return { ok: false, source: 'demo' as const, error_code: 'live_market_failed' };
+          }
+          const payload = (await response.json()) as {
+            snapshot?: { games?: LiveGame[]; degraded?: boolean };
+            trace_id?: string;
+          };
+          setTraceId(payload.trace_id ?? nextTraceId);
+          setGames(payload.snapshot?.games ?? []);
+          setStatus(
+            (payload.snapshot?.games ?? []).length > 0
+              ? 'Research Terminal board refreshed from cached/demo snapshot.'
+              : 'No rows yet. Showing deterministic demo market rows.'
+          );
+          return {
+            ok: true,
+            data: payload.snapshot?.games ?? [],
+            source: 'cache' as const,
+            degraded: payload.snapshot?.degraded ?? false
+          };
+        }
+      });
 
-        setTraceId(payload.trace_id ?? nextTraceId);
-        setGames(rows);
-        setFreshness({
-          source: resolvePulseSource(snapshot?.cache_status, snapshot?.source),
-          asOfIso: snapshot?.as_of_iso ?? null,
-          stale,
-          degraded
-        });
-        setStatus(
-          rows.length > 0
-            ? 'Research Terminal board refreshed from cached/demo snapshot.'
-            : 'No rows yet. Showing deterministic demo market rows.'
-        );
-        return {
-          ok: true,
-          data: rows,
-          source: 'cache' as const,
-          degraded
-        };
+      if (!action.ok) {
+        setStatus('Live feed degraded. Demo market rows stay visible for terminal workflow.');
+        setGames([]);
+        throw { message: action.error_code ?? 'live_market_failed' };
       }
-    });
-
-    if (!action.ok) {
-      setStatus('Live feed degraded. Demo market rows stay visible for terminal workflow.');
-      setGames([]);
-      setFreshness({ source: 'demo', asOfIso: null, stale: true, degraded: true });
-    }
-  };
+    },
+    [currentTraceId]
+  );
 
   useEffect(() => {
     validateCopyPolicyInDev([
@@ -148,9 +148,19 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   }, []);
 
   useEffect(() => {
-    void loadGames(sport);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sport]);
+    const poller = createLivePoller({
+      key: `live_games:${sport}`,
+      traceId: () => currentTraceId,
+      run: () => loadGames(sport),
+      onDegraded: () => {
+        setStatus('Live feed degraded. Demo market rows stay visible for terminal workflow.');
+      }
+    });
+    poller.start();
+    return () => {
+      poller.stop();
+    };
+  }, [currentTraceId, loadGames, sport]);
 
   const runQuickModel = async (game: LiveGame) => {
     setStatus(`Running lightweight model pass for ${game.label}…`);
