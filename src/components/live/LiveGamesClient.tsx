@@ -1,11 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { createClientRequestId } from '@/src/core/identifiers/session';
 import { runUiAction } from '@/src/core/ui/actionContract';
+import { buildNavigationHref } from '@/src/core/ui/navigation';
 
 type LiveGame = {
   gameId: string;
@@ -30,6 +30,9 @@ const asPercent = (value: number): string => `${(value * 100).toFixed(1)}%`;
 export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const [sport, setSport] = useState(initialSport);
   const [traceId, setTraceId] = useState('');
+  const [fallbackTraceId] = useState(() => createClientRequestId());
+
+  const currentTraceId = traceId || fallbackTraceId;
   const [games, setGames] = useState<LiveGame[]>([]);
   const [status, setStatus] = useState('Loading live games…');
   const router = useRouter();
@@ -37,9 +40,10 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const loadGames = async (selectedSport: string) => {
     const action = await runUiAction({
       actionName: 'see_live_games',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { sport: selectedSport },
       execute: async () => {
-        const nextTraceId = traceId || createClientRequestId();
+        const nextTraceId = currentTraceId;
         const response = await fetch(
           `/api/live/market?sport=${encodeURIComponent(selectedSport)}&trace_id=${encodeURIComponent(nextTraceId)}`
         );
@@ -80,7 +84,8 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
     setStatus(`Running lightweight model for ${game.label}…`);
     const result = await runUiAction({
       actionName: 'run_quick_model',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: game.gameId, sport: game.sport },
       execute: async () => {
         const response = await fetch('/api/live/model', {
           method: 'POST',
@@ -88,7 +93,7 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
           body: JSON.stringify({
             gameId: game.gameId,
             sport: game.sport,
-            traceId: traceId || createClientRequestId()
+            traceId: currentTraceId
           })
         });
         if (!response.ok)
@@ -120,10 +125,15 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const openGame = async (game: LiveGame) => {
     const outcome = await runUiAction({
       actionName: 'open_live_game',
-      traceId: traceId || undefined,
+      traceId: currentTraceId,
+      properties: { game_id: game.gameId, sport: game.sport },
       execute: async () => {
         router.push(
-          `/live/${encodeURIComponent(game.gameId)}?sport=${encodeURIComponent(game.sport)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`
+          buildNavigationHref({
+            pathname: `/live/${encodeURIComponent(game.gameId)}`,
+            traceId: currentTraceId,
+            params: { sport: game.sport }
+          })
         );
         return { ok: true, data: game, source: 'live' as const };
       }
@@ -208,12 +218,13 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
                     Run quick model
                   </button>
                 ) : null}
-                <Link
-                  href={`/live/${encodeURIComponent(game.gameId)}?sport=${encodeURIComponent(game.sport)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`}
+                <button
+                  type="button"
+                  onClick={() => openGame(game)}
                   className="rounded border border-slate-700 px-3 py-1.5 text-xs"
                 >
                   Open detail
-                </Link>
+                </button>
               </div>
             </li>
           );

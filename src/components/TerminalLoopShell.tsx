@@ -1,9 +1,11 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { createClientRequestId, ensureAnonSessionId } from '../core/identifiers/session';
+import { runUiAction } from '../core/ui/actionContract';
+import { buildNavigationHref } from '../core/ui/navigation';
 
 type Session = { sessionId: string; userId: string; anonSessionId?: string };
 type Snapshot = { reportId: string; summary: string; confidenceSummary: { averageClaimConfidence: number }; traceId: string };
@@ -26,6 +28,9 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   const [dashboard, setDashboard] = useState<{ roi: number; winRate: number; insights: string[] } | null>(null);
   const [edge, setEdge] = useState<EdgeReport | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [fallbackTraceId] = useState(() => traceId || createClientRequestId());
+  const chainTraceId = traceId || snapshot?.traceId || fallbackTraceId;
+  const router = useRouter();
 
   useEffect(() => {
     const anonSessionId = ensureAnonSessionId();
@@ -47,30 +52,53 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   }, []);
 
   useEffect(() => {
-    const activeTrace = traceId ?? snapshot?.traceId;
+    const activeTrace = chainTraceId;
     if (!activeTrace) return;
     fetch(`/api/events?trace_id=${activeTrace}&limit=10`)
       .then((res) => res.json())
       .then((data) => setEvents(data.events ?? []));
-  }, [snapshot?.traceId, traceId]);
+  }, [chainTraceId]);
 
   const startSnapshot = async () => {
     if (!session) return;
-    const start = await fetch('/api/researchSnapshot/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subject: 'NBA:LAL@BOS',
-        sessionId: session.anonSessionId ?? session.sessionId,
-        userId: session.userId,
-        tier: 'free',
-        seed: 'demo-seed',
-        requestId: createClientRequestId(),
-      }),
-    }).then((res) => res.json());
+    await runUiAction({
+      actionName: 'continue_research',
+      traceId: chainTraceId,
+      execute: async () => {
+        const start = await fetch('/api/researchSnapshot/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: 'NBA:LAL@BOS',
+            sessionId: session.anonSessionId ?? session.sessionId,
+            userId: session.userId,
+            tier: 'free',
+            seed: 'demo-seed',
+            requestId: createClientRequestId(),
+          }),
+        }).then((res) => res.json());
 
-    const report = await fetch(`/api/researchSnapshot/${start.snapshotId}`).then((res) => res.json());
-    setSnapshot(report);
+        const report = await fetch(`/api/researchSnapshot/${start.snapshotId}`).then((res) =>
+          res.json()
+        );
+        setSnapshot(report);
+        return { ok: true, source: 'live' as const, data: report };
+      }
+    });
+  };
+
+
+  const navigateWithAction = async (actionName: string, href: string) => {
+    const outcome = await runUiAction({
+      actionName,
+      traceId: chainTraceId,
+      execute: async () => {
+        router.push(href);
+        return { ok: true, source: 'live' as const };
+      }
+    });
+    if (!outcome.ok) return false;
+    return true;
   };
 
   const timeline = useMemo(() => selectTimelineEvents(events), [events]);
@@ -82,8 +110,24 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
         <p className="text-sm text-slate-400">Analyze evidence and outcomes, not betting advice.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button type="button" onClick={startSnapshot} className="rounded bg-sky-600 px-3 py-2 text-sm font-medium">Continue Research</button>
-          <Link href="/pending-bets" className="rounded border border-slate-700 px-3 py-2 text-sm">Pending Bets</Link>
-          <Link href="/dashboard" className="rounded border border-slate-700 px-3 py-2 text-sm">Performance Dashboard</Link>
+          <button
+            type="button"
+            onClick={() => {
+              void navigateWithAction('open_pending_bets', '/pending-bets');
+            }}
+            className="rounded border border-slate-700 px-3 py-2 text-sm"
+          >
+            Pending Bets
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void navigateWithAction('open_dashboard', '/dashboard');
+            }}
+            className="rounded border border-slate-700 px-3 py-2 text-sm"
+          >
+            Performance Dashboard
+          </button>
         </div>
         <p className="mt-3 text-xs font-mono text-slate-400">30d ROI: {dashboard?.roi ?? 0}% · Win rate: {dashboard?.winRate ?? 0}%</p>
       </section>
@@ -102,7 +146,22 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
             ))}
           </ul>
           <div className="mt-4">
-            <Link href={`/research?snapshotId=${snapshot.reportId}&trace_id=${snapshot.traceId}`} className="rounded border border-slate-700 px-3 py-2 text-sm">Log this result</Link>
+            <button
+              type="button"
+              onClick={() => {
+                void navigateWithAction(
+                  'open_research_result',
+                  buildNavigationHref({
+                    pathname: '/research',
+                    traceId: snapshot.traceId || chainTraceId,
+                    params: { snapshotId: snapshot.reportId }
+                  })
+                );
+              }}
+              className="rounded border border-slate-700 px-3 py-2 text-sm"
+            >
+              Log this result
+            </button>
           </div>
         </section>
       ) : null}
