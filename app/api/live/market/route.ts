@@ -2,18 +2,18 @@ import { randomUUID } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
 
+import { resolveTraceId, successEnvelope } from '../../../../src/core/api/envelope';
 import {
   emitLivePageEvent,
   getCachedQuickModel,
   recordMarketLoaded
-} from '@/src/core/live/liveModel';
-import { MarketSnapshotSchema } from '@/src/core/contracts/terminalSchemas';
-import { getMarketSnapshot } from '@/src/core/markets/marketData';
+} from '../../../../src/core/live/liveModel';
+import { getMarketSnapshot } from '../../../../src/core/markets/marketData';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sport = searchParams.get('sport') ?? 'NFL';
-  const traceId = searchParams.get('trace_id') ?? randomUUID();
+  const traceId = resolveTraceId(request);
   const runId = `live_market_${randomUUID()}`;
   const snapshotResult = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport }));
   if (!snapshotResult.success) {
@@ -42,10 +42,15 @@ export async function GET(request: Request) {
     model: getCachedQuickModel(game.gameId)
   }));
 
-  return NextResponse.json({
-    ok: true,
-    trace_id: traceId,
-    run_id: runId,
-    snapshot: { ...snapshot, games }
-  });
+  return NextResponse.json(
+    successEnvelope({
+      traceId,
+      data: {
+        run_id: runId,
+        snapshot: { ...snapshot, games }
+      },
+      degraded: snapshot.degraded,
+      source: snapshot.source
+    })
+  );
 }

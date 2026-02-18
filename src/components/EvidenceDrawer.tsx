@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { ControlPlaneEvent, GraphNodeDefinition } from '@/src/components/AgentNodeGraph';
+import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 
 type EvidenceDrawerProps = {
   open: boolean;
@@ -19,6 +20,14 @@ const PROVENANCE_FIELDS = [
   'freshness_score',
   'staleness_ms'
 ] as const;
+
+const DECISION_CARD_COPY = [
+  'Decision fields',
+  'Select a node or event to inspect provenance details.',
+  'Volatile: model tagged this node as high-variance.',
+  'Volatile: confidence is below the trust threshold.'
+] as const;
+
 const DECISION_FIELDS = ['confidence', 'rationale', 'evidence_refs', 'evidence_refs_ids'] as const;
 
 type EvidenceTab = 'stats' | 'matchup' | 'rationale';
@@ -76,6 +85,17 @@ function riskReason(payload: Record<string, unknown>): string | null {
 
 export function EvidenceDrawer({ open, node, events, onClose }: EvidenceDrawerProps) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('stats');
+
+  useEffect(() => {
+    validateCopyPolicyInDev([
+      {
+        id: 'decision.card.evidence.drawer',
+        surface: 'decision-card',
+        file: 'src/components/EvidenceDrawer.tsx',
+        strings: DECISION_CARD_COPY
+      }
+    ]);
+  }, []);
 
   const matching = node ? events.filter((event) => eventMatchesNode(node.id, event)) : [];
   const recent = matching.slice(-10).reverse();
