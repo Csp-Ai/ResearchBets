@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "InjuryScout.input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "player_id", "status", "source"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "player_id": { "type": "string" },
+    "status": { "type": "string" },
+    "source": { "type": "string" },
+    "reported_at": { "type": "string", "format": "date-time" }
+  }
+}

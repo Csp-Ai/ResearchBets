@@ -1,0 +1,122 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const repoRoot = path.resolve(__dirname, '..');
+const registryPath = path.join(repoRoot, 'packages/agent-schemas/registry.json');
+
+const requiredFields = [
+  'agent_id',
+  'objective',
+  'input_schema',
+  'output_schema',
+  'confidence_model',
+  'assumptions',
+  'kpi',
+  'logging_fields',
+  'lifecycle_state'
+];
+
+const allowedLifecycleStates = new Set(['draft', 'active', 'deprecated', 'retired']);
+
+function fail(message) {
+  console.error(`ERROR: ${message}`);
+  process.exitCode = 1;
+}
+
+function readJson(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    fail(`Invalid JSON at ${path.relative(repoRoot, filePath)}: ${error.message}`);
+    return null;
+  }
+}
+
+function isArrayOfStrings(value) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+if (!fs.existsSync(registryPath)) {
+  fail(`Registry file is missing: ${path.relative(repoRoot, registryPath)}`);
+  process.exit(process.exitCode || 1);
+}
+
+const registry = readJson(registryPath);
+if (!registry) {
+  process.exit(process.exitCode || 1);
+}
+
+if (!Array.isArray(registry.agents)) {
+  fail('Registry must define an "agents" array.');
+  process.exit(process.exitCode || 1);
+}
+
+for (const [index, agent] of registry.agents.entries()) {
+  const label = agent?.agent_id ? `agent ${agent.agent_id}` : `agent index ${index}`;
+
+  for (const field of requiredFields) {
+    if (!(field in (agent || {}))) {
+      fail(`${label} is missing required field "${field}".`);
+    }
+  }
+
+  if (!agent || typeof agent !== 'object') {
+    fail(`${label} is not a valid object.`);
+    continue;
+  }
+
+  if (typeof agent.agent_id !== 'string' || agent.agent_id.trim() === '') {
+    fail(`${label} has invalid "agent_id".`);
+  }
+
+  if (typeof agent.objective !== 'string' || agent.objective.trim() === '') {
+    fail(`${label} has invalid "objective".`);
+  }
+
+  if (!isArrayOfStrings(agent.assumptions)) {
+    fail(`${label} field "assumptions" must be an array of strings.`);
+  }
+
+  if (!isArrayOfStrings(agent.kpi)) {
+    fail(`${label} field "kpi" must be an array of strings.`);
+  }
+
+  if (!isArrayOfStrings(agent.logging_fields)) {
+    fail(`${label} field "logging_fields" must be an array of strings.`);
+  }
+
+  if (!allowedLifecycleStates.has(agent.lifecycle_state)) {
+    fail(`${label} has invalid "lifecycle_state" (${agent.lifecycle_state}).`);
+  }
+
+  for (const schemaField of ['input_schema', 'output_schema']) {
+    const schemaPathRaw = agent[schemaField];
+    if (typeof schemaPathRaw !== 'string' || schemaPathRaw.trim() === '') {
+      fail(`${label} has invalid "${schemaField}" value.`);
+      continue;
+    }
+
+    const schemaPath = path.join(repoRoot, schemaPathRaw);
+    if (!fs.existsSync(schemaPath)) {
+      fail(`${label} references missing ${schemaField}: ${schemaPathRaw}`);
+      continue;
+    }
+
+    const schemaJson = readJson(schemaPath);
+    if (!schemaJson) {
+      continue;
+    }
+
+    if (schemaJson.type !== 'object') {
+      fail(`${label} ${schemaField} must declare top-level "type": "object".`);
+    }
+  }
+}
+
+if (process.exitCode) {
+  process.exit(process.exitCode);
+}
+
+console.log(`Validated ${registry.agents.length} agent definitions successfully.`);

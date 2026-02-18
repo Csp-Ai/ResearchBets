@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "SharpMoneyDetector.output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "is_sharp_signal", "signal_strength", "confidence"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "is_sharp_signal": { "type": "boolean" },
+    "signal_strength": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

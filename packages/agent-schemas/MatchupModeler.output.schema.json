@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "MatchupModeler.output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "projected_spread", "projected_total", "confidence"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "projected_spread": { "type": "number" },
+    "projected_total": { "type": "number" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

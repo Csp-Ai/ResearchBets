@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "LineWatcher.output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "movement_detected", "confidence"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "movement_detected": { "type": "boolean" },
+    "consensus_line": { "type": "number" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

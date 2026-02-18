@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "SharpMoneyDetector.input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "market", "ticket_pct", "handle_pct", "line_delta"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "market": { "type": "string" },
+    "ticket_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+    "handle_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+    "line_delta": { "type": "number" }
+  }
+}
