@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { InMemoryEventEmitter } from '../../core/control-plane/emitter';
 import { buildResearchSnapshot } from '../../flows/researchSnapshot/buildResearchSnapshot';
 import { ResearchReportSchema } from '../../core/evidence/validators';
+import { asMarketType } from '../../core/markets/marketType';
 import type { AgentDefinition } from '../../core/agent-runtime/types';
 
 const ResearchSnapshotInputSchema = z.object({
@@ -37,6 +38,7 @@ export const ResearchSnapshotAgent: AgentDefinition<ResearchSnapshotAgentInput, 
         requestId: context.requestId,
         traceId: context.traceId ?? `trace_${context.requestId}`,
         runId: context.runId ?? `run_${context.requestId}`,
+        marketType: asMarketType(input.marketType, 'points'),
       },
       emitter,
       process.env,

@@ -4,7 +4,7 @@ import type { EventEmitter } from '../control-plane/emitter';
 import type { RuntimeStore } from '../persistence/runtimeStore';
 import { getRuntimeStore } from '../persistence/runtimeStoreProvider';
 
-import type { MarketType } from './clv';
+import type { MarketType } from '../markets/marketType';
 
 interface RecommendationInput {
   parentRecommendationId?: string | null;

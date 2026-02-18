@@ -1,5 +1,6 @@
 import type { ControlPlaneEvent } from '../control-plane/events';
 import type { ResearchReport } from '../evidence/evidenceSchema';
+import type { MarketType } from '../markets/marketType';
 
 export interface SessionRecord {
   sessionId: string;
@@ -16,7 +17,7 @@ export interface StoredBet {
   runId: string;
   selection: string;
   gameId?: string | null;
-  marketType?: 'spread' | 'total' | 'moneyline' | null;
+  marketType?: MarketType | null;
   line?: number | null;
   book?: string | null;
   odds: number;
@@ -53,7 +54,7 @@ export interface AgentRecommendation {
   agentId: string;
   agentVersion: string;
   gameId: string;
-  marketType: 'spread' | 'total' | 'moneyline';
+  marketType: MarketType;
   market: string;
   selection: string;
   line: number | null;
@@ -68,7 +69,7 @@ export interface OddsSnapshot {
   id: string;
   gameId: string;
   market: string;
-  marketType: 'spread' | 'total' | 'moneyline';
+  marketType: MarketType;
   selection: string;
   line: number | null;
   price: number | null;

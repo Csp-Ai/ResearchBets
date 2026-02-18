@@ -1,4 +1,4 @@
-export type MarketType = 'spread' | 'total' | 'moneyline';
+import type { MarketType } from '../markets/marketType';
 
 const toImpliedProbability = (americanOdds: number): number => {
   if (americanOdds === 0) return 0.5;

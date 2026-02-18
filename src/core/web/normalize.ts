@@ -1,3 +1,4 @@
+import { asMarketType } from '../markets/marketType';
 import { walConfig } from './config';
 import type { WalDataType, WalNormalizedRecord } from './types';
 
@@ -42,7 +43,7 @@ export const normalizeRecords = ({
       {
         gameId: String(parsed.game_id ?? parsed.gameId ?? ''),
         market: String(parsed.market ?? 'spread'),
-        marketType: (parsed.market_type as 'spread' | 'total' | 'moneyline' | undefined) ?? 'spread',
+        marketType: asMarketType(parsed.market_type as string | undefined, 'spread'),
         selection: String(parsed.selection ?? 'home'),
         line: asNumber(parsed.line),
         price: asNumber(parsed.price),
