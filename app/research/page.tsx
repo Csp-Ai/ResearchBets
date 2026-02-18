@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { Suspense, useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import {
@@ -56,7 +56,7 @@ function toProgressTimestamp(events: ControlPlaneEvent[], progress: number): num
   return start + ((end - start) * progress) / 100;
 }
 
-export default function ResearchPage() {
+function ResearchPageContent() {
   const router = useRouter();
   const search = useSearchParams();
   const snapshotId = search.get('snapshotId') ?? '';
@@ -547,5 +547,13 @@ export default function ResearchPage() {
         ) : null}
       </section>
     </section>
+  );
+}
+
+export default function ResearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResearchPageContent />
+    </Suspense>
   );
 }

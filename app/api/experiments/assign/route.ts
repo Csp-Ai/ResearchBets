@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { assignExperiment } from '@/src/core/measurement/edge';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
+export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const store = getRuntimeStore();
   const { searchParams } = new URL(request.url);

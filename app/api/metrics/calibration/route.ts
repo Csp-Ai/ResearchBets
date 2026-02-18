@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { computeCalibrationMetrics } from '@/src/core/metrics/calibration';
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const traceId = randomUUID();
   const runId = `calibration_${randomUUID()}`;
