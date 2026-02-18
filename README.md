@@ -26,6 +26,7 @@ North Star: **Slip ingestion ➝ leg insights ➝ auto research ➝ risk framing
 - **SlipIngestion**: capture raw slips + normalize markets.
 - **SnapshotAgent**: produce deterministic research snapshots scoped by market.
 - **Graph View**: trace runtime events and orchestration nodes.
+- **SnapshotReplayView**: replay per-leg prop context (trend, matchup, injury, confidence) and parlay risk summary.
 - **EvidenceDrawer**: inspect claims, evidence, and event-level detail.
 
 ## LLM / Copilot Primary Context Files
@@ -52,3 +53,7 @@ npm run lint
 npm run typecheck
 npm run test
 ```
+
+## Research Path
+
+Slip ingestion ➝ `buildPropLegInsight` leg context ➝ snapshot creation ➝ `/research/snapshot/[snapshotId]` replay via `SnapshotReplayView` ➝ trace replay graph (`?replay=1`).

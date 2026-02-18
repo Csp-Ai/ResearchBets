@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { asMarketType } from '@/src/core/markets/marketType';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
+import { buildPropLegInsight } from '@/src/core/slips/propInsights';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   const store = getRuntimeStore();
@@ -25,5 +27,22 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     properties: { snapshot_id: snapshot.reportId },
   });
 
-  return NextResponse.json(snapshot);
+  const legs = snapshot.claims.slice(0, 4).map((claim) => ({
+    selection: claim.text,
+    market: asMarketType(claim.text, 'points'),
+  }));
+
+  const legInsights = legs.map((leg) => buildPropLegInsight(leg));
+  const recommendations = snapshot.claims.map((claim) => ({
+    id: claim.id,
+    summary: claim.text,
+    confidence: claim.confidence,
+  }));
+
+  return NextResponse.json({
+    ...snapshot,
+    legs,
+    leg_insights: legInsights,
+    recommendations,
+  });
 }
