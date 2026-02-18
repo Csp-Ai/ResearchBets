@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { TrackedBetSchema } from '@/src/core/contracts/terminalSchemas';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 const schema = z.object({
@@ -19,6 +20,11 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   const body = schema.parse(await request.json());
+  const trackedValidation = TrackedBetSchema.safeParse(body);
+  if (!trackedValidation.success) {
+    return NextResponse.json({ ok: false, error_code: 'schema_invalid', source: 'demo', degraded: true });
+  }
+
   const store = getRuntimeStore();
   const emitter = new DbEventEmitter(store);
   const traceId = body.traceId ?? randomUUID();

@@ -7,6 +7,7 @@ import {
   getCachedQuickModel,
   recordMarketLoaded
 } from '@/src/core/live/liveModel';
+import { MarketSnapshotSchema } from '@/src/core/contracts/terminalSchemas';
 import { getMarketSnapshot } from '@/src/core/markets/marketData';
 
 export async function GET(request: Request) {
@@ -14,7 +15,18 @@ export async function GET(request: Request) {
   const sport = searchParams.get('sport') ?? 'NFL';
   const traceId = searchParams.get('trace_id') ?? randomUUID();
   const runId = `live_market_${randomUUID()}`;
-  const snapshot = await getMarketSnapshot({ sport });
+  const snapshotResult = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport }));
+  if (!snapshotResult.success) {
+    const fallbackSnapshot = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport: 'NFL' }));
+    return NextResponse.json({
+      ok: false,
+      error_code: 'schema_invalid',
+      source: 'demo',
+      degraded: true,
+      snapshot: fallbackSnapshot.success ? fallbackSnapshot.data : null
+    });
+  }
+  const snapshot = snapshotResult.data;
 
   await recordMarketLoaded({
     games: snapshot.games,

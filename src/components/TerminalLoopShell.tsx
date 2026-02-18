@@ -57,6 +57,17 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   const chainTraceId = traceId || snapshot?.traceId || fallbackTraceId;
   const router = useRouter();
 
+  const navigateWithAction = async (actionId: string, href: string) => {
+    await runUiAction({
+      actionId,
+      actionName: actionId,
+      traceId: chainTraceId,
+      properties: { href },
+      execute: async () => ({ ok: true, source: 'live', degraded: false, data: { href } })
+    });
+    router.push(href);
+  };
+
   useEffect(() => {
     const anonSessionId = ensureAnonSessionId();
     const existingSession = window.localStorage.getItem('rb.sessionId');

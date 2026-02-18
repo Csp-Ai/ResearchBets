@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { emitLivePageEvent, getCachedQuickModel } from '@/src/core/live/liveModel';
 import { getPlayerPropsMomentum } from '@/src/core/live/playerProps';
+import { MarketSnapshotSchema } from '@/src/core/contracts/terminalSchemas';
 import { resolveGameFromRegistry } from '@/src/core/games/registry';
 import { getMarketSnapshot } from '@/src/core/markets/marketData';
 
@@ -14,7 +15,24 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
   const traceId = searchParams.get('trace_id') ?? randomUUID();
   const runId = `live_game_${randomUUID()}`;
 
-  const snapshot = await getMarketSnapshot({ sport });
+  const snapshotResult = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport }));
+  if (!snapshotResult.success) {
+    const fallbackSnapshot = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport: 'NFL' }));
+    const fallbackGame = fallbackSnapshot.success
+      ? fallbackSnapshot.data.games.find((item) => item.gameId === params.gameId) ?? null
+      : null;
+    return NextResponse.json({
+      ok: false,
+      error_code: 'schema_invalid',
+      source: 'demo',
+      degraded: true,
+      game: fallbackGame,
+      model: fallbackGame ? getCachedQuickModel(fallbackGame.gameId) : null,
+      props: fallbackGame ? getPlayerPropsMomentum(fallbackGame.gameId, fallbackGame.sport) : []
+    });
+  }
+
+  const snapshot = snapshotResult.data;
   const game = snapshot.games.find((item) => item.gameId === params.gameId);
   if (!game)
     return NextResponse.json(
