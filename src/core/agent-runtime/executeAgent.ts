@@ -91,7 +91,7 @@ export const executeAgent = async <TInput extends AgentInput, TOutput extends Ag
     await emitRuntimeEvent({ emitter, eventName: 'INPUT_VALIDATED', traceId, runId, context, agent });
     await emitRuntimeEvent({ emitter, eventName: 'AGENT_STARTED', traceId, runId, context, agent });
 
-    const rawOutput = await agent.handler(context, validatedInput);
+    const rawOutput = await agent.handler({ ...context, runId, traceId }, validatedInput);
 
     await emitRuntimeEvent({ emitter, eventName: 'AGENT_FINISHED', traceId, runId, context, agent });
 
