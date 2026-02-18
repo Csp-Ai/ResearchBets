@@ -107,6 +107,7 @@ export class LineMovementTracker {
     if (!openingData) return null;
 
     const closingEvent = events[events.length - 1];
+    if (!closingEvent) return null;
     const favorCount = events.filter((e) => e.direction === 'up').length;
     const againstCount = events.filter((e) => e.direction === 'down').length;
 

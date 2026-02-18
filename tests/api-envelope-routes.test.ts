@@ -5,6 +5,7 @@ import { GET as searchGames } from '../app/api/games/search/route';
 import { GET as getLiveGame } from '../app/api/live/game/[gameId]/route';
 import { GET as getLiveMarket } from '../app/api/live/market/route';
 import { POST as postLiveModel } from '../app/api/live/model/route';
+import { MarketSnapshotSchema } from '../src/core/contracts/terminalSchemas';
 import { getMarketSnapshot } from '../src/core/markets/marketData';
 
 const requiredKeys = ['ok', 'data', 'degraded', 'source', 'error_code', 'trace_id'] as const;
@@ -85,6 +86,7 @@ describe('API envelope contract', () => {
 
   it('wraps live model responses in the standard envelope', async () => {
     const snapshot = await getMarketSnapshot({ sport: 'NFL' });
+    expect(MarketSnapshotSchema.safeParse(snapshot).success).toBe(true);
     const firstGame = snapshot.games[0];
     expect(firstGame).toBeDefined();
     if (!firstGame) throw new Error('Expected at least one game in snapshot.');

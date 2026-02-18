@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { resolveTraceId, successEnvelope } from '../../../../src/core/api/envelope';
+import { MarketSnapshotSchema } from '../../../../src/core/contracts/terminalSchemas';
 import {
   emitLivePageEvent,
   getCachedQuickModel,

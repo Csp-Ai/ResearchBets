@@ -5,7 +5,7 @@ import {
   type CanonicalGame
 } from './registry';
 
-export interface GameCatalogItem extends CanonicalGame {}
+export type GameCatalogItem = CanonicalGame;
 
 export const DEMO_GAMES: GameCatalogItem[] = getAllGames();
 

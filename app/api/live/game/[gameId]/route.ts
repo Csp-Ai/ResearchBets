@@ -11,6 +11,7 @@ import { emitLivePageEvent, getCachedQuickModel } from '../../../../../src/core/
 import { getPlayerPropsMomentum } from '../../../../../src/core/live/playerProps';
 import { evaluateHeuristicMicrostructure } from '../../../../../src/core/heuristics/microstructure';
 import { resolveGameFromRegistry } from '../../../../../src/core/games/registry';
+import { MarketSnapshotSchema } from '../../../../../src/core/contracts/terminalSchemas';
 import { getMarketSnapshot } from '../../../../../src/core/markets/marketData';
 
 export async function GET(request: Request, { params }: { params: { gameId: string } }) {
