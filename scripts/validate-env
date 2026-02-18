@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/validate-env [--file <path>] [--allow-empty <VAR_NAME>]
+
+Validates required environment variables for local startup and CI.
+By default, it checks process environment only.
+Use --file to source a .env file before validation.
+EOF
+}
+
+env_file=""
+allow_empty=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --file)
+      env_file="${2:-}"
+      shift 2
+      ;;
+    --allow-empty)
+      allow_empty+=("${2:-}")
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -n "$env_file" ]]; then
+  if [[ ! -f "$env_file" ]]; then
+    echo "Environment file not found: $env_file" >&2
+    exit 1
+  fi
+
+  set -a
+  # shellcheck disable=SC1090
+  source "$env_file"
+  set +a
+fi
+
+required_vars=(
+  PUBLIC_APP_URL
+  SERVER_PORT
+  SERVER_NODE_ENV
+  SUPABASE_URL
+  SUPABASE_ANON_KEY
+  SUPABASE_SERVICE_ROLE_KEY
+  ODDS_API_BASE_URL
+  ODDS_API_KEY
+)
+
+is_allow_empty() {
+  local needle="$1"
+  for item in "${allow_empty[@]}"; do
+    [[ "$item" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
+missing=()
+empty=()
+
+for var_name in "${required_vars[@]}"; do
+  if [[ -z "${!var_name+x}" ]]; then
+    missing+=("$var_name")
+    continue
+  fi
+
+  if [[ -z "${!var_name}" ]] && ! is_allow_empty "$var_name"; then
+    empty+=("$var_name")
+  fi
+done
+
+if [[ ${#missing[@]} -gt 0 || ${#empty[@]} -gt 0 ]]; then
+  echo "Environment validation failed." >&2
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Missing required variables:" >&2
+    printf ' - %s\n' "${missing[@]}" >&2
+  fi
+
+  if [[ ${#empty[@]} -gt 0 ]]; then
+    echo "Empty required variables:" >&2
+    printf ' - %s\n' "${empty[@]}" >&2
+  fi
+
+  exit 1
+fi
+
+echo "Environment validation passed."

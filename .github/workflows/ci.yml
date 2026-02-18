@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema-validation:
+    name: Schema validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/agent-schemas/package-lock.json
+      - name: Validate schema package exists
+        run: |
+          test -d packages/agent-schemas || {
+            echo "Missing required package: packages/agent-schemas" >&2
+            exit 1
+          }
+          test -f packages/agent-schemas/package.json || {
+            echo "Missing required file: packages/agent-schemas/package.json" >&2
+            exit 1
+          }
+      - name: Install dependencies
+        working-directory: packages/agent-schemas
+        run: npm ci
+      - name: Run schema validation
+        working-directory: packages/agent-schemas
+        run: |
+          npm run validate --if-present
+          npm run test --if-present
+
+  service-quality:
+    name: Lint and typecheck services
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Lint and typecheck all services
+        run: |
+          set -euo pipefail
+          mapfile -t service_manifests < <(find services packages -mindepth 2 -maxdepth 3 -name package.json 2>/dev/null | sort)
+
+          if [ "${#service_manifests[@]}" -eq 0 ]; then
+            echo "No service package.json files found under services/ or packages/."
+            exit 1
+          fi
+
+          for manifest in "${service_manifests[@]}"; do
+            service_dir="$(dirname "$manifest")"
+            echo "---"
+            echo "Checking $service_dir"
+            npm ci --prefix "$service_dir"
+
+            if npm run --prefix "$service_dir" | grep -qE '^  lint$'; then
+              npm run --prefix "$service_dir" lint
+            else
+              echo "Missing required script 'lint' in $manifest" >&2
+              exit 1
+            fi
+
+            if npm run --prefix "$service_dir" | grep -qE '^  typecheck$'; then
+              npm run --prefix "$service_dir" typecheck
+            else
+              echo "Missing required script 'typecheck' in $manifest" >&2
+              exit 1
+            fi
+          done
+
+  docs-consistency:
+    name: Docs consistency
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required architecture and governance docs
+        run: scripts/check-required-docs

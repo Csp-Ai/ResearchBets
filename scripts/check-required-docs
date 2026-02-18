@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+required_docs=(
+  "docs/architecture.md"
+  "docs/governance.md"
+  "docs/release-checklist.md"
+)
+
+missing=()
+for doc in "${required_docs[@]}"; do
+  if [[ ! -f "$doc" ]]; then
+    missing+=("$doc")
+  fi
+done
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo "Missing required documentation:" >&2
+  printf ' - %s\n' "${missing[@]}" >&2
+  exit 1
+fi
+
+echo "Required documentation files are present."
