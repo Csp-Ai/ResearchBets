@@ -1,46 +1,38 @@
-import type { Connector, ConnectorExecutionContext, ResearchTier } from './Connector';
+import type { Connector, ResearchTier, RuntimeEnvironment } from './Connector';
 
 export interface ConnectorPolicyResult {
   selected: Connector[];
   skipped: Array<{ connectorId: string; reason: string }>;
 }
 
-interface ConnectorRegistryOptions {
-  env?: Record<string, string | undefined>;
-}
-
 export class ConnectorRegistry {
   private readonly connectors = new Map<string, Connector>();
-  private readonly env: Record<string, string | undefined>;
 
-  constructor(options?: ConnectorRegistryOptions) {
-    this.env = options?.env ?? process.env;
-  }
+  constructor(private readonly env: Record<string, string | undefined> = process.env) {}
 
   register(connector: Connector): void {
     this.connectors.set(connector.id, connector);
   }
 
-  resolve(tier: ResearchTier, context: Pick<ConnectorExecutionContext, 'environment'>): ConnectorPolicyResult {
-    const all = [...this.connectors.values()].sort((left, right) => left.id.localeCompare(right.id));
-
+  resolve(tier: ResearchTier, environment: RuntimeEnvironment): ConnectorPolicyResult {
+    const sorted = [...this.connectors.values()].sort((a, b) => a.id.localeCompare(b.id));
     const selected: Connector[] = [];
     const skipped: Array<{ connectorId: string; reason: string }> = [];
 
-    for (const connector of all) {
+    for (const connector of sorted) {
       if (!connector.allowedTiers.includes(tier)) {
         skipped.push({ connectorId: connector.id, reason: 'tier_policy' });
         continue;
       }
 
-      if (!connector.allowedEnvironments.includes(context.environment)) {
+      if (!connector.allowedEnvironments.includes(environment)) {
         skipped.push({ connectorId: connector.id, reason: 'environment_policy' });
         continue;
       }
 
-      const missingEnv = connector.requiredEnv.filter((envKey) => !this.env[envKey]);
-      if (missingEnv.length > 0) {
-        skipped.push({ connectorId: connector.id, reason: `missing_env:${missingEnv.join(',')}` });
+      const missing = connector.requiresEnv.filter((k) => !this.env[k]);
+      if (missing.length > 0) {
+        skipped.push({ connectorId: connector.id, reason: `missing_env:${missing.join(',')}` });
         continue;
       }
 
