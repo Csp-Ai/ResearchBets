@@ -57,17 +57,6 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   const chainTraceId = traceId || snapshot?.traceId || fallbackTraceId;
   const router = useRouter();
 
-  const navigateWithAction = async (actionId: string, href: string) => {
-    await runUiAction({
-      actionName: actionId,
-      actionId: `ui_${createClientRequestId()}`,
-      traceId: chainTraceId,
-      properties: { href, session_id: session?.sessionId ?? 'anonymous', user_id: session?.userId ?? 'anonymous' },
-      execute: async () => ({ ok: true, source: 'live' })
-    });
-    router.push(href);
-  };
-
   useEffect(() => {
     const anonSessionId = ensureAnonSessionId();
     const existingSession = window.localStorage.getItem('rb.sessionId');
@@ -142,7 +131,13 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
           Analyze evidence and outcomes in terminal form; not betting advice.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={startSnapshot} className="rounded bg-sky-600 px-3 py-2 text-sm font-medium">Continue Research</button>
+          <button
+            type="button"
+            onClick={startSnapshot}
+            className="rounded bg-sky-600 px-3 py-2 text-sm font-medium"
+          >
+            Continue Research
+          </button>
           <button
             type="button"
             onClick={() => {

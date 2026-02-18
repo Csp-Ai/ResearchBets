@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
 
-import { errorEnvelope, resolveTraceId, successEnvelope } from '../../../../../src/core/api/envelope';
+import {
+  errorEnvelope,
+  resolveTraceId,
+  successEnvelope
+} from '../../../../../src/core/api/envelope';
 import { emitLivePageEvent, getCachedQuickModel } from '../../../../../src/core/live/liveModel';
 import { getPlayerPropsMomentum } from '../../../../../src/core/live/playerProps';
 import { resolveGameFromRegistry } from '../../../../../src/core/games/registry';
@@ -38,7 +42,10 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
         run_id: runId,
         game,
         model: getCachedQuickModel(game.gameId),
-        props: getPlayerPropsMomentum(game.gameId, sport)
+        props: getPlayerPropsMomentum(game.gameId, sport),
+        as_of_iso: snapshot.as_of_iso,
+        age_ms: snapshot.age_ms,
+        cache_status: snapshot.cache_status
       },
       degraded: game.degraded,
       source: game.source
