@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { computeEdgeRealization } from '@/src/core/metrics/edgeRealization';
 import { getCachedQuickModel } from '@/src/core/live/liveModel';
+import { resolveGameFromRegistry } from '@/src/core/games/registry';
 import { getMarketSnapshot } from '@/src/core/markets/marketData';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 import { buildInsightNode } from '@/src/core/insights/insightGraph';
@@ -21,7 +22,8 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
   const store = getRuntimeStore();
   const emitter = new DbEventEmitter(store);
   const { searchParams } = new URL(request.url);
-  const sport = searchParams.get('sport') ?? 'NFL';
+  const registryGame = resolveGameFromRegistry(params.gameId);
+  const sport = searchParams.get('sport') ?? registryGame?.league ?? 'NFL';
   const traceId = searchParams.get('trace_id') ?? randomUUID();
   const runId = `live_outcome_${randomUUID()}`;
 
