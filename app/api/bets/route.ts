@@ -4,16 +4,19 @@ import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { requireIdempotencyKey, withIdempotency } from '@/src/core/control-plane/idempotency';
-import { persistenceDb, type StoredBet } from '@/src/core/persistence/runtimeDb';
+import type { StoredBet } from '@/src/core/persistence/runtimeStore';
+import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function GET(request: Request) {
+  const store = getRuntimeStore();
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
-  const bets = status === 'pending' ? persistenceDb.bets.filter((bet) => bet.status === 'pending') : persistenceDb.bets;
+  const bets = await store.listBets(status === 'pending' ? 'pending' : undefined);
   return NextResponse.json({ bets });
 }
 
 export async function POST(request: Request) {
+  const store = getRuntimeStore();
   const body = (await request.json()) as Omit<StoredBet, 'id' | 'createdAt' | 'status' | 'outcome' | 'settledAt' | 'settledProfit'> & {
     idempotencyKey?: string;
   };
@@ -24,6 +27,7 @@ export async function POST(request: Request) {
     endpoint: '/api/bets',
     userId: body.userId,
     key: idempotencyKey,
+    store,
     handler: async () => {
       const bet: StoredBet = {
         id: randomUUID(),
@@ -42,19 +46,22 @@ export async function POST(request: Request) {
         createdAt: new Date().toISOString(),
         settledAt: null,
       };
-      persistenceDb.bets.unshift(bet);
+      await store.saveBet(bet);
       return bet;
     },
   });
 
-  await new DbEventEmitter().emit({
-    eventName: 'BET_LOGGED',
+  await new DbEventEmitter(store).emit({
+    event_name: 'bet_logged',
     timestamp: new Date().toISOString(),
-    traceId: response.traceId,
-    runId: response.runId,
-    sessionId: response.sessionId,
-    userId: response.userId,
-    properties: { betId: response.id, replayed },
+    request_id: randomUUID(),
+    trace_id: response.traceId,
+    run_id: response.runId,
+    session_id: response.sessionId,
+    user_id: response.userId,
+    agent_id: 'bet_lifecycle',
+    model_version: 'runtime-deterministic-v1',
+    properties: { bet_id: response.id, replayed },
   });
 
   return NextResponse.json(response);

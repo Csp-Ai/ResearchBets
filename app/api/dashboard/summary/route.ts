@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { buildInsights, summarizeBets } from '@/src/core/persistence/dashboard';
-import { persistenceDb } from '@/src/core/persistence/runtimeDb';
+import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function GET() {
-  const summary = summarizeBets(persistenceDb.bets);
-  return NextResponse.json({ ...summary, insights: buildInsights(persistenceDb.bets) });
+  const store = getRuntimeStore();
+  const bets = await store.listBets();
+  const summary = summarizeBets(bets);
+  return NextResponse.json({ ...summary, insights: buildInsights(bets) });
 }

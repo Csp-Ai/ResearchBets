@@ -172,3 +172,19 @@ create table if not exists public.idempotency_keys (
   created_at timestamptz not null default timezone('utc', now()),
   primary key (key, endpoint, user_id)
 );
+
+
+create table if not exists public.runtime_sessions (
+  session_id text primary key,
+  user_id text not null,
+  last_seen_at timestamptz not null
+);
+
+create table if not exists public.research_reports (
+  report_id text primary key,
+  report jsonb not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table if exists public.idempotency_keys
+  add column if not exists response_json jsonb;

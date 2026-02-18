@@ -1,21 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import { persistenceDb } from '../persistence/runtimeDb';
+import type { RuntimeStore, SessionRecord } from '../persistence/runtimeStore';
+import { getRuntimeStore } from '../persistence/runtimeStoreProvider';
 
-export interface SessionRecord {
-  sessionId: string;
-  userId: string;
-  lastSeenAt: string;
-}
-
-export const ensureSession = (existingSessionId?: string | null): SessionRecord => {
+export const ensureSession = async (existingSessionId?: string | null, store: RuntimeStore = getRuntimeStore()): Promise<SessionRecord> => {
   const now = new Date().toISOString();
 
   if (existingSessionId) {
-    const existing = persistenceDb.sessions.find((session) => session.sessionId === existingSessionId);
+    const existing = await store.getSession(existingSessionId);
     if (existing) {
-      existing.lastSeenAt = now;
-      return existing;
+      const updated = { ...existing, lastSeenAt: now };
+      await store.upsertSession(updated);
+      return updated;
     }
   }
 
@@ -25,6 +21,6 @@ export const ensureSession = (existingSessionId?: string | null): SessionRecord 
     lastSeenAt: now,
   };
 
-  persistenceDb.sessions.push(created);
+  await store.upsertSession(created);
   return created;
 };

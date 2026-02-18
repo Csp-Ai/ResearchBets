@@ -1,22 +1,28 @@
+import { randomUUID } from 'node:crypto';
+
 import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
-import { persistenceDb } from '@/src/core/persistence/runtimeDb';
+import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const snapshot = persistenceDb.snapshots.find((item) => item.reportId === params.id);
+  const store = getRuntimeStore();
+  const snapshot = await store.getSnapshot(params.id);
   if (!snapshot) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  await new DbEventEmitter().emit({
-    eventName: 'SNAPSHOT_VIEWED',
+  await new DbEventEmitter(store).emit({
+    event_name: 'snapshot_viewed',
     timestamp: new Date().toISOString(),
-    traceId: snapshot.traceId,
-    runId: snapshot.runId,
-    sessionId: 'server',
-    userId: 'server',
-    properties: { snapshotId: snapshot.reportId },
+    request_id: randomUUID(),
+    trace_id: snapshot.traceId,
+    run_id: snapshot.runId,
+    session_id: 'server',
+    user_id: 'server',
+    agent_id: 'research_snapshot',
+    model_version: 'runtime-deterministic-v1',
+    properties: { snapshot_id: snapshot.reportId },
   });
 
   return NextResponse.json(snapshot);

@@ -1,15 +1,9 @@
 import { createHash } from 'node:crypto';
 
-import { persistenceDb } from '../persistence/runtimeDb';
+import type { RuntimeStore } from '../persistence/runtimeStore';
+import { getRuntimeStore } from '../persistence/runtimeStoreProvider';
 
-export interface IdempotencyRecord<T> {
-  endpoint: string;
-  userId: string;
-  key: string;
-  response: T;
-  responseHash: string;
-  createdAt: string;
-}
+import type { IdempotencyRecord } from '../persistence/runtimeStore';
 
 const inMemoryStore = new Map<string, IdempotencyRecord<unknown>>();
 
@@ -28,33 +22,38 @@ export const withIdempotency = async <T>({
   userId,
   key,
   handler,
+  store = getRuntimeStore(),
 }: {
   endpoint: string;
   userId: string;
   key: string;
   handler: () => Promise<T>;
+  store?: RuntimeStore;
 }): Promise<{ replayed: boolean; response: T }> => {
   const storeKey = makeStoreKey(endpoint, userId, key);
-  const existing = inMemoryStore.get(storeKey) as IdempotencyRecord<T> | undefined;
+  const cached = inMemoryStore.get(storeKey) as IdempotencyRecord<T> | undefined;
+  if (cached) {
+    return { replayed: true, response: cached.response };
+  }
 
+  const existing = await store.getIdempotencyRecord<T>(endpoint, userId, key);
   if (existing) {
+    inMemoryStore.set(storeKey, existing as IdempotencyRecord<unknown>);
     return { replayed: true, response: existing.response };
   }
 
   const response = await handler();
-  const responseHash = createHash('sha256').update(JSON.stringify(response)).digest('hex');
-
   const record: IdempotencyRecord<T> = {
     endpoint,
     userId,
     key,
     response,
-    responseHash,
+    responseHash: createHash('sha256').update(JSON.stringify(response)).digest('hex'),
     createdAt: new Date().toISOString(),
   };
 
+  await store.saveIdempotencyRecord(record);
   inMemoryStore.set(storeKey, record as IdempotencyRecord<unknown>);
-  persistenceDb.idempotencyKeys.push(record);
 
   return { replayed: false, response };
 };
