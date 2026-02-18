@@ -31,7 +31,7 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   const [sport, setSport] = useState(initialSport);
   const [traceId, setTraceId] = useState('');
   const [games, setGames] = useState<LiveGame[]>([]);
-  const [status, setStatus] = useState('Loading live games…');
+  const [status, setStatus] = useState('Loading live market board…');
   const router = useRouter();
 
   const loadGames = async (selectedSport: string) => {
@@ -53,8 +53,8 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
         setGames(payload.snapshot?.games ?? []);
         setStatus(
           (payload.snapshot?.games ?? []).length > 0
-            ? 'Market Pulse updated from cached/demo snapshot.'
-            : 'No rows yet. Showing deterministic demo fallback.'
+            ? 'Research Terminal board refreshed from cached/demo snapshot.'
+            : 'No rows yet. Showing deterministic demo market rows.'
         );
         return {
           ok: true,
@@ -66,7 +66,7 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
     });
 
     if (!action.ok) {
-      setStatus('Live data degraded. Demo rows are shown to keep flow actionable.');
+      setStatus('Live feed degraded. Demo market rows stay visible for terminal workflow.');
       setGames([]);
     }
   };
@@ -77,7 +77,7 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
   }, [sport]);
 
   const runQuickModel = async (game: LiveGame) => {
-    setStatus(`Running lightweight model for ${game.label}…`);
+    setStatus(`Running lightweight model pass for ${game.label}…`);
     const result = await runUiAction({
       actionName: 'run_quick_model',
       traceId: traceId || undefined,
@@ -112,8 +112,8 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
 
     setStatus(
       result.ok
-        ? 'Quick model complete. Delta updated.'
-        : 'Quick model unavailable; market-only view remains available.'
+        ? 'Quick model complete. Delta panel updated (delta is not a pick).'
+        : 'Quick model unavailable; market-only terminal view remains available.'
     );
   };
 
@@ -133,7 +133,7 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
-      <h1 className="text-2xl font-semibold">Live Games</h1>
+      <h1 className="text-2xl font-semibold">Live Market Terminal</h1>
       <p className="text-xs text-slate-400">Market Pulse · {status}</p>
 
       <div className="flex flex-wrap gap-2">
@@ -151,8 +151,8 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
 
       {games.length === 0 ? (
         <p className="rounded border border-slate-700 bg-slate-950 p-3 text-sm text-slate-300">
-          No live rows returned. Try another sport or continue with deterministic demo rows via the
-          tabs.
+          No live market rows returned. Try another sport or continue with deterministic demo rows
+          via the tabs.
         </p>
       ) : null}
 
@@ -190,8 +190,8 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
                     'Model pending'
                   )}
                 </p>
-                <p title="Delta is not a pick. It’s a difference between implied probabilities.">
-                  Delta (home):{' '}
+                <p title="Delta is not a pick. It reflects market-model probability difference only.">
+                  Delta (home, not a pick):{' '}
                   {deltaHome == null
                     ? '—'
                     : `${deltaHome >= 0 ? '+' : ''}${(deltaHome * 100).toFixed(1)}%`}
@@ -205,14 +205,14 @@ export function LiveGamesClient({ initialSport }: { initialSport: string }) {
                     onClick={() => runQuickModel(game)}
                     className="rounded bg-indigo-600 px-3 py-1.5 text-xs"
                   >
-                    Run quick model
+                    Run quick model pass
                   </button>
                 ) : null}
                 <Link
                   href={`/live/${encodeURIComponent(game.gameId)}?sport=${encodeURIComponent(game.sport)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`}
                   className="rounded border border-slate-700 px-3 py-1.5 text-xs"
                 >
-                  Open detail
+                  Open terminal detail
                 </Link>
               </div>
             </li>

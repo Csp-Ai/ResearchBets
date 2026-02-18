@@ -6,15 +6,36 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClientRequestId, ensureAnonSessionId } from '../core/identifiers/session';
 
 type Session = { sessionId: string; userId: string; anonSessionId?: string };
-type Snapshot = { reportId: string; summary: string; confidenceSummary: { averageClaimConfidence: number }; traceId: string };
-type Bet = { id: string; selection: string; odds: number; stake: number; status: 'pending' | 'settled' };
-type EdgeReport = { kpis: { delta_clv_pct?: number }; cohorts: { followed: { avg_clv_pct?: number; median_clv_pct?: number; sample_size?: number }; not_followed: { avg_clv_pct?: number; median_clv_pct?: number; sample_size?: number } } };
+type Snapshot = {
+  reportId: string;
+  summary: string;
+  confidenceSummary: { averageClaimConfidence: number };
+  traceId: string;
+};
+type Bet = {
+  id: string;
+  selection: string;
+  odds: number;
+  stake: number;
+  status: 'pending' | 'settled';
+};
+type EdgeReport = {
+  kpis: { delta_clv_pct?: number };
+  cohorts: {
+    followed: { avg_clv_pct?: number; median_clv_pct?: number; sample_size?: number };
+    not_followed: { avg_clv_pct?: number; median_clv_pct?: number; sample_size?: number };
+  };
+};
 
 type EventItem = { event_name: string; timestamp: string; properties?: Record<string, unknown> };
 
-const demoEvents: EventItem[] = [{ event_name: 'external_fetch_started', timestamp: new Date().toISOString() }];
+const demoEvents: EventItem[] = [
+  { event_name: 'external_fetch_started', timestamp: new Date().toISOString() }
+];
 
-export const selectTimelineEvents = (events: EventItem[]): { rows: EventItem[]; usingDemo: boolean } => {
+export const selectTimelineEvents = (
+  events: EventItem[]
+): { rows: EventItem[]; usingDemo: boolean } => {
   if (events.length > 0) return { rows: events, usingDemo: false };
   return { rows: demoEvents, usingDemo: true };
 };
@@ -23,7 +44,11 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
-  const [dashboard, setDashboard] = useState<{ roi: number; winRate: number; insights: string[] } | null>(null);
+  const [dashboard, setDashboard] = useState<{
+    roi: number;
+    winRate: number;
+    insights: string[];
+  } | null>(null);
   const [edge, setEdge] = useState<EdgeReport | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
 
@@ -33,7 +58,7 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
     fetch('/api/anon/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: existingSession, anonSessionId }),
+      body: JSON.stringify({ sessionId: existingSession, anonSessionId })
     })
       .then((res) => res.json())
       .then((data: Session) => {
@@ -41,9 +66,15 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
         window.localStorage.setItem('rb.sessionId', data.sessionId);
       });
 
-    fetch('/api/bets?status=all').then((res) => res.json()).then((data) => setBets(data.bets ?? []));
-    fetch('/api/dashboard/summary').then((res) => res.json()).then(setDashboard);
-    fetch('/api/edge/report?window=30d').then((res) => res.json()).then(setEdge);
+    fetch('/api/bets?status=all')
+      .then((res) => res.json())
+      .then((data) => setBets(data.bets ?? []));
+    fetch('/api/dashboard/summary')
+      .then((res) => res.json())
+      .then(setDashboard);
+    fetch('/api/edge/report?window=30d')
+      .then((res) => res.json())
+      .then(setEdge);
   }, []);
 
   useEffect(() => {
@@ -65,11 +96,13 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
         userId: session.userId,
         tier: 'free',
         seed: 'demo-seed',
-        requestId: createClientRequestId(),
-      }),
+        requestId: createClientRequestId()
+      })
     }).then((res) => res.json());
 
-    const report = await fetch(`/api/researchSnapshot/${start.snapshotId}`).then((res) => res.json());
+    const report = await fetch(`/api/researchSnapshot/${start.snapshotId}`).then((res) =>
+      res.json()
+    );
     setSnapshot(report);
   };
 
@@ -78,59 +111,105 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-slate-800 bg-slate-900/90 p-6">
-        <h1 className="text-2xl font-semibold">Decision Clarity Terminal</h1>
-        <p className="text-sm text-slate-400">Analyze evidence and outcomes, not betting advice.</p>
+        <h1 className="text-2xl font-semibold">Research Decision Terminal</h1>
+        <p className="text-sm text-slate-400">
+          Analyze evidence and outcomes in terminal form; not betting advice.
+        </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={startSnapshot} className="rounded bg-sky-600 px-3 py-2 text-sm font-medium">Continue Research</button>
-          <Link href="/pending-bets" className="rounded border border-slate-700 px-3 py-2 text-sm">Pending Bets</Link>
-          <Link href="/dashboard" className="rounded border border-slate-700 px-3 py-2 text-sm">Performance Dashboard</Link>
+          <button
+            type="button"
+            onClick={startSnapshot}
+            className="rounded bg-sky-600 px-3 py-2 text-sm font-medium"
+          >
+            Continue terminal research
+          </button>
+          <Link href="/pending-bets" className="rounded border border-slate-700 px-3 py-2 text-sm">
+            Pending Bets
+          </Link>
+          <Link href="/dashboard" className="rounded border border-slate-700 px-3 py-2 text-sm">
+            Performance Dashboard
+          </Link>
         </div>
-        <p className="mt-3 text-xs font-mono text-slate-400">30d ROI: {dashboard?.roi ?? 0}% · Win rate: {dashboard?.winRate ?? 0}%</p>
+        <p className="mt-3 text-xs font-mono text-slate-400">
+          30d ROI: {dashboard?.roi ?? 0}% · Win rate: {dashboard?.winRate ?? 0}%
+        </p>
       </section>
 
       {snapshot ? (
         <section className="rounded-xl border border-slate-800 bg-slate-900/90 p-6">
-          <h2 className="text-xl font-semibold">Research Timeline</h2>
+          <h2 className="text-xl font-semibold">Research Timeline Feed</h2>
           <p className="mt-1 text-sm text-slate-400">{snapshot.summary}</p>
-          {timeline.usingDemo ? <p className="mt-2 text-xs text-amber-300">Showing demo data until backend events arrive.</p> : null}
+          {timeline.usingDemo ? (
+            <p className="mt-2 text-xs text-amber-300">
+              Showing demo data until backend events arrive.
+            </p>
+          ) : null}
           <ul className="mt-4 space-y-2">
             {timeline.rows.map((event, idx) => (
-              <li key={`${event.event_name}-${idx}`} className="rounded border border-slate-800 bg-slate-950/70 p-3 text-sm">
+              <li
+                key={`${event.event_name}-${idx}`}
+                className="rounded border border-slate-800 bg-slate-950/70 p-3 text-sm"
+              >
                 <p>{event.event_name}</p>
-                <p className="text-xs text-slate-400">{new Date(event.timestamp).toLocaleTimeString()}</p>
+                <p className="text-xs text-slate-400">
+                  {new Date(event.timestamp).toLocaleTimeString()}
+                </p>
               </li>
             ))}
           </ul>
           <div className="mt-4">
-            <Link href={`/research?snapshotId=${snapshot.reportId}&trace_id=${snapshot.traceId}`} className="rounded border border-slate-700 px-3 py-2 text-sm">Log this result</Link>
+            <Link
+              href={`/research?snapshotId=${snapshot.reportId}&trace_id=${snapshot.traceId}`}
+              className="rounded border border-slate-700 px-3 py-2 text-sm"
+            >
+              Log this research result
+            </Link>
           </div>
         </section>
       ) : null}
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/90 p-6">
-        <h2 className="text-xl font-semibold">Edge & Calibration Proof</h2>
-        <p className="text-xs font-mono text-emerald-400">Δ CLV {edge?.kpis?.delta_clv_pct ?? 0}%</p>
+        <h2 className="text-xl font-semibold">Delta & Calibration Review</h2>
+        <p className="mt-1 text-xs text-slate-400">
+          Delta is a market-model gap for review, not a pick.
+        </p>
+        <p className="text-xs font-mono text-emerald-400">
+          Δ CLV {edge?.kpis?.delta_clv_pct ?? 0}% (delta is not a pick)
+        </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2 text-sm">
           <article className="rounded border border-slate-800 p-3">
             <h3>Followed research process</h3>
-            <p>Avg CLV {edge?.cohorts.followed.avg_clv_pct ?? 0}% · Median {edge?.cohorts.followed.median_clv_pct ?? 0}% · Sample {edge?.cohorts.followed.sample_size ?? 0}</p>
+            <p>
+              Avg CLV {edge?.cohorts.followed.avg_clv_pct ?? 0}% · Median{' '}
+              {edge?.cohorts.followed.median_clv_pct ?? 0}% · Sample{' '}
+              {edge?.cohorts.followed.sample_size ?? 0}
+            </p>
           </article>
           <article className="rounded border border-slate-800 p-3">
             <h3>Did not follow process</h3>
-            <p>Avg CLV {edge?.cohorts.not_followed.avg_clv_pct ?? 0}% · Median {edge?.cohorts.not_followed.median_clv_pct ?? 0}% · Sample {edge?.cohorts.not_followed.sample_size ?? 0}</p>
+            <p>
+              Avg CLV {edge?.cohorts.not_followed.avg_clv_pct ?? 0}% · Median{' '}
+              {edge?.cohorts.not_followed.median_clv_pct ?? 0}% · Sample{' '}
+              {edge?.cohorts.not_followed.sample_size ?? 0}
+            </p>
           </article>
         </div>
       </section>
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/90 p-6">
-        <h2 className="text-xl font-semibold">Recent Bets</h2>
+        <h2 className="text-xl font-semibold">Recent Logged Positions</h2>
         <ul className="mt-3 space-y-2 text-sm">
           {bets.slice(0, 5).map((bet) => (
-            <li key={bet.id} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/50 px-3 py-2">
-              <span>{bet.selection} · stake ${bet.stake} · status {bet.status}</span>
+            <li
+              key={bet.id}
+              className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/50 px-3 py-2"
+            >
+              <span>
+                {bet.selection} · stake ${bet.stake} · status {bet.status} (tracking only)
+              </span>
             </li>
           ))}
-          {bets.length === 0 ? <li className="text-slate-400">No bets logged yet.</li> : null}
+          {bets.length === 0 ? <li className="text-slate-400">No positions logged yet.</li> : null}
         </ul>
       </section>
     </div>
