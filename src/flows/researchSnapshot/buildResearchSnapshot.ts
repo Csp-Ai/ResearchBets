@@ -10,6 +10,7 @@ import { ResearchReportSchema } from '../../core/evidence/validators';
 import { isAllowedCitationUrl, isSuspiciousEvidence, redactPii } from '../../core/guardrails/safety';
 import type { RuntimeStore } from '../../core/persistence/runtimeStore';
 import { getRuntimeStore } from '../../core/persistence/runtimeStoreProvider';
+import { logAgentRecommendation, logFinalRecommendation } from '../../core/measurement/recommendations';
 
 export interface BuildResearchSnapshotInput {
   subject: string;
@@ -139,6 +140,29 @@ export const buildResearchSnapshot = async (
 
   const validated = ResearchReportSchema.parse(report);
   await emit(emitter, 'report_validated', input, { claim_count: validated.claims.length });
+
+  if (claims[0]) {
+    const recommendationPayload = {
+      sessionId: input.sessionId,
+      userId: input.userId,
+      requestId: input.requestId,
+      traceId: input.traceId,
+      runId: input.runId,
+      agentId: 'research_snapshot',
+      agentVersion: 'runtime-deterministic-v1',
+      gameId: input.subject,
+      marketType: 'moneyline' as const,
+      market: 'snapshot_claim',
+      selection: claims[0].text,
+      line: null,
+      price: null,
+      confidence: claims[0].confidence,
+      rationale: { text: claims[0].rationale },
+      evidenceRefs: { evidence_ids: claims[0].evidenceIds },
+    };
+    const parentId = await logAgentRecommendation(recommendationPayload, emitter, store);
+    await logFinalRecommendation({ ...recommendationPayload, parentRecommendationId: parentId, groupId: input.runId }, emitter, store);
+  }
 
   await store.saveSnapshot(validated);
   await emit(emitter, 'snapshot_saved', input, { snapshot_id: validated.reportId });

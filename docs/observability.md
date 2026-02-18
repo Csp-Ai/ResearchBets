@@ -110,3 +110,12 @@ Required event-specific fields:
 - Event names and field contracts are versioned; incompatible changes require changelog updates.
 - PII must be excluded or tokenized before logging.
 - All mandatory events must be queryable in the analytics warehouse within SLA.
+
+
+### 6) `edge_report_generated`
+Emitted when the edge measurement report is generated.
+
+Required event-specific fields:
+
+- `window` (string): report lookback window, e.g. `30d`.
+- `bet_count` (integer): number of bets included in the report.

@@ -3,7 +3,18 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ControlPlaneEvent } from '../control-plane/events';
 import type { ResearchReport } from '../evidence/evidenceSchema';
 
-import type { IdempotencyRecord, RuntimeStore, SessionRecord, StoredBet } from './runtimeStore';
+import type {
+  AgentRecommendation,
+  ExperimentAssignment,
+  ExperimentRecord,
+  GameResultRecord,
+  IdempotencyRecord,
+  OddsSnapshot,
+  RecommendationOutcome,
+  RuntimeStore,
+  SessionRecord,
+  StoredBet,
+} from './runtimeStore';
 
 const createSupabaseClient = (): SupabaseClient => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,6 +32,12 @@ const SNAPSHOTS_TABLE = 'research_reports';
 const BETS_TABLE = 'bets';
 const EVENTS_TABLE = 'events_analytics';
 const IDEMPOTENCY_KEYS_TABLE = 'idempotency_keys';
+const RECOMMENDATIONS_TABLE = 'ai_recommendations';
+const ODDS_SNAPSHOTS_TABLE = 'odds_snapshots';
+const GAME_RESULTS_TABLE = 'game_results';
+const RECOMMENDATION_OUTCOMES_TABLE = 'recommendation_outcomes';
+const EXPERIMENTS_TABLE = 'experiments';
+const EXPERIMENT_ASSIGNMENTS_TABLE = 'experiment_assignments';
 
 export class SupabaseRuntimeStore implements RuntimeStore {
   private readonly client: SupabaseClient;
@@ -71,7 +88,19 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       traceId: (item.trace_id as string | null) ?? '',
       runId: (item.run_id as string | null) ?? '',
       selection: item.selection as string,
+      gameId: (item.game_id as string | null) ?? null,
+      marketType: (item.market_type as StoredBet['marketType']) ?? null,
+      line: item.line == null ? null : Number(item.line),
+      book: (item.book as string | null) ?? null,
       odds: Number(item.odds),
+      recommendedId: (item.recommended_id as string | null) ?? null,
+      followedAi: Boolean(item.followed_ai),
+      placedLine: item.placed_line == null ? null : Number(item.placed_line),
+      placedPrice: item.placed_price == null ? null : Number(item.placed_price),
+      closingLine: item.closing_line == null ? null : Number(item.closing_line),
+      closingPrice: item.closing_price == null ? null : Number(item.closing_price),
+      clvLine: item.clv_line == null ? null : Number(item.clv_line),
+      clvPrice: item.clv_price == null ? null : Number(item.clv_price),
       stake: Number(item.stake),
       status: item.status as StoredBet['status'],
       outcome: (item.outcome as StoredBet['outcome']) ?? null,
@@ -91,7 +120,19 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       trace_id: bet.traceId,
       run_id: bet.runId,
       selection: bet.selection,
+      game_id: bet.gameId,
+      market_type: bet.marketType,
+      line: bet.line,
+      book: bet.book,
       odds: bet.odds,
+      recommended_id: bet.recommendedId,
+      followed_ai: bet.followedAi ?? false,
+      placed_line: bet.placedLine,
+      placed_price: bet.placedPrice,
+      closing_line: bet.closingLine,
+      closing_price: bet.closingPrice,
+      clv_line: bet.clvLine,
+      clv_price: bet.clvPrice,
       stake: bet.stake,
       status: bet.status,
       outcome: bet.outcome,
@@ -115,7 +156,19 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       traceId: (data.trace_id as string | null) ?? '',
       runId: (data.run_id as string | null) ?? '',
       selection: data.selection as string,
+      gameId: (data.game_id as string | null) ?? null,
+      marketType: (data.market_type as StoredBet['marketType']) ?? null,
+      line: data.line == null ? null : Number(data.line),
+      book: (data.book as string | null) ?? null,
       odds: Number(data.odds),
+      recommendedId: (data.recommended_id as string | null) ?? null,
+      followedAi: Boolean(data.followed_ai),
+      placedLine: data.placed_line == null ? null : Number(data.placed_line),
+      placedPrice: data.placed_price == null ? null : Number(data.placed_price),
+      closingLine: data.closing_line == null ? null : Number(data.closing_line),
+      closingPrice: data.closing_price == null ? null : Number(data.closing_price),
+      clvLine: data.clv_line == null ? null : Number(data.clv_line),
+      clvPrice: data.clv_price == null ? null : Number(data.clv_price),
       stake: Number(data.stake),
       status: data.status as StoredBet['status'],
       outcome: (data.outcome as StoredBet['outcome']) ?? null,
@@ -169,5 +222,220 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       created_at: record.createdAt,
     });
     if (error) throw error;
+  }
+
+  async saveRecommendation(recommendation: AgentRecommendation): Promise<void> {
+    const { error } = await this.client.from(RECOMMENDATIONS_TABLE).upsert({
+      id: recommendation.id,
+      parent_recommendation_id: recommendation.parentRecommendationId,
+      group_id: recommendation.groupId,
+      recommendation_type: recommendation.recommendationType,
+      session_id: recommendation.sessionId,
+      user_id: recommendation.userId,
+      request_id: recommendation.requestId,
+      trace_id: recommendation.traceId,
+      run_id: recommendation.runId,
+      agent_id: recommendation.agentId,
+      agent_version: recommendation.agentVersion,
+      game_id: recommendation.gameId,
+      market_type: recommendation.marketType,
+      market: recommendation.market,
+      selection: recommendation.selection,
+      line: recommendation.line,
+      price: recommendation.price,
+      confidence: recommendation.confidence,
+      rationale: recommendation.rationale,
+      evidence_refs: recommendation.evidenceRefs,
+      created_at: recommendation.createdAt,
+    });
+    if (error) throw error;
+  }
+
+  async listRecommendationsByGame(gameId: string): Promise<AgentRecommendation[]> {
+    const { data, error } = await this.client.from(RECOMMENDATIONS_TABLE).select('*').eq('game_id', gameId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(this.mapRecommendation);
+  }
+
+  async getRecommendation(recommendationId: string): Promise<AgentRecommendation | null> {
+    const { data, error } = await this.client.from(RECOMMENDATIONS_TABLE).select('*').eq('id', recommendationId).maybeSingle();
+    if (error) throw error;
+    return data ? this.mapRecommendation(data) : null;
+  }
+
+  async saveOddsSnapshot(snapshot: OddsSnapshot): Promise<void> {
+    const { error } = await this.client.from(ODDS_SNAPSHOTS_TABLE).upsert({
+      id: snapshot.id,
+      game_id: snapshot.gameId,
+      market: snapshot.market,
+      market_type: snapshot.marketType,
+      selection: snapshot.selection,
+      line: snapshot.line,
+      price: snapshot.price,
+      book: snapshot.book,
+      captured_at: snapshot.capturedAt,
+      game_starts_at: snapshot.gameStartsAt,
+    });
+    if (error) throw error;
+  }
+
+  async listOddsSnapshots(gameId: string, market: string, selection: string): Promise<OddsSnapshot[]> {
+    const { data, error } = await this.client
+      .from(ODDS_SNAPSHOTS_TABLE)
+      .select('*')
+      .eq('game_id', gameId)
+      .eq('market', market)
+      .eq('selection', selection)
+      .order('captured_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((item) => ({
+      id: item.id as string,
+      gameId: item.game_id as string,
+      market: item.market as string,
+      marketType: item.market_type as OddsSnapshot['marketType'],
+      selection: item.selection as string,
+      line: item.line == null ? null : Number(item.line),
+      price: item.price == null ? null : Number(item.price),
+      book: item.book as string,
+      capturedAt: item.captured_at as string,
+      gameStartsAt: (item.game_starts_at as string | null) ?? null,
+    }));
+  }
+
+  async saveGameResult(result: GameResultRecord): Promise<void> {
+    const { error } = await this.client.from(GAME_RESULTS_TABLE).upsert({
+      id: result.id,
+      game_id: result.gameId,
+      payload: result.payload,
+      completed_at: result.completedAt,
+      created_at: result.createdAt,
+    });
+    if (error) throw error;
+  }
+
+  async getGameResult(gameId: string): Promise<GameResultRecord | null> {
+    const { data, error } = await this.client.from(GAME_RESULTS_TABLE).select('*').eq('game_id', gameId).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      gameId: data.game_id as string,
+      payload: (data.payload as Record<string, unknown>) ?? {},
+      completedAt: data.completed_at as string,
+      createdAt: data.created_at as string,
+    };
+  }
+
+  async saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void> {
+    const { error } = await this.client.from(RECOMMENDATION_OUTCOMES_TABLE).upsert({
+      id: outcome.id,
+      recommendation_id: outcome.recommendationId,
+      game_id: outcome.gameId,
+      outcome: outcome.outcome,
+      closing_line: outcome.closingLine,
+      closing_price: outcome.closingPrice,
+      clv_line: outcome.clvLine,
+      clv_price: outcome.clvPrice,
+      settled_at: outcome.settledAt,
+    });
+    if (error) throw error;
+  }
+
+  async getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null> {
+    const { data, error } = await this.client.from(RECOMMENDATION_OUTCOMES_TABLE).select('*').eq('recommendation_id', recommendationId).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      recommendationId: data.recommendation_id as string,
+      gameId: data.game_id as string,
+      outcome: data.outcome as RecommendationOutcome['outcome'],
+      closingLine: data.closing_line == null ? null : Number(data.closing_line),
+      closingPrice: data.closing_price == null ? null : Number(data.closing_price),
+      clvLine: data.clv_line == null ? null : Number(data.clv_line),
+      clvPrice: data.clv_price == null ? null : Number(data.clv_price),
+      settledAt: data.settled_at as string,
+    };
+  }
+
+  async saveExperiment(experiment: ExperimentRecord): Promise<void> {
+    const { error } = await this.client.from(EXPERIMENTS_TABLE).upsert({
+      id: experiment.id,
+      name: experiment.name,
+      description: experiment.description,
+      created_at: experiment.createdAt,
+    });
+    if (error) throw error;
+  }
+
+  async getExperiment(name: string): Promise<ExperimentRecord | null> {
+    const { data, error } = await this.client.from(EXPERIMENTS_TABLE).select('*').eq('name', name).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      name: data.name as string,
+      description: (data.description as string | null) ?? null,
+      createdAt: data.created_at as string,
+    };
+  }
+
+  async saveExperimentAssignment(assignment: ExperimentAssignment): Promise<void> {
+    const { error } = await this.client.from(EXPERIMENT_ASSIGNMENTS_TABLE).upsert({
+      id: assignment.id,
+      experiment_name: assignment.experimentName,
+      assignment: assignment.assignment,
+      subject_key: assignment.subjectKey,
+      user_id: assignment.userId,
+      anon_session_id: assignment.anonSessionId,
+      created_at: assignment.createdAt,
+    });
+    if (error) throw error;
+  }
+
+  async getExperimentAssignment(experimentName: string, subjectKey: string): Promise<ExperimentAssignment | null> {
+    const { data, error } = await this.client
+      .from(EXPERIMENT_ASSIGNMENTS_TABLE)
+      .select('*')
+      .eq('experiment_name', experimentName)
+      .eq('subject_key', subjectKey)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id as string,
+      experimentName: data.experiment_name as string,
+      assignment: data.assignment as ExperimentAssignment['assignment'],
+      subjectKey: data.subject_key as string,
+      userId: (data.user_id as string | null) ?? null,
+      anonSessionId: (data.anon_session_id as string | null) ?? null,
+      createdAt: data.created_at as string,
+    };
+  }
+
+  private mapRecommendation(data: Record<string, unknown>): AgentRecommendation {
+    return {
+      id: data.id as string,
+      parentRecommendationId: (data.parent_recommendation_id as string | null) ?? null,
+      groupId: (data.group_id as string | null) ?? null,
+      recommendationType: data.recommendation_type as AgentRecommendation['recommendationType'],
+      sessionId: data.session_id as string,
+      userId: data.user_id as string,
+      requestId: data.request_id as string,
+      traceId: data.trace_id as string,
+      runId: data.run_id as string,
+      agentId: data.agent_id as string,
+      agentVersion: data.agent_version as string,
+      gameId: data.game_id as string,
+      marketType: data.market_type as AgentRecommendation['marketType'],
+      market: data.market as string,
+      selection: data.selection as string,
+      line: data.line == null ? null : Number(data.line),
+      price: data.price == null ? null : Number(data.price),
+      confidence: Number(data.confidence),
+      rationale: (data.rationale as Record<string, unknown>) ?? {},
+      evidenceRefs: (data.evidence_refs as Record<string, unknown>) ?? {},
+      createdAt: data.created_at as string,
+    };
   }
 }

@@ -15,7 +15,19 @@ export interface StoredBet {
   traceId: string;
   runId: string;
   selection: string;
+  gameId?: string | null;
+  marketType?: 'spread' | 'total' | 'moneyline' | null;
+  line?: number | null;
+  book?: string | null;
   odds: number;
+  recommendedId?: string | null;
+  followedAi?: boolean;
+  placedLine?: number | null;
+  placedPrice?: number | null;
+  closingLine?: number | null;
+  closingPrice?: number | null;
+  clvLine?: number | null;
+  clvPrice?: number | null;
   stake: number;
   status: 'pending' | 'settled';
   outcome: 'won' | 'lost' | 'push' | null;
@@ -23,6 +35,80 @@ export interface StoredBet {
   confidence: number;
   createdAt: string;
   settledAt: string | null;
+}
+
+export interface AgentRecommendation {
+  id: string;
+  parentRecommendationId: string | null;
+  groupId: string | null;
+  recommendationType: 'agent' | 'final';
+  sessionId: string;
+  userId: string;
+  requestId: string;
+  traceId: string;
+  runId: string;
+  agentId: string;
+  agentVersion: string;
+  gameId: string;
+  marketType: 'spread' | 'total' | 'moneyline';
+  market: string;
+  selection: string;
+  line: number | null;
+  price: number | null;
+  confidence: number;
+  rationale: Record<string, unknown>;
+  evidenceRefs: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface OddsSnapshot {
+  id: string;
+  gameId: string;
+  market: string;
+  marketType: 'spread' | 'total' | 'moneyline';
+  selection: string;
+  line: number | null;
+  price: number | null;
+  book: string;
+  capturedAt: string;
+  gameStartsAt: string | null;
+}
+
+export interface GameResultRecord {
+  id: string;
+  gameId: string;
+  payload: Record<string, unknown>;
+  completedAt: string;
+  createdAt: string;
+}
+
+export interface RecommendationOutcome {
+  id: string;
+  recommendationId: string;
+  gameId: string;
+  outcome: 'won' | 'lost' | 'push' | 'void';
+  closingLine: number | null;
+  closingPrice: number | null;
+  clvLine: number | null;
+  clvPrice: number | null;
+  settledAt: string;
+}
+
+export interface ExperimentRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface ExperimentAssignment {
+  id: string;
+  experimentName: string;
+  assignment: 'control' | 'treatment';
+  subjectKey: string;
+  userId: string | null;
+  anonSessionId: string | null;
+  createdAt: string;
 }
 
 export interface IdempotencyRecord<T> {
@@ -45,4 +131,17 @@ export interface RuntimeStore {
   saveEvent(event: ControlPlaneEvent): Promise<void>;
   getIdempotencyRecord<T>(endpoint: string, userId: string, key: string): Promise<IdempotencyRecord<T> | null>;
   saveIdempotencyRecord<T>(record: IdempotencyRecord<T>): Promise<void>;
+  saveRecommendation(recommendation: AgentRecommendation): Promise<void>;
+  listRecommendationsByGame(gameId: string): Promise<AgentRecommendation[]>;
+  getRecommendation(recommendationId: string): Promise<AgentRecommendation | null>;
+  saveOddsSnapshot(snapshot: OddsSnapshot): Promise<void>;
+  listOddsSnapshots(gameId: string, market: string, selection: string): Promise<OddsSnapshot[]>;
+  saveGameResult(result: GameResultRecord): Promise<void>;
+  getGameResult(gameId: string): Promise<GameResultRecord | null>;
+  saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void>;
+  getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null>;
+  saveExperiment(experiment: ExperimentRecord): Promise<void>;
+  getExperiment(name: string): Promise<ExperimentRecord | null>;
+  saveExperimentAssignment(assignment: ExperimentAssignment): Promise<void>;
+  getExperimentAssignment(experimentName: string, subjectKey: string): Promise<ExperimentAssignment | null>;
 }

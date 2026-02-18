@@ -18,6 +18,7 @@ export const ControlPlaneEventNameSchema = z.enum([
   'connector_fetch_finished',
   'evidence_normalized',
   'report_validated',
+  'edge_report_generated',
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {
