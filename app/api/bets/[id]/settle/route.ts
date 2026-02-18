@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { calculateProfit } from '@/src/core/measurement/oddsFormat';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -12,11 +13,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!bet) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
+  if (!bet.oddsFormat || bet.placedPrice == null) {
+    return NextResponse.json({ error: 'Bet is missing odds_format or placed_price' }, { status: 400 });
+  }
 
   bet.status = 'settled';
   bet.outcome = body.outcome;
   bet.settledAt = new Date().toISOString();
-  bet.settledProfit = body.outcome === 'won' ? Number((bet.stake * (bet.odds - 1)).toFixed(2)) : body.outcome === 'lost' ? -bet.stake : 0;
+  bet.settledProfit = calculateProfit({ stake: bet.stake, format: bet.oddsFormat, price: bet.placedPrice, outcome: body.outcome });
   await store.saveBet(bet);
 
   await new DbEventEmitter(store).emit({

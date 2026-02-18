@@ -1,9 +1,6 @@
 import type { MarketType } from '../markets/marketType';
-
-const toImpliedProbability = (americanOdds: number): number => {
-  if (americanOdds === 0) return 0.5;
-  return americanOdds > 0 ? 100 / (americanOdds + 100) : Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
-};
+import type { OddsFormat } from './oddsFormat';
+import { normalizeOdds } from './oddsFormat';
 
 export const computeLineCLV = ({
   marketType,
@@ -21,12 +18,16 @@ export const computeLineCLV = ({
 export const computePriceCLV = ({
   placedPrice,
   closingPrice,
+  placedFormat = 'american',
+  closingFormat = 'american',
 }: {
   placedPrice: number | null;
   closingPrice: number | null;
+  placedFormat?: OddsFormat;
+  closingFormat?: OddsFormat;
 }): number | null => {
   if (placedPrice == null || closingPrice == null) return null;
-  const placedProb = toImpliedProbability(placedPrice);
-  const closingProb = toImpliedProbability(closingPrice);
+  const placedProb = normalizeOdds(placedPrice, placedFormat).impliedProbability;
+  const closingProb = normalizeOdds(closingPrice, closingFormat).impliedProbability;
   return Number((closingProb - placedProb).toFixed(6));
 };
