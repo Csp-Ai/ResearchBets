@@ -46,6 +46,17 @@ cp .env.example .env.local
 npm run dev
 ```
 
+### Supabase local env setup
+
+`.env.local` is required for local dev. Add your Supabase project URL and publishable key (used as `NEXT_PUBLIC_SUPABASE_ANON_KEY` in this app):
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-key>
+```
+
+After editing environment variables, restart the dev server. To verify config and connectivity, run `npm run env:check` and visit `http://localhost:3000/api/health`.
+
 ## Quality Gates
 
 ```bash
