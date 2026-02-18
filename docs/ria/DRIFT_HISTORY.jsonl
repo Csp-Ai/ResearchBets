@@ -1,0 +1,1 @@
+{"timestamp":"2026-02-18T22:36:15.571Z","commit_sha":"b65f604734366527c8ec10c7f4d8316fd4666048","mode":"pr","drift_score_total":5,"category_scores":{"market_discipline_drift":0,"flow_integrity_drift":0,"determinism_reproducibility_drift":5,"observability_measurement_drift":0},"violations_count":0,"top_violation_signatures":[]}

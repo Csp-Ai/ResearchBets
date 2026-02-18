@@ -95,3 +95,32 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify required architecture and governance docs
         run: scripts/check-required-docs
+
+  repo-intelligence:
+    name: Repo intelligence audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run RIA audit (PR-aware)
+        env:
+          RIA_MODE: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
+          GIT_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          GIT_HEAD_REF: ${{ github.sha }}
+        run: npm run ria:audit
+      - name: Upload RIA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ria-artifacts
+          path: |
+            docs/ria/ARCH_STATE.json
+            docs/ria/RIA_REPORT.md
+            docs/ria/DRIFT_HISTORY.jsonl

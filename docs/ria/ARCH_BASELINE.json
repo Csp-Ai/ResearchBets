@@ -1,0 +1,152 @@
+{
+  "repo_version": "b65f604734366527c8ec10c7f4d8316fd4666048",
+  "timestamp": "2026-02-18T22:36:15.571Z",
+  "mode": "pr",
+  "flow_map": {
+    "nodes": [
+      "ingestion",
+      "normalization",
+      "snapshot",
+      "persistence",
+      "measurement",
+      "ui_replay"
+    ],
+    "edges": [
+      [
+        "ingestion",
+        "normalization"
+      ],
+      [
+        "normalization",
+        "snapshot"
+      ],
+      [
+        "snapshot",
+        "persistence"
+      ],
+      [
+        "persistence",
+        "measurement"
+      ],
+      [
+        "measurement",
+        "ui_replay"
+      ]
+    ]
+  },
+  "entrypoints": {
+    "api": [
+      "app/api/live/model/route.ts",
+      "app/api/live/game/[gameId]/route.ts",
+      "app/api/live/outcome/[gameId]/route.ts",
+      "app/api/live/market/route.ts",
+      "app/api/live/props/track/route.ts",
+      "app/api/odds/refresh/route.ts",
+      "app/api/results/ingest/route.ts",
+      "app/api/edge/report/route.ts",
+      "app/api/edge/scorecard/route.ts",
+      "app/api/anon/init/route.ts",
+      "app/api/slips/extract/route.ts",
+      "app/api/games/search/route.ts",
+      "app/api/slips/submit/route.ts",
+      "app/api/games/[id]/route.ts",
+      "app/api/settlement/run/route.ts",
+      "app/api/dashboard/summary/route.ts",
+      "app/api/events/route.ts",
+      "app/api/experiments/assign/route.ts",
+      "app/api/researchSnapshot/[id]/route.ts",
+      "app/api/bets/[id]/settle/route.ts",
+      "app/api/bets/route.ts",
+      "app/api/researchSnapshot/start/route.ts",
+      "app/api/metrics/calibration/route.ts"
+    ],
+    "flows": [
+      "src/flows/researchSnapshot/buildResearchSnapshot.ts"
+    ],
+    "agents": [
+      "src/agents/researchSnapshot/ResearchSnapshotAgent.ts",
+      "src/agents/system/ResearchOpsAgent.ts",
+      "src/agents/example/ExampleAgent.ts"
+    ],
+    "ui_pages": [
+      "app/live/page.tsx",
+      "app/live/[gameId]/page.tsx",
+      "app/ingest/page.tsx",
+      "app/pending-bets/page.tsx",
+      "app/page.tsx",
+      "app/research/page.tsx",
+      "app/research/snapshot/[snapshotId]/page.tsx",
+      "app/dashboard/page.tsx"
+    ]
+  },
+  "market_usage_summary": {
+    "canonical_count": 4,
+    "acceptable_count": 0,
+    "violation_count": 0,
+    "violations": []
+  },
+  "persistence_schema_refs": [
+    {
+      "file": "src/core/persistence/runtimeStore.ts",
+      "line": 3
+    },
+    {
+      "file": "src/core/persistence/runtimeStore.ts",
+      "line": 21
+    },
+    {
+      "file": "src/core/persistence/runtimeStore.ts",
+      "line": 61
+    },
+    {
+      "file": "src/core/persistence/runtimeStore.ts",
+      "line": 76
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 7
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 20
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 49
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 86
+    }
+  ],
+  "measurement_schema_refs": [
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 7
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 20
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 49
+    },
+    {
+      "file": "src/core/measurement/recommendations.ts",
+      "line": 86
+    }
+  ],
+  "test_refs": [
+    "src/core/slips/__tests__/extract.test.ts",
+    "src/core/slips/__tests__/playerPropInput.test.ts",
+    "src/core/slips/__tests__/propInsights.test.ts",
+    "src/core/markets/__tests__/impliedProbabilities.test.ts",
+    "src/core/markets/__tests__/marketData.test.ts",
+    "src/core/markets/__tests__/marketType.test.ts",
+    "src/agents/researchSnapshot/__tests__/ResearchSnapshotAgent.test.ts",
+    "tests/slip-submissions.test.ts",
+    "tests/SnapshotRender.test.tsx",
+    "tests/__snapshots__/DecisionCard.test.tsx.snap"
+  ]
+}
