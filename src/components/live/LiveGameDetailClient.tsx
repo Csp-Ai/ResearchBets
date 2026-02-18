@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { createLivePoller } from '@/src/core/live/polling';
 import { createClientRequestId } from '@/src/core/identifiers/session';
 import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 import { runUiAction } from '@/src/core/ui/actionContract';
@@ -43,7 +44,6 @@ type OutcomePayload = {
 };
 
 const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
-
 
 const LIVE_GAME_DETAIL_COPY = [
   'Loading market detail terminal…',
@@ -88,8 +88,8 @@ export function LiveGameDetailClient({
     ]);
   }, []);
 
-  useEffect(() => {
-    void runUiAction({
+  const loadDetail = useCallback(async () => {
+    const action = await runUiAction({
       actionName: 'open_live_game_detail',
       traceId: currentTraceId,
       properties: { game_id: gameId, sport },
@@ -98,8 +98,12 @@ export function LiveGameDetailClient({
         const response = await fetch(
           `/api/live/game/${encodeURIComponent(gameId)}?sport=${encodeURIComponent(sport)}&trace_id=${encodeURIComponent(resolvedTrace)}`
         );
-        if (!response.ok)
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw { status: response.status, message: 'detail_rate_limited' };
+          }
           return { ok: false, source: 'demo' as const, error_code: 'detail_unavailable' };
+        }
         const next = (await response.json()) as DetailPayload & { trace_id?: string };
         setPayload(next);
         setTraceId(next.trace_id ?? resolvedTrace);
@@ -112,8 +116,26 @@ export function LiveGameDetailClient({
         };
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, sport]);
+
+    if (!action.ok) {
+      throw { message: action.error_code ?? 'detail_unavailable' };
+    }
+  }, [currentTraceId, gameId, sport]);
+
+  useEffect(() => {
+    const poller = createLivePoller({
+      key: `live_game_detail:${gameId}:${sport}`,
+      traceId: () => currentTraceId,
+      run: loadDetail,
+      onDegraded: () => {
+        setStatus('Live feed degraded. Demo market rows stay visible for terminal workflow.');
+      }
+    });
+    poller.start();
+    return () => {
+      poller.stop();
+    };
+  }, [currentTraceId, gameId, loadDetail, sport]);
 
   const runQuickModel = async () => {
     if (!payload) return;
