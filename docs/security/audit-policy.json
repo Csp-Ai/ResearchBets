@@ -1,0 +1,9 @@
+{
+  "allowedAdvisories": [
+    {
+      "id": "1112593",
+      "reason": "Next advisory range is coarse; mitigated by hardened next.config images policy; revisit after dependency modernization.",
+      "expiresOn": "2026-03-20"
+    }
+  ]
+}
