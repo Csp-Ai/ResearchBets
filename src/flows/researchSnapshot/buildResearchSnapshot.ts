@@ -10,6 +10,7 @@ import { ResearchReportSchema } from '../../core/evidence/validators';
 import { isAllowedCitationUrl, isSuspiciousEvidence, redactPii } from '../../core/guardrails/safety';
 import type { RuntimeStore } from '../../core/persistence/runtimeStore';
 import { getRuntimeStore } from '../../core/persistence/runtimeStoreProvider';
+import { asMarketType, type MarketType } from '../../core/markets/marketType';
 import { logAgentRecommendation, logFinalRecommendation } from '../../core/measurement/recommendations';
 
 export interface BuildResearchSnapshotInput {
@@ -22,6 +23,7 @@ export interface BuildResearchSnapshotInput {
   traceId: string;
   runId: string;
   requestId: string;
+  marketType?: MarketType;
 }
 
 const confidence = (seed: string, evidenceCount: number, idx: number): number => {
@@ -151,7 +153,7 @@ export const buildResearchSnapshot = async (
       agentId: 'research_snapshot',
       agentVersion: 'runtime-deterministic-v1',
       gameId: input.subject,
-      marketType: 'moneyline' as const,
+      marketType: asMarketType(input.marketType, 'points'),
       market: 'snapshot_claim',
       selection: claims[0].text,
       line: null,

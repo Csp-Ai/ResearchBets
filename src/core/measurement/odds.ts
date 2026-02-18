@@ -7,7 +7,7 @@ import { walConfig } from '../web/config';
 import { findSources } from '../web/search';
 import { acquireConsensusRecord } from '../web/consensus';
 
-import type { MarketType } from './clv';
+import type { MarketType } from '../markets/marketType';
 
 const DEDUPE_MS = 60_000;
 const RESULT_FALLBACK_BUFFER_MS = 60_000;

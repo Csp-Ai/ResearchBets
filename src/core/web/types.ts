@@ -1,3 +1,5 @@
+import type { MarketType } from '../markets/marketType';
+
 export type WalDataType = 'odds' | 'results' | 'news';
 
 export interface WebSourceProvenance {
@@ -21,7 +23,7 @@ export interface WalRequest {
 export interface WalNormalizedRecord {
   gameId: string;
   market?: string;
-  marketType?: 'spread' | 'total' | 'moneyline';
+  marketType?: MarketType;
   selection?: string;
   line?: number | null;
   price?: number | null;

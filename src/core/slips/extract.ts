@@ -4,7 +4,7 @@ export type ExtractedLeg = {
   odds?: string;
 };
 
-const LINE_PATTERN = /(?<selection>[A-Za-z0-9 .@+-]+)\s*(?<market>spread|total|moneyline)?\s*(?<odds>[+-]\d{3})?/i;
+const LINE_PATTERN = /^(?<selection>[A-Za-z0-9 .@+-]+?)(?:\s+(?<market>spread|total|moneyline|points|threes|rebounds|assists|ra|pra))?(?:\s+(?<odds>[+-]\d{3}))?$/i;
 
 export const extractLegs = (rawText: string): ExtractedLeg[] => {
   try {
@@ -34,7 +34,7 @@ export const extractLegs = (rawText: string): ExtractedLeg[] => {
       const selection = match.groups.selection?.trim() || line;
       return {
         selection,
-        market: match.groups.market,
+        market: match.groups.market?.toLowerCase(),
         odds: match.groups.odds,
       };
     });
