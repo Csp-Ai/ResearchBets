@@ -40,6 +40,20 @@ export const ResearchReportSchema = z
     }),
     risks: z.array(z.string()),
     assumptions: z.array(z.string()),
+    transparency: z
+      .object({
+        countsByInsightType: z.record(z.number()),
+        fragilityVariables: z.array(
+          z.object({
+            insightId: z.string().min(1),
+            claim: z.string().min(1),
+            confidence: z.number().min(0).max(1),
+            impactDelta: z.number().min(0),
+          }),
+        ),
+        disagreementProxyByType: z.record(z.number()),
+      })
+      .optional(),
   })
   .superRefine((report, ctx) => {
     const ids = new Set(report.evidence.map((e) => e.id));

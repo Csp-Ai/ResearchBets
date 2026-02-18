@@ -8,6 +8,8 @@ import type { ControlPlaneEventName } from '../../core/control-plane/events';
 import type { Claim, EvidenceItem, ResearchReport } from '../../core/evidence/evidenceSchema';
 import { ResearchReportSchema } from '../../core/evidence/validators';
 import { isAllowedCitationUrl, isSuspiciousEvidence, redactPii } from '../../core/guardrails/safety';
+import { buildInsightNode, mapEvidenceToInsightEvidence, summarizeInsightGraph, type InsightTrack, type InsightType } from '../../core/insights/insightGraph';
+import { generateTransparencyReport } from '../../core/insights/transparencyReportGenerator';
 import type { RuntimeStore } from '../../core/persistence/runtimeStore';
 import { getRuntimeStore } from '../../core/persistence/runtimeStoreProvider';
 import { asMarketType, type MarketType } from '../../core/markets/marketType';
@@ -32,6 +34,25 @@ const confidence = (seed: string, evidenceCount: number, idx: number): number =>
   const n = Number.parseInt(createHash('sha1').update(`${seed}:${idx}`).digest('hex').slice(0, 6), 16);
   return Number((((n % 100) / 100) * 0.35 + Math.min(evidenceCount / 10, 0.45) + 0.2).toFixed(4));
 };
+
+const insightTypeForSource = (sourceType: EvidenceItem['sourceType']): InsightType => {
+  switch (sourceType) {
+    case 'injury':
+      return 'injury';
+    case 'odds':
+      return 'line_move';
+    case 'stats':
+      return 'matchup_stat';
+    case 'news':
+      return 'narrative';
+    case 'model':
+      return 'market_delta';
+    default:
+      return 'correlated_risk';
+  }
+};
+
+const TRACKS: InsightTrack[] = ['baseline', 'hybrid'];
 
 const dedupeEvidence = (evidence: EvidenceItem[]): EvidenceItem[] => {
   const map = new Map<string, EvidenceItem>();
@@ -119,6 +140,49 @@ export const buildResearchSnapshot = async (
 
   await emit(emitter, 'evidence_normalized', input, { evidence_count: safeEvidence.length });
 
+  const insightNodes = safeEvidence.flatMap((item, idx) =>
+    TRACKS.map((track) =>
+      buildInsightNode({
+        traceId: input.traceId,
+        runId: input.runId,
+        gameId: input.subject,
+        agentKey: 'research_snapshot',
+        track,
+        insightType: insightTypeForSource(item.sourceType),
+        claim: `(${track}) ${item.contentExcerpt}`,
+        evidence: mapEvidenceToInsightEvidence([item]),
+        confidence: confidence(`${input.seed}:${track}`, safeEvidence.length, idx),
+        timestamp: now,
+      }),
+    ),
+  );
+
+  for (const node of insightNodes) {
+    await store.saveInsightNode({
+      insightId: node.insight_id,
+      traceId: node.trace_id,
+      runId: node.run_id,
+      gameId: node.game_id,
+      agentKey: node.agent_key,
+      track: node.track,
+      insightType: node.insight_type,
+      claim: node.claim,
+      evidence: node.evidence,
+      confidence: node.confidence,
+      timestamp: node.timestamp,
+      decayHalfLifeMinutes: node.decay_half_life_minutes,
+      marketImplied: node.market_implied,
+      modelImplied: node.model_implied,
+      delta: node.delta,
+    });
+    await emit(emitter, 'insight_node_created', input, {
+      insight_id: node.insight_id,
+      insight_type: node.insight_type,
+      track: node.track,
+      confidence: node.confidence,
+    });
+  }
+
   const claims: Claim[] = safeEvidence.slice(0, 3).map((item, idx) => ({
     id: `claim_${idx + 1}`,
     text: `Evidence-backed signal from ${item.sourceName}: ${item.contentExcerpt}`,
@@ -141,7 +205,18 @@ export const buildResearchSnapshot = async (
     confidenceSummary: { averageClaimConfidence: Number(avg.toFixed(4)), deterministic: true },
     risks: ['Evidence is connector-scoped and tier-gated.'],
     assumptions: ['Confidence is deterministic heuristic, not calibrated.'],
+    transparency: generateTransparencyReport(insightNodes),
   };
+
+  const insightSummary = summarizeInsightGraph(insightNodes);
+  await emit(emitter, 'insight_graph_built', input, {
+    node_count: insightNodes.length,
+    counts_by_type: insightSummary.countsByType,
+    fragility_variables: insightSummary.fragilityVariables.map((node) => ({
+      insight_id: node.insight_id,
+      confidence: node.confidence,
+    })),
+  });
 
   const validated = ResearchReportSchema.parse(report);
   await emit(emitter, 'report_validated', input, { claim_count: validated.claims.length });
