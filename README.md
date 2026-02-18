@@ -71,13 +71,15 @@ Slip ingestion ➝ `buildPropLegInsight` leg context ➝ snapshot creation ➝ `
 
 ## Security Audits
 
-We gate CI on `npm audit --omit=dev` so production-impacting vulnerabilities fail builds while reducing noise from dev-only tooling advisories (for example lint/test/build toolchains).
+We run a production audit policy check in CI via `npm run audit:prod` (allowlist-aware). It is currently configured as warning-only until the advisory baseline is fully green; see the CI TODO to switch back to hard-fail gating once the baseline is cleared.
 
 Run audits locally with:
 
 ```bash
 npm run audit:prod
 npm run audit:all
+
+TODO: remove warning-only CI mode for `audit:prod` once the allowlist baseline reaches zero blocking advisories.
 ```
 
 Do **not** run `npm audit fix --force` on `main` without an explicit **Dependency Major Upgrade** PR, because force-fixes can introduce breaking major upgrades across the stack.

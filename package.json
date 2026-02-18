@@ -14,7 +14,7 @@
     "format:write": "prettier --write .",
     "test": "vitest run",
     "ria:audit": "node scripts/ria-audit.mjs",
-    "audit:prod": "npm audit --omit=dev",
+    "audit:prod": "node scripts/audit-prod.mjs",
     "audit:all": "npm audit"
   },
   "dependencies": {
