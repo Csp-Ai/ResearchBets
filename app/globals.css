@@ -9,3 +9,56 @@
 body {
   @apply bg-slate-950 text-slate-100 antialiased;
 }
+
+@keyframes pulseNode {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.82;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+.agent-node {
+  transform-origin: center;
+  stroke-width: 0.7;
+  animation: pulseNode 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.agent-node.active {
+  fill: rgba(34, 211, 238, 0.7);
+  stroke: rgba(34, 211, 238, 0.95);
+}
+
+.agent-node.conflict {
+  fill: rgba(251, 191, 36, 0.68);
+  stroke: rgba(251, 191, 36, 0.95);
+}
+
+.agent-node.highConfidence {
+  fill: rgba(16, 185, 129, 0.68);
+  stroke: rgba(16, 185, 129, 0.95);
+}
+
+.agent-node.idle {
+  fill: rgba(100, 116, 139, 0.6);
+  stroke: rgba(148, 163, 184, 0.9);
+  animation-duration: 3.6s;
+}
+
+.risk-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.25rem;
+  align-items: end;
+}
+
+.risk-bars > span {
+  display: block;
+  width: 100%;
+  border-radius: 0.2rem;
+  background: linear-gradient(180deg, rgba(45, 212, 191, 0.95), rgba(8, 145, 178, 0.82));
+}
