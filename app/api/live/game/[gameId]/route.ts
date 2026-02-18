@@ -2,9 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
 
-import { errorEnvelope, resolveTraceId, successEnvelope } from '../../../../../src/core/api/envelope';
+import {
+  errorEnvelope,
+  resolveTraceId,
+  successEnvelope
+} from '../../../../../src/core/api/envelope';
 import { emitLivePageEvent, getCachedQuickModel } from '../../../../../src/core/live/liveModel';
 import { getPlayerPropsMomentum } from '../../../../../src/core/live/playerProps';
+import { evaluateHeuristicMicrostructure } from '../../../../../src/core/heuristics/microstructure';
 import { resolveGameFromRegistry } from '../../../../../src/core/games/registry';
 import { getMarketSnapshot } from '../../../../../src/core/markets/marketData';
 
@@ -36,9 +41,14 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
       traceId,
       data: {
         run_id: runId,
+        snapshot_loaded_at: snapshot.loadedAt,
         game,
         model: getCachedQuickModel(game.gameId),
-        props: getPlayerPropsMomentum(game.gameId, sport)
+        props: getPlayerPropsMomentum(game.gameId, sport),
+        heuristics: evaluateHeuristicMicrostructure({
+          game,
+          snapshotLoadedAt: snapshot.loadedAt
+        })
       },
       degraded: game.degraded,
       source: game.source
