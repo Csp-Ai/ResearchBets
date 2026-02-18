@@ -4,10 +4,11 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { BetSchema } from '@/src/core/contracts/terminalSchemas';
 import { requireIdempotencyKey, withIdempotency } from '@/src/core/control-plane/idempotency';
+import { normalizeOdds } from '@/src/core/measurement/oddsFormat';
 import type { StoredBet } from '@/src/core/persistence/runtimeStore';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
-import { normalizeOdds } from '@/src/core/measurement/oddsFormat';
 
 const createBetSchema = z.object({
   userId: z.string(),
@@ -36,7 +37,11 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const bets = await store.listBets(status === 'pending' ? 'pending' : undefined);
-  return NextResponse.json({ bets });
+  const validBets = bets.filter((bet) => BetSchema.safeParse(bet).success);
+  if (validBets.length !== bets.length) {
+    return NextResponse.json({ ok: false, error_code: 'schema_invalid', source: 'cache', degraded: true, bets: validBets });
+  }
+  return NextResponse.json({ bets: validBets });
 }
 
 export async function POST(request: Request) {
@@ -86,10 +91,15 @@ export async function POST(request: Request) {
         createdAt: new Date().toISOString(),
         settledAt: null,
       };
+
       await store.saveBet(bet);
       return bet;
     },
   });
+
+  if (!BetSchema.safeParse(response).success) {
+    return NextResponse.json({ ok: false, error_code: 'schema_invalid', source: 'cache', degraded: true });
+  }
 
   await new DbEventEmitter(store).emit({
     event_name: 'bet_logged',
