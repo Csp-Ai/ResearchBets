@@ -119,3 +119,56 @@ Required event-specific fields:
 
 - `window` (string): report lookback window, e.g. `30d`.
 - `bet_count` (integer): number of bets included in the report.
+
+### 7) `external_fetch_started`
+Emitted when WAL begins acquisition from a source URL.
+
+Required event-specific fields:
+- `url` (string)
+- `data_type` (string): `odds` | `results` | `news`
+
+### 8) `external_fetch_completed`
+Emitted when WAL fetch completes successfully.
+
+Required event-specific fields:
+- `url` (string)
+- `data_type` (string)
+- `record_count` (integer)
+- `stale` (boolean)
+
+### 9) `external_fetch_failed`
+Emitted when WAL fetch fails after retries.
+
+Required event-specific fields:
+- `url` (string)
+- `data_type` (string)
+- `error` (string)
+
+### 10) `data_normalized`
+Emitted after parser + normalization layers complete.
+
+Required event-specific fields:
+- `data_type` (string)
+- `stale` (boolean)
+
+### 11) `odds_snapshot_captured`
+Emitted when normalized odds are persisted.
+
+Required event-specific fields:
+- `game_id` (string)
+- `market` (string)
+- `selection` (string)
+- `captured_at` (RFC 3339)
+- `source_url` (string, nullable)
+- `source_domain` (string, nullable)
+- `staleness_ms` (integer)
+
+### 12) `game_result_ingested`
+Emitted when a game result is persisted.
+
+Required event-specific fields:
+- `outcome_id` (string)
+- `bet_id` (string)
+- `settlement_status` (string)
+- `settled_at` (RFC 3339)
+- `is_final` (boolean)
