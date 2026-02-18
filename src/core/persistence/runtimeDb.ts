@@ -1,7 +1,18 @@
 import type { ControlPlaneEvent } from '../control-plane/events';
 import type { ResearchReport } from '../evidence/evidenceSchema';
 
-import type { IdempotencyRecord, RuntimeStore, SessionRecord, StoredBet } from './runtimeStore';
+import type {
+  AgentRecommendation,
+  ExperimentAssignment,
+  ExperimentRecord,
+  GameResultRecord,
+  IdempotencyRecord,
+  OddsSnapshot,
+  RecommendationOutcome,
+  RuntimeStore,
+  SessionRecord,
+  StoredBet,
+} from './runtimeStore';
 
 export interface RuntimeDb {
   sessions: SessionRecord[];
@@ -9,6 +20,12 @@ export interface RuntimeDb {
   bets: StoredBet[];
   events: ControlPlaneEvent[];
   idempotencyKeys: IdempotencyRecord<unknown>[];
+  recommendations: AgentRecommendation[];
+  oddsSnapshots: OddsSnapshot[];
+  gameResults: GameResultRecord[];
+  recommendationOutcomes: RecommendationOutcome[];
+  experiments: ExperimentRecord[];
+  experimentAssignments: ExperimentAssignment[];
 }
 
 export const persistenceDb: RuntimeDb = {
@@ -17,6 +34,12 @@ export const persistenceDb: RuntimeDb = {
   bets: [],
   events: [],
   idempotencyKeys: [],
+  recommendations: [],
+  oddsSnapshots: [],
+  gameResults: [],
+  recommendationOutcomes: [],
+  experiments: [],
+  experimentAssignments: [],
 };
 
 export class MemoryRuntimeStore implements RuntimeStore {
@@ -83,6 +106,94 @@ export class MemoryRuntimeStore implements RuntimeStore {
     }
     persistenceDb.idempotencyKeys.push(record as IdempotencyRecord<unknown>);
   }
+
+  async saveRecommendation(recommendation: AgentRecommendation): Promise<void> {
+    const existingIndex = persistenceDb.recommendations.findIndex((item) => item.id === recommendation.id);
+    if (existingIndex >= 0) {
+      persistenceDb.recommendations[existingIndex] = recommendation;
+      return;
+    }
+    persistenceDb.recommendations.unshift(recommendation);
+  }
+
+  async listRecommendationsByGame(gameId: string): Promise<AgentRecommendation[]> {
+    return persistenceDb.recommendations.filter((recommendation) => recommendation.gameId === gameId);
+  }
+
+  async getRecommendation(recommendationId: string): Promise<AgentRecommendation | null> {
+    return persistenceDb.recommendations.find((item) => item.id === recommendationId) ?? null;
+  }
+
+  async saveOddsSnapshot(snapshot: OddsSnapshot): Promise<void> {
+    const existingIndex = persistenceDb.oddsSnapshots.findIndex((item) => item.id === snapshot.id);
+    if (existingIndex >= 0) {
+      persistenceDb.oddsSnapshots[existingIndex] = snapshot;
+      return;
+    }
+    persistenceDb.oddsSnapshots.unshift(snapshot);
+  }
+
+  async listOddsSnapshots(gameId: string, market: string, selection: string): Promise<OddsSnapshot[]> {
+    return persistenceDb.oddsSnapshots
+      .filter((item) => item.gameId === gameId && item.market === market && item.selection === selection)
+      .sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
+  }
+
+  async saveGameResult(result: GameResultRecord): Promise<void> {
+    const existingIndex = persistenceDb.gameResults.findIndex((item) => item.gameId === result.gameId);
+    if (existingIndex >= 0) {
+      persistenceDb.gameResults[existingIndex] = result;
+      return;
+    }
+    persistenceDb.gameResults.unshift(result);
+  }
+
+  async getGameResult(gameId: string): Promise<GameResultRecord | null> {
+    return persistenceDb.gameResults.find((item) => item.gameId === gameId) ?? null;
+  }
+
+  async saveRecommendationOutcome(outcome: RecommendationOutcome): Promise<void> {
+    const existingIndex = persistenceDb.recommendationOutcomes.findIndex((item) => item.recommendationId === outcome.recommendationId);
+    if (existingIndex >= 0) {
+      persistenceDb.recommendationOutcomes[existingIndex] = outcome;
+      return;
+    }
+    persistenceDb.recommendationOutcomes.unshift(outcome);
+  }
+
+  async getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null> {
+    return persistenceDb.recommendationOutcomes.find((item) => item.recommendationId === recommendationId) ?? null;
+  }
+
+  async saveExperiment(experiment: ExperimentRecord): Promise<void> {
+    const existingIndex = persistenceDb.experiments.findIndex((item) => item.name === experiment.name);
+    if (existingIndex >= 0) {
+      persistenceDb.experiments[existingIndex] = experiment;
+      return;
+    }
+    persistenceDb.experiments.unshift(experiment);
+  }
+
+  async getExperiment(name: string): Promise<ExperimentRecord | null> {
+    return persistenceDb.experiments.find((item) => item.name === name) ?? null;
+  }
+
+  async saveExperimentAssignment(assignment: ExperimentAssignment): Promise<void> {
+    const existingIndex = persistenceDb.experimentAssignments.findIndex(
+      (item) => item.experimentName === assignment.experimentName && item.subjectKey === assignment.subjectKey,
+    );
+    if (existingIndex >= 0) {
+      persistenceDb.experimentAssignments[existingIndex] = assignment;
+      return;
+    }
+    persistenceDb.experimentAssignments.unshift(assignment);
+  }
+
+  async getExperimentAssignment(experimentName: string, subjectKey: string): Promise<ExperimentAssignment | null> {
+    return persistenceDb.experimentAssignments.find(
+      (item) => item.experimentName === experimentName && item.subjectKey === subjectKey,
+    ) ?? null;
+  }
 }
 
 export const resetRuntimeDb = (): void => {
@@ -91,4 +202,10 @@ export const resetRuntimeDb = (): void => {
   persistenceDb.bets.length = 0;
   persistenceDb.events.length = 0;
   persistenceDb.idempotencyKeys.length = 0;
+  persistenceDb.recommendations.length = 0;
+  persistenceDb.oddsSnapshots.length = 0;
+  persistenceDb.gameResults.length = 0;
+  persistenceDb.recommendationOutcomes.length = 0;
+  persistenceDb.experiments.length = 0;
+  persistenceDb.experimentAssignments.length = 0;
 };
