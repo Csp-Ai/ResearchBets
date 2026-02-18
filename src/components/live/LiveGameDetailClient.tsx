@@ -8,6 +8,7 @@ import { createClientRequestId } from '@/src/core/identifiers/session';
 import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 import { runUiAction } from '@/src/core/ui/actionContract';
 import { buildNavigationHref } from '@/src/core/ui/navigation';
+import { DecisionCard } from '@/src/components/DecisionCard';
 
 type PropMomentum = {
   propId: string;
@@ -308,15 +309,18 @@ export function LiveGameDetailClient({
       </div>
 
       {outcome ? (
-        <div className="rounded border border-slate-800 bg-slate-950 p-3 text-sm">
+        <div className="space-y-2 rounded border border-slate-800 bg-slate-950 p-3 text-sm">
           <h2 className="text-sm font-semibold">Post-Game Research Review</h2>
-          <p>
-            Market implied vs model implied (pre-game): {pct(outcome.data.marketImplied)} vs{' '}
-            {pct(outcome.data.modelImplied)}
-          </p>
-          <p title="Delta is not a pick. It reflects market-model probability difference only.">
-            Delta (not a pick): {(outcome.data.delta * 100).toFixed(2)}%
-          </p>
+          <DecisionCard
+            data={{
+              title: 'Terminal Decision Artifact',
+              marketImplied: outcome.data.marketImplied,
+              modelImplied: outcome.data.modelImplied,
+              delta: outcome.data.delta,
+              confidence: outcome.data.modelImplied,
+              evidenceSources: [payload.game.source]
+            }}
+          />
           <p>
             Final outcome: {outcome.data.finalScore.home}-{outcome.data.finalScore.away} (
             {outcome.data.winner})
@@ -367,23 +371,23 @@ export function LiveGameDetailClient({
       </div>
 
       {selectedProp ? (
-        <div className="rounded border border-cyan-700 bg-slate-950 p-3 text-xs">
+        <div className="space-y-2 rounded border border-cyan-700 bg-slate-950 p-3 text-xs">
           <h3 className="text-sm font-semibold">Research Card · {selectedProp.player}</h3>
           <p>Line: {selectedProp.line}</p>
           <p>Hit rate: {pct(selectedProp.last10HitRate)}</p>
-          <p>Volatility reason: {selectedProp.volatilityTag}</p>
-          <p>Market movement: stable demo baseline</p>
-          <p>Model probability: {pct(payload.model?.modelHome ?? payload.game.implied.home)}</p>
-          <p title="Delta is not a pick. It reflects market-model probability difference only.">
-            Delta (not a pick):{' '}
-            {(
-              ((payload.model?.modelHome ?? payload.game.implied.home) -
-                payload.game.implied.home) *
-              100
-            ).toFixed(2)}
-            %
-          </p>
-          <p>Fragility variables: pace, usage, foul-trouble sensitivity</p>
+          <DecisionCard
+            data={{
+              title: `${selectedProp.player} · ${selectedProp.market}`,
+              marketImplied: payload.game.implied.home,
+              modelImplied: payload.model?.modelHome ?? payload.game.implied.home,
+              delta: (payload.model?.modelHome ?? payload.game.implied.home) - payload.game.implied.home,
+              confidence: payload.model?.modelHome ?? selectedProp.last10HitRate,
+              volatilityTag: selectedProp.volatilityTag,
+              volatilityReasons: ['last 10 hit-rate swings', 'line movement uncertainty'],
+              fragilityVariables: ['pace', 'usage', 'foul-trouble sensitivity'],
+              evidenceSources: [payload.game.source, 'prop momentum feed']
+            }}
+          />
           <div className="mt-2 flex gap-2">
             <button
               type="button"
