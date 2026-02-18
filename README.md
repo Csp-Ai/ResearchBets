@@ -68,3 +68,16 @@ npm run test
 ## Research Path
 
 Slip ingestion ➝ `buildPropLegInsight` leg context ➝ snapshot creation ➝ `/research/snapshot/[snapshotId]` replay via `SnapshotReplayView` ➝ trace replay graph (`?replay=1`).
+
+## Security Audits
+
+We gate CI on `npm audit --omit=dev` so production-impacting vulnerabilities fail builds while reducing noise from dev-only tooling advisories (for example lint/test/build toolchains).
+
+Run audits locally with:
+
+```bash
+npm run audit:prod
+npm run audit:all
+```
+
+Do **not** run `npm audit fix --force` on `main` without an explicit **Dependency Major Upgrade** PR, because force-fixes can introduce breaking major upgrades across the stack.

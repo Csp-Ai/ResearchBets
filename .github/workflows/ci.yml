@@ -85,6 +85,28 @@ jobs:
             fi
           done
 
+
+  dependency-audit:
+    name: Dependency audit (production gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Gate on production dependency vulnerabilities
+        run: npm run audit:prod
+      - name: Report full dependency audit (non-blocking)
+        run: |
+          echo "::warning::Running full npm audit for visibility; CI gating is production dependencies only to reduce dev-tooling noise."
+          npm run audit:all || true
+
   docs-consistency:
     name: Docs consistency
     runs-on: ubuntu-latest
