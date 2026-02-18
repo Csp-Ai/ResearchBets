@@ -14,6 +14,7 @@ import { TerminalLoopShell } from '@/src/components/TerminalLoopShell';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
 import { runUiAction } from '@/src/core/ui/actionContract';
+import { buildNavigationHref } from '@/src/core/ui/navigation';
 import { useTraceEvents } from '@/src/hooks/useTraceEvents';
 
 type GameRow = {
@@ -41,6 +42,8 @@ export default function ResearchPage() {
   const snapshotId = search.get('snapshotId') ?? '';
   const traceId = search.get('trace_id') ?? '';
   const replayMode = search.get('replay') === '1';
+  const [localTraceId] = useState(() => traceId || createClientRequestId());
+  const chainTraceId = traceId || localTraceId;
   const [status, setStatus] = useState('');
   const [advancedView, setAdvancedView] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
@@ -54,19 +57,19 @@ export default function ResearchPage() {
   const [activeGame, setActiveGame] = useState<GameRow | null>(null);
 
   const { events, loading, error } = useTraceEvents({
-    traceId,
+    traceId: chainTraceId,
     limit: 180,
     pollIntervalMs: 2000,
     enabled: liveMode
   });
 
-  const hasTraceId = Boolean(traceId);
+  const hasTraceId = Boolean(chainTraceId);
   const usingDemo = !hasTraceId;
 
   useEffect(() => {
     void runUiAction({
       actionName: 'game_search',
-      traceId: traceId || undefined,
+      traceId: chainTraceId,
       execute: async () => {
         const res = await fetch(`/api/games/search?q=${encodeURIComponent(searchText)}`);
         const payload = (await res.json()) as {
@@ -127,7 +130,7 @@ export default function ResearchPage() {
   const runSearch = async () => {
     const outcome = await runUiAction({
       actionName: 'game_search',
-      traceId: traceId || undefined,
+      traceId: chainTraceId,
       execute: async () => {
         const res = await fetch(`/api/games/search?q=${encodeURIComponent(searchText)}`);
         if (!res.ok) return { ok: false, error_code: 'search_failed', source: 'demo' as const };
@@ -158,14 +161,19 @@ export default function ResearchPage() {
   const selectGame = async (game: GameRow) => {
     const outcome = await runUiAction({
       actionName: 'select_game_row',
-      traceId: traceId || undefined,
+      traceId: chainTraceId,
+      properties: { game_id: game.gameId, league: game.league },
       execute: async () => {
         const res = await fetch(`/api/games/${encodeURIComponent(game.gameId)}`);
         const payload = await res.json();
         const selected = (payload.game ?? game) as GameRow;
         setActiveGame(selected);
         router.push(
-          `/research?snapshotId=${encodeURIComponent(snapshotId || selected.gameId)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`
+          buildNavigationHref({
+            pathname: '/research',
+            traceId: chainTraceId,
+            params: { snapshotId: snapshotId || selected.gameId }
+          })
         );
         return {
           ok: true,
@@ -184,7 +192,7 @@ export default function ResearchPage() {
       sessionId: anonSessionId,
       userId: anonSessionId,
       snapshotId: snapshotId || activeGame?.gameId || 'DEMO',
-      traceId: traceId || createClientRequestId(),
+      traceId: chainTraceId,
       runId: createClientRequestId(),
       selection: formData.get('selection')?.toString() ?? 'Unknown',
       odds: Number(formData.get('odds') ?? 1.91),
@@ -197,6 +205,7 @@ export default function ResearchPage() {
     const tracked = await runUiAction({
       actionName: 'track_bet_cta',
       traceId: bet.traceId,
+      properties: { game_id: bet.gameId },
       execute: async () => {
         const response = await fetch('/api/bets', {
           method: 'POST',
@@ -215,7 +224,8 @@ export default function ResearchPage() {
   const runAnalysis = async () => {
     const outcome = await runUiAction({
       actionName: 'run_analysis',
-      traceId: traceId || undefined,
+      traceId: chainTraceId,
+      properties: { game_id: activeGame?.gameId, league: activeGame?.league },
       execute: async () => {
         const anonSessionId = ensureAnonSessionId();
         const response = await fetch('/api/researchSnapshot/start', {
@@ -234,7 +244,11 @@ export default function ResearchPage() {
         if (!response.ok)
           return { ok: false, source: 'demo' as const, error_code: 'analysis_failed' };
         router.push(
-          `/research?snapshotId=${encodeURIComponent(data.snapshotId)}&trace_id=${encodeURIComponent(data.traceId)}`
+          buildNavigationHref({
+            pathname: '/research',
+            traceId: data.traceId,
+            params: { snapshotId: data.snapshotId }
+          })
         );
         setStatus(
           `Analysis started for ${activeGame?.label ?? activeGame?.gameId ?? 'demo game'}.`
@@ -248,11 +262,12 @@ export default function ResearchPage() {
   const openLiveGames = async () => {
     const outcome = await runUiAction({
       actionName: 'see_live_games',
-      traceId: traceId || undefined,
+      traceId: chainTraceId,
+      properties: { sport: activeGame?.league ?? 'NFL', game_id: activeGame?.gameId },
       execute: async () => {
         const targetSport = activeGame?.league ?? 'NFL';
         router.push(
-          `/live?sport=${encodeURIComponent(targetSport)}&trace_id=${encodeURIComponent(traceId || createClientRequestId())}`
+          buildNavigationHref({ pathname: '/live', traceId: chainTraceId, params: { sport: targetSport } })
         );
         return { ok: true, source: 'live' as const };
       }
@@ -263,7 +278,7 @@ export default function ResearchPage() {
   const shareView = async () => {
     const outcome = await runUiAction({
       actionName: 'share_card_export',
-      traceId: traceId || undefined,
+      traceId: chainTraceId,
       execute: async () => {
         const url =
           typeof window !== 'undefined'
@@ -279,12 +294,12 @@ export default function ResearchPage() {
 
   return (
     <section className="space-y-6">
-      <TerminalLoopShell traceId={traceId || undefined} />
+      <TerminalLoopShell traceId={chainTraceId} />
 
       <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
         <h1 className="text-2xl font-semibold">Log Research Outcome</h1>
         <p className="text-sm text-slate-400">
-          Snapshot: {snapshotId || 'Not started'} · Trace: {traceId || 'Pending'} · Game:{' '}
+          Snapshot: {snapshotId || 'Not started'} · Trace: {chainTraceId || 'Pending'} · Game:{' '}
           {activeGame ? `${activeGame.label} (${activeGame.source})` : 'none'}
         </p>
 
@@ -410,7 +425,7 @@ export default function ResearchPage() {
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="overflow-x-auto">
                 <AgentNodeGraph
-                  traceId={traceId}
+                  traceId={chainTraceId}
                   events={events}
                   state={graphState}
                   selectedNodeId={selectedNodeId}
