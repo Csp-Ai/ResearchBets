@@ -19,7 +19,7 @@ export const selectTimelineEvents = (events: EventItem[]): { rows: EventItem[]; 
   return { rows: demoEvents, usingDemo: true };
 };
 
-export function TerminalLoopShell() {
+export function TerminalLoopShell({ traceId }: { traceId?: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
@@ -47,11 +47,12 @@ export function TerminalLoopShell() {
   }, []);
 
   useEffect(() => {
-    if (!snapshot?.traceId) return;
-    fetch(`/api/events?trace_id=${snapshot.traceId}&limit=10`)
+    const activeTrace = traceId ?? snapshot?.traceId;
+    if (!activeTrace) return;
+    fetch(`/api/events?trace_id=${activeTrace}&limit=10`)
       .then((res) => res.json())
       .then((data) => setEvents(data.events ?? []));
-  }, [snapshot?.traceId]);
+  }, [snapshot?.traceId, traceId]);
 
   const startSnapshot = async () => {
     if (!session) return;
