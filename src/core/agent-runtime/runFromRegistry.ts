@@ -36,5 +36,5 @@ export const runFromRegistry = async ({ agentId, input, context }: RunFromRegist
     };
   }
 
-  return executeAgent(agent, input, context);
+  return executeAgent(agent as never, input, context) as Promise<AgentRunResponse<AgentOutput>>;
 };

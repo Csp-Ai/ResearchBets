@@ -8,6 +8,8 @@ export type AgentOutput = Record<string, unknown>;
 
 export interface AgentContext {
   requestId: string;
+  runId?: string;
+  traceId?: string;
   userId?: string | null;
   environment?: 'dev' | 'staging' | 'prod';
   sessionId?: string;
