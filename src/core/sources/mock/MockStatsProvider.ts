@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { EvidenceItem } from '../../evidence/evidenceSchema';
 import type { SourceFetchOptions, SourceProvider } from '../types';
 import { seededRange } from '../types';
@@ -14,6 +16,8 @@ export class MockStatsProvider implements SourceProvider {
     const awayPace = seededRange(`${seed}:pace:away`, 90, 105, 1);
     const homeEff = seededRange(`${seed}:eff:home`, 102, 124, 1);
     const awayEff = seededRange(`${seed}:eff:away`, 102, 124, 1);
+    const contentExcerpt = `Home pace ${homePace} vs away pace ${awayPace}; home efficiency ${homeEff} vs away efficiency ${awayEff}.`;
+    const contentHash = createHash('sha256').update(contentExcerpt).digest('hex');
 
     return [
       {
@@ -23,7 +27,8 @@ export class MockStatsProvider implements SourceProvider {
         sourceUrl: 'https://example.com/mock-stats',
         retrievedAt: now,
         observedAt: new Date(new Date(now).getTime() - 1000 * 60 * 60 * 24).toISOString(),
-        contentExcerpt: `Home pace ${homePace} vs away pace ${awayPace}; home efficiency ${homeEff} vs away efficiency ${awayEff}.`,
+        contentExcerpt,
+        contentHash,
         raw: { homePace, awayPace, homeEff, awayEff },
         reliability: this.reliabilityDefault,
         tags: ['pace', 'efficiency'],

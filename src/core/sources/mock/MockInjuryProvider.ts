@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { EvidenceItem } from '../../evidence/evidenceSchema';
 import type { SourceFetchOptions, SourceProvider } from '../types';
 import { seededHash } from '../types';
@@ -17,6 +19,8 @@ export class MockInjuryProvider implements SourceProvider {
     const position = positions[hash % positions.length];
     const status = statuses[hash % statuses.length];
     const side = hash % 2 === 0 ? 'home' : 'away';
+    const contentExcerpt = `${side} ${position} group flagged as ${status} heading into matchup.`;
+    const contentHash = createHash('sha256').update(contentExcerpt).digest('hex');
 
     return [
       {
@@ -26,7 +30,8 @@ export class MockInjuryProvider implements SourceProvider {
         sourceUrl: 'https://example.com/mock-injuries',
         retrievedAt: now,
         observedAt: new Date(new Date(now).getTime() - 1000 * 60 * 60 * 3).toISOString(),
-        contentExcerpt: `${side} ${position} group flagged as ${status} heading into matchup.`,
+        contentExcerpt,
+        contentHash,
         raw: { side, position, status },
         reliability: this.reliabilityDefault,
         tags: ['availability', 'depth-chart'],
