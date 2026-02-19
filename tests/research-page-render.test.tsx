@@ -67,6 +67,6 @@ describe('/research render polish', () => {
 
     expect(firstPushCall).toBeDefined();
     expect(firstPushCall?.[0]).toContain('/ingest?');
-    expect(firstPushCall?.[0]).toContain('prefill=Jayson+Tatum+over+29.5+points');
+    expect(firstPushCall?.[0]).toContain('prefill=Jayson%20Tatum%20over%2029.5%20points');
   });
 });
