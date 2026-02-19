@@ -61,7 +61,7 @@ describe('research run rendering and reload', () => {
   it('recent activity reflects persisted complete status', async () => {
     render(<ResearchPageContent />);
 
-    await waitFor(() => expect(screen.getByText(/complete/)).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText(/complete/).length).toBeGreaterThan(0));
   });
 
 });
