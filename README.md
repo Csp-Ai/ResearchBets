@@ -59,6 +59,31 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-key>
 
 After editing environment variables, restart the dev server. To verify config and connectivity, run `npm run env:check` and visit `http://localhost:3000/api/health`.
 
+## Database Schema Must Be Applied
+
+The app expects Supabase schema parity with `supabase/migrations/*.sql`. Before running local/dev against a shared project, apply migrations:
+
+```bash
+supabase db push
+```
+
+If Supabase CLI is unavailable, apply the SQL migration files manually in order from `supabase/migrations`.
+
+Run a schema drift check anytime you see runtime DB errors:
+
+```bash
+npm run supabase:schema:check
+```
+
+### Troubleshooting: PGRST204 / 42703
+
+If you see errors like:
+
+- `PGRST204 Could not find column ... in schema cache`
+- `42703 column ... does not exist`
+
+Then run `npm run supabase:schema:check`, apply pending migrations, and restart the dev server.
+
 ## Quality Gates
 
 ```bash
