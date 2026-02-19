@@ -1,0 +1,139 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/research render polish > shows Try an example and keeps a single primary hero container in empty state 1`] = `
+<section
+  class="space-y-8"
+>
+  <header
+    class="rb-card rb-hero"
+    data-testid="research-primary-hero"
+  >
+    <div
+      class="flex flex-wrap items-center justify-between gap-6"
+    >
+      <div
+        class="space-y-2"
+      >
+        <h1
+          class="text-4xl font-semibold leading-tight"
+        >
+          Analyze a bet
+        </h1>
+        <p
+          class="text-sm text-slate-400"
+        >
+          Get confidence, risk flags, and the exact leg that can break your slip.
+        </p>
+        <button
+          class="text-sm text-cyan-300 underline underline-offset-4"
+          type="button"
+        >
+          Try an example
+        </button>
+      </div>
+      <div
+        class="flex flex-wrap gap-2"
+      >
+        <button
+          class="rb-btn-primary"
+          type="button"
+        >
+          Paste slip
+        </button>
+        <a
+          class="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold"
+          href="/discover"
+        >
+          Build slip
+        </a>
+      </div>
+    </div>
+  </header>
+  <section
+    class="space-y-6"
+  >
+    <section
+      class="rb-card space-y-5"
+      data-testid="research-empty-state"
+    >
+      <div>
+        <h2
+          class="text-xl font-semibold"
+        >
+          From raw ticket to clear verdict
+        </h2>
+        <p
+          class="mt-1 text-sm text-slate-400"
+        >
+          Know your downside before placing the slip.
+        </p>
+      </div>
+      <ul
+        class="space-y-2 text-sm text-slate-300"
+      >
+        <li>
+          • L5/L10 hit-rate context per leg
+        </li>
+        <li>
+          • Weakest leg called out immediately
+        </li>
+        <li>
+          • Line disagreement and injury risk flags
+        </li>
+      </ul>
+      <pre
+        class="rounded-xl border border-slate-800/60 bg-slate-950/75 p-4 text-xs text-slate-300"
+      >
+        Jayson Tatum over 29.5 points (-110)
+Luka Doncic over 8.5 assists (-120)
+LeBron James over 6.5 rebounds (-105)
+      </pre>
+      <button
+        class="rb-btn-primary"
+        type="button"
+      >
+        Paste slip
+      </button>
+    </section>
+  </section>
+  <details
+    class="rounded-xl border border-slate-800/50 bg-slate-950/40 px-3 py-2"
+    data-testid="advanced-drawer"
+  >
+    <summary
+      class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400"
+    >
+      Advanced
+    </summary>
+    <div
+      class="mt-3 space-y-2 text-xs text-slate-300"
+    >
+      <div
+        class="flex flex-wrap gap-2"
+      >
+        <span
+          class="rb-chip"
+        >
+          Slip ID: 
+          n/a
+        </span>
+        <span
+          class="rb-chip"
+        >
+          Trace ID: 
+          06907de8-c209-439d-9573-df5a7c74bc49
+        </span>
+      </div>
+      <pre
+        class="overflow-auto rounded bg-slate-950/80 p-2"
+      >
+        {
+  "legs": [],
+  "confidence": 0,
+  "status": ""
+}
+      </pre>
+    </div>
+  </details>
+</section>
+`;

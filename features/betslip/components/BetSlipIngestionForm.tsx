@@ -71,10 +71,10 @@ export function BetSlipIngestionForm() {
   };
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <h2 className="text-xl font-semibold">Paste Slip</h2>
+    <section className="rb-card space-y-5">
+      <h2 className="text-2xl font-semibold">Paste Slip</h2>
       <p className="mt-1 text-sm text-slate-400">Paste your ticket text and we will parse legs instantly.</p>
-      <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+      <div className="rounded-xl border border-slate-800/60 bg-slate-950/45 p-4">
         <p className="text-sm font-medium text-slate-200">Quick add (optional)</p>
         <p className="mt-1 text-xs text-slate-400">Defaults to points. Markets are normalized through MarketType.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
@@ -92,23 +92,23 @@ export function BetSlipIngestionForm() {
           <span className="text-xs text-slate-400">Suggested leg: {playerSuggestion.legText || 'Enter player to generate suggestion'}</span>
         </div>
       </div>
-      <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <textarea className="h-64 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-xs" onChange={(event) => setRawInput(event.target.value)} value={rawInput} />
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-        <button className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400 disabled:opacity-60" type="submit" disabled={loading}>
+        <button className="rb-btn-primary disabled:opacity-60" type="submit" disabled={loading}>
           {loading ? 'Analyzing…' : 'Analyze now'}
         </button>
       </form>
 
       {result ? (
-        <div className="mt-5 space-y-3 rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+        <div className="space-y-3 rounded-xl border border-slate-800/60 bg-slate-950/45 p-4">
           <p className="text-sm text-slate-200">Extracted legs ({result.legs.length})</p>
           <ul className="space-y-2 text-xs text-slate-300">
             {result.legs.map((leg, index) => {
               const marketType = asMarketType(leg.market, 'points');
               const insight = result.legInsights[index];
               return (
-                <li key={`${leg.selection}-${index}`} className="rounded border border-slate-800 bg-slate-900/70 p-2">
+                <li key={`${leg.selection}-${index}`} className="rounded-xl border border-slate-800/50 bg-slate-900/40 p-3">
                   <p>{leg.selection} {marketType ? `· ${marketType}` : ''} {leg.odds ? `· ${leg.odds}` : ''}</p>
                   {insight ? (
                     <p className="mt-1 text-[11px] text-slate-400">
@@ -119,7 +119,7 @@ export function BetSlipIngestionForm() {
               );
             })}
           </ul>
-          <Link className="inline-flex rounded border border-sky-500 px-3 py-2 text-sm text-sky-300 hover:bg-sky-500/10" href={`/research?slip_id=${result.slipId}&trace_id=${result.traceId}&legs=${encodeURIComponent(JSON.stringify(result.legs))}`}>
+          <Link className="inline-flex rounded-xl border border-sky-500 px-4 py-2 text-sm font-semibold text-sky-300 hover:bg-sky-500/10" href={`/research?slip_id=${result.slipId}&trace_id=${result.traceId}&legs=${encodeURIComponent(JSON.stringify(result.legs))}`}>
             Start Research Snapshot
           </Link>
         </div>
