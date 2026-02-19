@@ -4,6 +4,8 @@ const ANALYTICS_COLUMNS = ['agent_id', 'created_at', 'timestamp', 'last_seen_at'
 const includesAny = (value: string, tokens: readonly string[]): boolean =>
   tokens.some((token) => value.includes(token));
 
+const loggedDegradationErrors = new Set<string>();
+
 export const isMissingAnalyticsSchemaError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false;
 
@@ -22,4 +24,16 @@ export const isMissingAnalyticsSchemaError = (error: unknown): boolean => {
   }
 
   return false;
+};
+
+export const logAnalyticsSchemaDegradationOnce = (context: string, error: unknown): void => {
+  const payload = error as Record<string, unknown> | undefined;
+  const code = String(payload?.code ?? 'UNKNOWN');
+  const message = String(payload?.message ?? 'Unknown analytics schema error');
+  const key = `${context}:${code}:${message}`;
+
+  if (loggedDegradationErrors.has(key)) return;
+
+  loggedDegradationErrors.add(key);
+  console.warn(`⚠️ ${context} degraded on analytics schema error [${code}] ${message}`);
 };

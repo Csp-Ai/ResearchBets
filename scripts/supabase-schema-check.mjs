@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -31,10 +32,54 @@ function loadDotEnvLocal() {
   }
 }
 
+function parseProjectRef(rawUrl) {
+  try {
+    const host = new URL(rawUrl).host;
+    const [projectRef] = host.split('.');
+    return projectRef?.trim() ? projectRef : null;
+  } catch {
+    return null;
+  }
+}
+
+function readLinkedProjectRef() {
+  try {
+    const output = execFileSync('supabase', ['status', '-o', 'json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8'
+    });
+    const parsed = JSON.parse(output);
+    const linkedRef = parsed?.linked_project_ref;
+    return typeof linkedRef === 'string' && linkedRef.trim().length > 0 ? linkedRef.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function shouldTreatAsLocalSupabase() {
+  return process.env.SUPABASE_LOCAL === 'true' || Boolean(process.env.SUPABASE_DB_URL);
+}
+
+function isConnectivityError(error) {
+  const message = `${String(error?.message ?? '')} ${String(error?.details ?? '')}`.toLowerCase();
+  return (
+    message.includes('fetch failed') ||
+    message.includes('enotfound') ||
+    message.includes('eai_again') ||
+    message.includes('getaddrinfo') ||
+    message.includes('network') ||
+    message.includes('connect') ||
+    message.includes('timeout')
+  );
+}
+
 loadDotEnvLocal();
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+const derivedProjectRef = url ? parseProjectRef(url) : null;
+const linkedProjectRef = readLinkedProjectRef();
+const isLocalSupabase = shouldTreatAsLocalSupabase();
 
 if (!url) {
   console.error('❌ Missing NEXT_PUBLIC_SUPABASE_URL.');
@@ -43,6 +88,18 @@ if (!url) {
 
 if (!serviceRoleKey) {
   console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY.');
+  process.exit(1);
+}
+
+if (derivedProjectRef) {
+  console.log(`ℹ️ NEXT_PUBLIC_SUPABASE_URL project ref: ${derivedProjectRef}`);
+}
+if (linkedProjectRef) {
+  console.log(`ℹ️ supabase status linked project ref: ${linkedProjectRef}`);
+}
+if (derivedProjectRef && linkedProjectRef && derivedProjectRef !== linkedProjectRef) {
+  console.error('❌ Project mismatch: linked Supabase project differs from NEXT_PUBLIC_SUPABASE_URL.');
+  console.error('   Run `supabase link` and link the same project shown in NEXT_PUBLIC_SUPABASE_URL.');
   process.exit(1);
 }
 
@@ -56,6 +113,18 @@ const { data, error } = await client
 
 if (error) {
   console.error('❌ Failed to inspect Supabase schema:', error.message);
+
+  if (isConnectivityError(error)) {
+    console.error(
+      'This is connectivity / missing project context. Run `supabase link` and confirm NEXT_PUBLIC_SUPABASE_URL matches the linked project.'
+    );
+  }
+
+  if (isLocalSupabase) {
+    console.error('Local Supabase detected (SUPABASE_DB_URL or SUPABASE_LOCAL=true).');
+    console.error('If local services are stale, run `supabase status` then `supabase stop && supabase start`.');
+  }
+
   process.exit(1);
 }
 
@@ -72,8 +141,16 @@ if (issues.length > 0) {
     console.error(`❌ Missing columns in public.${issue.table}: ${issue.missingColumns.join(', ')}`);
   }
 
-  for (const line of getFixInstructions()) {
+  for (const line of getFixInstructions({ isLocalSupabase })) {
     console.error(line);
+  }
+
+  if (isLocalSupabase) {
+    try {
+      execFileSync('supabase', ['status'], { stdio: 'inherit' });
+    } catch {
+      console.error('ℹ️ Unable to run `supabase status` automatically. Ensure Supabase CLI is installed.');
+    }
   }
 
   process.exit(1);
