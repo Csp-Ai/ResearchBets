@@ -3,6 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 
+import { Button } from '@/src/components/ui/button';
+import { Chip } from '@/src/components/ui/chip';
+import { Surface } from '@/src/components/ui/surface';
+
 export type AnalyzeLeg = {
   id: string;
   selection: string;
@@ -30,60 +34,60 @@ function shortTraceId(traceId: string): string {
 
 export function EmptyStateBettor({ onPaste }: { onPaste: () => void }) {
   return (
-    <section className="rb-card space-y-6" data-testid="research-empty-state">
+    <Surface className="space-y-6" data-testid="research-empty-state">
       <div>
         <h2 className="text-xl font-semibold">From raw ticket to clear verdict</h2>
-        <p className="mt-1 text-sm text-slate-400">Know your downside before placing the slip.</p>
+        <p className="mt-1 text-sm text-muted">Know your downside before placing the slip.</p>
       </div>
-      <ul className="space-y-2 text-sm text-slate-300">
+      <ul className="space-y-2 text-sm text-subtle">
         <li>• L5/L10 hit-rate context per leg</li>
         <li>• Weakest leg called out immediately</li>
         <li>• Line disagreement and injury risk flags</li>
       </ul>
-      <pre className="rounded-xl border border-slate-800/60 bg-slate-950/75 p-4 text-xs text-slate-300">
+      <pre className="ui-shell-panel p-4 text-xs text-subtle">
 {`Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)
 LeBron James over 6.5 rebounds (-105)`}
       </pre>
-      <button type="button" className="rb-btn-primary" onClick={onPaste}>Paste slip</button>
-    </section>
+      <Button intent="primary" onClick={onPaste}>Paste slip</Button>
+    </Surface>
   );
 }
 
 export function RecentActivityPanel({ runs, onOpen }: { runs: RecentRun[]; onOpen: (traceId: string) => void }) {
   return (
-    <section className="rb-card space-y-4" data-testid="recent-activity-panel">
+    <Surface className="space-y-4" data-testid="recent-activity-panel">
       <div>
         <h2 className="text-base font-semibold">Recent activity</h2>
-        <p className="text-xs text-slate-400">Jump back into the latest runs without leaving Research.</p>
+        <p className="text-xs text-muted">Jump back into the latest runs without leaving Research.</p>
       </div>
       {runs.length === 0 ? (
-        <div className="rounded-xl border border-slate-800/60 bg-slate-950/55 p-4 text-sm text-slate-300">
-          <p className="font-medium text-slate-200">No recent runs yet.</p>
-          <p className="mt-1 text-xs text-slate-400">Paste a slip to start your first run and it will appear here.</p>
+        <div className="ui-shell-soft p-4 text-sm text-subtle">
+          <p className="font-medium text-strong">No recent runs yet.</p>
+          <p className="mt-1 text-xs text-muted">Paste a slip to start your first run and it will appear here.</p>
         </div>
       ) : (
         <ul className="space-y-2 text-sm">
           {runs.map((run) => (
-            <li key={run.traceId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 p-3">
+            <li key={run.traceId} className="ui-shell-list-item p-3">
               <div>
-                <p className="font-medium text-slate-100">{shortTraceId(run.traceId)}</p>
-                <p className="text-xs text-slate-400">{new Date(run.updatedAt).toLocaleString()} · {run.status}</p>
+                <p className="font-medium text-strong">{shortTraceId(run.traceId)}</p>
+                <p className="text-xs text-muted">{new Date(run.updatedAt).toLocaleString()} · {run.status}</p>
               </div>
-              <button type="button" className="rb-btn-secondary" onClick={() => onOpen(run.traceId)}>Open</button>
+              <Button intent="secondary" onClick={() => onOpen(run.traceId)}>Open</Button>
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </Surface>
   );
 }
 
 export function HowItWorksMini() {
   return (
-    <details className="rb-card" data-testid="how-it-works">
-      <summary className="cursor-pointer text-sm font-semibold text-slate-100">How it works</summary>
-      <ul className="mt-3 space-y-2 text-sm text-slate-300">
+    <details className="ui-surface-card" data-testid="how-it-works">
+      <summary className="cursor-pointer text-sm font-semibold text-strong">How it works</summary>
+      <ul className="mt-3 space-y-2 text-sm text-subtle">
         <li>• Paste slip → Extract legs</li>
         <li>• Compute hit profiles (L5/L10/season/vsOpp)</li>
         <li>• Flag weakest leg + book disagreement</li>
@@ -94,53 +98,53 @@ export function HowItWorksMini() {
 
 export function VerdictHero({ confidence, weakestLeg, reasons }: { confidence: number; weakestLeg: AnalyzeLeg | null; reasons: string[] }) {
   const riskLabel = confidence >= 70 ? 'Strong' : confidence >= 55 ? 'Caution' : 'Weak';
-  const tone = riskLabel === 'Strong' ? 'tone-strong' : riskLabel === 'Caution' ? 'tone-caution' : 'tone-weak';
+  const tone = riskLabel === 'Strong' ? 'strong' : riskLabel === 'Caution' ? 'caution' : 'weak';
 
   return (
-    <section className="rb-card rb-hero space-y-5" data-testid="verdict-hero">
+    <Surface kind="hero" className="space-y-5" data-testid="verdict-hero">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">Verdict</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Verdict</p>
           <p className="text-5xl font-semibold leading-none md:text-6xl">{confidence}%</p>
-          <p className="mt-1 text-sm text-slate-400">Confidence to clear as currently built.</p>
+          <p className="mt-1 text-sm text-muted">Confidence to clear as currently built.</p>
         </div>
-        <span className={`rb-chip ${tone}`}>{riskLabel} confidence</span>
+        <Chip tone={tone}>{riskLabel} confidence</Chip>
       </div>
 
-      <div className="rounded-xl border border-slate-800/60 bg-slate-950/55 p-4">
-        <p className="text-xs uppercase tracking-wide text-slate-500">Weakest leg</p>
-        <p className="mt-1 text-lg text-rose-200">{weakestLeg?.selection ?? 'Not enough data yet'}</p>
+      <div className="ui-shell-soft p-4">
+        <p className="text-xs uppercase tracking-wide text-subtle">Weakest leg</p>
+        <p className="mt-1 text-lg text-danger">{weakestLeg?.selection ?? 'Not enough data yet'}</p>
       </div>
 
-      <ul className="space-y-1.5 text-sm text-slate-200">
+      <ul className="space-y-1.5 text-sm text-strong">
         {reasons.map((reason) => <li key={reason}>• {reason}</li>)}
       </ul>
-    </section>
+    </Surface>
   );
 }
 
 export function LegCardCompact({ leg, onRemove }: { leg: AnalyzeLeg; onRemove: () => void }) {
-  const tone = leg.risk === 'strong' ? 'tone-strong' : leg.risk === 'caution' ? 'tone-caution' : 'tone-weak';
+  const tone = leg.risk === 'strong' ? 'strong' : leg.risk === 'caution' ? 'caution' : 'weak';
 
   return (
     <li className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0 md:w-[34%]">
-        <p className="truncate font-medium text-slate-100">{leg.selection}</p>
-        <p className="text-xs text-slate-400">{leg.market} {leg.line} {leg.odds}</p>
+        <p className="truncate font-medium text-strong">{leg.selection}</p>
+        <p className="text-xs text-muted">{leg.market} {leg.line} {leg.odds}</p>
       </div>
 
       <div className="flex flex-wrap gap-1.5 md:w-[38%]">
-        <span className="rb-chip">L5 {leg.l5}%</span>
-        <span className="rb-chip">L10 {leg.l10}%</span>
-        {typeof leg.season === 'number' ? <span className="rb-chip">Season {leg.season}%</span> : null}
-        {typeof leg.vsOpp === 'number' ? <span className="rb-chip">vs Opp {leg.vsOpp}%</span> : null}
+        <Chip>L5 {leg.l5}%</Chip>
+        <Chip>L10 {leg.l10}%</Chip>
+        {typeof leg.season === 'number' ? <Chip>Season {leg.season}%</Chip> : null}
+        {typeof leg.vsOpp === 'number' ? <Chip>vs Opp {leg.vsOpp}%</Chip> : null}
       </div>
 
       <div className="flex items-center gap-2 md:w-[28%] md:justify-end">
-        {leg.divergence ? <span className="rb-chip tone-caution">Books disagree</span> : null}
-        <span className={`rb-chip ${tone}`}>{leg.risk}</span>
-        <button className="text-xs text-cyan-300" type="button">Why</button>
-        <button className="text-xs text-rose-300" type="button" onClick={onRemove}>Remove</button>
+        {leg.divergence ? <Chip tone="caution">Books disagree</Chip> : null}
+        <Chip tone={tone}>{leg.risk}</Chip>
+        <button className="text-xs text-link" type="button">Why</button>
+        <button className="text-xs text-danger" type="button" onClick={onRemove}>Remove</button>
       </div>
     </li>
   );
@@ -148,7 +152,7 @@ export function LegCardCompact({ leg, onRemove }: { leg: AnalyzeLeg; onRemove: (
 
 export function LegRankList({ legs, onRemove }: { legs: AnalyzeLeg[]; onRemove: (id: string) => void }) {
   return (
-    <ul className="divide-y divide-slate-800/60">
+    <ul className="divide-y divide-default">
       {legs.map((leg) => <LegCardCompact key={leg.id} leg={leg} onRemove={() => onRemove(leg.id)} />)}
     </ul>
   );
@@ -157,9 +161,9 @@ export function LegRankList({ legs, onRemove }: { legs: AnalyzeLeg[]; onRemove: 
 export function SlipActionsBar({ onRemoveWeakest, onRerun, canTrack }: { onRemoveWeakest: () => void; onRerun: () => void; canTrack: boolean }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <button type="button" className="rb-btn-primary" onClick={onRemoveWeakest}>Remove weakest</button>
-      <button type="button" className="rb-btn-secondary" onClick={onRerun}>Rerun</button>
-      {canTrack ? <button type="button" className="rb-btn-secondary">Track</button> : null}
+      <Button intent="primary" onClick={onRemoveWeakest}>Remove weakest</Button>
+      <Button intent="secondary" onClick={onRerun}>Rerun</Button>
+      {canTrack ? <Button intent="secondary">Track</Button> : null}
     </div>
   );
 }
@@ -168,10 +172,10 @@ export function AdvancedDrawer({ children, developerMode }: { children: React.Re
   const label = developerMode ? 'Run details (optional) (trace/provenance)' : 'Run details (optional)';
 
   return (
-    <details className="rounded-xl border border-slate-800/50 bg-slate-950/40 px-3 py-2" data-testid="advanced-drawer">
-      <summary className="cursor-pointer text-xs font-semibold tracking-wide text-slate-400">{label}</summary>
-      <div className="mt-3 space-y-2 text-xs text-slate-300">{children}
-        {developerMode ? <Link href="/traces" className="text-cyan-300 underline">Open run details</Link> : null}
+    <details className="ui-shell-drawer px-3 py-2" data-testid="advanced-drawer">
+      <summary className="cursor-pointer text-xs font-semibold tracking-wide text-muted">{label}</summary>
+      <div className="mt-3 space-y-2 text-xs text-subtle">{children}
+        {developerMode ? <Link href="/traces" className="text-link underline">Open run details</Link> : null}
       </div>
     </details>
   );
