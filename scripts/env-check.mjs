@@ -2,27 +2,11 @@
 
 import dotenv from 'dotenv';
 
+import { evaluateEnvCheck } from './lib/env-check-helper.mjs';
+
 dotenv.config({ path: '.env.local', quiet: true });
 
-const requiredExact = ['NEXT_PUBLIC_SUPABASE_URL'];
-const anyOfGroups = [['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY']];
-
-const missingExact = requiredExact.filter((key) => {
-  const value = process.env[key];
-  return typeof value !== 'string' || value.trim().length === 0;
-});
-
-const missingGroups = anyOfGroups.filter((group) =>
-  group.every((key) => {
-    const value = process.env[key];
-    return typeof value !== 'string' || value.trim().length === 0;
-  })
-);
-
-const resolvedKeys = [...requiredExact, ...anyOfGroups.map((group) => group.find((key) => (process.env[key] ?? '').trim()) ?? group[0])];
-const allowDummyEnv = process.env.NODE_ENV === 'development' && process.env.ALLOW_DUMMY_ENV === 'true';
-const isDummyValue = (value) => typeof value === 'string' && /^dummy([_-]|$)/i.test(value.trim());
-const usingDummyValues = resolvedKeys.filter((key) => isDummyValue(process.env[key]));
+const { allowDummyEnv, missingExact, missingGroups, usingDummyValues } = evaluateEnvCheck(process.env);
 
 if (missingExact.length > 0 || missingGroups.length > 0) {
   const missing = [...missingExact, ...missingGroups.map((group) => `[one of: ${group.join(' | ')}]`)];
@@ -41,8 +25,8 @@ if (usingDummyValues.length > 0 && !allowDummyEnv) {
   process.exit(1);
 }
 
-if (usingDummyValues.length > 0 && allowDummyEnv) {
-  console.warn(`⚠️ Using dummy values for local development: ${usingDummyValues.join(', ')}`);
+if (allowDummyEnv) {
+  console.warn('⚠️ Using dummy env in dev (ALLOW_DUMMY_ENV=true). Live Supabase disabled.');
 }
 
 console.log('✅ Environment check passed. Required Supabase variables are configured.');
