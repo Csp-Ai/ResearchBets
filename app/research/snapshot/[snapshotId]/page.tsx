@@ -12,6 +12,7 @@ import type { PropLegInsight } from '@/src/core/slips/propInsights';
 
 type SnapshotPayload = ResearchReport & {
   leg_insights?: PropLegInsight[];
+  legHitProfiles?: ResearchReport['legHitProfiles'];
   recommendations?: Array<{ id?: string; summary?: string; confidence?: number }>;
   legs?: Array<ExtractedLeg & { team?: string; gameId?: string; trendSeries?: number[]; injuryImpact?: string }>;
 };
@@ -97,6 +98,7 @@ export default async function SnapshotReplayPage({
       <SnapshotReplayView
         legs={legs}
         legInsights={legInsights}
+        legHitProfiles={snapshot.legHitProfiles}
         snapshotId={snapshot.reportId}
         traceId={snapshot.traceId}
         replayEnabled={replayEnabled}
