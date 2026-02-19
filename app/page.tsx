@@ -6,13 +6,33 @@ import { TipUs } from '@/features/landing/TipUs';
 
 export default function HomePage() {
   return (
-    <main className="relative space-y-6">
+    <main className="relative">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.08),transparent_45%),radial-gradient(circle_at_80%_30%,rgba(45,212,191,0.06),transparent_40%)]" />
-      <LandingHero />
-      <HowItWorks />
-      <StaticVerdictDemo />
-      <Credibility />
-      <TipUs />
+
+      {/* HERO */}
+      <section className="mx-auto max-w-5xl px-4 pt-10 sm:pt-14">
+        <LandingHero />
+      </section>
+
+      {/* PROOF (should feel like the product, not marketing) */}
+      <section className="mx-auto max-w-5xl px-4">
+        <StaticVerdictDemo />
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="mx-auto max-w-5xl px-4 pb-2">
+        <HowItWorks />
+      </section>
+
+      {/* TRUST */}
+      <section className="mx-auto max-w-5xl px-4 pb-6">
+        <Credibility />
+      </section>
+
+      {/* OPTIONAL */}
+      <section className="mx-auto max-w-5xl px-4 pb-10">
+        <TipUs />
+      </section>
     </main>
   );
 }
