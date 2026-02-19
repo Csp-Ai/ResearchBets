@@ -11,13 +11,12 @@ body {
 }
 
 .terminal-shell-outer {
-  min-height: min(75svh, 780px);
-  border: 1px solid rgba(100, 116, 139, 0.62);
-  background: linear-gradient(155deg, rgba(15, 23, 42, 0.38), rgba(2, 6, 23, 0.64));
+  min-height: clamp(420px, 62svh, 760px);
+  border: 1px solid rgba(100, 116, 139, 0.46);
+  background: linear-gradient(155deg, rgba(15, 23, 42, 0.4), rgba(2, 6, 23, 0.68));
   box-shadow:
-    0 42px 110px rgba(2, 6, 23, 0.7),
-    0 12px 30px rgba(8, 47, 73, 0.28),
-    0 0 0 1px rgba(148, 163, 184, 0.18);
+    0 34px 88px rgba(2, 6, 23, 0.62),
+    0 10px 22px rgba(8, 47, 73, 0.2);
 }
 
 .terminal-shell-outer::before {
@@ -31,13 +30,14 @@ body {
 }
 
 .terminal-shell-inner {
-  min-height: min(73svh, 760px);
-  border: 1px solid rgba(71, 85, 105, 0.82);
-  background: linear-gradient(155deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.84));
+  min-height: clamp(400px, 58svh, 730px);
+  border: 1px solid rgba(71, 85, 105, 0.64);
+  background: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.88));
   box-shadow:
-    inset 0 1px 0 rgba(148, 163, 184, 0.13),
-    inset 0 -18px 44px rgba(2, 6, 23, 0.54),
-    inset 0 18px 38px rgba(14, 116, 144, 0.08);
+    inset 0 1px 0 rgba(148, 163, 184, 0.12),
+    inset 0 0 0 1px rgba(51, 65, 85, 0.45),
+    inset 0 -18px 44px rgba(2, 6, 23, 0.5),
+    inset 0 12px 30px rgba(14, 116, 144, 0.07);
   transition:
     border-color 0.5s ease,
     filter 0.5s ease,
