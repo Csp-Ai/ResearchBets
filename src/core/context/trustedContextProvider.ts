@@ -1,0 +1,166 @@
+import type { MarketType } from '@/src/core/markets/marketType';
+import { providerRegistry } from '@/src/core/providers/registry';
+
+import { getTrustedContextCache, setTrustedContextCache, TRUSTED_CONTEXT_TTL_MS } from './cache';
+import type { TrustedContextBundle, TrustedContextItem, TrustedSourceRef } from './types';
+
+type ProviderClock = { now: () => Date };
+
+type TrustedAdapters = {
+  injuries?: {
+    fetchInjuries?: (input: {
+      sport: string;
+      teamIds: string[];
+      playerIds: string[];
+    }) => Promise<{ asOf: string; items: TrustedContextItem[]; sources: TrustedSourceRef[]; fallbackReason?: string }>;
+  };
+  transactions?: {
+    fetchTransactions?: (input: {
+      sport: string;
+      teamIds: string[];
+      playerIds: string[];
+    }) => Promise<{ asOf: string; items: TrustedContextItem[]; sources: TrustedSourceRef[]; fallbackReason?: string }>;
+  };
+  odds?: {
+    fetchEventOdds?: (input: {
+      sport: string;
+      eventIds: string[];
+      marketType: MarketType;
+    }) => Promise<{ platformLines: Array<{ eventId?: string; line: number; asOf?: string }>; provenance?: { sources?: TrustedSourceRef[] } }>;
+  };
+};
+
+type FetchInput = {
+  sport: 'nba' | 'nfl' | 'soccer';
+  teams: Array<{ teamId?: string; team?: string }>;
+  players: Array<{ playerId?: string; player?: string; teamId?: string; team?: string }>;
+  eventIds?: string[];
+};
+
+const defaultClock: ProviderClock = { now: () => new Date() };
+
+const dedupe = (values: Array<string | undefined>): string[] => [...new Set(values.map((v) => v?.trim()).filter((v): v is string => Boolean(v)))];
+
+const sortKey = (input: FetchInput): string => {
+  const teams = dedupe(input.teams.flatMap((team) => [team.teamId, team.team])).sort();
+  const players = dedupe(input.players.flatMap((player) => [player.playerId, player.player])).sort();
+  const events = dedupe(input.eventIds ?? []).sort();
+  return `${input.sport}|${teams.join(',')}|${players.join(',')}|${events.join(',')}`;
+};
+
+const isGameDay = (eventIds: string[]): boolean => eventIds.length > 0;
+
+export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clock: ProviderClock = defaultClock) => {
+  const oddsBaseline = new Map<string, { line: number; asOf: string }>();
+
+  return {
+    async fetchTrustedContext(input: FetchInput): Promise<TrustedContextBundle> {
+      const asOf = clock.now().toISOString();
+      const key = sortKey(input);
+      const cached = getTrustedContextCache<TrustedContextBundle>(key);
+      if (cached) return cached;
+
+      const teamIds = dedupe(input.teams.map((team) => team.teamId));
+      const playerIds = dedupe(input.players.map((player) => player.playerId));
+      const eventIds = dedupe(input.eventIds ?? []);
+      const items: TrustedContextItem[] = [];
+      const coverage: TrustedContextBundle['coverage'] = {
+        injuries: 'none',
+        transactions: 'none',
+        odds: 'none',
+        schedule: 'none'
+      };
+
+      if (adapters.injuries?.fetchInjuries) {
+        const injuryCacheKey = `${key}:injuries`;
+        const injuryResult = getTrustedContextCache<{ items: TrustedContextItem[] }>(injuryCacheKey) ?? setTrustedContextCache(
+          injuryCacheKey,
+          await adapters.injuries.fetchInjuries({ sport: input.sport, teamIds, playerIds }),
+          isGameDay(eventIds) ? TRUSTED_CONTEXT_TTL_MS.injuriesGameDay : TRUSTED_CONTEXT_TTL_MS.injuriesDefault
+        );
+        if (injuryResult.items.length > 0) {
+          coverage.injuries = 'live';
+          items.push(...injuryResult.items);
+        }
+      }
+
+      if (adapters.transactions?.fetchTransactions) {
+        const txCacheKey = `${key}:transactions`;
+        const txResult = getTrustedContextCache<{ items: TrustedContextItem[] }>(txCacheKey) ?? setTrustedContextCache(
+          txCacheKey,
+          await adapters.transactions.fetchTransactions({ sport: input.sport, teamIds, playerIds }),
+          TRUSTED_CONTEXT_TTL_MS.transactions
+        );
+        if (txResult.items.length > 0) {
+          coverage.transactions = 'live';
+          items.push(...txResult.items);
+        }
+      }
+
+      if (adapters.odds?.fetchEventOdds && eventIds.length > 0) {
+        const oddsResult = await adapters.odds.fetchEventOdds({ sport: input.sport, eventIds, marketType: 'points' });
+        const movementItems: TrustedContextItem[] = [];
+        for (const line of oddsResult.platformLines) {
+          const eventId = line.eventId;
+          if (!eventId || typeof line.line !== 'number') continue;
+          const prior = oddsBaseline.get(eventId);
+          if (!prior) {
+            oddsBaseline.set(eventId, { line: line.line, asOf });
+            continue;
+          }
+          const delta = Number((line.line - prior.line).toFixed(2));
+          if (Math.abs(delta) < 0.5) continue;
+          movementItems.push({
+            kind: 'line_movement',
+            subject: { sport: input.sport, eventId },
+            headline: `Line moved ${delta > 0 ? '+' : ''}${delta}`,
+            detail: `Baseline ${prior.line} → ${line.line}`,
+            confidence: 'verified',
+            asOf,
+            sources: oddsResult.provenance?.sources ?? []
+          });
+        }
+        if (movementItems.length > 0) {
+          coverage.odds = 'live';
+          items.push(...movementItems);
+        }
+      }
+
+      const scheduleItems = input.teams
+        .filter((team) => team.team || team.teamId)
+        .slice(0, 3)
+        .map<TrustedContextItem>((team) => ({
+          kind: 'schedule_spot',
+          subject: { sport: input.sport, teamId: team.teamId, team: team.team },
+          headline: `${team.team ?? team.teamId ?? 'Team'} schedule spot computed from metadata`,
+          confidence: 'verified',
+          asOf,
+          sources: [{ provider: 'league_official', label: 'Computed from schedule metadata', retrievedAt: asOf }]
+        }));
+      if (scheduleItems.length > 0) {
+        coverage.schedule = 'computed';
+        items.push(...scheduleItems);
+      }
+
+      const bundle: TrustedContextBundle = {
+        asOf,
+        items,
+        coverage,
+        fallbackReason: items.length === 0 ? 'No verified update from trusted sources.' : undefined
+      };
+
+      return setTrustedContextCache(key, bundle, TRUSTED_CONTEXT_TTL_MS.scheduleSpot);
+    }
+  };
+};
+
+export const trustedContextProvider = createTrustedContextProvider({
+  odds: {
+    fetchEventOdds: providerRegistry.oddsProvider.fetchEventOdds
+  }
+});
+
+export async function fetchTrustedContext(input: FetchInput): Promise<TrustedContextBundle> {
+  return trustedContextProvider.fetchTrustedContext(input);
+}
+

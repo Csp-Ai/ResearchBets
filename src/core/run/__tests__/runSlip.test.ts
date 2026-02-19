@@ -5,6 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 
+vi.mock('@/src/core/context/trustedContextProvider', () => ({
+  fetchTrustedContext: vi.fn(async () => ({
+    asOf: '2025-01-01T12:00:00.000Z',
+    items: [],
+    coverage: { injuries: 'none', transactions: 'none', odds: 'none', schedule: 'none' },
+    fallbackReason: 'No verified update from trusted sources.'
+  }))
+}));
+
 describe('runSlip pipeline', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -35,6 +44,7 @@ describe('runSlip pipeline', () => {
     expect(run?.extractedLegs.length).toBe(1);
     expect(run?.enrichedLegs[0]?.l5).toBeGreaterThan(0);
     expect(run?.analysis.confidencePct).toBeGreaterThan(0);
+    expect(run?.trustedContext?.fallbackReason).toBe('No verified update from trusted sources.');
   });
 
 
@@ -56,6 +66,13 @@ describe('runSlip pipeline', () => {
     expect(verdict.reasons[0]).toContain('Highest downside: Leg A');
     expect(verdict.reasons.join(' ')).toContain('No downside drivers flagged');
     expect(verdict.confidencePct).toBeLessThanOrEqual(65);
+  });
+
+  it('caps confidence when trusted injury coverage is none', () => {
+    const extracted = [{ id: 'a', selection: 'Leg A' }];
+    const enriched = [{ extractedLegId: 'a', l5: 95, l10: 95, season: 95, vsOpp: 95, flags: { injury: null, news: null, lineMove: null, divergence: null }, evidenceNotes: [] }];
+    const verdict = computeVerdict(enriched, extracted, { stats: 'live', injuries: 'live', odds: 'live' }, 'none');
+    expect(verdict.confidencePct).toBeLessThanOrEqual(75);
   });
 
 });

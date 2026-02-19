@@ -55,5 +55,28 @@ describe('buildGroupReply', () => {
     expect(reply).toContain('What book/odds did you take? Any line movement?');
     expect(reply).toContain('Data sources: stats=live, injuries=fallback, odds=fallback');
     expect(reply).toContain('Crowd notes (unverified): 2 contributors suspended');
+    expect(reply).toContain('No verified updates from trusted sources yet (injuries/suspensions).');
+  });
+
+  it('renders trusted notes + sources when trusted context exists', () => {
+    const reply = buildGroupReply({
+      ...runFixture,
+      trustedContext: {
+        asOf: '2025-01-01T15:12:00.000Z',
+        coverage: { injuries: 'live', transactions: 'none', odds: 'none', schedule: 'computed' },
+        items: [{
+          kind: 'status',
+          subject: { sport: 'nba', team: 'Boston' },
+          headline: 'Player A available',
+          confidence: 'verified',
+          asOf: '2025-01-01T15:12:00.000Z',
+          sources: [{ provider: 'sportsdataio', label: 'SportsDataIO NBA Injuries', retrievedAt: '2025-01-01T15:12:00.000Z' }]
+        }]
+      }
+    });
+
+    expect(reply).toContain('Trusted notes');
+    expect(reply).toContain('Player A available');
+    expect(reply).toContain('Sources: SportsDataIO NBA Injuries');
   });
 });
