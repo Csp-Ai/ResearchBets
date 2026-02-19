@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { ControlPlaneEvent } from '../control-plane/events';
+import { getRequiredSupabaseServiceEnv } from '../supabase/env';
 import type { ResearchReport } from '../evidence/evidenceSchema';
 
 import type {
@@ -23,10 +24,8 @@ import type {
 } from './runtimeStore';
 
 const createSupabaseClient = (): SupabaseClient => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Supabase credentials are not configured');
-  return createClient(url, key);
+  const { url, serviceRoleKey } = getRequiredSupabaseServiceEnv();
+  return createClient(url, serviceRoleKey);
 };
 
 const TABLES = {

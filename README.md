@@ -55,6 +55,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-key>
 ```
 
+`SUPABASE_SERVICE_ROLE_KEY` is optional for local dev and must remain server-only (API routes / server code). Never expose it in client components.
+
 After editing environment variables, restart the dev server. To verify config and connectivity, run `npm run env:check` and visit `http://localhost:3000/api/health`.
 
 ## Quality Gates
@@ -71,15 +73,15 @@ Slip ingestion ➝ `buildPropLegInsight` leg context ➝ snapshot creation ➝ `
 
 ## Security Audits
 
-We run a production audit policy check in CI via `npm run audit:prod` (allowlist-aware). It is currently configured as warning-only until the advisory baseline is fully green; see the CI TODO to switch back to hard-fail gating once the baseline is cleared.
+We run a production audit policy check in CI via `npm run audit:prod` (allowlist-aware) as a blocking gate for non-allowlisted (or expired) production advisories.
 
 Run audits locally with:
 
 ```bash
 npm run audit:prod
 npm run audit:all
-
-TODO: remove warning-only CI mode for `audit:prod` once the allowlist baseline reaches zero blocking advisories.
 ```
+
+Allowlist exceptions must include explicit expiry dates and short remediation windows.
 
 Do **not** run `npm audit fix --force` on `main` without an explicit **Dependency Major Upgrade** PR, because force-fixes can introduce breaking major upgrades across the stack.
