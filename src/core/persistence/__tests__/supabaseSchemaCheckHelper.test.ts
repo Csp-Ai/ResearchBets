@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildObservedMap,
   findSchemaMismatches,
-  REQUIRED_SCHEMA
+  REQUIRED_SCHEMA,
+  validateInspectionRows
 } from '../../../../scripts/lib/supabase-schema-check-helper.mjs';
 
 describe('supabase schema check helper', () => {
@@ -34,5 +35,15 @@ describe('supabase schema check helper', () => {
         }
       ])
     );
+  });
+
+  it('validates inspect_public_columns RPC row shape', () => {
+    expect(() => validateInspectionRows([{ table_name: 'bets', column_name: 12 }])).toThrow(
+      /invalid \(expected table_name and column_name strings\)/
+    );
+
+    expect(validateInspectionRows([{ table_name: 'bets', column_name: 'id' }])).toEqual([
+      { table_name: 'bets', column_name: 'id' }
+    ]);
   });
 });
