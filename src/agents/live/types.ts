@@ -1,7 +1,7 @@
 import type { MarketType } from '../../core/markets/marketType';
 import type { DataProvenance } from '../../core/sources/provenance';
 
-export type PlatformName = 'FanDuel' | 'PrizePicks' | 'Kalshi';
+export type PlatformName = string;
 
 export interface PlatformLine {
   platform: PlatformName;
