@@ -11,6 +11,7 @@ describe('bettor-first analyze UI blocks', () => {
         confidence={68}
         weakestLeg={{ id: '1', selection: 'Luka points over', l5: 54, l10: 58, risk: 'weak' }}
         reasons={['Weakest leg is Luka points over (54% L5, 58% L10).']}
+        dataQuality="Partial live"
       />
     );
 
@@ -38,7 +39,7 @@ describe('bettor-first analyze UI blocks', () => {
       <>
         <EmptyStateBettor onPaste={() => {}} />
         <SlipActionsBar onRemoveWeakest={() => {}} onRerun={() => {}} canTrack />
-        <VerdictHero confidence={72} weakestLeg={{ id: '2', selection: 'Example leg', l5: 60, l10: 63, risk: 'strong' }} reasons={['Example reason']} />
+        <VerdictHero confidence={72} weakestLeg={{ id: '2', selection: 'Example leg', l5: 60, l10: 63, risk: 'strong' }} reasons={['Example reason']} dataQuality="Live stats" />
       </>
     );
 
