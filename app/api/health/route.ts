@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+import { getSupabasePublicEnv } from '@/src/core/supabase/env';
+
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url: supabaseUrl, anonKey: supabaseKey } = getSupabasePublicEnv();
 
   const supabaseUrlPresent = Boolean(supabaseUrl);
   const supabaseKeyPresent = Boolean(supabaseKey);
