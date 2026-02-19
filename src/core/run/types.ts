@@ -19,6 +19,14 @@ export interface EnrichedLeg {
   l10: number;
   season?: number;
   vsOpp?: number;
+  riskScore?: number;
+  riskBand?: 'low' | 'moderate' | 'high';
+  riskFactors?: string[];
+  dataSources?: {
+    stats: ProviderMode;
+    injuries: ProviderMode;
+    odds: ProviderMode;
+  };
   flags: {
     injury?: string | null;
     news?: string | null;

@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runSlip } from '@/src/core/pipeline/runSlip';
+import { computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 
 describe('runSlip pipeline', () => {
@@ -36,4 +36,26 @@ describe('runSlip pipeline', () => {
     expect(run?.enrichedLegs[0]?.l5).toBeGreaterThan(0);
     expect(run?.analysis.confidencePct).toBeGreaterThan(0);
   });
+
+
+  it('computeVerdict keeps weakest leg aligned with sorted risk and reason wording', () => {
+    const extracted = [
+      { id: 'a', selection: 'Leg A' },
+      { id: 'b', selection: 'Leg B' },
+      { id: 'c', selection: 'Leg C' }
+    ];
+    const enriched = [
+      { extractedLegId: 'a', l5: 40, l10: 45, season: 44, vsOpp: 42, flags: { injury: null, news: null, lineMove: null, divergence: null }, evidenceNotes: [] },
+      { extractedLegId: 'b', l5: 60, l10: 62, season: 58, vsOpp: 57, flags: { injury: null, news: null, lineMove: null, divergence: null }, evidenceNotes: [] },
+      { extractedLegId: 'c', l5: 75, l10: 76, season: 73, vsOpp: 70, flags: { injury: null, news: null, lineMove: null, divergence: null }, evidenceNotes: [] }
+    ];
+
+    const verdict = computeVerdict(enriched, extracted, { stats: 'fallback', injuries: 'fallback', odds: 'fallback' });
+
+    expect(verdict.weakestLegId).toBe('a');
+    expect(verdict.reasons[0]).toContain('Highest downside: Leg A');
+    expect(verdict.reasons.join(' ')).toContain('No downside drivers flagged');
+    expect(verdict.confidencePct).toBeLessThanOrEqual(65);
+  });
+
 });

@@ -56,4 +56,12 @@ describe('research run rendering and reload', () => {
 
     expect(push).toHaveBeenCalledWith(expect.stringContaining('/research?trace='));
   });
+
+
+  it('recent activity reflects persisted complete status', async () => {
+    render(<ResearchPageContent />);
+
+    await waitFor(() => expect(screen.getByText(/complete/)).toBeTruthy());
+  });
+
 });
