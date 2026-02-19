@@ -15,7 +15,8 @@
     "test": "vitest run",
     "ria:audit": "node scripts/ria-audit.mjs",
     "audit:prod": "node scripts/audit-prod.mjs",
-    "audit:all": "npm audit"
+    "audit:all": "npm audit",
+    "supabase:schema:check": "node scripts/supabase-schema-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
