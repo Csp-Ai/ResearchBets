@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { EmptyStateCard } from '@/src/components/shared/EmptyStateCard';
 
 type Bet = { id: string; selection: string; status: 'pending' | 'settled' };
 
@@ -32,7 +33,16 @@ export default function PendingBetsPage() {
             <button onClick={() => settle(bet.id)} className="rounded bg-emerald-700 px-2 py-1 text-xs">Settle</button>
           </li>
         ))}
-        {bets.length === 0 ? <li className="text-slate-400">No pending bets.</li> : null}
+        {bets.length === 0 ? (
+          <li>
+            <EmptyStateCard
+              title="No pending bets"
+              guidance="Build a slip in Discover, ingest it, and your pending bets will appear here for settlement."
+              primaryCta={{ label: 'Build a slip in Discover', href: '/dashboard' }}
+              secondaryCta={{ label: 'Ingest slip', href: '/ingest' }}
+            />
+          </li>
+        ) : null}
       </ul>
     </section>
   );

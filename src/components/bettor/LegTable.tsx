@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { EmptyStateCard } from '../shared/EmptyStateCard';
+
 import type { ControlPlaneEvent } from '../AgentNodeGraph';
 
 import { deriveLegInsights, type SlipLeg } from './bettorDerivations';
@@ -29,10 +31,14 @@ export function LegTable({ legs, events, traceId, onLegsChange }: LegTableProps)
     return (
       <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
         <h3 className="text-lg font-semibold">Leg plan</h3>
-        <p className="mt-1 text-sm text-slate-400">No legs extracted yet. Start with slip ingest to build a ranked decision board.</p>
-        <Link className="mt-3 inline-flex rounded bg-cyan-600 px-3 py-2 text-xs font-medium" href="/ingest">
-          Paste slip
-        </Link>
+        <div className="mt-2">
+          <EmptyStateCard
+            title="No legs extracted yet"
+            guidance="Paste a slip to create ranked legs, then rerun research for evidence-backed ordering."
+            primaryCta={{ label: 'Paste slip', href: '/ingest' }}
+            secondaryCta={{ label: 'Go to Ingest', href: '/ingest' }}
+          />
+        </div>
       </section>
     );
   }

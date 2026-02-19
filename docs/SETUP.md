@@ -16,7 +16,7 @@ This command will:
 
 - verify Supabase CLI + auth,
 - link your local repo to project `gbkjalflukfkixsrjfiq`,
-- generate/update `.env.local` with required Supabase variables,
+- fetch API keys via Supabase Management API and generate/update `.env.local` with required variables,
 - run `npm run env:check` and `npm run supabase:health`.
 
 For CI/non-interactive environments:
@@ -27,6 +27,9 @@ npm run supabase:setup:ci
 
 This mode fails if required keys are missing instead of prompting.
 
+> Setup now requires a Supabase access token only once (`SUPABASE_ACCESS_TOKEN` or `SUPABASE_TOKEN`).
+> The script also auto-discovers the CLI token from local auth stores on macOS/Linux/Windows when available.
+
 ## 3) Required environment values
 
 After setup, these keys should exist in `.env.local`:
@@ -34,7 +37,8 @@ After setup, these keys should exist in `.env.local`:
 - `EXPO_PUBLIC_SUPABASE_URL=https://gbkjalflukfkixsrjfiq.supabase.co`
 - `EXPO_PUBLIC_SUPABASE_KEY=<publishable key>`
 - `NEXT_PUBLIC_SUPABASE_URL=https://gbkjalflukfkixsrjfiq.supabase.co`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=<publishable key>`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key (back-compat)>`
 - `SUPABASE_SERVICE_ROLE_KEY=<service role key>` (**server only**)
 - `DATABASE_URL=postgresql://postgres.gbkjalflukfkixsrjfiq:[YOUR-PASSWORD]@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
 - `DIRECT_URL=postgresql://postgres.gbkjalflukfkixsrjfiq:[YOUR-PASSWORD]@aws-1-us-east-1.pooler.supabase.com:5432/postgres`
@@ -71,13 +75,7 @@ npm run env:check
 npm run supabase:health
 ```
 
-If schema check says missing `inspect_public_columns` RPC, run:
-
-```bash
-supabase db push
-```
-
-If migrations are already pushed but PostgREST schema appears stale, wait 30–60s and retry.
+If schema check says missing `inspect_public_columns` RPC, `npm run supabase:setup` now attempts `supabase db push --include-all --yes` automatically, waits for PostgREST cache refresh, and retries once.
 
 ## 6) Run app
 
