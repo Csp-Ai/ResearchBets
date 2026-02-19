@@ -247,3 +247,9 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+@layer components {
+  .tone-strong { @apply border-emerald-500/40 bg-emerald-500/10 text-emerald-100; }
+  .tone-caution { @apply border-amber-500/40 bg-amber-500/10 text-amber-100; }
+  .tone-weak { @apply border-rose-500/40 bg-rose-500/10 text-rose-100; }
+}

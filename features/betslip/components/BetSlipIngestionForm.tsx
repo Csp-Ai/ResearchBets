@@ -72,10 +72,10 @@ export function BetSlipIngestionForm() {
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <h2 className="text-xl font-semibold">Slip ingestion</h2>
-      <p className="mt-1 text-sm text-slate-400">Paste raw slip text to persist, parse, and start a decision clarity snapshot.</p>
+      <h2 className="text-xl font-semibold">Paste Slip</h2>
+      <p className="mt-1 text-sm text-slate-400">Paste your ticket text and we will parse legs instantly.</p>
       <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/70 p-4">
-        <p className="text-sm font-medium text-slate-200">Player prop quick add</p>
+        <p className="text-sm font-medium text-slate-200">Quick add (optional)</p>
         <p className="mt-1 text-xs text-slate-400">Defaults to points. Markets are normalized through MarketType.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
           <input className="rounded border border-slate-700 bg-slate-950 p-2 text-xs" value={player} onChange={(event) => setPlayer(event.target.value)} placeholder="Player" />
@@ -96,7 +96,7 @@ export function BetSlipIngestionForm() {
         <textarea className="h-64 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-xs" onChange={(event) => setRawInput(event.target.value)} value={rawInput} />
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}
         <button className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400 disabled:opacity-60" type="submit" disabled={loading}>
-          {loading ? 'Submitting…' : 'Submit slip'}
+          {loading ? 'Analyzing…' : 'Analyze now'}
         </button>
       </form>
 
