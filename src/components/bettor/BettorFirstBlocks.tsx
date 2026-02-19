@@ -17,9 +17,20 @@ export type AnalyzeLeg = {
   divergence?: boolean;
 };
 
+export type RecentRun = {
+  traceId: string;
+  updatedAt: string;
+  status: 'running' | 'complete' | 'stale';
+};
+
+function shortTraceId(traceId: string): string {
+  if (traceId.length <= 14) return traceId;
+  return `${traceId.slice(0, 8)}…${traceId.slice(-4)}`;
+}
+
 export function EmptyStateBettor({ onPaste }: { onPaste: () => void }) {
   return (
-    <section className="rb-card space-y-5" data-testid="research-empty-state">
+    <section className="rb-card space-y-6" data-testid="research-empty-state">
       <div>
         <h2 className="text-xl font-semibold">From raw ticket to clear verdict</h2>
         <p className="mt-1 text-sm text-slate-400">Know your downside before placing the slip.</p>
@@ -36,6 +47,48 @@ LeBron James over 6.5 rebounds (-105)`}
       </pre>
       <button type="button" className="rb-btn-primary" onClick={onPaste}>Paste slip</button>
     </section>
+  );
+}
+
+export function RecentActivityPanel({ runs, onOpen }: { runs: RecentRun[]; onOpen: (traceId: string) => void }) {
+  return (
+    <section className="rb-card space-y-4" data-testid="recent-activity-panel">
+      <div>
+        <h2 className="text-base font-semibold">Recent activity</h2>
+        <p className="text-xs text-slate-400">Jump back into the latest runs without leaving Research.</p>
+      </div>
+      {runs.length === 0 ? (
+        <div className="rounded-xl border border-slate-800/60 bg-slate-950/55 p-4 text-sm text-slate-300">
+          <p className="font-medium text-slate-200">No recent runs yet.</p>
+          <p className="mt-1 text-xs text-slate-400">Paste a slip to start your first run and it will appear here.</p>
+        </div>
+      ) : (
+        <ul className="space-y-2 text-sm">
+          {runs.map((run) => (
+            <li key={run.traceId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 p-3">
+              <div>
+                <p className="font-medium text-slate-100">{shortTraceId(run.traceId)}</p>
+                <p className="text-xs text-slate-400">{new Date(run.updatedAt).toLocaleString()} · {run.status}</p>
+              </div>
+              <button type="button" className="rb-btn-secondary" onClick={() => onOpen(run.traceId)}>Open</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function HowItWorksMini() {
+  return (
+    <details className="rb-card" data-testid="how-it-works">
+      <summary className="cursor-pointer text-sm font-semibold text-slate-100">How it works</summary>
+      <ul className="mt-3 space-y-2 text-sm text-slate-300">
+        <li>• Paste slip → Extract legs</li>
+        <li>• Compute hit profiles (L5/L10/season/vsOpp)</li>
+        <li>• Flag weakest leg + book disagreement</li>
+      </ul>
+    </details>
   );
 }
 
@@ -104,17 +157,19 @@ export function LegRankList({ legs, onRemove }: { legs: AnalyzeLeg[]; onRemove: 
 export function SlipActionsBar({ onRemoveWeakest, onRerun, canTrack }: { onRemoveWeakest: () => void; onRerun: () => void; canTrack: boolean }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <button type="button" className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold" onClick={onRemoveWeakest}>Remove weakest</button>
-      <button type="button" className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium" onClick={onRerun}>Rerun</button>
-      {canTrack ? <button type="button" className="rounded-xl border border-emerald-700 px-4 py-2 text-sm font-medium">Track</button> : null}
+      <button type="button" className="rb-btn-primary" onClick={onRemoveWeakest}>Remove weakest</button>
+      <button type="button" className="rb-btn-secondary" onClick={onRerun}>Rerun</button>
+      {canTrack ? <button type="button" className="rb-btn-secondary">Track</button> : null}
     </div>
   );
 }
 
 export function AdvancedDrawer({ children, developerMode }: { children: React.ReactNode; developerMode: boolean }) {
+  const label = developerMode ? 'Run details (optional) (trace/provenance)' : 'Run details (optional)';
+
   return (
     <details className="rounded-xl border border-slate-800/50 bg-slate-950/40 px-3 py-2" data-testid="advanced-drawer">
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400">Advanced</summary>
+      <summary className="cursor-pointer text-xs font-semibold tracking-wide text-slate-400">{label}</summary>
       <div className="mt-3 space-y-2 text-xs text-slate-300">{children}
         {developerMode ? <Link href="/traces" className="text-cyan-300 underline">Open run details</Link> : null}
       </div>
