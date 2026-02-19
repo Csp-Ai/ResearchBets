@@ -40,6 +40,10 @@ Keep these files clean and declarative; they are the highest-value context for C
 
 ## Local Development
 
+
+For the full operational path (fresh clone through schema verification and health checks), see `docs/SETUP.md`.
+
+
 ```bash
 npm install
 cp .env.local.example .env.local

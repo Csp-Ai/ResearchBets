@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ControlPlaneEvent } from '../control-plane/events';
 import { getRequiredSupabaseServiceEnv } from '../supabase/env';
 
-import { isMissingAnalyticsSchemaError } from './analyticsSchemaGuard';
+import { isMissingAnalyticsSchemaError, logAnalyticsSchemaDegradationOnce } from './analyticsSchemaGuard';
 import type { ResearchReport } from '../evidence/evidenceSchema';
 
 import type {
@@ -225,7 +225,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
     if (!error) return;
 
     if (isMissingAnalyticsSchemaError(error)) {
-      console.warn('⚠️ Skipping events_analytics insert because analytics schema is not ready.', error.message);
+      logAnalyticsSchemaDegradationOnce('events_analytics insert', error);
       return;
     }
 
@@ -242,7 +242,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
     const { data, error } = await dbQuery;
     if (error) {
       if (isMissingAnalyticsSchemaError(error)) {
-        console.warn('⚠️ Returning empty analytics events because analytics schema is not ready.', error.message);
+        logAnalyticsSchemaDegradationOnce('events_analytics list', error);
         return [];
       }
       throw error;

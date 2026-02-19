@@ -81,12 +81,21 @@ export function findSchemaMismatches(required, observed) {
   return issues;
 }
 
-export function getFixInstructions() {
+export function getFixInstructions({ isLocalSupabase }) {
+  if (isLocalSupabase) {
+    return [
+      'Local Supabase schema mismatch detected.',
+      '  1) supabase db push',
+      '  2) If mismatch persists, restart local services: supabase stop && supabase start',
+      '  3) Re-run: npm run supabase:schema:check'
+    ];
+  }
+
   return [
-    'Run Supabase migrations and refresh local cache:',
+    'Remote Supabase schema mismatch detected.',
     '  1) supabase db push',
-    '  2) supabase db reset --linked (optional for local clean slate)',
-    '  3) npm run supabase:schema:check',
+    '  2) Wait 10–30s for PostgREST schema cache refresh',
+    '  3) Refresh browser + re-run: npm run supabase:schema:check',
     'If errors persist, confirm SUPABASE_SERVICE_ROLE_KEY points to the same project as NEXT_PUBLIC_SUPABASE_URL.'
   ];
 }

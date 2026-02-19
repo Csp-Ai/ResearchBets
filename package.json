@@ -16,7 +16,11 @@
     "ria:audit": "node scripts/ria-audit.mjs",
     "audit:prod": "node scripts/audit-prod.mjs",
     "audit:all": "npm audit",
-    "supabase:schema:check": "node scripts/supabase-schema-check.mjs"
+    "supabase:schema:check": "node scripts/supabase-schema-check.mjs",
+    "supabase:link": "supabase link",
+    "supabase:push": "supabase db push",
+    "supabase:reset": "node scripts/supabase-reset-confirm.mjs",
+    "supabase:health": "node scripts/supabase-health.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",

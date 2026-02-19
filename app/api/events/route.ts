@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { ControlPlaneEventSchema } from '@/src/core/control-plane/events';
-import { isMissingAnalyticsSchemaError } from '@/src/core/persistence/analyticsSchemaGuard';
+import {
+  isMissingAnalyticsSchemaError,
+  logAnalyticsSchemaDegradationOnce
+} from '@/src/core/persistence/analyticsSchemaGuard';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function POST(request: Request) {
@@ -22,7 +25,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, events });
   } catch (error) {
     if (isMissingAnalyticsSchemaError(error)) {
-      console.warn('⚠️ /api/events degraded because analytics schema is unavailable.');
+      logAnalyticsSchemaDegradationOnce('/api/events GET', error);
       return NextResponse.json({ ok: true, events: [] });
     }
 
