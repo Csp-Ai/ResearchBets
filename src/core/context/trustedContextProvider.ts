@@ -26,7 +26,7 @@ type TrustedAdapters = {
       sport: string;
       eventIds: string[];
       marketType: MarketType;
-    }) => Promise<{ platformLines: Array<{ eventId?: string; line: number; asOf?: string }>; provenance?: { sources?: TrustedSourceRef[] } }>;
+    }) => Promise<{ platformLines: Array<{ eventId?: string; line: number; asOf?: string }>; provenance?: { sources?: Array<Partial<TrustedSourceRef> & { provider?: string; url?: string; label?: string; retrievedAt?: string }> } }>;
   };
 };
 
@@ -49,6 +49,13 @@ const sortKey = (input: FetchInput): string => {
 };
 
 const isGameDay = (eventIds: string[]): boolean => eventIds.length > 0;
+
+
+const withDefaultTrust = (item: Omit<TrustedContextItem, 'trust'> & { trust?: TrustedContextItem['trust'] }): TrustedContextItem => ({
+  ...item,
+  trust: item.trust ?? (item.sources.some((source) => source.trust === 'unverified') ? 'unverified' : 'verified')
+});
+
 
 export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clock: ProviderClock = defaultClock) => {
   const oddsBaseline = new Map<string, { line: number; asOf: string }>();
@@ -80,7 +87,7 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
         );
         if (injuryResult.items.length > 0) {
           coverage.injuries = 'live';
-          items.push(...injuryResult.items);
+          items.push(...injuryResult.items.map(withDefaultTrust));
         }
       }
 
@@ -93,7 +100,7 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
         );
         if (txResult.items.length > 0) {
           coverage.transactions = 'live';
-          items.push(...txResult.items);
+          items.push(...txResult.items.map(withDefaultTrust));
         }
       }
 
@@ -117,12 +124,12 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
             detail: `Baseline ${prior.line} → ${line.line}`,
             confidence: 'verified',
             asOf,
-            sources: oddsResult.provenance?.sources ?? []
+            sources: (oddsResult.provenance?.sources ?? []).map((source) => ({ provider: (source.provider as TrustedSourceRef['provider']) ?? 'theoddsapi', label: source.label ?? source.provider ?? 'Odds provider', url: source.url, retrievedAt: source.retrievedAt ?? asOf, trust: source.trust ?? 'verified' }))
           });
         }
         if (movementItems.length > 0) {
           coverage.odds = 'live';
-          items.push(...movementItems);
+          items.push(...movementItems.map(withDefaultTrust));
         }
       }
 
@@ -135,11 +142,11 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
           headline: `${team.team ?? team.teamId ?? 'Team'} schedule spot computed from metadata`,
           confidence: 'verified',
           asOf,
-          sources: [{ provider: 'league_official', label: 'Computed from schedule metadata', retrievedAt: asOf }]
+          sources: [{ provider: 'league_official', label: 'Computed from schedule metadata', retrievedAt: asOf, trust: 'verified' }]
         }));
       if (scheduleItems.length > 0) {
         coverage.schedule = 'computed';
-        items.push(...scheduleItems);
+        items.push(...scheduleItems.map(withDefaultTrust));
       }
 
       const bundle: TrustedContextBundle = {

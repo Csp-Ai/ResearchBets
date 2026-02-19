@@ -185,7 +185,7 @@ function WhyDrawer({ leg, open, onClose, trustedContext }: { leg: AnalyzeLeg | n
             <ul className="mt-2 space-y-1 text-xs text-strong">
               {trustedContext?.items.slice(0, 5).map((item) => (
                 <li key={`${item.kind}-${item.headline}`} className="flex items-center justify-between gap-2 rounded border border-default px-2 py-1">
-                  <span>{item.headline}</span>
+                  <span className="flex items-center gap-2"><Chip tone="strong">Verified</Chip>{item.headline}</span>
                   <span className="text-muted">{item.kind} · {new Date(item.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                 </li>
               ))}
@@ -193,6 +193,22 @@ function WhyDrawer({ leg, open, onClose, trustedContext }: { leg: AnalyzeLeg | n
           ) : <p className="mt-2 text-xs text-muted">No verified update from trusted sources.</p>}
           {trustedContext?.coverage.injuries === 'none' ? <p className="mt-2 text-xs text-muted">Injury status unavailable from trusted providers right now; confidence adjusted.</p> : null}
         </div>
+
+        <details>
+          <summary className="text-xs uppercase tracking-wide text-muted">Unverified context (web)</summary>
+          {(trustedContext?.unverifiedItems?.length ?? 0) > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs text-strong">
+              {trustedContext?.unverifiedItems?.slice(0, 5).map((item) => (
+                <li key={`${item.kind}-${item.headline}`} className="rounded border border-default px-2 py-1">
+                  <div className="flex items-center gap-2"><Chip tone="caution">Unverified</Chip><span>{item.headline}</span></div>
+                  {item.sources.length > 0 ? <p className="mt-1 text-[11px] text-muted">{item.sources.map((source) => {
+                    try { return new URL(source.url ?? '').hostname; } catch { return source.label; }
+                  }).join(', ')}</p> : null}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-2 text-xs text-muted">No unverified web context.</p>}
+        </details>
       </Surface>
     </div>
   );
