@@ -11,7 +11,7 @@ body {
 }
 
 .terminal-shell-outer {
-  min-height: clamp(360px, 53svh, 620px);
+  min-height: clamp(360px, 53vh, 620px);
   border: 1px solid rgba(100, 116, 139, 0.46);
   background: linear-gradient(155deg, rgba(15, 23, 42, 0.4), rgba(2, 6, 23, 0.68));
   box-shadow:
@@ -30,7 +30,7 @@ body {
 }
 
 .terminal-shell-inner {
-  min-height: clamp(340px, 50svh, 590px);
+  min-height: clamp(340px, 50vh, 590px);
   border: 1px solid rgba(71, 85, 105, 0.64);
   background: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.88));
   box-shadow:
