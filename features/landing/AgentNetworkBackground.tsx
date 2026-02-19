@@ -2,6 +2,10 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 
+type AgentNetworkBackgroundProps = {
+  active?: boolean;
+};
+
 const nodes: Array<{ id: string; x: number; y: number; core?: boolean }> = [
   { id: 'InjuryScout', x: 14, y: 20 },
   { id: 'LineWatcher', x: 35, y: 72 },
@@ -20,11 +24,16 @@ const edges: Array<{ from: string; to: string }> = [
 
 const getNode = (id: string) => nodes.find((node) => node.id === id);
 
-export function AgentNetworkBackground() {
+export function AgentNetworkBackground({ active = false }: AgentNetworkBackgroundProps) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.12]">
+    <motion.div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0"
+      animate={{ opacity: active && !shouldReduceMotion ? 0.23 : 0.13 }}
+      transition={{ duration: 0.9, ease: 'easeInOut' }}
+    >
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
         {edges.map((edge) => {
           const start = getNode(edge.from);
@@ -85,6 +94,6 @@ export function AgentNetworkBackground() {
           </g>
         ))}
       </svg>
-    </div>
+    </motion.div>
   );
 }
