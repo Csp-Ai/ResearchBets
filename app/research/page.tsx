@@ -13,6 +13,8 @@ import {
 import { DecisionBoardHeader } from '@/src/components/bettor/DecisionBoardHeader';
 import { LegTable } from '@/src/components/bettor/LegTable';
 import { FixSlipDrawer } from '@/src/components/bettor/FixSlipDrawer';
+import { GuidedActionsCard } from '@/src/components/bettor/GuidedActionsCard';
+import { ProgressStrip } from '@/src/components/bettor/ProgressStrip';
 import type { SlipLeg } from '@/src/components/bettor/bettorDerivations';
 import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
@@ -27,6 +29,8 @@ import { RightRailInspector } from '@/src/components/terminal/RightRailInspector
 import { StatusBadge } from '@/src/components/terminal/TrustPrimitives';
 import { RunHeaderStrip } from '@/src/components/terminal/RunHeaderStrip';
 import { asRecord, deriveInspectorSummary } from '@/src/components/terminal/eventDerivations';
+import { emitCopyToast } from '@/src/components/terminal/copyToast';
+import { extractLegs } from '@/src/core/slips/extract';
 
 type GameRow = {
   gameId: string;
@@ -165,6 +169,14 @@ function ResearchPageContent() {
     const parsed = parseLegs(JSON.stringify((JSON.parse(stored) as { legs?: unknown[] }).legs ?? []));
     if (parsed.length > 0) setLegs(parsed);
   }, [slipId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !chainTraceId) return;
+    window.localStorage.setItem('rb-last-trace-id', chainTraceId);
+    const current = JSON.parse(window.localStorage.getItem('rb-recent-trace-ids') ?? '[]') as string[];
+    const next = [chainTraceId, ...current.filter((value) => value !== chainTraceId)].slice(0, 10);
+    window.localStorage.setItem('rb-recent-trace-ids', JSON.stringify(next));
+  }, [chainTraceId]);
 
   useEffect(() => {
     void runUiAction({
@@ -319,6 +331,22 @@ function ResearchPageContent() {
     if (!outcome.ok) setStatus('Unable to copy share card link.');
   };
 
+  const pasteSlip = async () => {
+    try {
+      const raw = await navigator.clipboard.readText();
+      const parsed = extractLegs(raw).map((leg, index) => ({
+        id: `pasted-${index}-${Date.now()}`,
+        selection: leg.selection,
+        market: leg.market,
+        odds: leg.odds
+      }));
+      setLegs(parsed);
+      emitCopyToast(parsed.length > 0 ? `Pasted ${parsed.length} leg${parsed.length === 1 ? '' : 's'}.` : 'No legs found in clipboard.');
+    } catch {
+      emitCopyToast('Unable to paste slip.');
+    }
+  };
+
   return (
     <section className="space-y-4">
       <PageHeader
@@ -326,6 +354,17 @@ function ResearchPageContent() {
         subtitle="Decision-first board with verdict, ranked legs, and advanced trace inspection."
         actions={<StatusBadge status={loading ? 'running' : error ? 'error' : events.length > 0 ? 'complete' : 'waiting'} />}
       />
+
+      <GuidedActionsCard
+        legsCount={legs.length}
+        canSaveBet={Boolean(slipId)}
+        saveBetHref={slipId ? `/research?slip_id=${encodeURIComponent(slipId)}` : undefined}
+        onPasteSlip={() => void pasteSlip()}
+        onRunResearch={() => void runAnalysis()}
+        onOpenTrace={() => router.push(`/traces/${encodeURIComponent(chainTraceId)}`)}
+      />
+
+      <ProgressStrip events={events} />
 
       <RunHeaderStrip traceId={chainTraceId || null} events={events} onRefresh={() => void refresh()} viewTraceHref={`/traces/${encodeURIComponent(chainTraceId)}`} />
 
@@ -412,8 +451,11 @@ function ResearchPageContent() {
             <RightRailInspector traceId={chainTraceId || null} runId={snapshotId || null} sessionId={null} loading={loading} error={error} summary={inspectorSummary} />
           ) : (
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">
-              Advanced trace inspector is collapsed by default. Expand when you want full provenance and warnings.
-              <div className="mt-2"><Link href={`/traces/${encodeURIComponent(chainTraceId)}`} className="text-cyan-300 underline">View Trace</Link></div>
+              <p className="text-slate-200">Advanced inspector preview</p>
+              <p className="mt-1">Events: {events.length}</p>
+              <p>Last event: {events.at(-1)?.created_at ? new Date(events.at(-1)?.created_at ?? '').toLocaleString() : 'n/a'}</p>
+              <p className="mt-2">Expand for provenance and warnings, or jump directly to the trace.</p>
+              <div className="mt-2"><Link href={`/traces/${encodeURIComponent(chainTraceId)}`} className="rounded border border-cyan-700 px-2 py-1 text-cyan-300">Open trace</Link></div>
             </div>
           )}
         </aside>
