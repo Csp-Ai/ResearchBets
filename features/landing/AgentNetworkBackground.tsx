@@ -31,8 +31,8 @@ export function AgentNetworkBackground({ active = false }: AgentNetworkBackgroun
     <motion.div
       aria-hidden="true"
       className="pointer-events-none absolute inset-0"
-      animate={{ opacity: active && !shouldReduceMotion ? 0.23 : 0.13 }}
-      transition={{ duration: 0.9, ease: 'easeInOut' }}
+      animate={{ opacity: active && !shouldReduceMotion ? 0.3 : 0.14 }}
+      transition={{ duration: 0.8, ease: 'easeOut' }}
     >
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
         {edges.map((edge) => {
@@ -50,7 +50,7 @@ export function AgentNetworkBackground({ active = false }: AgentNetworkBackgroun
                 y1={start.y}
                 x2={end.x}
                 y2={end.y}
-                stroke="rgba(45, 212, 191, 0.35)"
+                stroke={active ? 'rgba(34, 211, 238, 0.42)' : 'rgba(45, 212, 191, 0.32)'}
                 strokeWidth="0.42"
               />
               {!shouldReduceMotion ? (
@@ -59,7 +59,7 @@ export function AgentNetworkBackground({ active = false }: AgentNetworkBackgroun
                   cy={start.y}
                   r="0.7"
                   fill="rgba(34, 211, 238, 0.9)"
-                  animate={{ cx: [start.x, end.x], cy: [start.y, end.y], opacity: [0, 1, 0] }}
+                  animate={{ cx: [start.x, end.x], cy: [start.y, end.y], opacity: active ? [0, 1, 0.1] : [0, 0.9, 0] }}
                   transition={{ duration: 4.8, ease: 'easeInOut', repeat: Infinity, delay: 0.6 }}
                 />
               ) : null}
@@ -80,8 +80,8 @@ export function AgentNetworkBackground({ active = false }: AgentNetworkBackgroun
                 shouldReduceMotion
                   ? undefined
                   : {
-                      opacity: node.core ? [0.7, 1, 0.7] : [0.45, 0.7, 0.45],
-                      scale: node.core ? [1, 1.06, 1] : [1, 1.03, 1]
+                      opacity: node.core ? (active ? [0.8, 1, 0.82] : [0.7, 1, 0.7]) : active ? [0.5, 0.76, 0.52] : [0.45, 0.7, 0.45],
+                      scale: node.core ? [1, 1.05, 1] : [1, 1.02, 1]
                     }
               }
               transition={{
