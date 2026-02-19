@@ -86,6 +86,35 @@ jobs:
           done
 
 
+  web-quality:
+    name: Web quality gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Canonical app root + route manifest
+        run: |
+          npm run audit:app-root
+          npm run audit:routes
+      - name: Security guards
+        run: npm run audit:security
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm run test
+      - name: Unused code audit
+        run: npm run audit:unused:ci
+
   dependency-audit:
     name: Dependency audit (production gate)
     runs-on: ubuntu-latest

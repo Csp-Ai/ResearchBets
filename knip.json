@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+  "entry": [
+    "app/**/*.tsx",
+    "src/**/*.tsx",
+    "features/**/*.tsx",
+    "scripts/**/*.mjs"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx,js,jsx}",
+    "src/**/*.{ts,tsx,js,jsx,mjs}",
+    "features/**/*.{ts,tsx}",
+    "scripts/**/*.mjs",
+    "tests/**/*.{ts,tsx,mjs}"
+  ],
+  "ignore": [
+    "docs/audits/**"
+  ],
+  "ignoreDependencies": [
+    "autoprefixer",
+    "postcss",
+    "tailwindcss"
+  ],
+  "vitest": {
+    "config": [
+      "vitest.config.mts"
+    ]
+  }
+}

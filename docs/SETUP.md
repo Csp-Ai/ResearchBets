@@ -1,5 +1,12 @@
 # Setup: Fresh Clone ➝ Running App
 
+## Runtime policy
+
+- Node.js: **20.x**
+- Package manager: **npm** (`package-lock.json` is authoritative)
+- Canonical Next app root: **`app/`**
+- Supabase mode: hosted or local; either way, never expose `SUPABASE_SERVICE_ROLE_KEY` to client components.
+
 ## 1) Install dependencies
 
 ```bash

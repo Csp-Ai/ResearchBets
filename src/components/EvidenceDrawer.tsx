@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { useDialogA11y } from '@/src/components/shared/useDialogA11y';
+
 import type { ControlPlaneEvent, GraphNodeDefinition } from '@/src/components/AgentNodeGraph';
 import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
 
@@ -85,6 +87,7 @@ function riskReason(payload: Record<string, unknown>): string | null {
 
 export function EvidenceDrawer({ open, node, events, onClose }: EvidenceDrawerProps) {
   const [activeTab, setActiveTab] = useState<EvidenceTab>('stats');
+  const drawerRef = useDialogA11y(open, onClose);
 
   useEffect(() => {
     validateCopyPolicyInDev([
@@ -120,6 +123,11 @@ export function EvidenceDrawer({ open, node, events, onClose }: EvidenceDrawerPr
 
   return (
     <aside
+      ref={drawerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Evidence drawer"
+      tabIndex={-1}
       className={`fixed right-0 top-0 z-40 h-full w-full max-w-md transform border-l border-slate-800 bg-slate-950/95 p-4 shadow-xl transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}
       aria-hidden={!open}
     >
@@ -128,6 +136,7 @@ export function EvidenceDrawer({ open, node, events, onClose }: EvidenceDrawerPr
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close evidence drawer"
           className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300"
         >
           Close

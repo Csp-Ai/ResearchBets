@@ -1,0 +1,73 @@
+{
+  "canonicalAppRoot": "app",
+  "imports": {
+    "app/dashboard/page.tsx": [
+      "@/features/betslip/SlipBuilder",
+      "@/features/dashboard/GamesToday",
+      "@/features/props/PlayerPropHeatmap"
+    ],
+    "app/ingest/page.tsx": [
+      "@/features/betslip/components/BetSlipIngestionForm"
+    ],
+    "app/live/[gameId]/page.tsx": [
+      "@/src/components/live/LiveGameDetailClient"
+    ],
+    "app/live/page.tsx": [
+      "@/src/components/live/LiveGamesClient"
+    ],
+    "app/page.tsx": [
+      "@/features/landing/Credibility",
+      "@/features/landing/HowItWorks",
+      "@/features/landing/LandingHero",
+      "@/features/landing/StaticVerdictDemo",
+      "@/features/landing/TipUs"
+    ],
+    "app/pending-bets/page.tsx": [
+      "@/src/components/shared/EmptyStateCard"
+    ],
+    "app/research/page.tsx": [
+      "@/src/components/AgentNodeGraph",
+      "@/src/components/DecisionCard",
+      "@/src/components/bettor/DecisionBoardHeader",
+      "@/src/components/bettor/FixSlipDrawer",
+      "@/src/components/bettor/GuidedActionsCard",
+      "@/src/components/bettor/LegTable",
+      "@/src/components/bettor/ProgressStrip",
+      "@/src/components/bettor/bettorDerivations",
+      "@/src/components/terminal/PageHeader",
+      "@/src/components/terminal/RightRailInspector",
+      "@/src/components/terminal/RunHeaderStrip",
+      "@/src/components/terminal/TrustPrimitives",
+      "@/src/components/terminal/copyToast",
+      "@/src/components/terminal/eventDerivations",
+      "@/src/core/identifiers/session",
+      "@/src/core/policy/copyPolicyDevValidator",
+      "@/src/core/slips/extract",
+      "@/src/core/ui/actionContract",
+      "@/src/core/ui/navigation",
+      "@/src/hooks/useTraceEvents"
+    ],
+    "app/research/snapshot/[snapshotId]/page.tsx": [
+      "@/features/snapshot/SnapshotReplayView",
+      "@/src/core/evidence/evidenceSchema",
+      "@/src/core/markets/marketType",
+      "@/src/core/parlay/parlayRisk",
+      "@/src/core/persistence/runtimeStoreProvider",
+      "@/src/core/slips/extract",
+      "@/src/core/slips/propInsights"
+    ],
+    "app/traces/[trace_id]/page.tsx": [
+      "@/src/components/AgentNodeGraph",
+      "@/src/components/terminal/AsyncState",
+      "@/src/components/terminal/PageHeader",
+      "@/src/components/terminal/RightRailInspector",
+      "@/src/components/terminal/RunHeaderStrip",
+      "@/src/components/terminal/eventDerivations",
+      "@/src/components/terminal/traceFilters",
+      "@/src/hooks/useTraceEvents"
+    ],
+    "app/traces/page.tsx": [
+      "@/src/components/terminal/TracesIndexContent"
+    ]
+  }
+}
