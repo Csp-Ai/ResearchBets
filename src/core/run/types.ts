@@ -44,6 +44,11 @@ export interface VerdictAnalysis {
   reasons: string[];
   riskLabel: 'Strong' | 'Caution' | 'Weak';
   computedAt: string;
+  dataQuality?: {
+    trustedCoverage: 'live' | 'fallback' | 'none';
+    hasUnverified: boolean;
+    confidenceCapReason?: string;
+  };
 }
 
 export interface SourceStats {

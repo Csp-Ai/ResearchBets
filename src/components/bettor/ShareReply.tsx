@@ -67,6 +67,7 @@ export const buildGroupReply = (run: Run): string => {
   }
 
   const trustedItems = run.trustedContext?.items ?? [];
+  const unverifiedItems = run.trustedContext?.unverifiedItems ?? [];
   if (trustedItems.length > 0) {
     lines.push('', 'Trusted notes');
     trustedItems.slice(0, 3).forEach((item) => {
@@ -76,8 +77,17 @@ export const buildGroupReply = (run: Run): string => {
     lines.push('', 'No verified updates from trusted sources yet (injuries/suspensions).');
   }
 
+
+  if (unverifiedItems.length > 0) {
+    lines.push('', 'Unverified notes (web)');
+    unverifiedItems.slice(0, 2).forEach((item) => {
+      lines.push(`- ${item.headline}`);
+    });
+    lines.push('- Treat as unverified; confirm before placing.');
+  }
+
   if (run.trustedContext) {
-    const sourceLabels = [...new Set(run.trustedContext.items.flatMap((item) => item.sources.map((source) => source.label)).filter(Boolean))];
+    const sourceLabels = [...new Set([...run.trustedContext.items, ...(run.trustedContext.unverifiedItems ?? [])].flatMap((item) => item.sources.map((source) => source.label)).filter(Boolean))];
     const asOf = new Date(run.trustedContext.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase();
     lines.push(`Sources: ${sourceLabels.length > 0 ? sourceLabels.join(', ') : 'SportsDataIO, The Odds API'} (as of ${asOf})`);
   }

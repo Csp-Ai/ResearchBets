@@ -1,8 +1,9 @@
 export type TrustedSourceRef = {
-  provider: 'sportsdataio' | 'theoddsapi' | 'league_official' | 'team_official' | 'transactions_wire';
+  provider: 'sportsdataio' | 'theoddsapi' | 'league_official' | 'team_official' | 'transactions_wire' | 'coverage_agent' | string;
   url?: string;
   label: string;
   retrievedAt: string;
+  trust?: 'verified' | 'unverified';
 };
 
 export type TrustedContextItem = {
@@ -11,6 +12,7 @@ export type TrustedContextItem = {
   headline: string;
   detail?: string;
   confidence: 'verified' | 'likely' | 'unknown';
+  trust?: 'verified' | 'unverified';
   asOf: string;
   sources: TrustedSourceRef[];
 };
@@ -18,6 +20,7 @@ export type TrustedContextItem = {
 export type TrustedContextBundle = {
   asOf: string;
   items: TrustedContextItem[];
+  unverifiedItems?: TrustedContextItem[];
   coverage: {
     injuries: 'live' | 'fallback' | 'none';
     transactions: 'live' | 'fallback' | 'none';
