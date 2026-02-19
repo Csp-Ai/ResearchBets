@@ -60,4 +60,8 @@ export interface Run {
   enrichedLegs: EnrichedLeg[];
   analysis: VerdictAnalysis;
   sources: SourceStats;
+  metadata?: {
+    originalSlipText?: string;
+    crowdNotes?: string;
+  };
 }

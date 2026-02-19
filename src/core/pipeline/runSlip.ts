@@ -9,6 +9,18 @@ import type { EnrichedLeg, ExtractedLeg, ProviderMode, Run, SourceStats, Verdict
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
+
+const normalizeSlipText = (rawSlipText: string): string => {
+  return rawSlipText
+    .replace(/\r/g, '\n')
+    .replace(/[•●◦▪▸►]/g, '\n')
+    .replace(/\t+/g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n');
+};
+
 const parseLine = (selection: string): number | undefined => {
   const match = selection.match(/([0-9]+(?:\.[0-9]+)?)/);
   if (!match) return undefined;
@@ -187,6 +199,7 @@ async function extractWithApi(slipText: string): Promise<Array<{ selection: stri
 }
 
 export async function runSlip(slipText: string): Promise<string> {
+  const normalizedSlipText = normalizeSlipText(slipText);
   const traceId = createClientRequestId();
   const now = new Date().toISOString();
   const initial: Run = {
@@ -194,7 +207,8 @@ export async function runSlip(slipText: string): Promise<string> {
     createdAt: now,
     updatedAt: now,
     status: 'running',
-    slipText,
+    slipText: normalizedSlipText,
+    metadata: { originalSlipText: slipText },
     extractedLegs: [],
     enrichedLegs: [],
     analysis: {
@@ -209,8 +223,8 @@ export async function runSlip(slipText: string): Promise<string> {
 
   await runStore.saveRun(initial);
 
-  const apiLegs = await extractWithApi(slipText);
-  const extracted = normalizeLegs(apiLegs.length > 0 ? apiLegs : extractLegs(slipText));
+  const apiLegs = await extractWithApi(normalizedSlipText);
+  const extracted = normalizeLegs(apiLegs.length > 0 ? apiLegs : extractLegs(normalizedSlipText));
 
   const sources: SourceStats = { stats: 'fallback', injuries: 'fallback', odds: 'fallback' };
 
