@@ -49,12 +49,20 @@ export function BetSlipIngestionForm() {
         body: JSON.stringify({ slip_id: submitRes.slip_id, request_id: createClientRequestId(), anon_session_id: anonSessionId }),
       }).then((res) => res.json());
 
+      const extractedLegs = (extractRes.extracted_legs ?? []) as ExtractedLeg[];
       setResult({
         slipId: submitRes.slip_id,
         traceId: submitRes.trace_id,
-        legs: extractRes.extracted_legs ?? [],
+        legs: extractedLegs,
         legInsights: extractRes.leg_insights ?? [],
       });
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(
+          `rb-slip-${submitRes.slip_id}`,
+          JSON.stringify({ legs: extractedLegs })
+        );
+      }
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : 'Invalid payload.');
     } finally {
@@ -111,7 +119,7 @@ export function BetSlipIngestionForm() {
               );
             })}
           </ul>
-          <Link className="inline-flex rounded border border-sky-500 px-3 py-2 text-sm text-sky-300 hover:bg-sky-500/10" href={`/research?slip_id=${result.slipId}&trace_id=${result.traceId}`}>
+          <Link className="inline-flex rounded border border-sky-500 px-3 py-2 text-sm text-sky-300 hover:bg-sky-500/10" href={`/research?slip_id=${result.slipId}&trace_id=${result.traceId}&legs=${encodeURIComponent(JSON.stringify(result.legs))}`}>
             Start Research Snapshot
           </Link>
         </div>

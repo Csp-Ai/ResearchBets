@@ -10,8 +10,10 @@ import {
   reconstructGraphState,
   type ControlPlaneEvent
 } from '@/src/components/AgentNodeGraph';
+import { SlipVerdictCard } from '@/src/components/bettor/SlipVerdictCard';
+import { LegTable } from '@/src/components/bettor/LegTable';
+import type { SlipLeg } from '@/src/components/bettor/bettorDerivations';
 import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
-import { TerminalLoopShell } from '@/src/components/TerminalLoopShell';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
 import { DecisionCard, type DecisionCardData } from '@/src/components/DecisionCard';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
@@ -19,7 +21,6 @@ import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidato
 import { runUiAction } from '@/src/core/ui/actionContract';
 import { buildNavigationHref } from '@/src/core/ui/navigation';
 import { useTraceEvents } from '@/src/hooks/useTraceEvents';
-import { EmptyState } from '@/src/components/terminal/AsyncState';
 import { PageHeader } from '@/src/components/terminal/PageHeader';
 import { RightRailInspector } from '@/src/components/terminal/RightRailInspector';
 import { StatusBadge } from '@/src/components/terminal/TrustPrimitives';
@@ -56,9 +57,27 @@ const RESEARCH_PAGE_COPY = [
   'Share link copied to clipboard.',
   'Unable to copy share card link.',
   'Research output supports decisions; it is not deterministic advice.',
-  'Market search (falls through to best-available demo games for terminal continuity)',
-  'Waiting for trace events…'
+  'Market search (falls through to best-available demo games for terminal continuity)'
 ] as const;
+
+function parseLegs(rawLegs: string | null): SlipLeg[] {
+  if (!rawLegs) return [];
+  try {
+    const parsed = JSON.parse(rawLegs) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+      .map((row, index) => ({
+        id: typeof row.id === 'string' ? row.id : `leg-${index}`,
+        selection: String(row.selection ?? `Leg ${index + 1}`),
+        market: typeof row.market === 'string' ? row.market : undefined,
+        odds: typeof row.odds === 'string' ? row.odds : undefined,
+        line: typeof row.line === 'string' ? row.line : undefined
+      }));
+  } catch {
+    return [];
+  }
+}
 
 function toProgressTimestamp(events: ControlPlaneEvent[], progress: number): number {
   if (events.length === 0) return Date.now();
@@ -101,11 +120,12 @@ function ResearchPageContent() {
   const search = useSearchParams();
   const snapshotId = search.get('snapshotId') ?? '';
   const traceId = search.get('trace_id') ?? '';
-  const replayMode = search.get('replay') === '1';
+  const slipId = search.get('slip_id');
   const [localTraceId] = useState(() => traceId || createClientRequestId());
   const chainTraceId = traceId || localTraceId;
   const [status, setStatus] = useState('');
   const [advancedView, setAdvancedView] = useState(false);
+  const [inspectorExpanded, setInspectorExpanded] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<0.5 | 1 | 2>(1);
@@ -115,6 +135,7 @@ function ResearchPageContent() {
   const [searchText, setSearchText] = useState('NFL');
   const [games, setGames] = useState<GameRow[]>([]);
   const [activeGame, setActiveGame] = useState<GameRow | null>(null);
+  const [legs, setLegs] = useState<SlipLeg[]>(() => parseLegs(search.get('legs')));
 
   const { events, loading, error, refresh } = useTraceEvents({
     traceId: chainTraceId,
@@ -135,6 +156,14 @@ function ResearchPageContent() {
   }, []);
 
   useEffect(() => {
+    if (!slipId || typeof window === 'undefined') return;
+    const stored = window.sessionStorage.getItem(`rb-slip-${slipId}`);
+    if (!stored) return;
+    const parsed = parseLegs(JSON.stringify((JSON.parse(stored) as { legs?: unknown[] }).legs ?? []));
+    if (parsed.length > 0) setLegs(parsed);
+  }, [slipId]);
+
+  useEffect(() => {
     void runUiAction({
       actionName: 'game_search',
       traceId: chainTraceId,
@@ -149,13 +178,6 @@ function ResearchPageContent() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!replayMode) return;
-    setAdvancedView(true);
-    setLiveMode(false);
-    setProgress(0);
-  }, [replayMode]);
 
   useEffect(() => {
     if (liveMode) {
@@ -284,15 +306,6 @@ function ResearchPageContent() {
     if (!outcome.ok) setStatus('Research run unavailable. Retrying with demo context later.');
   };
 
-  const openLiveGames = async () => {
-    const outcome = await runUiAction({ actionName: 'see_live_games', traceId: chainTraceId, properties: { sport: activeGame?.league ?? 'NFL', game_id: activeGame?.gameId }, execute: async () => {
-      const targetSport = activeGame?.league ?? 'NFL';
-      router.push(buildNavigationHref({ pathname: '/live', traceId: chainTraceId, params: { sport: targetSport } }));
-      return { ok: true, source: 'live' as const };
-    }});
-    if (!outcome.ok) setStatus('Unable to open Live Market Terminal right now.');
-  };
-
   const shareView = async () => {
     const outcome = await runUiAction({ actionName: 'share_card_export', traceId: chainTraceId, execute: async () => {
       const url = typeof window !== 'undefined' ? window.location.href : `/research?snapshotId=${snapshotId}`;
@@ -307,89 +320,106 @@ function ResearchPageContent() {
     <section className="space-y-4">
       <PageHeader
         title="Research Workspace"
-        subtitle="Three-pane terminal: extracted legs, structured insights, and trust inspector."
+        subtitle="Decision-first board with verdict, ranked legs, and advanced trace inspection."
         actions={<StatusBadge status={loading ? 'running' : error ? 'error' : events.length > 0 ? 'complete' : 'waiting'} />}
       />
 
       <RunHeaderStrip traceId={chainTraceId || null} events={events} onRefresh={() => void refresh()} viewTraceHref={`/traces/${encodeURIComponent(chainTraceId)}`} />
 
-      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_330px]">
-        <aside className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-sm font-semibold">Slip Legs Panel</h2>
-          <p className="text-xs text-slate-400">Use ingest extraction output or manually curate legs for this run.</p>
-          {activeGame ? <div className="rounded border border-slate-700 bg-slate-950/70 p-2 text-xs">{activeGame.label} · {activeGame.league}</div> : <EmptyState title="No extracted legs" description="Select a game or run ingest to attach legs." />}
-          <TerminalLoopShell traceId={chainTraceId} />
-        </aside>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="space-y-4">
+          <SlipVerdictCard
+            traceId={chainTraceId}
+            legs={legs}
+            events={events}
+            canTrackBet
+            onTrackBet={() => router.push('/pending-bets')}
+            onRerunResearch={() => void runAnalysis()}
+            onRemoveWeakestLeg={() => setLegs((current) => current.slice(0, -1))}
+          />
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <LegTable legs={legs} events={events} traceId={chainTraceId} onLegsChange={setLegs} />
+
           <div className="rounded border border-slate-800 bg-slate-950/50 p-3">
             <p className="text-xs text-slate-400">Market search (falls through to best-available demo games for terminal continuity)</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <input value={searchText} onChange={(event) => setSearchText(event.target.value)} className="flex-1 rounded bg-slate-900 p-2 text-sm" placeholder="Search games or leagues" />
               <button type="button" onClick={runSearch} className="rounded bg-cyan-600 px-3 py-2 text-sm">Search market</button>
-              <button type="button" onClick={runAnalysis} className="rounded bg-indigo-600 px-3 py-2 text-sm">Run research</button>
-              <button type="button" onClick={shareView} className="rounded border border-slate-700 px-3 py-2 text-sm">Share</button>
-              <button type="button" onClick={openLiveGames} className="rounded bg-emerald-600 px-3 py-2 text-sm">Open Live Terminal</button>
+              <button type="button" onClick={() => void runAnalysis()} className="rounded bg-indigo-600 px-3 py-2 text-sm">Rerun research</button>
+              <button type="button" onClick={() => void shareView()} className="rounded border border-slate-700 px-3 py-2 text-sm">Share</button>
             </div>
             <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto text-xs">
               {games.map((game) => (
-                <li key={game.gameId}><button type="button" onClick={() => selectGame(game)} className="w-full rounded border border-slate-800 bg-slate-900 px-2 py-1 text-left hover:border-cyan-400/60">{game.label} · {game.league} · {game.gameId} · {game.source}</button></li>
+                <li key={game.gameId}><button type="button" onClick={() => void selectGame(game)} className="w-full rounded border border-slate-800 bg-slate-900 px-2 py-1 text-left hover:border-cyan-400/60">{game.label} · {game.league} · {game.gameId} · {game.source}</button></li>
               ))}
             </ul>
           </div>
 
-          <div className="mt-3 space-y-3">
-            <InsightSection title="Top Takeaways" items={sections.topTakeaways.map((row) => ({ label: row }))} traceId={chainTraceId} />
-            <InsightSection title="Injuries / Availability" items={sections.injuries.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
-            <InsightSection title="Line Movement" items={sections.lineMovement.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
-            <InsightSection title="Matchup Stats" items={sections.matchupStats.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
-            <InsightSection title="Context / Coaching" items={sections.context.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
-            <InsightSection title="Weather" items={sections.weather.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
-            <InsightSection title="Notes / Raw" items={sections.notes.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
-          </div>
+          <InsightSection title="Top Takeaways" openByDefault items={sections.topTakeaways.map((row) => ({ label: row }))} traceId={chainTraceId} />
+          <InsightSection title="Injuries / Availability" items={sections.injuries.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
+          <InsightSection title="Line Movement" items={sections.lineMovement.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
+          <InsightSection title="Matchup Stats" items={sections.matchupStats.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
+          <InsightSection title="Context / Coaching" items={sections.context.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
+          <InsightSection title="Weather" items={sections.weather.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
+          <InsightSection title="Notes / Raw" items={sections.notes.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
 
-          <form action={submit} className="mt-4 grid gap-2 text-sm">
-            <input className="rounded bg-slate-950 p-2" name="selection" placeholder="Position label" defaultValue="BOS -3.5" />
-            <input className="rounded bg-slate-950 p-2" name="odds" placeholder="Decimal odds" defaultValue="1.91" />
-            <input className="rounded bg-slate-950 p-2" name="stake" placeholder="Stake" defaultValue="100" />
-            <input className="rounded bg-slate-950 p-2" name="confidence" placeholder="Model confidence" defaultValue="0.68" />
-            <button type="submit" className="rounded bg-sky-600 px-3 py-2 font-medium">Log position</button>
-          </form>
-          <p className="mt-2 text-xs text-slate-400">{status}</p>
-          <div className="mt-3"><DecisionCard data={researchDecisionCard} /></div>
+          <details className="rounded border border-slate-800 bg-slate-900 p-3">
+            <summary className="cursor-pointer text-sm font-semibold">Log + Advanced controls</summary>
+            <form action={submit} className="mt-3 grid gap-2 text-sm">
+              <input className="rounded bg-slate-950 p-2" name="selection" placeholder="Position label" defaultValue="BOS -3.5" />
+              <input className="rounded bg-slate-950 p-2" name="odds" placeholder="Decimal odds" defaultValue="1.91" />
+              <input className="rounded bg-slate-950 p-2" name="stake" placeholder="Stake" defaultValue="100" />
+              <input className="rounded bg-slate-950 p-2" name="confidence" placeholder="Model confidence" defaultValue="0.68" />
+              <button type="submit" className="rounded bg-sky-600 px-3 py-2 font-medium">Log position</button>
+            </form>
+            <p className="mt-2 text-xs text-slate-400">{status}</p>
+            <div className="mt-3"><DecisionCard data={researchDecisionCard} /></div>
 
-          <button type="button" onClick={() => setAdvancedView((current) => !current)} className="mt-3 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-cyan-400/70" aria-pressed={advancedView}>
-            {advancedView ? 'Hide Terminal Diagnostics' : 'Terminal Diagnostics'}
-          </button>
+            <button type="button" onClick={() => setAdvancedView((current) => !current)} className="mt-3 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-cyan-400/70" aria-pressed={advancedView}>
+              {advancedView ? 'Hide Advanced Trace' : 'Advanced Trace'}
+            </button>
 
-          {advancedView ? (
-            <div className="mt-4 space-y-3">
-              <TraceReplayControls isLive={liveMode} isPlaying={isPlaying} speed={speed} progress={progress} disabled={events.length === 0} onLiveToggle={setLiveMode} onPlayPause={() => setIsPlaying((value) => !value)} onSpeedChange={setSpeed} onProgressChange={(value) => { setLiveMode(false); setProgress(value); }} />
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div className="overflow-x-auto"><AgentNodeGraph traceId={chainTraceId} events={events} state={graphState} selectedNodeId={selectedNodeId} onNodeSelect={(nodeId) => { setSelectedNodeId(nodeId); setDrawerOpen(true); }} showDemoLabel={false} /></div>
-                <aside className="rounded-xl border border-slate-800 bg-slate-950/80 p-3"><h3 className="text-sm font-semibold text-slate-100">Recent events</h3><ul className="mt-2 max-h-[280px] space-y-2 overflow-y-auto text-xs">{events.slice(-20).reverse().map((event, index) => (<li key={`${event.event_name}-${event.created_at ?? index}`}><button type="button" className="w-full rounded border border-slate-800 bg-slate-900/70 px-2 py-1 text-left text-slate-300 hover:border-cyan-400/50" onClick={() => { const agent = String((event.payload?.agent_id ?? '') || ''); const mapped = agent && GRAPH_NODES.some((node) => node.id === agent) ? agent : undefined; setSelectedNodeId(mapped ?? selectedNodeId ?? 'decision'); setDrawerOpen(true); }}><p className="truncate">{event.event_name}</p></button></li>))}</ul></aside>
+            {advancedView ? (
+              <div className="mt-4 space-y-3">
+                <TraceReplayControls isLive={liveMode} isPlaying={isPlaying} speed={speed} progress={progress} disabled={events.length === 0} onLiveToggle={setLiveMode} onPlayPause={() => setIsPlaying((value) => !value)} onSpeedChange={setSpeed} onProgressChange={(value) => { setLiveMode(false); setProgress(value); }} />
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="overflow-x-auto"><AgentNodeGraph traceId={chainTraceId} events={events} state={graphState} selectedNodeId={selectedNodeId} onNodeSelect={(nodeId) => { setSelectedNodeId(nodeId); setDrawerOpen(true); }} showDemoLabel={false} /></div>
+                  <aside className="rounded-xl border border-slate-800 bg-slate-950/80 p-3"><h3 className="text-sm font-semibold text-slate-100">Recent events</h3><ul className="mt-2 max-h-[280px] space-y-2 overflow-y-auto text-xs">{events.slice(-20).reverse().map((event, index) => (<li key={`${event.event_name}-${event.created_at ?? index}`}><button type="button" className="w-full rounded border border-slate-800 bg-slate-900/70 px-2 py-1 text-left text-slate-300 hover:border-cyan-400/50" onClick={() => { const agent = String((event.payload?.agent_id ?? '') || ''); const mapped = agent && GRAPH_NODES.some((node) => node.id === agent) ? agent : undefined; setSelectedNodeId(mapped ?? selectedNodeId ?? 'decision'); setDrawerOpen(true); }}><p className="truncate">{event.event_name}</p></button></li>))}</ul></aside>
+                </div>
+                <EvidenceDrawer open={drawerOpen} node={selectedNode} events={events} onClose={() => setDrawerOpen(false)} />
               </div>
-              <EvidenceDrawer open={drawerOpen} node={selectedNode} events={events} onClose={() => setDrawerOpen(false)} />
-            </div>
-          ) : null}
+            ) : null}
+          </details>
         </section>
 
-        <RightRailInspector traceId={chainTraceId || null} runId={snapshotId || null} sessionId={null} loading={loading} error={error} summary={inspectorSummary} />
+        <aside className="space-y-3">
+          <button type="button" onClick={() => setInspectorExpanded((value) => !value)} className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200">
+            {inspectorExpanded ? 'Hide Advanced Inspector' : 'Advanced Inspector'}
+          </button>
+          {inspectorExpanded ? (
+            <RightRailInspector traceId={chainTraceId || null} runId={snapshotId || null} sessionId={null} loading={loading} error={error} summary={inspectorSummary} />
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">
+              Advanced trace inspector is collapsed by default. Expand when you want full provenance and warnings.
+              <div className="mt-2"><Link href={`/traces/${encodeURIComponent(chainTraceId)}`} className="text-cyan-300 underline">View Trace</Link></div>
+            </div>
+          )}
+        </aside>
       </div>
     </section>
   );
 }
 
-function InsightSection({ title, items, traceId }: { title: string; items: Array<{ label: string; event?: ControlPlaneEvent }>; traceId: string; }) {
+function InsightSection({ title, items, traceId, openByDefault = false }: { title: string; items: Array<{ label: string; event?: ControlPlaneEvent }>; traceId: string; openByDefault?: boolean; }) {
   return (
-    <details open className="rounded border border-slate-800 bg-slate-950/50 p-2">
+    <details open={openByDefault} className="rounded border border-slate-800 bg-slate-950/50 p-2">
       <summary className="cursor-pointer text-sm font-semibold">{title}</summary>
-      {items.length === 0 ? <p className="mt-2 text-xs text-slate-500">No takeaways yet</p> : (
+      {items.length === 0 ? <p className="mt-2 text-xs text-slate-500">Run research to generate a verdict.</p> : (
         <ul className="mt-2 space-y-1 text-xs">
           {items.slice(0, 5).map((item, index) => {
             const payload = asRecord(item.event?.payload);
             const agent = typeof payload.agent_id === 'string' ? payload.agent_id : null;
-            const href = item.event ? `/traces/${encodeURIComponent(traceId)}?event=${encodeURIComponent(item.event.event_name)}${agent ? `&agent=${encodeURIComponent(agent)}` : ''}` : `/traces/${encodeURIComponent(traceId)}`;
+            const href = item.event ? `/traces/${encodeURIComponent(traceId)}?event_name=${encodeURIComponent(item.event.event_name)}${agent ? `&agent_id=${encodeURIComponent(agent)}` : ''}` : `/traces/${encodeURIComponent(traceId)}`;
             return <li key={`${title}-${item.label}-${index}`} className="rounded border border-slate-800 px-2 py-1">{item.label} <Link href={href} className="ml-2 text-cyan-300 underline">View in Trace</Link></li>;
           })}
         </ul>
