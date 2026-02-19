@@ -1,5 +1,65 @@
 import { z } from 'zod';
 
+const MarketTypeSchema = z.enum([
+  'spread',
+  'total',
+  'moneyline',
+  'points',
+  'threes',
+  'rebounds',
+  'assists',
+  'ra',
+  'pra'
+]);
+
+const SourceReferenceSchema = z.object({
+  provider: z.string().min(1),
+  url: z.string().url(),
+  retrievedAt: z.string().datetime()
+});
+
+const PlatformLineFactSchema = z.object({
+  platform: z.enum(['FanDuel', 'PrizePicks', 'Kalshi']),
+  marketType: MarketTypeSchema,
+  player: z.string().min(1),
+  line: z.number(),
+  odds: z.number().optional(),
+  payout: z.number().optional(),
+  asOf: z.string().datetime(),
+  sources: z.array(SourceReferenceSchema)
+});
+
+const LegHitProfileSchema = z.object({
+  selection: z.string().min(1),
+  marketType: MarketTypeSchema,
+  hitRate: z.object({
+    l5: z.number(),
+    l10: z.number(),
+    seasonAvg: z.number(),
+    vsOpponent: z.number().optional()
+  }),
+  lineContext: z.object({
+    platformLines: z.array(PlatformLineFactSchema),
+    consensusLine: z.number().nullable(),
+    divergence: z.object({
+      spread: z.number(),
+      warning: z.boolean(),
+      bestLine: PlatformLineFactSchema.optional(),
+      worstLine: PlatformLineFactSchema.optional()
+    })
+  }),
+  verdict: z.object({
+    score: z.number().min(0).max(100),
+    label: z.enum(['Strong', 'Lean', 'Pass']),
+    riskTag: z.enum(['Low', 'Medium', 'High'])
+  }),
+  fallbackReason: z.string().optional(),
+  provenance: z.object({
+    asOf: z.string().datetime(),
+    sources: z.array(SourceReferenceSchema)
+  })
+});
+
 export const EvidenceItemSchema = z.object({
   id: z.string().min(1),
   sourceType: z.enum(['odds', 'injury', 'stats', 'news', 'model', 'other']),
@@ -40,6 +100,18 @@ export const ResearchReportSchema = z
     }),
     risks: z.array(z.string()),
     assumptions: z.array(z.string()),
+    legs: z
+      .array(
+        z.object({
+          selection: z.string().min(1),
+          market: z.string().optional(),
+          odds: z.string().optional(),
+          team: z.string().optional(),
+          gameId: z.string().optional()
+        })
+      )
+      .optional(),
+    legHitProfiles: z.array(LegHitProfileSchema).optional(),
     transparency: z
       .object({
         countsByInsightType: z.record(z.number()),

@@ -1,5 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import { runInjuryScout } from '../../agents/live/InjuryScout';
+import { runLineWatcher } from '../../agents/live/LineWatcher';
+import { runOpponentContextScout } from '../../agents/live/OpponentContextScout';
+import { runStatsScout } from '../../agents/live/StatsScout';
+import type { LiveLegResearch } from '../../agents/live/types';
 import { ConnectorRegistry } from '../../core/connectors/connectorRegistry';
 import {
   InjuriesConnector,
@@ -24,14 +29,15 @@ import {
   type InsightTrack,
   type InsightType
 } from '../../core/insights/insightGraph';
-import { generateTransparencyReport } from '../../core/insights/transparencyReportGenerator';
-import type { RuntimeStore } from '../../core/persistence/runtimeStore';
-import { getRuntimeStore } from '../../core/persistence/runtimeStoreProvider';
 import { asMarketType, type MarketType } from '../../core/markets/marketType';
 import {
   logAgentRecommendation,
   logFinalRecommendation
 } from '../../core/measurement/recommendations';
+import type { RuntimeStore } from '../../core/persistence/runtimeStore';
+import { getRuntimeStore } from '../../core/persistence/runtimeStoreProvider';
+import { extractLegs, type ExtractedLeg } from '../../core/slips/extract';
+import { scoreLiveLegVerdict } from './verdict';
 
 // Refer to MarketType for all prop logic. Do not hardcode string markets.
 
@@ -54,6 +60,23 @@ const confidence = (seed: string, evidenceCount: number, idx: number): number =>
     16
   );
   return Number((((n % 100) / 100) * 0.35 + Math.min(evidenceCount / 10, 0.45) + 0.2).toFixed(4));
+};
+
+const extractOpponent = (subject: string): string | undefined => {
+  const match = subject.match(/([^:@\s]+)@([^:\s]+)/);
+  if (!match) return undefined;
+  return match[2];
+};
+
+const deriveLegs = (subject: string, marketType: MarketType): ExtractedLeg[] => {
+  const parsed = extractLegs(subject).filter((leg) => leg.selection && leg.selection !== subject);
+  if (parsed.length > 0) {
+    return parsed.map((leg) => ({ ...leg, market: asMarketType(leg.market, marketType) }));
+  }
+
+  return [
+    { selection: subject.replace(/:/g, ' ').trim(), market: marketType }
+  ];
 };
 
 const insightTypeForSource = (sourceType: EvidenceItem['sourceType']): InsightType => {
@@ -219,6 +242,66 @@ export const buildResearchSnapshot = async (
     confidence: confidence(input.seed, safeEvidence.length, idx)
   }));
 
+  const legs = deriveLegs(input.subject, scopedMarketType).slice(0, 6);
+  const opponent = extractOpponent(input.subject);
+  const legHitProfiles = await Promise.all(
+    legs.map(async (leg) => {
+      const marketType = asMarketType(leg.market, scopedMarketType);
+      const [stats, lines, context, injury] = await Promise.all([
+        runStatsScout({ player: leg.selection, marketType, opponent }),
+        runLineWatcher({ player: leg.selection, marketType }),
+        runOpponentContextScout({ player: leg.selection, opponent }),
+        runInjuryScout()
+      ]);
+
+      const merged: LiveLegResearch = {
+        selection: leg.selection,
+        marketType,
+        hitProfile: {
+          ...stats,
+          hitProfile: {
+            ...stats.hitProfile,
+            vsOpponent: context.vsOpponent
+          }
+        },
+        lineContext: lines,
+        opponentContext: context,
+        injury,
+        verdict: { score: 0, label: 'Pass', riskTag: 'Medium' },
+        fallbackReason: [stats.fallbackReason, lines.fallbackReason, context.fallbackReason, injury.fallbackReason]
+          .filter(Boolean)
+          .join('; ') || undefined
+      };
+      merged.verdict = scoreLiveLegVerdict(merged);
+      return {
+        selection: merged.selection,
+        marketType: merged.marketType,
+        hitRate: merged.hitProfile.hitProfile,
+        lineContext: {
+          platformLines: merged.lineContext.platformLines,
+          consensusLine: merged.lineContext.consensusLine,
+          divergence: {
+            spread: merged.lineContext.divergence.spread,
+            warning: merged.lineContext.divergence.warning,
+            bestLine: merged.lineContext.divergence.bestLine ?? undefined,
+            worstLine: merged.lineContext.divergence.worstLine ?? undefined
+          }
+        },
+        verdict: merged.verdict,
+        provenance: {
+          asOf: new Date().toISOString(),
+          sources: [
+            ...merged.hitProfile.provenance.sources,
+            ...merged.lineContext.provenance.sources,
+            ...merged.opponentContext.provenance.sources,
+            ...merged.injury.provenance.sources
+          ]
+        },
+        fallbackReason: merged.fallbackReason
+      };
+    })
+  );
+
   const avg =
     claims.length === 0 ? 0 : claims.reduce((sum, c) => sum + c.confidence, 0) / claims.length;
 
@@ -229,12 +312,13 @@ export const buildResearchSnapshot = async (
     createdAt: now,
     subject: input.subject,
     claims,
+    legs,
+    legHitProfiles,
     evidence: safeEvidence,
     summary: `Snapshot generated with ${safeEvidence.length} evidence items and ${claims.length} ${scopedMarketType}-scoped claims.`,
     confidenceSummary: { averageClaimConfidence: Number(avg.toFixed(4)), deterministic: true },
     risks: ['Evidence is connector-scoped and tier-gated.'],
-    assumptions: ['Confidence is deterministic heuristic, not calibrated.'],
-    transparency: generateTransparencyReport(insightNodes)
+    assumptions: ['Confidence is deterministic heuristic, not calibrated.']
   };
 
   const insightSummary = summarizeInsightGraph(insightNodes);
