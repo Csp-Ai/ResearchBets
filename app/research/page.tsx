@@ -4,10 +4,10 @@ import React, { Suspense, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
-import { buildNavigationHref } from '@/src/core/ui/navigation';
+import { runSlip } from '@/src/core/pipeline/runSlip';
+import { runStore } from '@/src/core/run/store';
+import type { EnrichedLeg, Run } from '@/src/core/run/types';
 import { readDeveloperMode } from '@/src/core/ui/preferences';
-import { buildPropLegInsight } from '@/src/core/slips/propInsights';
 import {
   AdvancedDrawer,
   EmptyStateBettor,
@@ -31,103 +31,133 @@ function inferRunStatus(updatedAt: string): RecentRun['status'] {
   return 'complete';
 }
 
-function loadRecentRunsFromStorage(traceId: string): RecentRun[] {
-  if (typeof window === 'undefined') return [];
-  const recents = JSON.parse(window.localStorage.getItem('rb-recent-trace-ids') ?? '[]') as string[];
-  const last = window.localStorage.getItem('rb-last-trace-id') ?? '';
-  const deduped = Array.from(new Set([last, ...recents].filter(Boolean))).slice(0, 3);
-  return deduped.map((id, index) => {
-    const updatedAt = new Date(Date.now() - index * 2 * 60 * 1000).toISOString();
-    return { traceId: id, updatedAt, status: inferRunStatus(updatedAt) };
+const toAnalyzeLeg = (run: Run): AnalyzeLeg[] => {
+  return run.extractedLegs.map((leg) => {
+    const enriched = run.enrichedLegs.find((item) => item.extractedLegId === leg.id);
+    const risk: AnalyzeLeg['risk'] = !enriched
+      ? 'caution'
+      : enriched.l10 >= 65
+        ? 'strong'
+        : enriched.l10 >= 55
+          ? 'caution'
+          : 'weak';
+
+    return {
+      id: leg.id,
+      selection: leg.selection,
+      market: leg.market,
+      line: leg.line,
+      odds: leg.odds,
+      l5: enriched?.l5 ?? 0,
+      l10: enriched?.l10 ?? 0,
+      season: enriched?.season,
+      vsOpp: enriched?.vsOpp,
+      risk,
+      divergence: typeof enriched?.flags.divergence === 'number' && enriched.flags.divergence > 0
+    };
   });
-}
+};
 
 export function ResearchPageContent() {
   const search = useSearchParams();
   const router = useRouter();
   const [pasteOpen, setPasteOpen] = useState(false);
   const [rawSlip, setRawSlip] = useState('');
-  const [slipId, setSlipId] = useState(search.get('slip_id') ?? '');
-  const [traceId, setTraceId] = useState(search.get('trace_id') ?? createClientRequestId());
   const [status, setStatus] = useState('');
   const [developerMode, setDeveloperMode] = useState(false);
-  const [legs, setLegs] = useState<AnalyzeLeg[]>([]);
+  const [currentRun, setCurrentRun] = useState<Run | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
+
+  const traceFromQuery = search.get('trace') ?? search.get('trace_id') ?? '';
+
+  const refreshRecent = async () => {
+    const runs = await runStore.listRuns(5);
+    setRecentRuns(runs.map((run) => ({ traceId: run.traceId, updatedAt: run.updatedAt, status: inferRunStatus(run.updatedAt) })));
+  };
+
+  const loadRun = async (traceId: string) => {
+    const run = await runStore.getRun(traceId);
+    setCurrentRun(run);
+  };
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
   }, []);
 
   useEffect(() => {
-    setRecentRuns(loadRecentRunsFromStorage(traceId));
-  }, [traceId]);
+    void refreshRecent();
+  }, []);
 
   useEffect(() => {
-    if (!slipId || typeof window === 'undefined') return;
-    const stored = window.sessionStorage.getItem(`rb-slip-${slipId}`);
-    if (!stored) return;
-    const parsed = (JSON.parse(stored) as { legs?: Array<{ selection: string; market?: string; odds?: string; line?: string }> }).legs ?? [];
-    const hydrated = parsed.map((leg, index) => {
-      const insight = buildPropLegInsight({ selection: leg.selection, market: leg.market, odds: leg.odds });
-      return {
-        id: `leg-${index}-${leg.selection}`,
-        selection: leg.selection,
-        market: leg.market,
-        line: leg.line,
-        odds: leg.odds,
-        l5: insight.hitRateLast5,
-        l10: Math.max(45, insight.hitRateLast5 - 6),
-        season: Math.max(40, insight.hitRateLast5 - 8),
-        vsOpp: Math.max(38, insight.hitRateLast5 - 10),
-        risk: insight.riskTag === 'Low' ? 'strong' : insight.riskTag === 'Medium' ? 'caution' : 'weak',
-        divergence: insight.riskTag === 'High'
-      } as AnalyzeLeg;
-    });
-    setLegs(hydrated);
-  }, [slipId]);
+    if (traceFromQuery) {
+      void loadRun(traceFromQuery);
+      return;
+    }
 
-  const weakestLeg = useMemo(() => legs[0] ?? null, [legs]);
+    void (async () => {
+      const runs = await runStore.listRuns(1);
+      if (runs[0]) setCurrentRun(runs[0]);
+    })();
+  }, [traceFromQuery]);
+
+  const legs = useMemo(() => (currentRun ? toAnalyzeLeg(currentRun) : []), [currentRun]);
   const sortedLegs = useMemo(() => [...legs].sort((a, b) => a.l5 - b.l5), [legs]);
-  const confidence = useMemo(() => {
-    if (legs.length === 0) return 0;
-    return Math.round(legs.reduce((sum, leg) => sum + leg.l5, 0) / legs.length);
-  }, [legs]);
-
-  const reasons = useMemo(() => {
-    if (!weakestLeg) return ['Not enough data yet — add legs to analyze this slip.'];
-    return [
-      `Weakest leg is ${weakestLeg.selection} (${weakestLeg.l5}% L5, ${weakestLeg.l10}% L10).`,
-      `${sortedLegs.filter((leg) => leg.divergence).length} leg(s) show book divergence.`,
-      `Average recent hit rate is ${confidence}%.`
-    ];
-  }, [weakestLeg, sortedLegs, confidence]);
+  const weakestLeg = useMemo(() => {
+    if (!currentRun?.analysis.weakestLegId) return sortedLegs[0] ?? null;
+    return sortedLegs.find((leg) => leg.id === currentRun.analysis.weakestLegId) ?? sortedLegs[0] ?? null;
+  }, [sortedLegs, currentRun]);
 
   const submitPaste = async () => {
-    const anonSessionId = ensureAnonSessionId();
-    const submitRes = await fetch('/api/slips/submit', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'paste', raw_text: rawSlip, anon_session_id: anonSessionId, request_id: createClientRequestId() })
-    }).then((res) => res.json());
-    const extractRes = await fetch('/api/slips/extract', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slip_id: submitRes.slip_id, request_id: createClientRequestId(), anon_session_id: anonSessionId })
-    }).then((res) => res.json());
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(`rb-slip-${submitRes.slip_id}`, JSON.stringify({ legs: extractRes.extracted_legs ?? [] }));
-    }
-    setSlipId(submitRes.slip_id);
-    setTraceId(submitRes.trace_id);
+    const traceId = await runSlip(rawSlip);
     setPasteOpen(false);
-    router.push(buildNavigationHref({ pathname: '/research', traceId: submitRes.trace_id, params: { slip_id: submitRes.slip_id } }));
+    await refreshRecent();
+    router.push(`/research?trace=${encodeURIComponent(traceId)}`);
+  };
+
+  const recomputeFromEnriched = (run: Run, enrichedLegs: EnrichedLeg[]): Run => {
+    const ranked = [...enrichedLegs].sort((a, b) => (a.l5 + a.l10) - (b.l5 + b.l10));
+    const weakestLegId = ranked[0]?.extractedLegId ?? null;
+    const confidence = Math.max(35, Math.min(85, Math.round(ranked.reduce((sum, leg) => sum + leg.l10, 0) / Math.max(1, ranked.length))));
+    const riskLabel = confidence >= 70 ? 'Strong' : confidence >= 55 ? 'Caution' : 'Weak';
+
+    return {
+      ...run,
+      enrichedLegs,
+      analysis: {
+        ...run.analysis,
+        weakestLegId,
+        confidencePct: confidence,
+        riskLabel,
+        reasons: ranked.slice(0, 3).map((leg) => `${run.extractedLegs.find((item) => item.id === leg.extractedLegId)?.selection ?? leg.extractedLegId} is under pressure (${leg.l5}% L5, ${leg.l10}% L10).`),
+        computedAt: new Date().toISOString()
+      },
+      updatedAt: new Date().toISOString()
+    };
+  };
+
+  const removeWeakest = async () => {
+    if (!currentRun?.analysis.weakestLegId) return;
+    const next = recomputeFromEnriched(
+      {
+        ...currentRun,
+        extractedLegs: currentRun.extractedLegs.filter((leg) => leg.id !== currentRun.analysis.weakestLegId)
+      },
+      currentRun.enrichedLegs.filter((leg) => leg.extractedLegId !== currentRun.analysis.weakestLegId)
+    );
+    await runStore.updateRun(next.traceId, next);
+    setCurrentRun(next);
+    await refreshRecent();
   };
 
   const rerunResearch = async () => {
-    setStatus('Research refreshed.');
+    if (!currentRun) return;
+    const traceId = await runSlip(currentRun.slipText);
+    await refreshRecent();
+    router.push(`/research?trace=${encodeURIComponent(traceId)}`);
   };
 
   const tryExample = () => {
-    const nextTraceId = createClientRequestId();
-    router.push(buildNavigationHref({ pathname: '/ingest', traceId: nextTraceId, params: { prefill: DEMO_SLIP } }));
+    router.push(`/ingest?prefill=${encodeURIComponent(DEMO_SLIP)}`);
   };
 
   return (
@@ -149,25 +179,27 @@ export function ResearchPageContent() {
       <section className="space-y-8">
         {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
           <>
-            <VerdictHero confidence={confidence} weakestLeg={weakestLeg} reasons={reasons} />
-            <SlipActionsBar onRemoveWeakest={() => weakestLeg && setLegs((current) => current.filter((leg) => leg.id !== weakestLeg.id))} onRerun={rerunResearch} canTrack />
+            <VerdictHero confidence={currentRun?.analysis.confidencePct ?? 0} weakestLeg={weakestLeg} reasons={currentRun?.analysis.reasons ?? []} />
+            <SlipActionsBar onRemoveWeakest={() => void removeWeakest()} onRerun={() => void rerunResearch()} canTrack />
             <Surface className="space-y-4">
               <h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2>
-              <LegRankList legs={sortedLegs} onRemove={(id) => setLegs((current) => current.filter((leg) => leg.id !== id))} />
+              <LegRankList legs={sortedLegs} onRemove={() => void removeWeakest()} />
             </Surface>
           </>
         )}
 
-        <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(`/traces/${encodeURIComponent(recentTraceId)}`)} />
+        <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(`/research?trace=${encodeURIComponent(recentTraceId)}`)} />
         <HowItWorksMini />
       </section>
 
       <AdvancedDrawer developerMode={developerMode}>
         <div className="flex flex-wrap gap-2">
-          <Chip>Slip ID: {slipId || 'n/a'}</Chip>
-          <Chip>Trace ID: {traceId}</Chip>
+          <Chip>Trace ID: {currentRun?.traceId ?? 'n/a'}</Chip>
+          <Chip tone={currentRun?.sources.stats === 'live' ? 'strong' : 'caution'}>Stats: {currentRun?.sources.stats ?? 'fallback'}</Chip>
+          <Chip tone={currentRun?.sources.injuries === 'live' ? 'strong' : 'caution'}>Injuries: {currentRun?.sources.injuries ?? 'fallback'}</Chip>
+          <Chip tone={currentRun?.sources.odds === 'live' ? 'strong' : 'caution'}>Odds: {currentRun?.sources.odds ?? 'fallback'}</Chip>
         </div>
-        <pre className="overflow-auto rounded bg-slate-950/80 p-2">{JSON.stringify({ legs, confidence, status }, null, 2)}</pre>
+        <pre className="overflow-auto rounded bg-slate-950/80 p-2">{JSON.stringify({ legs, status, analysis: currentRun?.analysis }, null, 2)}</pre>
       </AdvancedDrawer>
 
       {pasteOpen ? (
