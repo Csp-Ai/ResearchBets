@@ -9,16 +9,15 @@ import { HeroDepthLayer } from '@/features/landing/HeroDepthLayer';
 import { landingEase, landingMotion, sectionRevealVariants, staggerGroup, staggerItem } from '@/features/landing/motionTokens';
 
 const LOOP_MS = 24000;
-const FINAL_CONFIDENCE = 72;
-const TARGET_RISK = 63;
 
-const legs = ['Luka Doncic 30+ points', 'LeBron James 6+ assists', 'Karl-Anthony Towns 2+ threes'];
+const legs = ['Luka Dončić — Points', 'LeBron James — Assists', 'Karl-Anthony Towns — 3PT makes'];
 
 export function LandingHero() {
   const shouldReduceMotion = useReducedMotion();
   const [cycle, setCycle] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [commandPulse, setCommandPulse] = useState(false);
+  const [panelFocused, setPanelFocused] = useState(false);
 
   useEffect(() => {
     if (shouldReduceMotion) {
@@ -49,20 +48,16 @@ export function LandingHero() {
   const timeline = useMemo(() => {
     const slipVisible = elapsed > 200;
     const parsedLegs = legs.map((_, index) => elapsed > 1100 + index * 700);
-    const weakestVisible = elapsed > 3500;
-    const confidenceProgress = Math.max(0, Math.min(1, (elapsed - 4000) / 1800));
-    const riskProgress = Math.max(0, Math.min(1, (elapsed - 4500) / 1800));
-    const verdictVisible = elapsed > 6700;
-    const parsingActive = elapsed > 750 && elapsed < 6200;
+    const checksProgress = Math.max(0, Math.min(8, Math.floor((elapsed - 3200) / 550)));
+    const warningsVisible = elapsed > 4600;
+    const flaggedVisible = elapsed > 5400;
 
     return {
       slipVisible,
       parsedLegs,
-      weakestVisible,
-      confidence: Math.round(FINAL_CONFIDENCE * confidenceProgress),
-      risk: Math.round(TARGET_RISK * riskProgress),
-      verdictVisible,
-      parsingActive
+      checksProgress,
+      warningsVisible,
+      flaggedVisible
     };
   }, [elapsed]);
 
@@ -85,7 +80,7 @@ export function LandingHero() {
       className="relative isolate min-h-screen overflow-x-hidden px-4 py-6 sm:px-6 lg:px-10"
     >
       <HeroDepthLayer />
-      <AgentNetworkBackground active={timeline.parsingActive} />
+      <AgentNetworkBackground active={!shouldReduceMotion && panelFocused} />
       <div className="hero-grid pointer-events-none absolute inset-0 z-0" />
 
       <motion.div
@@ -97,13 +92,13 @@ export function LandingHero() {
         <div className="pointer-events-auto row-start-1 flex items-end">
           <div className="max-w-[36rem] pb-1.5 sm:pb-2">
             <motion.p variants={staggerItem} className="text-xs uppercase tracking-[0.22em] text-cyan-300/90">
-              Research Terminal
+              Research workspace
             </motion.p>
             <motion.h1 variants={staggerItem} className="mt-2 max-w-[15ch] text-4xl font-semibold leading-[1.04] sm:text-5xl lg:text-[3.45rem]">
-              Run the slip. Isolate fragility. Decide with precision.
+              Research a slip before you place it.
             </motion.h1>
             <motion.p variants={staggerItem} className="mt-3 max-w-[34rem] text-sm text-slate-200">
-              ResearchBets surfaces weak links, confidence trajectory, and risk posture in one tactical stream.
+              Extract legs → verify context → review what&apos;s fragile. No picks.
             </motion.p>
             <motion.div variants={staggerItem} className="mt-5 flex flex-wrap gap-3">
               <Link
@@ -118,7 +113,7 @@ export function LandingHero() {
                 href="/research?snapshot=demo"
                 className="interactive-button rounded-md border border-slate-500 bg-slate-900/80 px-5 py-2.5 text-sm font-medium text-slate-100"
               >
-                Launch Demo Verdict
+                View demo trace
               </Link>
             </motion.div>
           </div>
@@ -127,70 +122,60 @@ export function LandingHero() {
         <div className="row-start-2 flex items-center justify-center">
           <motion.div variants={staggerItem} className="terminal-shell-outer relative w-full rounded-2xl p-1.5 sm:p-2 md:w-[min(78vw,1280px)]">
             <div
-              className={`terminal-shell-inner relative rounded-[1.1rem] p-3 sm:p-4 lg:p-5 ${
-                timeline.parsingActive && !shouldReduceMotion ? 'terminal-panel-active' : ''
-              } ${commandPulse ? 'terminal-command-pulse' : ''}`}
+              className={`terminal-shell-inner relative rounded-[1.1rem] p-3 sm:p-4 lg:p-5 ${panelFocused && !shouldReduceMotion ? 'terminal-panel-active' : ''} ${
+                commandPulse ? 'terminal-command-pulse' : ''
+              }`}
+              onMouseEnter={() => setPanelFocused(true)}
+              onMouseLeave={() => setPanelFocused(false)}
+              onFocusCapture={() => setPanelFocused(true)}
+              onBlurCapture={() => setPanelFocused(false)}
             >
               <div className="terminal-panel relative rounded-xl border border-slate-700/90 bg-slate-950/72 p-3 sm:p-4 lg:p-5">
-                <p className="parse-status text-[10px] uppercase tracking-[0.2em] text-slate-300">Live Analysis Simulation</p>
+                <p className="parse-status text-[10px] uppercase tracking-[0.2em] text-slate-300">Trace preview</p>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: timeline.slipVisible ? 1 : 0, y: timeline.slipVisible ? 0 : 10 }}
                   transition={{ duration: landingMotion.base, ease: landingEase }}
                   className="mt-2 rounded-md border border-slate-700 bg-slate-900/85 p-2 text-[11px] text-slate-100"
                 >
-                  Slip received: 3-leg NBA parlay
+                  Example slip loaded: 3 NBA props
                 </motion.div>
 
-                <div className="mt-2.5 space-y-1.5">
-                  {legs.map((leg, index) => {
-                    const isWeak = index === 2 && timeline.weakestVisible;
-
-                    return (
+                <div className="mt-2.5 rounded-md border border-slate-700 bg-slate-900/80 p-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-300">Example legs (demo)</p>
+                  <div className="mt-1.5 space-y-1.5">
+                    {legs.map((leg, index) => (
                       <motion.div
                         key={leg}
                         initial={false}
                         animate={{ opacity: timeline.parsedLegs[index] ? 1 : 0, x: timeline.parsedLegs[index] ? 0 : -8 }}
                         transition={{ duration: landingMotion.fast, ease: landingEase }}
-                        className={`rounded-md border px-2.5 py-1.5 text-[11px] ${
-                          isWeak ? 'border-amber-400/55 bg-amber-500/10 text-amber-100' : 'border-slate-700 bg-slate-900/80 text-slate-100'
-                        }`}
+                        className="rounded-md border border-slate-700 bg-slate-950/80 px-2.5 py-1.5 text-[11px] text-slate-100"
                       >
                         <p className="font-medium leading-tight">{leg}</p>
-                        <p className={`mt-0.5 text-[10px] ${isWeak ? 'text-amber-200' : 'text-slate-300'}`}>
-                          {isWeak ? 'Weakest-leg volatility detected' : 'Parsed and scored'}
-                        </p>
                       </motion.div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
 
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  <div className={`rounded-md border border-slate-700 bg-slate-900/80 p-2 ${timeline.parsingActive ? 'confidence-active' : ''}`}>
-                    <p className="text-[9px] uppercase tracking-[0.16em] text-slate-300">Confidence</p>
-                    <p className="mt-0.5 text-lg font-semibold text-cyan-100">{timeline.confidence}%</p>
+                <div className="mt-2.5 grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-4">
+                  <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2">
+                    <p className="uppercase tracking-[0.16em] text-slate-300">Evidence</p>
+                    <p className="mt-1 text-xs font-medium text-cyan-100">{timeline.checksProgress}/8 checks</p>
                   </div>
                   <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2">
-                    <p className="text-[9px] uppercase tracking-[0.16em] text-slate-300">Risk Meter</p>
-                    <div className="mt-1.5 h-1.5 rounded-full bg-slate-800">
-                      <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-teal-400 via-amber-400 to-rose-400"
-                        animate={{ width: `${timeline.risk}%` }}
-                        transition={{ duration: landingMotion.slow, ease: landingEase }}
-                      />
-                    </div>
-                    <p className="mt-0.5 text-[10px] text-slate-200">{timeline.risk < 40 ? 'Low' : timeline.risk < 67 ? 'Medium' : 'Elevated'}</p>
+                    <p className="uppercase tracking-[0.16em] text-slate-300">Warnings</p>
+                    <p className="mt-1 text-xs font-medium text-slate-100">{timeline.warningsVisible ? '2' : '0'}</p>
+                  </div>
+                  <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2">
+                    <p className="uppercase tracking-[0.16em] text-slate-300">Last updated</p>
+                    <p className="mt-1 text-xs font-medium text-slate-100">just now</p>
+                  </div>
+                  <div className="rounded-md border border-amber-400/45 bg-amber-400/10 p-2">
+                    <p className="uppercase tracking-[0.16em] text-amber-100">Flagged</p>
+                    <p className="mt-1 text-xs font-medium text-amber-100">{timeline.flaggedVisible ? '1 fragile leg' : '0'}</p>
                   </div>
                 </div>
-
-                <motion.div
-                  initial={false}
-                  animate={{ opacity: timeline.verdictVisible ? 1 : 0, y: timeline.verdictVisible ? 0 : 6 }}
-                  transition={{ duration: landingMotion.base, ease: 'easeInOut' }}
-                  className="mt-2.5 inline-flex rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium text-cyan-100"
-                >
-                  Verdict: MODIFY — Replace KAT 2+ threes
-                </motion.div>
               </div>
             </div>
           </motion.div>
