@@ -18,6 +18,13 @@ Do **not** expose provider keys via `NEXT_PUBLIC_*` variables.
 - `OpponentContextScout` derives vs-opponent context from fetched logs (no extra endpoint required).
 - `LineWatcher` maps Odds API books into platform line facts and computes consensus/divergence.
 
+## Trusted context
+
+- Trusted context is fetched from vetted structured providers only (SportsDataIO, The Odds API, and computed schedule metadata).
+- Current coverage: injury/status + transactions when adapters are available, and schedule spot context computed from known schedule metadata.
+- Explicit non-goal: no broad web scanning, no arbitrary site scraping, and no fabricated injury/suspension updates when trusted providers return nothing.
+- UI behavior is explicit when trusted feeds are empty: `No verified update from trusted sources.` so users can separate missing coverage from verified facts.
+
 ## Caching + rate limiting
 
 All provider HTTP calls go through `fetchJsonWithCache` + token-bucket `rateLimit` with provenance stamps:

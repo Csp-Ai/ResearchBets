@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
+import type { TrustedContextBundle } from '@/src/core/context/types';
 
 export type AnalyzeLeg = {
   id: string;
@@ -135,7 +136,7 @@ export function VerdictHero({ confidence, weakestLeg, reasons, dataQuality }: { 
   );
 }
 
-function WhyDrawer({ leg, open, onClose }: { leg: AnalyzeLeg | null; open: boolean; onClose: () => void }) {
+function WhyDrawer({ leg, open, onClose, trustedContext }: { leg: AnalyzeLeg | null; open: boolean; onClose: () => void; trustedContext?: TrustedContextBundle }) {
   if (!open || !leg) return null;
 
   const row = (label: string, value: string) => <p><span className="text-muted">{label}:</span> {value}</p>;
@@ -177,6 +178,21 @@ function WhyDrawer({ leg, open, onClose }: { leg: AnalyzeLeg | null; open: boole
             <p className="mt-2 text-xs text-muted">Some inputs are fallback; treat confidence as directional.</p>
           ) : null}
         </div>
+
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted">Trusted context</p>
+          {(trustedContext?.items.length ?? 0) > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs text-strong">
+              {trustedContext?.items.slice(0, 5).map((item) => (
+                <li key={`${item.kind}-${item.headline}`} className="flex items-center justify-between gap-2 rounded border border-default px-2 py-1">
+                  <span>{item.headline}</span>
+                  <span className="text-muted">{item.kind} · {new Date(item.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-2 text-xs text-muted">No verified update from trusted sources.</p>}
+          {trustedContext?.coverage.injuries === 'none' ? <p className="mt-2 text-xs text-muted">Injury status unavailable from trusted providers right now; confidence adjusted.</p> : null}
+        </div>
       </Surface>
     </div>
   );
@@ -216,7 +232,7 @@ export function LegCardCompact({ leg, onRemove, onWhy }: { leg: AnalyzeLeg; onRe
   );
 }
 
-export function LegRankList({ legs, onRemove }: { legs: AnalyzeLeg[]; onRemove: (id: string) => void }) {
+export function LegRankList({ legs, onRemove, trustedContext }: { legs: AnalyzeLeg[]; onRemove: (id: string) => void; trustedContext?: TrustedContextBundle }) {
   const [whyLegId, setWhyLegId] = React.useState<string | null>(null);
   const selectedLeg = legs.find((leg) => leg.id === whyLegId) ?? null;
 
@@ -225,7 +241,7 @@ export function LegRankList({ legs, onRemove }: { legs: AnalyzeLeg[]; onRemove: 
       <ul className="divide-y divide-default" data-testid="leg-rank-list">
         {legs.map((leg) => <LegCardCompact key={leg.id} leg={leg} onRemove={() => onRemove(leg.id)} onWhy={() => setWhyLegId(leg.id)} />)}
       </ul>
-      <WhyDrawer leg={selectedLeg} open={Boolean(selectedLeg)} onClose={() => setWhyLegId(null)} />
+      <WhyDrawer leg={selectedLeg} open={Boolean(selectedLeg)} onClose={() => setWhyLegId(null)} trustedContext={trustedContext} />
     </>
   );
 }

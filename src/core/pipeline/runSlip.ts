@@ -1,5 +1,6 @@
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
 import { extractLegs } from '@/src/core/slips/extract';
+import { fetchTrustedContext } from '@/src/core/context/trustedContextProvider';
 
 import { enrichInjuries } from '@/src/core/providers/injuriesProvider';
 import { enrichOdds } from '@/src/core/providers/oddsProvider';
@@ -86,7 +87,8 @@ export function computeLegRisk(leg: EnrichedLeg): { riskScore: number; riskBand:
   };
 }
 
-function computeConfidenceCap(enrichedLegs: EnrichedLeg[], sources: SourceStats): number {
+function computeConfidenceCap(enrichedLegs: EnrichedLeg[], sources: SourceStats, trustedInjuriesCoverage: 'live' | 'fallback' | 'none' = 'fallback'): number {
+  if (trustedInjuriesCoverage === 'none') return 75;
   const fallbackHeavyLegs = enrichedLegs.filter((leg) => {
     const ds = leg.dataSources;
     if (!ds) return true;
@@ -105,7 +107,7 @@ function buildReasonPrefix(position: number): string {
   return `Downside #${position + 1}`;
 }
 
-export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: ExtractedLeg[], sources: SourceStats): VerdictAnalysis {
+export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: ExtractedLeg[], sources: SourceStats, trustedInjuriesCoverage: 'live' | 'fallback' | 'none' = 'fallback'): VerdictAnalysis {
   if (enrichedLegs.length === 0) {
     return {
       confidencePct: 35,
@@ -129,7 +131,7 @@ export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: Extra
   const weakestLegId = scored[0]?.leg.extractedLegId ?? null;
   const avgRisk = scored.reduce((sum, item) => sum + item.riskScore, 0) / scored.length;
   const baseConfidence = clamp(Math.round(100 - avgRisk * 0.9), 35, 85);
-  const confidenceCap = computeConfidenceCap(enrichedLegs, sources);
+  const confidenceCap = computeConfidenceCap(enrichedLegs, sources, trustedInjuriesCoverage);
   const confidencePct = Math.min(baseConfidence, confidenceCap);
 
   const reasons = scored.slice(0, 3).map((entry, index) => {
@@ -225,8 +227,17 @@ export async function runSlip(slipText: string): Promise<string> {
 
   const apiLegs = await extractWithApi(normalizedSlipText);
   const extracted = normalizeLegs(apiLegs.length > 0 ? apiLegs : extractLegs(normalizedSlipText));
+  const sportRaw = extracted.find((leg) => leg.sport)?.sport?.toLowerCase();
+  const inferredSport = !sportRaw;
+  const sport: 'nba' | 'nfl' | 'soccer' = sportRaw === 'nfl' || sportRaw === 'soccer' ? sportRaw : 'nba';
 
   const sources: SourceStats = { stats: 'fallback', injuries: 'fallback', odds: 'fallback' };
+  const trustedContext = await fetchTrustedContext({
+    sport,
+    teams: extracted.flatMap((leg) => leg.team ? [{ team: leg.team }] : []),
+    players: extracted.flatMap((leg) => leg.player ? [{ player: leg.player, team: leg.team }] : []),
+    eventIds: extracted.flatMap((leg) => leg.id ? [leg.id] : [])
+  });
 
   const enrichedLegs: EnrichedLeg[] = [];
   for (const leg of extracted) {
@@ -266,7 +277,7 @@ export async function runSlip(slipText: string): Promise<string> {
     });
   }
 
-  const analysis = computeVerdict(enrichedLegs, extracted, sources);
+  const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries);
 
   await runStore.updateRun(traceId, {
     status: 'complete',
@@ -274,6 +285,11 @@ export async function runSlip(slipText: string): Promise<string> {
     enrichedLegs,
     analysis,
     sources,
+    trustedContext,
+    metadata: {
+      ...initial.metadata,
+      inferredSport
+    },
     updatedAt: new Date().toISOString()
   });
 

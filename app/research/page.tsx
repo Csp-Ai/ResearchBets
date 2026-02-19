@@ -156,7 +156,7 @@ export function ResearchPageContent() {
       return { ...leg, riskScore: risk.riskScore, riskBand: risk.riskBand, riskFactors: risk.factors };
     });
 
-    const analysis = computeVerdict(rescored, run.extractedLegs, run.sources);
+    const analysis = computeVerdict(rescored, run.extractedLegs, run.sources, run.trustedContext?.coverage.injuries ?? 'fallback');
     return {
       ...run,
       enrichedLegs: rescored,
@@ -214,7 +214,7 @@ export function ResearchPageContent() {
             <SlipActionsBar onRemoveWeakest={() => void removeWeakest()} onRerun={() => void rerunResearch()} canTrack />
             <Surface className="space-y-4">
               <h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2>
-              <LegRankList legs={sortedLegs} onRemove={() => void removeWeakest()} />
+              <LegRankList legs={sortedLegs} onRemove={() => void removeWeakest()} trustedContext={currentRun?.trustedContext} />
             </Surface>
             <Surface className="space-y-3">
               <label className="text-sm font-medium" htmlFor="crowd-notes">Crowd notes (unverified)</label>

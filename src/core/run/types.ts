@@ -1,3 +1,5 @@
+import type { TrustedContextBundle } from '@/src/core/context/types';
+
 export type ProviderMode = 'live' | 'fallback';
 
 export interface ExtractedLeg {
@@ -60,8 +62,10 @@ export interface Run {
   enrichedLegs: EnrichedLeg[];
   analysis: VerdictAnalysis;
   sources: SourceStats;
+  trustedContext?: TrustedContextBundle;
   metadata?: {
     originalSlipText?: string;
     crowdNotes?: string;
+    inferredSport?: boolean;
   };
 }

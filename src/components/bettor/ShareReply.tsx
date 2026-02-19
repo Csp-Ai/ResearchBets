@@ -66,6 +66,22 @@ export const buildGroupReply = (run: Run): string => {
     lines.push('- What book/odds did you take? Any line movement?');
   }
 
+  const trustedItems = run.trustedContext?.items ?? [];
+  if (trustedItems.length > 0) {
+    lines.push('', 'Trusted notes');
+    trustedItems.slice(0, 3).forEach((item) => {
+      lines.push(`- ${item.headline}`);
+    });
+  } else {
+    lines.push('', 'No verified updates from trusted sources yet (injuries/suspensions).');
+  }
+
+  if (run.trustedContext) {
+    const sourceLabels = [...new Set(run.trustedContext.items.flatMap((item) => item.sources.map((source) => source.label)).filter(Boolean))];
+    const asOf = new Date(run.trustedContext.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+    lines.push(`Sources: ${sourceLabels.length > 0 ? sourceLabels.join(', ') : 'SportsDataIO, The Odds API'} (as of ${asOf})`);
+  }
+
   lines.push('', `Data sources: stats=${run.sources.stats}, injuries=${run.sources.injuries}, odds=${run.sources.odds}`);
 
   if (run.metadata?.crowdNotes?.trim()) {
