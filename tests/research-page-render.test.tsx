@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import fs from 'node:fs';
+import path from 'node:path';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -29,6 +31,17 @@ describe('/research render polish', () => {
     expect(screen.getByTestId('how-it-works')).toBeTruthy();
   });
 
+
+  it('defines semantic design tokens used by the rendered page', () => {
+    render(<ResearchPageContent />);
+
+    const globalsCss = fs.readFileSync(path.resolve(process.cwd(), 'app/globals.css'), 'utf8');
+
+    expect(globalsCss).toContain('--background:');
+    expect(globalsCss).toContain('--card:');
+    expect(globalsCss).toContain('.dark {');
+  });
+
   it('uses upgraded advanced label copy', () => {
     render(<ResearchPageContent />);
     expect(screen.getAllByText('Run details (optional)').length).toBeGreaterThan(0);
@@ -37,10 +50,18 @@ describe('/research render polish', () => {
   it('routes Try an example to ingest with prefilled slip', () => {
     render(<ResearchPageContent />);
 
-    fireEvent.click(screen.getAllByText('Try an example')[0]);
+    const tryExampleButtons = screen.getAllByText('Try an example');
+    const firstTryExampleButton = tryExampleButtons[0];
+
+    expect(firstTryExampleButton).toBeDefined();
+
+    fireEvent.click(firstTryExampleButton as HTMLElement);
 
     expect(push).toHaveBeenCalledTimes(1);
-    expect(push.mock.calls[0][0]).toContain('/ingest?');
-    expect(push.mock.calls[0][0]).toContain('prefill=Jayson+Tatum+over+29.5+points');
+    const firstPushCall = push.mock.calls[0];
+
+    expect(firstPushCall).toBeDefined();
+    expect(firstPushCall?.[0]).toContain('/ingest?');
+    expect(firstPushCall?.[0]).toContain('prefill=Jayson+Tatum+over+29.5+points');
   });
 });
