@@ -1,49 +1,39 @@
 # Live Research Agents
 
-This project now supports source-stamped live research agents in the snapshot flow.
+This project supports source-stamped live research agents in the snapshot flow, with real provider adapters when server secrets are present and deterministic demo fallback when they are not.
 
-## Agents
+## Required environment variables (server-only)
 
-- `StatsScout`: fetches `L5`, `L10`, and season baseline stats via swappable stats providers.
-- `LineWatcher`: fetches platform line facts from FanDuel, PrizePicks, and Kalshi providers, then computes consensus + divergence.
-- `OpponentContextScout`: adds vs-opponent context when the opponent can be resolved.
-- `InjuryScout`: currently a stub that still emits provenance and `fallbackReason`.
+- `SPORTSDATAIO_API_KEY` (required for live stats)
+- `ODDS_API_KEY` (required for live lines)
+- `SPORTSDATAIO_BASE_URL` (optional override for dev/testing)
+- `ODDS_API_BASE_URL` (optional override for dev/testing)
 
-## Provenance contract
+Do **not** expose provider keys via `NEXT_PUBLIC_*` variables.
 
-Every fetched value is stored with:
+## Coverage expectations
 
-- `asOf`
-- `sources[]` (`provider`, `url`, `retrievedAt`)
+- Initial live coverage target is **NBA + NFL**.
+- `StatsScout` computes `L5/L10` hit rates as primary signal, with season average as reference baseline.
+- `OpponentContextScout` derives vs-opponent context from fetched logs (no extra endpoint required).
+- `LineWatcher` maps Odds API books into platform line facts and computes consensus/divergence.
 
-Any missing source path must include `fallbackReason` so UI can explain degraded mode.
+## Caching + rate limiting
 
-## Providers and config
+All provider HTTP calls go through `fetchJsonWithCache` + token-bucket `rateLimit` with provenance stamps:
 
-Provider registry lives in `src/core/providers/registry.ts` and is app-agnostic.
+- SportsDataIO logs TTL: **6h**
+- SportsDataIO season averages TTL: **24h**
+- SportsDataIO vs-opponent slice TTL: **24h**
+- Odds API TTL: **60s on game day**, otherwise **5m**
 
-- Stats providers are configured as `primary` + `fallback`.
-- Line providers are configured independently per platform.
-- If external providers require an API key, read keys server-side only and keep provider optional with fallback behavior for CI.
+Snapshot pipeline pre-batches unique players/events and fetches provider payloads once per set to avoid per-leg request explosion.
 
-## Caching + rate limits
+## Missing keys / CI-safe behavior
 
-`src/core/sources/fetchJsonWithCache.ts` and `fetchHtmlWithCache.ts` support:
+When provider keys are missing:
 
-- Runtime store cache (`web_cache` records)
-- Optional local filesystem cache in dev (`cacheDir`)
-- TTL checks per URL + params
-- Token-bucket rate limiting per source (`rateLimit.ts`)
-
-This prevents repeated slip/snapshot runs from hammering upstreams.
-
-## Snapshot wiring
-
-`buildResearchSnapshot` now resolves legs from slip-like subject input and stores `legHitProfiles` with:
-
-- hit-rate profile (L5/L10 primary, season baseline reference, optional vs-opponent)
-- line context (platform lines, consensus line, divergence, warning)
-- verdict + risk tag
-- provenance and fallback reason
-
-Replay UI renders these values in **Hit Profile** and **Line Context** sections and highlights the weakest leg.
+- Registry falls back to deterministic demo providers.
+- Snapshot build continues without throw.
+- Scouts annotate `fallbackReason` + provenance so UI can explain degraded mode.
+- Tests run without network/secrets by mocking provider fetch internals.

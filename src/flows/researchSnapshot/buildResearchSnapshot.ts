@@ -30,6 +30,7 @@ import {
   type InsightType
 } from '../../core/insights/insightGraph';
 import { asMarketType, type MarketType } from '../../core/markets/marketType';
+import { createProviderRegistry } from '../../core/providers/registry';
 import {
   logAgentRecommendation,
   logFinalRecommendation
@@ -66,6 +67,11 @@ const extractOpponent = (subject: string): string | undefined => {
   const match = subject.match(/([^:@\s]+)@([^:\s]+)/);
   if (!match) return undefined;
   return match[2];
+};
+
+const extractSport = (subject: string): string => {
+  const [sport] = subject.split(':');
+  return sport?.toUpperCase() || 'NBA';
 };
 
 const deriveLegs = (subject: string, marketType: MarketType): ExtractedLeg[] => {
@@ -243,14 +249,60 @@ export const buildResearchSnapshot = async (
   }));
 
   const legs = deriveLegs(input.subject, scopedMarketType).slice(0, 6);
-  const opponent = extractOpponent(input.subject);
+  const opponentTeamId = extractOpponent(input.subject);
+  const sport = extractSport(input.subject);
+  const providers = createProviderRegistry(env);
+  const uniquePlayers = [...new Set(legs.map((leg) => leg.selection).filter(Boolean))];
+  const uniqueEventIds = [...new Set((await providers.oddsProvider.fetchEvents({ sport })).events.map((event) => event.id))];
+  const [recentLogs, seasonAverages, marketOdds] = await Promise.all([
+    providers.statsProvider.fetchRecentPlayerGameLogs({ sport, playerIds: uniquePlayers, limit: 10 }),
+    providers.statsProvider.fetchSeasonPlayerAverages({ sport, playerIds: uniquePlayers }),
+    providers.oddsProvider.fetchEventOdds({ sport, eventIds: uniqueEventIds, marketType: scopedMarketType })
+  ]);
+
+  const sharedFallbackReason = [
+    recentLogs.fallbackReason,
+    seasonAverages.fallbackReason,
+    marketOdds.fallbackReason
+  ].filter(Boolean).join('; ') || undefined;
+
   const legHitProfiles = await Promise.all(
     legs.map(async (leg) => {
       const marketType = asMarketType(leg.market, scopedMarketType);
+      const vsOpponentLogs = (recentLogs.byPlayerId[leg.selection] ?? [])
+        .filter((log) => !opponentTeamId || log.opponentTeamId === opponentTeamId)
+        .slice(0, 5);
+
       const [stats, lines, context, injury] = await Promise.all([
-        runStatsScout({ player: leg.selection, marketType, opponent }),
-        runLineWatcher({ player: leg.selection, marketType }),
-        runOpponentContextScout({ player: leg.selection, opponent }),
+        runStatsScout({
+          sport,
+          playerId: leg.selection,
+          marketType,
+          opponentTeamId,
+          preload: {
+            recentByPlayerId: recentLogs.byPlayerId,
+            seasonByPlayerId: seasonAverages.byPlayerId,
+            provenanceSources: [...recentLogs.provenance.sources, ...seasonAverages.provenance.sources],
+            fallbackReason: sharedFallbackReason
+          }
+        }),
+        runLineWatcher({
+          sport,
+          eventIds: uniqueEventIds,
+          player: leg.selection,
+          marketType,
+          preload: {
+            platformLines: marketOdds.platformLines,
+            provenanceSources: marketOdds.provenance.sources,
+            fallbackReason: marketOdds.fallbackReason
+          }
+        }),
+        runOpponentContextScout({
+          opponentTeamId,
+          logs: vsOpponentLogs,
+          provenanceSources: recentLogs.provenance.sources,
+          fallbackReason: opponentTeamId ? undefined : 'opponent_unavailable'
+        }),
         runInjuryScout()
       ]);
 

@@ -1,31 +1,30 @@
-import { createHash } from 'node:crypto';
-
 import { buildProvenance } from '../../core/sources/provenance';
+import type { GameLog } from '../../core/providers/sportsdataio';
 import type { OpponentContextResult } from './types';
 
-const hashNumber = (seed: string): number => Number.parseInt(createHash('sha1').update(seed).digest('hex').slice(0, 6), 16);
+const averagePoints = (logs: GameLog[]): number | undefined => {
+  const values = logs.map((log) => log.stats.points).filter((v): v is number => typeof v === 'number');
+  if (values.length === 0) return undefined;
+  return Number((values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(2));
+};
 
 export const runOpponentContextScout = async (input: {
-  player: string;
-  opponent?: string;
+  opponentTeamId?: string;
+  logs?: GameLog[];
+  provenanceSources?: Array<{ provider: string; url: string; retrievedAt: string }>;
+  fallbackReason?: string;
 }): Promise<OpponentContextResult> => {
-  if (!input.opponent) {
+  if (!input.opponentTeamId) {
     return {
       provenance: buildProvenance([]),
       fallbackReason: 'opponent_unavailable'
     };
   }
 
-  const base = hashNumber(`${input.player}:${input.opponent}`);
+  const vsOpponent = averagePoints(input.logs ?? []);
   return {
-    defenseRank: (base % 30) + 1,
-    vsOpponent: Number((10 + (base % 180) / 10).toFixed(1)),
-    provenance: buildProvenance([
-      {
-        provider: 'opponent-context',
-        url: `https://context.example.com/opponent/${encodeURIComponent(input.opponent)}`,
-        retrievedAt: new Date().toISOString()
-      }
-    ])
+    vsOpponent,
+    provenance: buildProvenance(input.provenanceSources ?? []),
+    fallbackReason: input.fallbackReason
   };
 };

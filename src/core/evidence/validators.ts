@@ -19,7 +19,7 @@ const SourceReferenceSchema = z.object({
 });
 
 const PlatformLineFactSchema = z.object({
-  platform: z.enum(['FanDuel', 'PrizePicks', 'Kalshi']),
+  platform: z.string().min(1),
   marketType: MarketTypeSchema,
   player: z.string().min(1),
   line: z.number(),

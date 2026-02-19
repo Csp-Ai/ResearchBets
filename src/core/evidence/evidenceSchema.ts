@@ -33,7 +33,7 @@ export interface SourceReference {
 }
 
 export interface PlatformLineFact {
-  platform: 'FanDuel' | 'PrizePicks' | 'Kalshi';
+  platform: string;
   marketType: MarketType;
   player: string;
   line: number;
