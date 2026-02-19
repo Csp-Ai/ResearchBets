@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { ControlPlaneEvent } from '../control-plane/events';
 import { getRequiredSupabaseServiceEnv } from '../supabase/env';
+
+import { isMissingAnalyticsSchemaError } from './analyticsSchemaGuard';
 import type { ResearchReport } from '../evidence/evidenceSchema';
 
 import type {
@@ -216,22 +218,38 @@ export class SupabaseRuntimeStore implements RuntimeStore {
   }
 
   async saveEvent(event: ControlPlaneEvent): Promise<void> {
-    const { error } = await this.client.from(TABLES.events).insert(event);
-    if (error) throw error;
+    const { error } = await this.client.from(TABLES.events).insert({
+      ...event,
+      created_at: event.timestamp
+    });
+    if (!error) return;
+
+    if (isMissingAnalyticsSchemaError(error)) {
+      console.warn('⚠️ Skipping events_analytics insert because analytics schema is not ready.', error.message);
+      return;
+    }
+
+    throw error;
   }
 
   async listEvents(query: { traceId?: string; limit?: number } = {}): Promise<ControlPlaneEvent[]> {
     let dbQuery = this.client
       .from(TABLES.events)
       .select('*')
-      .order('timestamp', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(query.limit ?? 50);
     if (query.traceId) dbQuery = dbQuery.eq('trace_id', query.traceId);
     const { data, error } = await dbQuery;
-    if (error) throw error;
+    if (error) {
+      if (isMissingAnalyticsSchemaError(error)) {
+        console.warn('⚠️ Returning empty analytics events because analytics schema is not ready.', error.message);
+        return [];
+      }
+      throw error;
+    }
     return (data ?? []).map((row) => ({
       event_name: row.event_name as ControlPlaneEvent['event_name'],
-      timestamp: row.timestamp as string,
+      timestamp: (row.created_at as string | null) ?? (row.timestamp as string),
       request_id: row.request_id as string,
       trace_id: row.trace_id as string,
       run_id: (row.run_id as string | null) ?? undefined,
@@ -529,7 +547,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       claim: row.claim as string,
       evidence: (row.evidence as InsightNodeRecord['evidence']) ?? [],
       confidence: Number(row.confidence),
-      timestamp: row.timestamp as string,
+      timestamp: (row.created_at as string | null) ?? (row.timestamp as string),
       decayHalfLife: Number(row.decay_half_life ?? row.decay_half_life_minutes),
       decayHalfLifeMinutes: Number(row.decay_half_life_minutes),
       attribution: (row.attribution as InsightNodeRecord['attribution'] | null) ?? undefined,
