@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -26,10 +27,31 @@ function loadDotEnvLocal() {
   }
 }
 
+function runSchemaCheckWithGuidance() {
+  const result = spawnSync(process.execPath, ['scripts/supabase-schema-check.mjs'], {
+    env: process.env,
+    encoding: 'utf8'
+  });
+
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+
+  if (result.status === 0) return;
+
+  const combined = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+  if (combined.includes('missing inspect_public_columns rpc')) {
+    console.error('❌ Schema check failed: missing RPC. Run: supabase db push');
+  } else if (combined.includes('postgrest schema cache may be stale')) {
+    console.error('❌ Schema check failed after migrations. Wait 30-60s then retry.');
+  }
+
+  process.exit(result.status ?? 1);
+}
+
 loadDotEnvLocal();
 
 runNpm(['run', 'env:check']);
-runNpm(['run', 'supabase:schema:check']);
+runSchemaCheckWithGuidance();
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();

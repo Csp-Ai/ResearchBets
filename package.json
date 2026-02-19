@@ -20,7 +20,9 @@
     "supabase:link": "supabase link",
     "supabase:push": "supabase db push",
     "supabase:reset": "node scripts/supabase-reset-confirm.mjs",
-    "supabase:health": "node scripts/supabase-health.mjs"
+    "supabase:health": "node scripts/supabase-health.mjs",
+    "supabase:setup": "node scripts/supabase-setup.mjs",
+    "supabase:setup:ci": "node scripts/supabase-setup.mjs --ci"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
