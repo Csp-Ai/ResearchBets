@@ -82,7 +82,7 @@ export function LandingHero() {
       variants={sectionRevealVariants}
       initial="hidden"
       animate="visible"
-      className="relative isolate min-h-[100svh] overflow-hidden px-4 py-6 sm:px-6 lg:px-10"
+      className="relative isolate min-h-screen overflow-x-hidden px-4 py-6 sm:px-6 lg:px-10"
     >
       <HeroDepthLayer />
       <AgentNetworkBackground active={timeline.parsingActive} />
@@ -92,7 +92,7 @@ export function LandingHero() {
         variants={staggerGroup}
         initial="hidden"
         animate="visible"
-        className="relative z-20 mx-auto grid h-[calc(100svh-3rem)] w-full max-w-[1400px] grid-rows-[auto_1fr_auto] gap-4 md:gap-3 lg:gap-2 md:[grid-template-rows:clamp(194px,24svh,252px)_minmax(0,1fr)_auto]"
+        className="relative z-20 mx-auto grid w-full max-w-[1400px] grid-rows-[auto_1fr_auto] gap-4 md:gap-3 lg:gap-2"
       >
         <div className="pointer-events-auto row-start-1 flex items-end">
           <div className="max-w-[36rem] pb-1.5 sm:pb-2">
@@ -124,14 +124,14 @@ export function LandingHero() {
           </div>
         </div>
 
-        <div className="row-start-2 flex h-[calc(100svh-clamp(194px,24svh,252px)-4.5rem)] items-center justify-center md:h-[calc(100svh-clamp(194px,24svh,252px)-5rem)]">
-          <motion.div variants={staggerItem} className="terminal-shell-outer relative h-full w-full rounded-2xl p-1.5 sm:p-2 md:w-[min(78vw,1280px)]">
+        <div className="row-start-2 flex items-center justify-center">
+          <motion.div variants={staggerItem} className="terminal-shell-outer relative w-full rounded-2xl p-1.5 sm:p-2 md:w-[min(78vw,1280px)]">
             <div
-              className={`terminal-shell-inner relative h-full rounded-[1.1rem] p-3 sm:p-4 lg:p-5 ${
+              className={`terminal-shell-inner relative rounded-[1.1rem] p-3 sm:p-4 lg:p-5 ${
                 timeline.parsingActive && !shouldReduceMotion ? 'terminal-panel-active' : ''
               } ${commandPulse ? 'terminal-command-pulse' : ''}`}
             >
-              <div className="terminal-panel relative h-full rounded-xl border border-slate-700/90 bg-slate-950/72 p-3 sm:p-4 lg:p-5">
+              <div className="terminal-panel relative rounded-xl border border-slate-700/90 bg-slate-950/72 p-3 sm:p-4 lg:p-5">
                 <p className="parse-status text-[10px] uppercase tracking-[0.2em] text-slate-300">Live Analysis Simulation</p>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
