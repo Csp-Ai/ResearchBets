@@ -4,10 +4,18 @@
 
 :root {
   color-scheme: dark;
+  --surface-0: #020617;
+  --surface-1: #0b1221;
+  --surface-2: #111a2d;
+  --border-subtle: rgba(148, 163, 184, 0.22);
+  --text-muted: rgba(203, 213, 225, 0.72);
+  --text-strong: rgba(248, 250, 252, 0.98);
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  background: var(--surface-0);
+  color: var(--text-strong);
+  @apply antialiased;
 }
 
 .terminal-shell-outer {
@@ -249,6 +257,28 @@ body {
 }
 
 @layer components {
+  .rb-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.22);
+    @apply rounded-2xl p-6;
+  }
+
+  .rb-hero {
+    background: var(--surface-2);
+    box-shadow: 0 18px 50px rgba(2, 6, 23, 0.38);
+    @apply p-7 md:p-8;
+  }
+
+  .rb-btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 active:translate-y-px;
+  }
+
+  .rb-chip {
+    border: 1px solid var(--border-subtle);
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium;
+  }
+
   .tone-strong { @apply border-emerald-500/40 bg-emerald-500/10 text-emerald-100; }
   .tone-caution { @apply border-amber-500/40 bg-amber-500/10 text-amber-100; }
   .tone-weak { @apply border-rose-500/40 bg-rose-500/10 text-rose-100; }

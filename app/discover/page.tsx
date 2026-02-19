@@ -37,16 +37,16 @@ export default function DiscoverPage() {
   const dedupedLegs = useMemo(() => Array.from(new Map(draftLegs.map((leg) => [leg.id, leg])).values()), [draftLegs]);
 
   return (
-    <section className="space-y-4">
-      <header>
-        <h1 className="text-3xl font-semibold">Build Slip</h1>
-        <p className="text-sm text-slate-400">Ranked props on the left, your slip builder on the right.</p>
+    <section className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold">Build Slip</h1>
+        <p className="text-sm text-slate-400">Start your slip, then move to Analyze for a final verdict.</p>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           <GamesToday games={TODAY_GAMES} onAddLeg={(leg) => setDraftLegs((current) => [...current, leg])} />
-          <button type="button" className="rounded border border-slate-700 px-3 py-1 text-xs" onClick={() => setShowHeatmap((value) => !value)}>
+          <button type="button" className="rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-medium" onClick={() => setShowHeatmap((value) => !value)}>
             {showHeatmap ? 'Hide heatmap view' : 'Show heatmap view'}
           </button>
           {showHeatmap ? <PlayerPropHeatmap players={HEATMAP_PLAYERS} /> : null}

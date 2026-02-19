@@ -16,10 +16,10 @@ describe('AppShell', () => {
       </AppShell>
     );
 
-    expect(html).toContain('Dashboard');
-    expect(html).toContain('Ingest');
-    expect(html).toContain('Research');
+    expect(html).toContain('Analyze');
+    expect(html).toContain('Build');
     expect(html).toContain('Bets');
-    expect(html).toContain('Traces');
+    expect(html).toContain('Settings');
+    expect(html).toContain('ResearchBets');
   });
 });
