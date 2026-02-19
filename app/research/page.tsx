@@ -18,6 +18,10 @@ import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidato
 import { runUiAction } from '@/src/core/ui/actionContract';
 import { buildNavigationHref } from '@/src/core/ui/navigation';
 import { useTraceEvents } from '@/src/hooks/useTraceEvents';
+import { EmptyState } from '@/src/components/terminal/AsyncState';
+import { PageHeader } from '@/src/components/terminal/PageHeader';
+import { RightRailInspector } from '@/src/components/terminal/RightRailInspector';
+import { StatusBadge, TraceBadge } from '@/src/components/terminal/TrustPrimitives';
 
 type GameRow = {
   gameId: string;
@@ -157,6 +161,44 @@ function ResearchPageContent() {
     [events, liveMode, replayTimestamp]
   );
   const selectedNode = GRAPH_NODES.find((node) => node.id === selectedNodeId);
+
+  const inspectorSummary = useMemo(() => {
+    const assumptions = new Set<string>();
+    const sources = new Set<string>();
+    const agents = new Map<string, { id: string; snippet: string; timestamp?: string }>();
+    let confidence: number | null = null;
+    let updatedAt: string | undefined;
+
+    for (const event of events) {
+      const payload = event.payload ?? {};
+      const possibleAssumptions = payload.assumptions;
+      if (Array.isArray(possibleAssumptions)) {
+        possibleAssumptions.forEach((item) => assumptions.add(String(item)));
+      }
+      const possibleSources = payload.sources;
+      if (Array.isArray(possibleSources)) {
+        possibleSources.forEach((item) => sources.add(String(item)));
+      }
+      if (typeof payload.confidence === 'number') confidence = payload.confidence;
+      if (typeof payload.agent_id === 'string') {
+        agents.set(payload.agent_id, {
+          id: payload.agent_id,
+          snippet: JSON.stringify(payload, null, 2).slice(0, 500),
+          timestamp: event.created_at,
+        });
+      }
+      updatedAt = event.created_at ?? updatedAt;
+    }
+
+    return {
+      confidence,
+      assumptions: [...assumptions],
+      sources: [...sources],
+      agents: [...agents.values()],
+      updatedAt,
+      provenance: events.length > 0 ? ('Live' as const) : ('Demo' as const),
+    };
+  }, [events]);
 
   const latestDecisionPayload = useMemo(() => {
     for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -354,9 +396,32 @@ function ResearchPageContent() {
 
   return (
     <section className="space-y-6">
-      <TerminalLoopShell traceId={chainTraceId} />
+      <PageHeader
+        title="Research Workspace"
+        subtitle="Three-pane terminal: extracted legs, insights, and persistent trust inspector."
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={loading ? 'running' : error ? 'error' : events.length > 0 ? 'complete' : 'waiting'} />
+            <TraceBadge traceId={chainTraceId} />
+          </div>
+        }
+      />
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_330px]">
+        <aside className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <h2 className="text-sm font-semibold">Slip Legs Panel</h2>
+          <p className="text-xs text-slate-400">Use ingest extraction output or manually curate legs for this run.</p>
+          {activeGame ? (
+            <div className="rounded border border-slate-700 bg-slate-950/70 p-2 text-xs">
+              {activeGame.label} · {activeGame.league}
+            </div>
+          ) : (
+            <EmptyState title="No extracted legs" description="Select a game or run ingest to attach legs." />
+          )}
+          <TerminalLoopShell traceId={chainTraceId} />
+        </aside>
+
+        <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
         <h1 className="text-2xl font-semibold">Research Terminal Log</h1>
         <p className="text-sm text-slate-400">
           Snapshot: {snapshotId || 'Not started'} · Trace: {traceId || 'Pending'} · Active game:{' '}
@@ -545,7 +610,17 @@ function ResearchPageContent() {
             />
           </div>
         ) : null}
-      </section>
+        </section>
+
+        <RightRailInspector
+          traceId={chainTraceId || null}
+          runId={snapshotId || null}
+          sessionId={null}
+          loading={loading}
+          error={error}
+          summary={inspectorSummary}
+        />
+      </div>
     </section>
   );
 }
