@@ -22,7 +22,12 @@
     "supabase:reset": "node scripts/supabase-reset-confirm.mjs",
     "supabase:health": "node scripts/supabase-health.mjs",
     "supabase:setup": "node scripts/supabase-setup.mjs",
-    "supabase:setup:ci": "node scripts/supabase-setup.mjs --ci"
+    "supabase:setup:ci": "node scripts/supabase-setup.mjs --ci",
+    "audit:routes": "node scripts/audit/routes-manifest.mjs",
+    "audit:app-root": "node scripts/audit/assert-single-app-root.mjs",
+    "audit:security": "node scripts/audit/security-guards.mjs",
+    "audit:unused": "node scripts/audit/unused-report.mjs",
+    "audit:unused:ci": "node scripts/audit/unused-ci.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
@@ -41,6 +46,7 @@
     "dotenv": "^17.3.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
+    "knip": "^5.84.1",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
     "tailwindcss": "^3.4.17",

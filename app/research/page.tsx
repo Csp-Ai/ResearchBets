@@ -1,23 +1,18 @@
 'use client';
 
 import { Suspense, useMemo, useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import {
-  AgentNodeGraph,
-  GRAPH_NODES,
-  reconstructGraphState,
-  type ControlPlaneEvent
-} from '@/src/components/AgentNodeGraph';
+import { GRAPH_NODES, reconstructGraphState, type ControlPlaneEvent } from '@/src/components/AgentNodeGraph';
 import { DecisionBoardHeader } from '@/src/components/bettor/DecisionBoardHeader';
 import { LegTable } from '@/src/components/bettor/LegTable';
 import { FixSlipDrawer } from '@/src/components/bettor/FixSlipDrawer';
 import { GuidedActionsCard } from '@/src/components/bettor/GuidedActionsCard';
 import { ProgressStrip } from '@/src/components/bettor/ProgressStrip';
 import type { SlipLeg } from '@/src/components/bettor/bettorDerivations';
-import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
-import { TraceReplayControls } from '@/src/components/TraceReplayControls';
+
 import { DecisionCard, type DecisionCardData } from '@/src/components/DecisionCard';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
 import { validateCopyPolicyInDev } from '@/src/core/policy/copyPolicyDevValidator';
@@ -64,6 +59,10 @@ const RESEARCH_PAGE_COPY = [
   'Research output supports decisions; it is not deterministic advice.',
   'Market search (falls through to best-available demo games for terminal continuity)'
 ] as const;
+
+const AgentNodeGraph = dynamic(() => import('@/src/components/AgentNodeGraph').then((mod) => mod.AgentNodeGraph), { ssr: false });
+const EvidenceDrawer = dynamic(() => import('@/src/components/EvidenceDrawer').then((mod) => mod.EvidenceDrawer), { ssr: false });
+const TraceReplayControls = dynamic(() => import('@/src/components/TraceReplayControls').then((mod) => mod.TraceReplayControls), { ssr: false });
 
 function parseLegs(rawLegs: string | null): SlipLeg[] {
   if (!rawLegs) return [];
@@ -370,6 +369,12 @@ function ResearchPageContent() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="space-y-4">
+          <div className="rounded-xl border border-cyan-500/40 bg-slate-950/70 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-cyan-200">Decision-first summary</p>
+            <p className="mt-1 text-sm text-slate-300">Confidence, strongest/weakest legs, and risk flags first. Open advanced trace only when needed.</p>
+            <div className="mt-3"><DecisionCard data={researchDecisionCard} /></div>
+          </div>
+
           <DecisionBoardHeader
             traceId={chainTraceId}
             legs={legs}
@@ -424,8 +429,6 @@ function ResearchPageContent() {
               <button type="submit" className="rounded bg-sky-600 px-3 py-2 font-medium">Log position</button>
             </form>
             <p className="mt-2 text-xs text-slate-400">{status}</p>
-            <div className="mt-3"><DecisionCard data={researchDecisionCard} /></div>
-
             <button type="button" onClick={() => setAdvancedView((current) => !current)} className="mt-3 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-cyan-400/70" aria-pressed={advancedView}>
               {advancedView ? 'Hide Advanced Trace' : 'Advanced Trace'}
             </button>

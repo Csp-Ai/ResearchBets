@@ -1,0 +1,55 @@
+{
+  "canonicalAppRoot": "app",
+  "routes": [
+    {
+      "route": "/dashboard",
+      "pageFile": "app/dashboard/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/ingest",
+      "pageFile": "app/ingest/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/live/[gameId]",
+      "pageFile": "app/live/[gameId]/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/live",
+      "pageFile": "app/live/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/",
+      "pageFile": "app/page.tsx",
+      "hasLayout": true
+    },
+    {
+      "route": "/pending-bets",
+      "pageFile": "app/pending-bets/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/research",
+      "pageFile": "app/research/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/research/snapshot/[snapshotId]",
+      "pageFile": "app/research/snapshot/[snapshotId]/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/traces/[trace_id]",
+      "pageFile": "app/traces/[trace_id]/page.tsx",
+      "hasLayout": false
+    },
+    {
+      "route": "/traces",
+      "pageFile": "app/traces/page.tsx",
+      "hasLayout": false
+    }
+  ]
+}

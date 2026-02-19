@@ -38,8 +38,14 @@ Keep these files clean and declarative; they are the highest-value context for C
 - `src/core/slips/extract.ts`
 - `src/agents/researchSnapshot/ResearchSnapshotAgent.ts`
 
-## Local Development
+## Runtime & Workspace Policy
 
+- **Node.js policy**: Node 20.x (matches CI and GitHub Actions).
+- **Package manager policy**: npm + `package-lock.json` are canonical.
+- **Canonical Next.js app root**: `app/` (top-level). `apps/web/app` must not contain active routes.
+- **Supabase mode**: local development may target hosted Supabase or local stack, but required client keys must be in `.env.local` and `SUPABASE_SERVICE_ROLE_KEY` remains server-only.
+
+## Local Development
 
 For the full operational path (fresh clone through schema verification and health checks), see `docs/SETUP.md`.
 

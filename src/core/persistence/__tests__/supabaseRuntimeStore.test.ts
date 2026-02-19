@@ -36,6 +36,7 @@ describe('SupabaseRuntimeStore listEvents', () => {
     const events = await store.listEvents({ limit: 10 });
 
     expect(events).toHaveLength(1);
-    expect(events[0].timestamp).toBe('2026-02-19T00:00:00.000Z');
+    expect(events[0]).toBeDefined();
+    expect(events[0]?.timestamp).toBe('2026-02-19T00:00:00.000Z');
   });
 });

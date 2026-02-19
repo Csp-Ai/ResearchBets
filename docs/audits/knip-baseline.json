@@ -1,0 +1,1053 @@
+{
+  "files": [
+    "app/api/events/__tests__/route.test.ts",
+    "tests/DecisionCard.test.tsx",
+    "tests/ParlayRisk.test.ts",
+    "tests/SnapshotRender.test.tsx",
+    "tests/action-contract.test.ts",
+    "tests/agent-node-graph.test.ts",
+    "tests/agent-progress.test.ts",
+    "tests/api-envelope-routes.test.ts",
+    "tests/dashboard-policy.test.ts",
+    "tests/game-registry-parity.test.ts",
+    "tests/identifier-hygiene.test.ts",
+    "tests/insight-graph.test.ts",
+    "tests/leg-table.test.tsx",
+    "tests/measurement.test.ts",
+    "tests/metric-event-validator.test.ts",
+    "tests/odds-format.test.ts",
+    "tests/right-rail-inspector.test.tsx",
+    "tests/run-header-strip.test.tsx",
+    "tests/runtime-store-contract.test.ts",
+    "tests/runtime-store-provider.test.ts",
+    "tests/slip-submissions.test.ts",
+    "tests/slip-verdict-card.test.tsx",
+    "tests/terminal-loop-live-bindings.test.ts",
+    "tests/terminal-loop.test.ts",
+    "tests/terminal-schemas.test.ts",
+    "tests/trace-filters.test.ts",
+    "tests/traces-page-empty.test.tsx",
+    "tests/ui-terminal-shell.test.tsx",
+    "tests/wal.test.ts",
+    "src/agents/index.ts",
+    "src/agents/example/ExampleAgent.ts",
+    "src/agents/researchSnapshot/ResearchSnapshotAgent.ts",
+    "src/agents/system/ResearchOpsAgent.ts",
+    "src/core/agent-runtime/errors.ts",
+    "src/core/agent-runtime/executeAgent.ts",
+    "src/core/agent-runtime/runFromRegistry.ts",
+    "src/core/agent-runtime/trace.ts",
+    "src/core/agent-runtime/types.ts",
+    "src/core/agent-runtime/validate.ts",
+    "src/core/connectors/OddsConnector.ts",
+    "src/core/evidence/citation.ts",
+    "src/core/evidence/confidence.ts",
+    "src/core/games/catalog.ts",
+    "src/core/live/liveActions.ts",
+    "src/core/persistence/memoryReportStore.ts",
+    "src/core/persistence/reportStore.ts",
+    "src/core/persistence/supabaseReportStore.ts",
+    "src/core/sources/types.ts",
+    "src/agents/researchSnapshot/__tests__/ResearchSnapshotAgent.test.ts",
+    "src/agents/system/__tests__/ResearchOpsAgent.test.ts",
+    "src/core/agent-runtime/__tests__/executeAgent.test.ts",
+    "src/core/agent-runtime/__tests__/runtime-enforcement.test.ts",
+    "src/core/heuristics/__tests__/microstructure.test.ts",
+    "src/core/live/__tests__/liveActions.test.ts",
+    "src/core/live/__tests__/liveInsights.test.ts",
+    "src/core/live/__tests__/polling.test.ts",
+    "src/core/markets/__tests__/impliedProbabilities.test.ts",
+    "src/core/markets/__tests__/marketData.test.ts",
+    "src/core/markets/__tests__/marketType.test.ts",
+    "src/core/persistence/__tests__/supabaseRuntimeStore.test.ts",
+    "src/core/persistence/__tests__/supabaseSchemaCheckHelper.test.ts",
+    "src/core/policy/__tests__/copyPolicy.test.ts",
+    "src/core/slips/__tests__/extract.test.ts",
+    "src/core/slips/__tests__/playerPropInput.test.ts",
+    "src/core/slips/__tests__/propInsights.test.ts",
+    "src/core/sources/mock/MockInjuryProvider.ts",
+    "src/core/sources/mock/MockOddsProvider.ts",
+    "src/core/sources/mock/MockStatsProvider.ts",
+    "src/core/ui/__tests__/actionContract.test.ts"
+  ],
+  "issues": [
+    {
+      "file": "package.json",
+      "dependencies": [
+        {
+          "name": "clsx",
+          "line": 34,
+          "col": 6,
+          "pos": 1269
+        }
+      ],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [
+        {
+          "name": "supabase"
+        }
+      ],
+      "unresolved": [],
+      "exports": [],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/identifiers/session.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "getStoredAnonSessionId",
+          "line": 3,
+          "col": 14,
+          "pos": 67
+        },
+        {
+          "name": "hasPlaceholderIdentifier",
+          "line": 19,
+          "col": 14,
+          "pos": 646
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/contracts/terminalSchemas.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "MarketGameSchema",
+          "line": 9,
+          "col": 14,
+          "pos": 185
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/control-plane/idempotency.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "clearIdempotencyStore",
+          "line": 61,
+          "col": 14,
+          "pos": 1793
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/measurement/oddsFormat.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "calculateRoiPercent",
+          "line": 53,
+          "col": 14,
+          "pos": 1771
+        }
+      ],
+      "types": [
+        {
+          "name": "NormalizedOdds",
+          "line": 3,
+          "col": 18,
+          "pos": 79
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/games/registry.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "getAllGames",
+          "line": 34,
+          "col": 17,
+          "pos": 1163
+        }
+      ],
+      "types": [
+        {
+          "name": "CanonicalGame",
+          "line": 1,
+          "col": 18,
+          "pos": 17
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/measurement/odds.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "captureOddsSnapshot",
+          "line": 46,
+          "col": 14,
+          "pos": 1305
+        },
+        {
+          "name": "acquireAndCaptureOddsSnapshot",
+          "line": 105,
+          "col": 14,
+          "pos": 3442
+        }
+      ],
+      "types": [
+        {
+          "name": "CaptureOddsInput",
+          "line": 15,
+          "col": 18,
+          "pos": 533
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/measurement/results.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "acquireAndIngestGameResult",
+          "line": 70,
+          "col": 14,
+          "pos": 2686
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/measurement/settlement.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "settleRecommendation",
+          "line": 51,
+          "col": 14,
+          "pos": 1752
+        },
+        {
+          "name": "settleBet",
+          "line": 122,
+          "col": 14,
+          "pos": 4337
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/insights/insightGraph.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "createInsightId",
+          "line": 72,
+          "col": 17,
+          "pos": 1542
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "features/landing/motionTokens.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "landingTransition",
+          "line": 12,
+          "col": 14,
+          "pos": 255
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/agents/progress.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "normalizeAgentKey",
+          "line": 20,
+          "col": 17,
+          "pos": 460
+        }
+      ],
+      "types": [
+        {
+          "name": "AgentTrack",
+          "line": 1,
+          "col": 13,
+          "pos": 12
+        },
+        {
+          "name": "AgentTrackState",
+          "line": 3,
+          "col": 18,
+          "pos": 66
+        },
+        {
+          "name": "ConsolidatedAgentProgress",
+          "line": 11,
+          "col": 18,
+          "pos": 247
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/live/polling.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "computeJitterMs",
+          "line": 24,
+          "col": 17,
+          "pos": 485
+        },
+        {
+          "name": "computeBackoffMs",
+          "line": 34,
+          "col": 17,
+          "pos": 794
+        }
+      ],
+      "types": [
+        {
+          "name": "LivePollEventName",
+          "line": 5,
+          "col": 13,
+          "pos": 92
+        },
+        {
+          "name": "LivePollEvent",
+          "line": 7,
+          "col": 13,
+          "pos": 166
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/agent-runtime/ids.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "createDeterministicRunId",
+          "line": 3,
+          "col": 14,
+          "pos": 68
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/control-plane/metricEventValidator.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "getMetricEventValidationMode",
+          "line": 53,
+          "col": 14,
+          "pos": 1624
+        },
+        {
+          "name": "metricEventSpecification",
+          "line": 93,
+          "col": 14,
+          "pos": 2962
+        }
+      ],
+      "types": [
+        {
+          "name": "MetricEventValidationMode",
+          "line": 3,
+          "col": 13,
+          "pos": 64
+        },
+        {
+          "name": "MetricEventValidationResult",
+          "line": 56,
+          "col": 18,
+          "pos": 1774
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/evidence/validators.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "EvidenceItemSchema",
+          "line": 3,
+          "col": 14,
+          "pos": 39
+        },
+        {
+          "name": "ClaimSchema",
+          "line": 19,
+          "col": 14,
+          "pos": 631
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/markets/impliedProbabilities.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "moneylineToProbability",
+          "line": 14,
+          "col": 17,
+          "pos": 318
+        }
+      ],
+      "types": [
+        {
+          "name": "ImpliedSideProbability",
+          "line": 1,
+          "col": 18,
+          "pos": 17
+        },
+        {
+          "name": "ImpliedProbabilityPair",
+          "line": 6,
+          "col": 18,
+          "pos": 102
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/policy/text.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "prohibitedPhrases",
+          "line": 8,
+          "col": 14,
+          "pos": 418
+        },
+        {
+          "name": "isPolicyCompliant",
+          "line": 10,
+          "col": 14,
+          "pos": 522
+        }
+      ],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/persistence/runtimeDb.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "persistenceDb",
+          "line": 43,
+          "col": 14,
+          "pos": 1173
+        },
+        {
+          "name": "resetRuntimeDb",
+          "line": 384,
+          "col": 14,
+          "pos": 12512
+        }
+      ],
+      "types": [
+        {
+          "name": "RuntimeDb",
+          "line": 23,
+          "col": 18,
+          "pos": 512
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/policy/copyPolicy.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [
+        {
+          "name": "BANNED_TOUT_PHRASES",
+          "line": 1,
+          "col": 14,
+          "pos": 13
+        },
+        {
+          "name": "ALLOWED_HEDGED_PATTERNS",
+          "line": 14,
+          "col": 14,
+          "pos": 226
+        },
+        {
+          "name": "findBannedCopyViolations",
+          "line": 30,
+          "col": 17,
+          "pos": 553
+        },
+        {
+          "name": "hasAllowedHedging",
+          "line": 38,
+          "col": 17,
+          "pos": 830
+        }
+      ],
+      "types": [
+        {
+          "name": "CopyPolicyViolation",
+          "line": 25,
+          "col": 13,
+          "pos": 474
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/components/bettor/bettorDerivations.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "SlipVerdictModel",
+          "line": 7,
+          "col": 13,
+          "pos": 294
+        },
+        {
+          "name": "LegInsightRow",
+          "line": 19,
+          "col": 13,
+          "pos": 599
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/policy/copyPolicyDevValidator.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "CopySource",
+          "line": 6,
+          "col": 13,
+          "pos": 181
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/ui/actionContract.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "ActionSource",
+          "line": 5,
+          "col": 13,
+          "pos": 92
+        },
+        {
+          "name": "ActionEnvelope",
+          "line": 6,
+          "col": 13,
+          "pos": 146
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/components/terminal/eventDerivations.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "RunStatus",
+          "line": 105,
+          "col": 13,
+          "pos": 3270
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/api/envelope.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "ApiEnvelope",
+          "line": 3,
+          "col": 13,
+          "pos": 67
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/markets/marketData.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "MarketSnapshot",
+          "line": 84,
+          "col": 18,
+          "pos": 1694
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/metrics/calibration.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "CalibrationBucket",
+          "line": 7,
+          "col": 18,
+          "pos": 252
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/flows/researchSnapshot/buildResearchSnapshot.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "BuildResearchSnapshotInput",
+          "line": 38,
+          "col": 18,
+          "pos": 1468
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/parlay/parlayRisk.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "ParlayCorrelationResult",
+          "line": 10,
+          "col": 18,
+          "pos": 244
+        },
+        {
+          "name": "ParlayStyle",
+          "line": 16,
+          "col": 13,
+          "pos": 437
+        },
+        {
+          "name": "AltLegSuggestion",
+          "line": 18,
+          "col": 18,
+          "pos": 507
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/live/playerProps.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "PlayerPropMomentum",
+          "line": 1,
+          "col": 18,
+          "pos": 17
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/heuristics/microstructure.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "HeuristicSignal",
+          "line": 3,
+          "col": 13,
+          "pos": 70
+        },
+        {
+          "name": "HeuristicMicrostructureResult",
+          "line": 15,
+          "col": 13,
+          "pos": 302
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/metrics/edgeRealization.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "EdgeRealizedPayload",
+          "line": 7,
+          "col": 18,
+          "pos": 252
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/slips/playerPropInput.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "PlayerPropSuggestion",
+          "line": 10,
+          "col": 18,
+          "pos": 202
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/connectors/connectorRegistry.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "ConnectorPolicyResult",
+          "line": 3,
+          "col": 18,
+          "pos": 98
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/insights/transparencyReportGenerator.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "TransparencyReport",
+          "line": 4,
+          "col": 18,
+          "pos": 146
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "src/core/web/fetcher.ts",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [
+        {
+          "name": "FetchResponse",
+          "line": 13,
+          "col": 18,
+          "pos": 423
+        }
+      ],
+      "enumMembers": {},
+      "duplicates": [],
+      "catalog": []
+    },
+    {
+      "file": "features/snapshot/SnapshotReplayView.tsx",
+      "dependencies": [],
+      "devDependencies": [],
+      "optionalPeerDependencies": [],
+      "unlisted": [],
+      "binaries": [],
+      "unresolved": [],
+      "exports": [],
+      "types": [],
+      "enumMembers": {},
+      "duplicates": [
+        [
+          {
+            "name": "SnapshotReplayView",
+            "line": 93,
+            "col": 2,
+            "pos": 2902
+          },
+          {
+            "name": "default",
+            "line": 268,
+            "col": 15,
+            "pos": 10804
+          }
+        ]
+      ],
+      "catalog": []
+    }
+  ]
+}
