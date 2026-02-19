@@ -39,14 +39,19 @@ export function PlayerPropHeatmap({ players, loading = false }: { players: Playe
   const marketColumns = normalizeHeatmapMarkets(['points', 'threes', 'rebounds', 'assists', 'pra']);
 
   if (loading) {
-    return <section className="rounded-xl border border-slate-800 bg-slate-900 p-4"><h3 className="text-lg font-semibold">Player prop heatmap</h3><div className="mt-3 h-28 animate-pulse rounded bg-slate-800/70" /></section>;
+    return (
+      <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <h3 className="text-lg font-semibold">Player prop heatmap</h3>
+        <div className="mt-3 h-28 animate-pulse rounded bg-slate-800/70" />
+      </section>
+    );
   }
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
       <h3 className="text-lg font-semibold">Player prop heatmap</h3>
-      <p className="mt-1 text-xs text-slate-400">Confidence = model score vs season baseline. Percentages are recent hit rates (last 5).</p>
-      <div className="mt-2 text-[11px] text-slate-500">Legend: &gt;=65% strong, 52-64% neutral, &lt;52% weak.</div>
+      <p className="mt-1 text-xs text-slate-400">Confidence = data completeness/signal strength (not model vs baseline). Percentages are recent hit rates (last 5).</p>
+      <div className="mt-2 text-[11px] text-slate-500">Legend: “Hot” = attention/targeting frequency (not recommendation). &gt;=65% strong, 52-64% neutral, &lt;52% weak.</div>
       <div className="mt-3 grid grid-cols-[160px_repeat(5,minmax(0,1fr))] gap-2 text-xs">
         <div className="text-slate-400">Player</div>
         {marketColumns.map((market) => (

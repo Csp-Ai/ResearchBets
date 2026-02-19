@@ -26,5 +26,7 @@ describe('PlayerPropHeatmap', () => {
 
     expect(html).toContain('Luka Doncic');
     expect(html).toContain('bg-emerald-500/30');
+    expect(html).toContain('Confidence = data completeness/signal strength');
+    expect(html).toContain('Hot');
   });
 });
