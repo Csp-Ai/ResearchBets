@@ -271,7 +271,11 @@ body {
   }
 
   .rb-btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 active:translate-y-px;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition duration-150 hover:bg-cyan-300 hover:shadow-[0_8px_20px_rgba(34,211,238,0.22)] active:translate-y-px active:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70;
+  }
+
+  .rb-btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/70 px-5 py-2.5 text-sm font-semibold text-slate-100 transition duration-150 hover:border-slate-500 hover:bg-slate-800 active:translate-y-px active:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/70;
   }
 
   .rb-chip {

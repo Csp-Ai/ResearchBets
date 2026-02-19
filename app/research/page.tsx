@@ -11,13 +11,33 @@ import { buildPropLegInsight } from '@/src/core/slips/propInsights';
 import {
   AdvancedDrawer,
   EmptyStateBettor,
+  HowItWorksMini,
   LegRankList,
+  RecentActivityPanel,
   SlipActionsBar,
   VerdictHero,
-  type AnalyzeLeg
+  type AnalyzeLeg,
+  type RecentRun
 } from '@/src/components/bettor/BettorFirstBlocks';
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)\nLeBron James over 6.5 rebounds (-105)`;
+
+function inferRunStatus(updatedAt: string): RecentRun['status'] {
+  const updatedMs = new Date(updatedAt).getTime();
+  if (Number.isFinite(updatedMs) && Date.now() - updatedMs <= 3 * 60 * 1000) return 'running';
+  return 'complete';
+}
+
+function loadRecentRunsFromStorage(traceId: string): RecentRun[] {
+  if (typeof window === 'undefined') return [];
+  const recents = JSON.parse(window.localStorage.getItem('rb-recent-trace-ids') ?? '[]') as string[];
+  const last = window.localStorage.getItem('rb-last-trace-id') ?? '';
+  const deduped = Array.from(new Set([last, ...recents].filter(Boolean))).slice(0, 3);
+  return deduped.map((id, index) => {
+    const updatedAt = new Date(Date.now() - index * 2 * 60 * 1000).toISOString();
+    return { traceId: id, updatedAt, status: inferRunStatus(updatedAt) };
+  });
+}
 
 export function ResearchPageContent() {
   const search = useSearchParams();
@@ -29,10 +49,15 @@ export function ResearchPageContent() {
   const [status, setStatus] = useState('');
   const [developerMode, setDeveloperMode] = useState(false);
   const [legs, setLegs] = useState<AnalyzeLeg[]>([]);
+  const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
   }, []);
+
+  useEffect(() => {
+    setRecentRuns(loadRecentRunsFromStorage(traceId));
+  }, [traceId]);
 
   useEffect(() => {
     if (!slipId || typeof window === 'undefined') return;
@@ -97,6 +122,11 @@ export function ResearchPageContent() {
     setStatus('Research refreshed.');
   };
 
+  const tryExample = () => {
+    const nextTraceId = createClientRequestId();
+    router.push(buildNavigationHref({ pathname: '/ingest', traceId: nextTraceId, params: { prefill: DEMO_SLIP } }));
+  };
+
   return (
     <section className="space-y-8">
       <header className="rb-card rb-hero" data-testid="research-primary-hero">
@@ -104,16 +134,16 @@ export function ResearchPageContent() {
           <div className="space-y-2">
             <h1 className="text-4xl font-semibold leading-tight">Analyze a bet</h1>
             <p className="text-sm text-slate-400">Get confidence, risk flags, and the exact leg that can break your slip.</p>
-            <button type="button" className="text-sm text-cyan-300 underline underline-offset-4" onClick={() => { setRawSlip(DEMO_SLIP); setPasteOpen(true); }}>Try an example</button>
+            <button type="button" className="text-sm text-cyan-300 underline underline-offset-4" onClick={tryExample}>Try an example</button>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="rb-btn-primary" onClick={() => setPasteOpen(true)}>Paste slip</button>
-            <Link href="/discover" className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold">Build slip</Link>
+            <Link href="/discover" className="rb-btn-secondary">Build slip</Link>
           </div>
         </div>
       </header>
 
-      <section className="space-y-6">
+      <section className="space-y-8">
         {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
           <>
             <VerdictHero confidence={confidence} weakestLeg={weakestLeg} reasons={reasons} />
@@ -124,6 +154,9 @@ export function ResearchPageContent() {
             </section>
           </>
         )}
+
+        <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(`/traces/${encodeURIComponent(recentTraceId)}`)} />
+        <HowItWorksMini />
       </section>
 
       <AdvancedDrawer developerMode={developerMode}>
@@ -141,7 +174,7 @@ export function ResearchPageContent() {
             <textarea className="mt-3 h-56 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm" value={rawSlip} onChange={(event) => setRawSlip(event.target.value)} placeholder="Paste each leg on a new line" />
             <div className="mt-3 flex gap-2">
               <button type="button" className="rb-btn-primary" onClick={() => void submitPaste()}>Analyze now</button>
-              <button type="button" className="rounded-xl border border-slate-700 px-4 py-2 text-sm" onClick={() => setPasteOpen(false)}>Cancel</button>
+              <button type="button" className="rb-btn-secondary" onClick={() => setPasteOpen(false)}>Cancel</button>
             </div>
           </div>
         </div>
