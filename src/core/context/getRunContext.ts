@@ -2,7 +2,7 @@ import { fetchCoverageAgentContext } from './coverageAgentProvider';
 import { fetchTrustedContext } from './trustedContextProvider';
 import type { TrustedContextBundle, TrustedContextItem } from './types';
 
-type RunContextInput = Parameters<typeof fetchTrustedContext>[0] & { legsText: string };
+type RunContextInput = Parameters<typeof fetchTrustedContext>[0] & { legsText: string; coverageAgentEnabled?: boolean };
 
 const normalize = (value?: string): string => (value ?? '').trim().toLowerCase();
 const canonical = (item: TrustedContextItem): string => `${normalize(item.kind)}|${normalize(item.subject.player ?? item.subject.playerId ?? item.subject.team ?? item.subject.teamId ?? item.headline)}`;
@@ -10,7 +10,7 @@ const asUnverified = (item: TrustedContextItem): TrustedContextItem => ({ ...ite
 
 export async function getRunContext(input: RunContextInput): Promise<TrustedContextBundle> {
   const trustedBundle = await fetchTrustedContext(input);
-  const enabled = process.env.ENABLE_COVERAGE_AGENT === 'true';
+  const enabled = input.coverageAgentEnabled ?? process.env.ENABLE_COVERAGE_AGENT === 'true';
   if (!enabled) return trustedBundle;
 
   const coverage = await fetchCoverageAgentContext({

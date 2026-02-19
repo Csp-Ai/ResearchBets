@@ -23,6 +23,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const [developerMode, setDeveloperMode] = useState(false);
 
+  const demoMode = useMemo(() => {
+    if (process.env.NODE_ENV !== 'development') return false;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+    return url.length === 0 || /^dummy([_-]|$)/i.test(url);
+  }, []);
+
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
     const onModeChange = () => setDeveloperMode(readDeveloperMode());
@@ -76,6 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </aside>
         <div className="space-y-6">
+          {demoMode ? <div className="rounded-lg border border-amber-700/50 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">Live Supabase disabled.</div> : null}
           {showWorkspaceLine ? (
             <div className="text-xs text-slate-500">
               <span>ResearchBets</span>
