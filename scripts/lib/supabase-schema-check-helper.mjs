@@ -51,11 +51,27 @@ export const REQUIRED_SCHEMA = {
   ]
 };
 
+export function validateInspectionRows(rows) {
+  if (!Array.isArray(rows)) {
+    throw new TypeError('inspect_public_columns RPC returned a non-array payload.');
+  }
+
+  for (const [index, row] of rows.entries()) {
+    if (typeof row?.table_name !== 'string' || typeof row?.column_name !== 'string') {
+      throw new TypeError(
+        `inspect_public_columns RPC row at index ${index} is invalid (expected table_name and column_name strings).`
+      );
+    }
+  }
+
+  return rows;
+}
+
 export function buildObservedMap(rows) {
   const observed = new Map();
-  for (const row of rows ?? []) {
-    const table = String(row.table_name);
-    const column = String(row.column_name);
+  for (const row of validateInspectionRows(rows ?? [])) {
+    const table = row.table_name;
+    const column = row.column_name;
     if (!observed.has(table)) observed.set(table, new Set());
     observed.get(table).add(column);
   }

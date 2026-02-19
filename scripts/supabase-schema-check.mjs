@@ -105,14 +105,11 @@ if (derivedProjectRef && linkedProjectRef && derivedProjectRef !== linkedProject
 
 const client = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 const tables = Object.keys(REQUIRED_SCHEMA);
-const { data, error } = await client
-  .from('information_schema.columns')
-  .select('table_name,column_name')
-  .eq('table_schema', 'public')
-  .in('table_name', tables);
+const { data, error } = await client.rpc('inspect_public_columns', { tables });
 
 if (error) {
-  console.error('❌ Failed to inspect Supabase schema:', error.message);
+  console.error('❌ Failed to inspect Supabase schema via inspect_public_columns RPC:', error.message);
+  console.error('Action: run `supabase db push`, then confirm this repo is linked to the same project as NEXT_PUBLIC_SUPABASE_URL.');
 
   if (isConnectivityError(error)) {
     console.error(
@@ -128,7 +125,15 @@ if (error) {
   process.exit(1);
 }
 
-const observed = buildObservedMap(data);
+let observed;
+try {
+  observed = buildObservedMap(data);
+} catch (mapError) {
+  console.error('❌ inspect_public_columns RPC returned an unexpected payload shape.');
+  console.error(`Details: ${mapError instanceof Error ? mapError.message : String(mapError)}`);
+  console.error('Action: run `supabase db push`, then confirm project link and NEXT_PUBLIC_SUPABASE_URL are correct.');
+  process.exit(1);
+}
 const issues = findSchemaMismatches(REQUIRED_SCHEMA, observed);
 
 if (issues.length > 0) {
