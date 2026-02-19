@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { ExampleVerdictBlock } from '@/src/components/landing/ExampleVerdictBlock';
+
 export default function HomePage() {
   return (
     <main className="space-y-6">
@@ -20,6 +22,8 @@ export default function HomePage() {
         <article className="rounded border border-slate-800 bg-slate-950/70 p-3"><p className="text-xs text-cyan-300">Step 2</p><p className="mt-1 text-sm font-medium">Fix slip</p><p className="mt-1 text-xs text-slate-400">See weakest leg, risk flags, and suggested edits fast.</p></article>
         <article className="rounded border border-slate-800 bg-slate-950/70 p-3"><p className="text-xs text-cyan-300">Step 3</p><p className="mt-1 text-sm font-medium">Track results</p><p className="mt-1 text-xs text-slate-400">Rerun research and log outcomes with trace transparency.</p></article>
       </section>
+
+      <ExampleVerdictBlock />
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
         <h2 className="text-lg font-semibold">Built for prop bettors & parlays</h2>
