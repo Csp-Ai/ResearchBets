@@ -10,8 +10,9 @@ import {
   reconstructGraphState,
   type ControlPlaneEvent
 } from '@/src/components/AgentNodeGraph';
-import { SlipVerdictCard } from '@/src/components/bettor/SlipVerdictCard';
+import { DecisionBoardHeader } from '@/src/components/bettor/DecisionBoardHeader';
 import { LegTable } from '@/src/components/bettor/LegTable';
+import { FixSlipDrawer } from '@/src/components/bettor/FixSlipDrawer';
 import type { SlipLeg } from '@/src/components/bettor/bettorDerivations';
 import { EvidenceDrawer } from '@/src/components/EvidenceDrawer';
 import { TraceReplayControls } from '@/src/components/TraceReplayControls';
@@ -132,10 +133,12 @@ function ResearchPageContent() {
   const [progress, setProgress] = useState(100);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [fixSlipOpen, setFixSlipOpen] = useState(false);
   const [searchText, setSearchText] = useState('NFL');
   const [games, setGames] = useState<GameRow[]>([]);
   const [activeGame, setActiveGame] = useState<GameRow | null>(null);
   const [legs, setLegs] = useState<SlipLeg[]>(() => parseLegs(search.get('legs')));
+  const showExploreDrawer = search.get('demo') === '1';
 
   const { events, loading, error, refresh } = useTraceEvents({
     traceId: chainTraceId,
@@ -328,19 +331,28 @@ function ResearchPageContent() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="space-y-4">
-          <SlipVerdictCard
+          <DecisionBoardHeader
             traceId={chainTraceId}
             legs={legs}
             events={events}
-            canTrackBet
-            onTrackBet={() => router.push('/pending-bets')}
+            onFixSlip={() => setFixSlipOpen(true)}
             onRerunResearch={() => void runAnalysis()}
-            onRemoveWeakestLeg={() => setLegs((current) => current.slice(0, -1))}
+          />
+
+          <FixSlipDrawer
+            open={fixSlipOpen}
+            legs={legs}
+            onClose={() => setFixSlipOpen(false)}
+            onLegsChange={setLegs}
+            onRerunResearch={() => {
+              setFixSlipOpen(false);
+              void runAnalysis();
+            }}
           />
 
           <LegTable legs={legs} events={events} traceId={chainTraceId} onLegsChange={setLegs} />
 
-          <div className="rounded border border-slate-800 bg-slate-950/50 p-3">
+          {showExploreDrawer ? <div className="rounded border border-slate-800 bg-slate-950/50 p-3">
             <p className="text-xs text-slate-400">Market search (falls through to best-available demo games for terminal continuity)</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <input value={searchText} onChange={(event) => setSearchText(event.target.value)} className="flex-1 rounded bg-slate-900 p-2 text-sm" placeholder="Search games or leagues" />
@@ -353,7 +365,7 @@ function ResearchPageContent() {
                 <li key={game.gameId}><button type="button" onClick={() => void selectGame(game)} className="w-full rounded border border-slate-800 bg-slate-900 px-2 py-1 text-left hover:border-cyan-400/60">{game.label} · {game.league} · {game.gameId} · {game.source}</button></li>
               ))}
             </ul>
-          </div>
+          </div> : null}
 
           <InsightSection title="Top Takeaways" openByDefault items={sections.topTakeaways.map((row) => ({ label: row }))} traceId={chainTraceId} />
           <InsightSection title="Injuries / Availability" items={sections.injuries.map((event) => ({ label: event.event_name, event }))} traceId={chainTraceId} />
