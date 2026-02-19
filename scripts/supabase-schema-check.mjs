@@ -6,6 +6,13 @@ import process from 'node:process';
 
 import { createClient } from '@supabase/supabase-js';
 
+import {
+  buildObservedMap,
+  findSchemaMismatches,
+  getFixInstructions,
+  REQUIRED_SCHEMA
+} from './lib/supabase-schema-check-helper.mjs';
+
 function loadDotEnvLocal() {
   const envPath = path.resolve(process.cwd(), '.env.local');
   if (!fs.existsSync(envPath)) return;
@@ -39,62 +46,8 @@ if (!serviceRoleKey) {
   process.exit(1);
 }
 
-const required = {
-  runtime_sessions: ['session_id', 'user_id', 'last_seen_at'],
-  events_analytics: [
-    'event_name',
-    'timestamp',
-    'request_id',
-    'trace_id',
-    'run_id',
-    'session_id',
-    'user_id',
-    'agent_id',
-    'model_version',
-    'confidence',
-    'assumptions',
-    'properties'
-  ],
-  bets: [
-    'id',
-    'user_id',
-    'session_id',
-    'snapshot_id',
-    'trace_id',
-    'run_id',
-    'selection',
-    'game_id',
-    'market_type',
-    'line',
-    'book',
-    'odds_format',
-    'price',
-    'odds',
-    'recommended_id',
-    'followed_ai',
-    'placed_line',
-    'placed_price',
-    'placed_odds',
-    'closing_line',
-    'closing_price',
-    'clv_line',
-    'clv_price',
-    'stake',
-    'status',
-    'outcome',
-    'settled_profit',
-    'confidence',
-    'created_at',
-    'settled_at',
-    'resolution_reason',
-    'source_url',
-    'source_domain'
-  ]
-};
-
 const client = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
-
-const tables = Object.keys(required);
+const tables = Object.keys(REQUIRED_SCHEMA);
 const { data, error } = await client
   .from('information_schema.columns')
   .select('table_name,column_name')
@@ -106,34 +59,28 @@ if (error) {
   process.exit(1);
 }
 
-const observed = new Map();
-for (const row of data ?? []) {
-  const table = String(row.table_name);
-  const column = String(row.column_name);
-  if (!observed.has(table)) observed.set(table, new Set());
-  observed.get(table).add(column);
-}
+const observed = buildObservedMap(data);
+const issues = findSchemaMismatches(REQUIRED_SCHEMA, observed);
 
-let hasMismatch = false;
-for (const table of tables) {
-  const found = observed.get(table);
-  if (!found) {
-    hasMismatch = true;
-    console.error(`❌ Missing table: public.${table}`);
-    continue;
+if (issues.length > 0) {
+  for (const issue of issues) {
+    if (issue.type === 'missing_table') {
+      console.error(`❌ Missing table: public.${issue.table}`);
+      continue;
+    }
+
+    console.error(`❌ Missing columns in public.${issue.table}: ${issue.missingColumns.join(', ')}`);
   }
 
-  const missingColumns = required[table].filter((column) => !found.has(column));
-  if (missingColumns.length > 0) {
-    hasMismatch = true;
-    console.error(`❌ Missing columns in public.${table}: ${missingColumns.join(', ')}`);
-  } else {
-    console.log(`✅ public.${table} is aligned (${required[table].length} required columns present).`);
+  for (const line of getFixInstructions()) {
+    console.error(line);
   }
-}
 
-if (hasMismatch) {
   process.exit(1);
+}
+
+for (const table of tables) {
+  console.log(`✅ public.${table} is aligned (${REQUIRED_SCHEMA[table].length} required columns present).`);
 }
 
 console.log('✅ Supabase schema check passed.');
