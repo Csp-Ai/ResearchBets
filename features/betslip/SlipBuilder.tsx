@@ -4,6 +4,7 @@ import React from 'react';
 
 import { useMemo } from 'react';
 
+import { EmptyStateCard } from '../../src/components/shared/EmptyStateCard';
 import type { MarketType } from '../../src/core/markets/marketType';
 
 export type SlipBuilderLeg = {
@@ -43,7 +44,15 @@ export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; on
           </li>
         ))}
       </ul>
-      {legs.length === 0 ? <p className="mt-3 text-xs text-slate-400">Click props from Discover to start a draft.</p> : null}
+      {legs.length === 0 ? (
+        <div className="mt-3">
+          <EmptyStateCard
+            title="No legs in draft"
+            guidance="Click any prop above to add it. Legs will accumulate here."
+            primaryCta={{ label: 'Browse props', href: '/dashboard' }}
+          />
+        </div>
+      ) : null}
     </section>
   );
 }

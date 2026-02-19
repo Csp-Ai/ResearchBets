@@ -28,5 +28,6 @@ describe('GamesToday', () => {
 
     expect(html).toContain('LAL @ DAL');
     expect(html).toContain('points 25.5');
+    expect(html).toContain('Click a prop chip to add to slip');
   });
 });

@@ -65,7 +65,14 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold">Discover → Draft</h1>
         <p className="mt-1 text-sm text-slate-400">Find props, inspect confidence heat, then add legs to your slip.</p>
       </header>
-      {loadingBoard ? <div className="h-32 animate-pulse rounded-xl bg-slate-800/70" /> : <GamesToday games={TODAY_GAMES} onAddLeg={(leg) => setDraftLegs((current) => [...current, leg])} />}
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
+        <h2 className="font-semibold text-slate-100">Game / Market Context</h2>
+        <p className="mt-1 text-xs text-slate-400">Dataset: Demo board · Filter: NBA props · Date: Today</p>
+        <p className="mt-2 text-xs text-slate-300">State: {loadingBoard ? 'Loading context…' : TODAY_GAMES.length === 0 ? 'No games available' : `Loaded ${TODAY_GAMES.length} game(s)`}</p>
+      </section>
+
+      {loadingBoard ? <div className="h-32 animate-pulse rounded-xl border border-slate-800 bg-slate-800/70" /> : <GamesToday games={TODAY_GAMES} onAddLeg={(leg) => setDraftLegs((current) => [...current, leg])} />}
       <PlayerPropHeatmap players={HEATMAP_PLAYERS} loading={loadingBoard} />
       <SlipBuilder legs={dedupedLegs} onLegsChange={setDraftLegs} />
     </section>
