@@ -42,9 +42,19 @@ Keep these files clean and declarative; they are the highest-value context for C
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.local.example .env.local
 npm run dev
 ```
+
+### Quick start env template
+
+A repo-local starter env is provided for onboarding:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Then fill in your Supabase values in `.env.local` before running `npm run dev`.
 
 ### Supabase local env setup
 
@@ -83,6 +93,15 @@ If you see errors like:
 - `42703 column ... does not exist`
 
 Then run `npm run supabase:schema:check`, apply pending migrations, and restart the dev server.
+
+### npm proxy warning (`Unknown env config "http-proxy"`)
+
+If you see this warning, it is usually coming from user or CI environment variables (for example `npm_config_http_proxy`) rather than this repository. npm now expects:
+
+- `proxy=...`
+- `https-proxy=...`
+
+If your shell/CI defines `npm_config_http_proxy`, rename it to `npm_config_proxy` (and keep `npm_config_https_proxy` as needed).
 
 ## Quality Gates
 

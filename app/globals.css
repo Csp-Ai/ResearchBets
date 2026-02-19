@@ -11,7 +11,7 @@ body {
 }
 
 .terminal-shell-outer {
-  min-height: clamp(420px, 62svh, 760px);
+  min-height: clamp(360px, 53svh, 620px);
   border: 1px solid rgba(100, 116, 139, 0.46);
   background: linear-gradient(155deg, rgba(15, 23, 42, 0.4), rgba(2, 6, 23, 0.68));
   box-shadow:
@@ -30,7 +30,7 @@ body {
 }
 
 .terminal-shell-inner {
-  min-height: clamp(400px, 58svh, 730px);
+  min-height: clamp(340px, 50svh, 590px);
   border: 1px solid rgba(71, 85, 105, 0.64);
   background: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.88));
   box-shadow:
@@ -70,6 +70,16 @@ body {
   color: rgba(165, 243, 252, 0.96);
   animation: parseRamp 1.2s ease-out 1;
 }
+
+.terminal-command-pulse {
+  border-color: rgba(34, 211, 238, 0.58);
+  filter: brightness(1.08);
+}
+
+.hero-scroll-cue {
+  animation: scrollCueFade 1.8s ease-in-out infinite;
+}
+
 
 .confidence-active {
   box-shadow:
@@ -183,6 +193,18 @@ body {
   100% {
     opacity: 0.94;
     color: rgba(165, 243, 252, 0.94);
+  }
+}
+
+@keyframes scrollCueFade {
+  0%,
+  100% {
+    opacity: 0.52;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateY(2px);
   }
 }
 
