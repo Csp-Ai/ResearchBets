@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 import { buildPropLegInsight } from '../../src/core/slips/propInsights';
 import type { MarketType } from '../../src/core/markets/marketType';
@@ -36,9 +36,12 @@ export function mapPropToLeg(player: string, prop: { market: MarketType; line: s
 }
 
 export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: (leg: SlipBuilderLeg) => void }) {
+  const [selectedChip, setSelectedChip] = useState<string | null>(null);
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
       <h2 className="text-lg font-semibold">Today&apos;s prop board</h2>
+      <p className="mt-1 text-xs text-slate-400">Click a prop chip to add to slip. Selected chips are highlighted.</p>
       <div className="mt-3 space-y-3">
         {games.map((game) => (
           <article key={game.id} className="rounded border border-slate-800 bg-slate-950/60 p-3">
@@ -54,14 +57,19 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
                         <p className="text-xs font-medium">{player.name}</p>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {player.props.map((prop) => {
+                            const chipId = `${player.id}-${prop.market}-${prop.line}`;
                             const insight = buildPropLegInsight({ selection: player.name, market: prop.market, odds: prop.odds });
+                            const active = selectedChip === chipId;
                             return (
                               <button
-                                key={`${player.id}-${prop.market}`}
+                                key={chipId}
                                 type="button"
-                                className="rounded border border-slate-600 px-1.5 py-0.5 text-[11px] hover:border-cyan-400"
-                                title={`${player.matchupNotes} · ${player.injuryStatus} · ${insight.riskTag} volatility`}
-                                onClick={() => onAddLeg(mapPropToLeg(player.name, prop))}
+                                className={`rounded border px-1.5 py-0.5 text-[11px] transition ${active ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100' : 'border-slate-600 hover:border-cyan-400 hover:bg-slate-900'}`}
+                                title={`Add to slip · ${player.matchupNotes} · ${player.injuryStatus} · ${insight.riskTag} volatility`}
+                                onClick={() => {
+                                  setSelectedChip(chipId);
+                                  onAddLeg(mapPropToLeg(player.name, prop));
+                                }}
                               >
                                 {prop.market} {prop.line}
                               </button>

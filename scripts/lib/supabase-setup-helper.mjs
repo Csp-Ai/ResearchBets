@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 export function sanitizeProjectRef(input) {
   if (typeof input !== 'string') return '';
 
@@ -29,72 +30,144 @@ export function parseEnvContent(content) {
   return values;
 }
 
-function formatValue(value) {
-  if (value.includes(' ') || value.includes('#')) {
-    return `"${value.replace(/"/g, '\\"')}"`;
+const CANONICAL_GROUPS = {
+  supabasePublic: [
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'EXPO_PUBLIC_SUPABASE_URL',
+    'EXPO_PUBLIC_SUPABASE_KEY'
+  ],
+  server: ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_TOKEN'],
+  db: ['DATABASE_URL', 'DIRECT_URL']
+};
+
+function formatValue(key, value) {
+  const trimmed = value.trim();
+  const shouldQuote = key === 'DATABASE_URL' || key === 'DIRECT_URL' || trimmed.startsWith('postgresql://');
+  if (shouldQuote) return `"${trimmed.replace(/"/g, '\\"')}"`;
+  return trimmed;
+}
+
+function parseEnvEntries(content) {
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const headerComments = [];
+  const keyValues = new Map();
+  let seenKey = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#')) {
+      if (!seenKey) headerComments.push(trimmed);
+      continue;
+    }
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    seenKey = true;
+    const key = line.slice(0, eq).trim();
+    const rawValue = stripWrappingQuotes(line.slice(eq + 1).trim());
+    keyValues.set(key, rawValue);
   }
-  return value;
+
+  return { headerComments, keyValues };
+}
+
+export function normalizeEnvFile(content) {
+  const { headerComments, keyValues } = parseEnvEntries(content);
+  const knownKeys = new Set(Object.values(CANONICAL_GROUPS).flat());
+  const lines = [];
+
+  if (headerComments.length > 0) {
+    lines.push(...headerComments);
+    lines.push('');
+  }
+
+  const sections = [
+    ['# Supabase public vars', CANONICAL_GROUPS.supabasePublic],
+    ['# Server vars', CANONICAL_GROUPS.server],
+    ['# DB urls', CANONICAL_GROUPS.db],
+    ['# Misc', [...keyValues.keys()].filter((key) => !knownKeys.has(key)).sort()]
+  ];
+
+  for (const [label, keys] of sections) {
+    const materialized = keys.filter((key) => keyValues.has(key));
+    if (materialized.length === 0) continue;
+    if (lines.length > 0 && lines.at(-1) !== '') lines.push('');
+    lines.push(label);
+    for (const key of materialized) {
+      lines.push(`${key}=${formatValue(key, keyValues.get(key) ?? '')}`);
+    }
+  }
+
+  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\n+$/g, '')}\n`;
 }
 
 export function upsertEnvContent(content, updates) {
-  const lines = content.length > 0 ? content.split(/\r?\n/) : [];
-  const keyToIndex = new Map();
-
-  lines.forEach((line, index) => {
-    const eq = line.indexOf('=');
-    if (eq <= 0) return;
-    const key = line.slice(0, eq).trim();
-    if (key) keyToIndex.set(key, index);
-  });
-
-  const nextLines = [...lines];
-
+  const { keyValues } = parseEnvEntries(content);
   for (const [key, value] of Object.entries(updates)) {
     if (typeof value !== 'string' || value.length === 0) continue;
-    const formatted = `${key}=${formatValue(value)}`;
+    keyValues.set(key, value);
+  }
 
-    if (keyToIndex.has(key)) {
-      nextLines[keyToIndex.get(key)] = formatted;
-    } else {
-      if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
-        nextLines.push('');
-      }
-      nextLines.push(formatted);
-      keyToIndex.set(key, nextLines.length - 1);
+  const merged = [...keyValues.entries()].map(([key, value]) => `${key}=${value}`).join('\n');
+  return normalizeEnvFile(merged);
+}
+
+function tokenLike(value) {
+  return typeof value === 'string' && value.trim().length > 20;
+}
+
+export function getSupabaseTokenFromStore(env = process.env) {
+  const direct = env.SUPABASE_ACCESS_TOKEN || env.SUPABASE_TOKEN;
+  if (tokenLike(direct)) return direct.trim();
+
+  const homedir = env.HOME || env.USERPROFILE;
+  const candidates = [
+    homedir ? `${homedir}/.supabase/access-token` : null,
+    homedir ? `${homedir}/.config/supabase/access-token` : null,
+    env.APPDATA ? `${env.APPDATA}\\supabase\\access-token` : null,
+    env.LOCALAPPDATA ? `${env.LOCALAPPDATA}\\supabase\\access-token` : null
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      const raw = fs.readFileSync(candidate, 'utf8').trim();
+      if (tokenLike(raw)) return raw;
+    } catch {
+      // noop
     }
   }
 
-  return `${nextLines.join('\n').replace(/\n+$/g, '')}\n`;
+  return '';
+}
+
+function keyFromRow(row) {
+  if (!row || typeof row !== 'object') return '';
+  return row.api_key ?? row.key ?? row.value ?? '';
 }
 
 export function extractSupabaseKeys(payload) {
-  if (!payload || typeof payload !== 'object') return {};
-  const queue = [payload];
+  if (!Array.isArray(payload)) return {};
+  const publishableCandidate = payload.find((row) => {
+    const label = `${row?.name ?? ''} ${row?.type ?? ''}`.toLowerCase();
+    return label.includes('publishable') || label.includes('public');
+  });
+  const anonCandidate = payload.find((row) => {
+    const label = `${row?.name ?? ''} ${row?.type ?? ''}`.toLowerCase();
+    return label.includes('anon');
+  });
+  const serviceRoleCandidate = payload.find((row) => {
+    const label = `${row?.name ?? ''} ${row?.type ?? ''}`.toLowerCase();
+    return label.includes('service_role') || label.includes('service role');
+  });
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || typeof current !== 'object') continue;
+  const anonKey = keyFromRow(anonCandidate);
+  const publishableKey = keyFromRow(publishableCandidate) || anonKey;
 
-    const publishableKey = current.publishable_key ?? current.publishableKey;
-    const anonKey = current.anon_key ?? current.anonKey ?? current.legacy_anon_key;
-    const serviceRoleKey = current.service_role_key ?? current.serviceRoleKey;
-
-    if (publishableKey || anonKey || serviceRoleKey) {
-      return {
-        publishableKey: typeof publishableKey === 'string' ? publishableKey : undefined,
-        anonKey: typeof anonKey === 'string' ? anonKey : undefined,
-        serviceRoleKey: typeof serviceRoleKey === 'string' ? serviceRoleKey : undefined
-      };
-    }
-
-    for (const value of Object.values(current)) {
-      if (Array.isArray(value)) {
-        queue.push(...value);
-      } else if (value && typeof value === 'object') {
-        queue.push(value);
-      }
-    }
-  }
-
-  return {};
+  return {
+    publishableKey: publishableKey || undefined,
+    anonKey: anonKey || undefined,
+    serviceRoleKey: keyFromRow(serviceRoleCandidate) || undefined
+  };
 }

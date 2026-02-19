@@ -412,8 +412,11 @@ function ResearchPageContent() {
             <RightRailInspector traceId={chainTraceId || null} runId={snapshotId || null} sessionId={null} loading={loading} error={error} summary={inspectorSummary} />
           ) : (
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">
-              Advanced trace inspector is collapsed by default. Expand when you want full provenance and warnings.
-              <div className="mt-2"><Link href={`/traces/${encodeURIComponent(chainTraceId)}`} className="text-cyan-300 underline">View Trace</Link></div>
+              <p className="text-slate-200">Advanced inspector preview</p>
+              <p className="mt-1">Events: {events.length}</p>
+              <p>Last event: {events.at(-1)?.created_at ? new Date(events.at(-1)?.created_at ?? '').toLocaleString() : 'n/a'}</p>
+              <p className="mt-2">Expand for provenance and warnings, or jump directly to the trace.</p>
+              <div className="mt-2"><Link href={`/traces/${encodeURIComponent(chainTraceId)}`} className="rounded border border-cyan-700 px-2 py-1 text-cyan-300">Open trace</Link></div>
             </div>
           )}
         </aside>

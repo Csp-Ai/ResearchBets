@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { GamesToday, type TodayGame } from '@/features/dashboard/GamesToday';
 import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
@@ -51,13 +51,22 @@ const HEATMAP_PLAYERS: PlayerWithPropStats[] = [
 
 export default function DashboardPage() {
   const [draftLegs, setDraftLegs] = useState<SlipBuilderLeg[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(true);
   const dedupedLegs = useMemo(() => Array.from(new Map(draftLegs.map((leg) => [leg.id, leg])).values()), [draftLegs]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoadingBoard(false), 350);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Discover → Draft</h1>
-      <GamesToday games={TODAY_GAMES} onAddLeg={(leg) => setDraftLegs((current) => [...current, leg])} />
-      <PlayerPropHeatmap players={HEATMAP_PLAYERS} />
+      <header>
+        <h1 className="text-2xl font-semibold">Discover → Draft</h1>
+        <p className="mt-1 text-sm text-slate-400">Find props, inspect confidence heat, then add legs to your slip.</p>
+      </header>
+      {loadingBoard ? <div className="h-32 animate-pulse rounded-xl bg-slate-800/70" /> : <GamesToday games={TODAY_GAMES} onAddLeg={(leg) => setDraftLegs((current) => [...current, leg])} />}
+      <PlayerPropHeatmap players={HEATMAP_PLAYERS} loading={loadingBoard} />
       <SlipBuilder legs={dedupedLegs} onLegsChange={setDraftLegs} />
     </section>
   );

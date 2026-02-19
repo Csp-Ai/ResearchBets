@@ -28,6 +28,16 @@ export function DecisionBoardHeader({ events, legs, traceId, onFixSlip, onRerunR
       <ul className="mt-2 list-disc pl-4 text-xs text-slate-300">
         {(verdict.reasons.length > 0 ? verdict.reasons : ['Waiting for evidence from research events.']).map((reason) => <li key={reason}>{reason}</li>)}
       </ul>
+      {verdict.reasons.length === 0 ? (
+        <div className="mt-3 rounded border border-slate-700 bg-slate-950/70 p-2 text-xs">
+          <p className="font-medium text-slate-200">Next best actions</p>
+          <ul className="mt-1 list-disc pl-4 text-slate-300">
+            <li>Run research now</li>
+            <li>Open trace inspector</li>
+            <li>Edit slip legs</li>
+          </ul>
+        </div>
+      ) : null}
       <div className="mt-2 flex flex-wrap gap-1">
         {(verdict.riskFlags.length > 0 ? verdict.riskFlags : ['Low evidence']).map((flag) => (
           <span key={flag} className="rounded border border-amber-500/40 px-2 py-0.5 text-[11px] text-amber-200">{flag}</span>
