@@ -109,7 +109,14 @@ const { data, error } = await client.rpc('inspect_public_columns', { tables });
 
 if (error) {
   console.error('❌ Failed to inspect Supabase schema via inspect_public_columns RPC:', error.message);
-  console.error('Action: run `supabase db push`, then confirm this repo is linked to the same project as NEXT_PUBLIC_SUPABASE_URL.');
+
+  const message = String(error.message || '').toLowerCase();
+  if (message.includes('function inspect_public_columns') || message.includes('could not find the function')) {
+    console.error('Missing inspect_public_columns RPC. Run: supabase db push');
+  } else {
+    console.error('Action: run `supabase db push`, then confirm this repo is linked to the same project as NEXT_PUBLIC_SUPABASE_URL.');
+    console.error('If migrations were already pushed, PostgREST schema cache may be stale. Wait 30-60s then retry.');
+  }
 
   if (isConnectivityError(error)) {
     console.error(
