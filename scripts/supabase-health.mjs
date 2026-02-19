@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
 import { createClient } from '@supabase/supabase-js';
+
+import runNpm from './lib/runNpm.mjs';
 
 function loadDotEnvLocal() {
   const envPath = path.resolve(process.cwd(), '.env.local');
@@ -27,8 +28,8 @@ function loadDotEnvLocal() {
 
 loadDotEnvLocal();
 
-execFileSync('npm', ['run', 'env:check'], { stdio: 'inherit' });
-execFileSync('npm', ['run', 'supabase:schema:check'], { stdio: 'inherit' });
+runNpm(['run', 'env:check']);
+runNpm(['run', 'supabase:schema:check']);
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
