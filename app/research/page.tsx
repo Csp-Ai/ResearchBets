@@ -22,6 +22,7 @@ import {
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
+import { ShareReply } from '@/src/components/bettor/ShareReply';
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)
@@ -71,6 +72,7 @@ export function ResearchPageContent() {
   const [developerMode, setDeveloperMode] = useState(false);
   const [currentRun, setCurrentRun] = useState<Run | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
+  const [crowdNotes, setCrowdNotes] = useState('');
 
   const traceFromQuery = search.get('trace') ?? search.get('trace_id') ?? '';
 
@@ -83,11 +85,14 @@ export function ResearchPageContent() {
     const run = await runStore.getRun(traceId);
     if (run?.analysis?.computedAt && run.status !== 'complete') {
       const fixed = await runStore.updateRun(traceId, { status: 'complete', updatedAt: new Date().toISOString() });
-      setCurrentRun(fixed ?? run);
+      const active = fixed ?? run;
+      setCurrentRun(active);
+      setCrowdNotes(active.metadata?.crowdNotes ?? '');
       await refreshRecent();
       return;
     }
     setCurrentRun(run);
+    setCrowdNotes(run?.metadata?.crowdNotes ?? '');
   };
 
   useEffect(() => {
@@ -106,7 +111,10 @@ export function ResearchPageContent() {
 
     void (async () => {
       const runs = await runStore.listRuns(1);
-      if (runs[0]) setCurrentRun(runs[0]);
+      if (runs[0]) {
+        setCurrentRun(runs[0]);
+        setCrowdNotes(runs[0].metadata?.crowdNotes ?? '');
+      }
     })();
   }, [traceFromQuery]);
 
@@ -123,6 +131,17 @@ export function ResearchPageContent() {
     if (!currentRun?.analysis.weakestLegId) return sortedLegs[0] ?? null;
     return sortedLegs.find((leg) => leg.id === currentRun.analysis.weakestLegId) ?? sortedLegs[0] ?? null;
   }, [sortedLegs, currentRun]);
+
+
+  const saveCrowdNotes = async (value: string) => {
+    if (!currentRun) return;
+    const nextMetadata = { ...currentRun.metadata, crowdNotes: value };
+    const updated = await runStore.updateRun(currentRun.traceId, { metadata: nextMetadata, updatedAt: new Date().toISOString() });
+    if (updated) {
+      setCurrentRun(updated);
+      await refreshRecent();
+    }
+  };
 
   const submitPaste = async () => {
     const traceId = await runSlip(rawSlip);
@@ -197,6 +216,20 @@ export function ResearchPageContent() {
               <h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2>
               <LegRankList legs={sortedLegs} onRemove={() => void removeWeakest()} />
             </Surface>
+            <Surface className="space-y-3">
+              <label className="text-sm font-medium" htmlFor="crowd-notes">Crowd notes (unverified)</label>
+              <textarea
+                id="crowd-notes"
+                className="h-24 w-full rounded-lg border border-default bg-canvas p-3 text-sm"
+                placeholder="e.g., '2 Charlotte contributors suspended', 'Wizards have been decent'"
+                value={crowdNotes}
+                onChange={(event) => setCrowdNotes(event.target.value)}
+                onBlur={() => {
+                  void saveCrowdNotes(crowdNotes);
+                }}
+              />
+            </Surface>
+            {currentRun ? <ShareReply run={{ ...currentRun, metadata: { ...currentRun.metadata, crowdNotes } }} /> : null}
           </>
         )}
 
