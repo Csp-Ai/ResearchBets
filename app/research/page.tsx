@@ -19,6 +19,9 @@ import {
   type AnalyzeLeg,
   type RecentRun
 } from '@/src/components/bettor/BettorFirstBlocks';
+import { Button } from '@/src/components/ui/button';
+import { Chip } from '@/src/components/ui/chip';
+import { Surface } from '@/src/components/ui/surface';
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)\nLeBron James over 6.5 rebounds (-105)`;
 
@@ -129,29 +132,29 @@ export function ResearchPageContent() {
 
   return (
     <section className="space-y-8">
-      <header className="rb-card rb-hero" data-testid="research-primary-hero">
+      <Surface kind="hero" className="ui-surface-card" data-testid="research-primary-hero">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div className="space-y-2">
             <h1 className="text-4xl font-semibold leading-tight">Analyze a bet</h1>
-            <p className="text-sm text-slate-400">Get confidence, risk flags, and the exact leg that can break your slip.</p>
-            <button type="button" className="text-sm text-cyan-300 underline underline-offset-4" onClick={tryExample}>Try an example</button>
+            <p className="text-sm text-muted">Get confidence, risk flags, and the exact leg that can break your slip.</p>
+            <button type="button" className="text-sm text-link underline underline-offset-4" onClick={tryExample}>Try an example</button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="rb-btn-primary" onClick={() => setPasteOpen(true)}>Paste slip</button>
-            <Link href="/discover" className="rb-btn-secondary">Build slip</Link>
+            <Button intent="primary" onClick={() => setPasteOpen(true)}>Paste slip</Button>
+            <Link href="/discover" className="ui-button ui-button-secondary">Build slip</Link>
           </div>
         </div>
-      </header>
+      </Surface>
 
       <section className="space-y-8">
         {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
           <>
             <VerdictHero confidence={confidence} weakestLeg={weakestLeg} reasons={reasons} />
             <SlipActionsBar onRemoveWeakest={() => weakestLeg && setLegs((current) => current.filter((leg) => leg.id !== weakestLeg.id))} onRerun={rerunResearch} canTrack />
-            <section className="rb-card space-y-4">
+            <Surface className="space-y-4">
               <h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2>
               <LegRankList legs={sortedLegs} onRemove={(id) => setLegs((current) => current.filter((leg) => leg.id !== id))} />
-            </section>
+            </Surface>
           </>
         )}
 
@@ -161,22 +164,22 @@ export function ResearchPageContent() {
 
       <AdvancedDrawer developerMode={developerMode}>
         <div className="flex flex-wrap gap-2">
-          <span className="rb-chip">Slip ID: {slipId || 'n/a'}</span>
-          <span className="rb-chip">Trace ID: {traceId}</span>
+          <Chip>Slip ID: {slipId || 'n/a'}</Chip>
+          <Chip>Trace ID: {traceId}</Chip>
         </div>
         <pre className="overflow-auto rounded bg-slate-950/80 p-2">{JSON.stringify({ legs, confidence, status }, null, 2)}</pre>
       </AdvancedDrawer>
 
       {pasteOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
-          <div className="rb-card w-full max-w-2xl">
+          <Surface className="w-full max-w-2xl">
             <h2 className="text-lg font-semibold">Paste slip</h2>
             <textarea className="mt-3 h-56 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm" value={rawSlip} onChange={(event) => setRawSlip(event.target.value)} placeholder="Paste each leg on a new line" />
             <div className="mt-3 flex gap-2">
-              <button type="button" className="rb-btn-primary" onClick={() => void submitPaste()}>Analyze now</button>
-              <button type="button" className="rb-btn-secondary" onClick={() => setPasteOpen(false)}>Cancel</button>
+              <Button intent="primary" onClick={() => void submitPaste()}>Analyze now</Button>
+              <Button intent="secondary" onClick={() => setPasteOpen(false)}>Cancel</Button>
             </div>
-          </div>
+          </Surface>
         </div>
       ) : null}
     </section>

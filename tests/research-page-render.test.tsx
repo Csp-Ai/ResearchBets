@@ -39,6 +39,11 @@ describe('/research render polish', () => {
 
     expect(globalsCss).toContain('--background:');
     expect(globalsCss).toContain('--card:');
+    expect(globalsCss).toContain('--border:');
+    expect(globalsCss).toContain('--ring:');
+    expect(globalsCss).toContain('--tone-strong-bg:');
+    expect(globalsCss).toContain('--tone-caution-bg:');
+    expect(globalsCss).toContain('--tone-weak-bg:');
     expect(globalsCss).toContain('.dark {');
   });
 

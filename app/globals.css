@@ -32,7 +32,39 @@
   --border: var(--border-subtle);
   --input: var(--border-subtle);
   --ring: rgba(103, 232, 249, 0.7);
+
+  --surface-elevated: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.88));
+  --shadow-card: 0 12px 32px rgba(2, 6, 23, 0.22);
+  --shadow-hero: 0 18px 50px rgba(2, 6, 23, 0.38);
+  --shadow-primary-hover: 0 8px 20px rgba(34, 211, 238, 0.22);
+
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --tone-neutral-bg: transparent;
+  --tone-neutral-border: var(--border);
+  --tone-neutral-fg: var(--muted-foreground);
+
+  --tone-strong-bg: rgba(16, 185, 129, 0.1);
+  --tone-strong-border: rgba(16, 185, 129, 0.4);
+  --tone-strong-fg: rgb(209, 250, 229);
+
+  --tone-caution-bg: rgba(245, 158, 11, 0.1);
+  --tone-caution-border: rgba(245, 158, 11, 0.4);
+  --tone-caution-fg: rgb(254, 243, 199);
+
+  --tone-weak-bg: rgba(244, 63, 94, 0.1);
+  --tone-weak-border: rgba(244, 63, 94, 0.4);
+  --tone-weak-fg: rgb(255, 228, 230);
+
+  --link: #67e8f9;
+  --link-hover: #22d3ee;
+  --danger: rgb(253, 164, 175);
+
+  --text-subtle: rgb(203 213 225 / 0.9);
 }
+
 
 .dark {
   --background: var(--surface-0);
@@ -54,12 +86,55 @@
   --border: var(--border-subtle);
   --input: var(--border-subtle);
   --ring: rgba(103, 232, 249, 0.7);
+
+  --surface-elevated: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.88));
+  --shadow-card: 0 12px 32px rgba(2, 6, 23, 0.22);
+  --shadow-hero: 0 18px 50px rgba(2, 6, 23, 0.38);
+  --shadow-primary-hover: 0 8px 20px rgba(34, 211, 238, 0.22);
+
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --tone-neutral-bg: transparent;
+  --tone-neutral-border: var(--border);
+  --tone-neutral-fg: var(--muted-foreground);
+
+  --tone-strong-bg: rgba(16, 185, 129, 0.1);
+  --tone-strong-border: rgba(16, 185, 129, 0.4);
+  --tone-strong-fg: rgb(209, 250, 229);
+
+  --tone-caution-bg: rgba(245, 158, 11, 0.1);
+  --tone-caution-border: rgba(245, 158, 11, 0.4);
+  --tone-caution-fg: rgb(254, 243, 199);
+
+  --tone-weak-bg: rgba(244, 63, 94, 0.1);
+  --tone-weak-border: rgba(244, 63, 94, 0.4);
+  --tone-weak-fg: rgb(255, 228, 230);
+
+  --link: #67e8f9;
+  --link-hover: #22d3ee;
+  --danger: rgb(253, 164, 175);
+
+  --text-subtle: rgb(203 213 225 / 0.9);
 }
+
 
 body {
   background: var(--background);
   color: var(--foreground);
   @apply antialiased;
+}
+
+
+@layer utilities {
+  .text-muted { color: var(--muted-foreground); }
+  .text-subtle { color: var(--text-subtle); }
+  .text-strong { color: var(--foreground); }
+  .text-danger { color: var(--danger); }
+  .text-link { color: var(--link); }
+  .text-link:hover { color: var(--link-hover); }
+  .divide-default > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
 }
 
 .terminal-shell-outer {
@@ -301,43 +376,119 @@ body {
 }
 
 @layer components {
-  .rb-card {
+  .ui-surface-card {
     background: var(--card);
     color: var(--card-foreground);
     border: 1px solid var(--border);
-    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.22);
-    @apply rounded-2xl p-6;
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-xl);
+    @apply p-6;
   }
 
-  .rb-hero {
+  .ui-surface-hero {
     background: var(--popover);
     color: var(--popover-foreground);
-    box-shadow: 0 18px 50px rgba(2, 6, 23, 0.38);
+    box-shadow: var(--shadow-hero);
+    border-radius: var(--radius-xl);
     @apply p-7 md:p-8;
   }
 
-  .rb-btn-primary {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition duration-150 hover:bg-cyan-300 hover:shadow-[0_8px_20px_rgba(34,211,238,0.22)] active:translate-y-px active:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2;
+  .ui-surface-panel {
+    background: var(--surface-elevated);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-lg);
+    @apply p-4;
+  }
+
+  .ui-surface-ghost {
+    background: transparent;
+    color: var(--foreground);
+    border-radius: var(--radius-lg);
+  }
+
+  .ui-button {
+    @apply inline-flex min-h-11 items-center justify-center px-5 py-2.5 text-sm font-semibold transition duration-150 focus-visible:outline-none focus-visible:ring-2;
+    border-radius: var(--radius-md);
     --tw-ring-color: var(--ring);
   }
 
-  .rb-btn-secondary {
+  .ui-button-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .ui-button-primary:hover {
+    background: var(--link);
+    box-shadow: var(--shadow-primary-hover);
+  }
+
+  .ui-button-primary:active {
+    transform: translateY(1px);
+    background: #a5f3fc;
+  }
+
+  .ui-button-secondary {
     background: var(--secondary);
     color: var(--secondary-foreground);
     border: 1px solid var(--border);
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold transition duration-150 hover:border-slate-500 hover:bg-slate-800 active:translate-y-px active:bg-slate-700 focus-visible:outline-none focus-visible:ring-2;
-    --tw-ring-color: var(--ring);
   }
 
-  .rb-chip {
-    border: 1px solid var(--border);
-    color: var(--muted-foreground);
+  .ui-button-secondary:hover {
+    border-color: rgba(100, 116, 139, 1);
+    background: rgba(30, 41, 59, 1);
+  }
+
+  .ui-button-secondary:active {
+    transform: translateY(1px);
+    background: rgba(51, 65, 85, 1);
+  }
+
+  .ui-chip {
+    border: 1px solid var(--tone-neutral-border);
+    color: var(--tone-neutral-fg);
+    background: var(--tone-neutral-bg);
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium;
   }
 
-  .tone-strong { @apply border-emerald-500/40 bg-emerald-500/10 text-emerald-100; }
-  .tone-caution { @apply border-amber-500/40 bg-amber-500/10 text-amber-100; }
-  .tone-weak { @apply border-rose-500/40 bg-rose-500/10 text-rose-100; }
+  .ui-tone-neutral { border-color: var(--tone-neutral-border); background: var(--tone-neutral-bg); color: var(--tone-neutral-fg); }
+  .ui-tone-strong { border-color: var(--tone-strong-border); background: var(--tone-strong-bg); color: var(--tone-strong-fg); }
+  .ui-tone-caution { border-color: var(--tone-caution-border); background: var(--tone-caution-bg); color: var(--tone-caution-fg); }
+  .ui-tone-weak { border-color: var(--tone-weak-border); background: var(--tone-weak-bg); color: var(--tone-weak-fg); }
+
+  .ui-shell-panel {
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(30, 41, 59, 0.6);
+    background: rgba(2, 6, 23, 0.75);
+  }
+
+  .ui-shell-soft {
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(30, 41, 59, 0.6);
+    background: rgba(2, 6, 23, 0.55);
+  }
+
+  .ui-shell-list-item {
+    @apply flex flex-wrap items-center justify-between gap-2;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(30, 41, 59, 0.6);
+    background: rgba(2, 6, 23, 0.5);
+  }
+
+  .ui-shell-drawer {
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(30, 41, 59, 0.5);
+    background: rgba(2, 6, 23, 0.4);
+  }
+
+  /* Legacy shims (deprecated): keep while call sites migrate. */
+  .rb-card { @apply ui-surface-card; }
+  .rb-hero { @apply ui-surface-hero; }
+  .rb-btn-primary { @apply ui-button ui-button-primary; }
+  .rb-btn-secondary { @apply ui-button ui-button-secondary; }
+  .rb-chip { @apply ui-chip ui-tone-neutral; }
+  .tone-strong { @apply ui-tone-strong; }
+  .tone-caution { @apply ui-tone-caution; }
+  .tone-weak { @apply ui-tone-weak; }
 }
