@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { computeLegRisk, computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 import type { EnrichedLeg, Run } from '@/src/core/run/types';
-import { readDeveloperMode } from '@/src/core/ui/preferences';
+import { readCoverageAgentEnabled, readDeveloperMode } from '@/src/core/ui/preferences';
 import {
   AdvancedDrawer,
   EmptyStateBettor,
@@ -144,7 +144,7 @@ export function ResearchPageContent() {
   };
 
   const submitPaste = async () => {
-    const traceId = await runSlip(rawSlip);
+    const traceId = await runSlip(rawSlip, { coverageAgentEnabled: readCoverageAgentEnabled() });
     setPasteOpen(false);
     await refreshRecent();
     router.push(`/research?trace=${encodeURIComponent(traceId)}`);
@@ -182,7 +182,7 @@ export function ResearchPageContent() {
 
   const rerunResearch = async () => {
     if (!currentRun) return;
-    const traceId = await runSlip(currentRun.slipText);
+    const traceId = await runSlip(currentRun.slipText, { coverageAgentEnabled: readCoverageAgentEnabled() });
     await refreshRecent();
     router.push(`/research?trace=${encodeURIComponent(traceId)}`);
   };

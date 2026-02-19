@@ -209,7 +209,7 @@ async function extractWithApi(slipText: string): Promise<Array<{ selection: stri
   }
 }
 
-export async function runSlip(slipText: string): Promise<string> {
+export async function runSlip(slipText: string, options?: { coverageAgentEnabled?: boolean }): Promise<string> {
   const normalizedSlipText = normalizeSlipText(slipText);
   const traceId = createClientRequestId();
   const now = new Date().toISOString();
@@ -246,7 +246,8 @@ export async function runSlip(slipText: string): Promise<string> {
     teams: extracted.flatMap((leg) => leg.team ? [{ team: leg.team }] : []),
     players: extracted.flatMap((leg) => leg.player ? [{ player: leg.player, team: leg.team }] : []),
     eventIds: extracted.flatMap((leg) => leg.id ? [leg.id] : []),
-    legsText: normalizedSlipText
+    legsText: normalizedSlipText,
+    coverageAgentEnabled: options?.coverageAgentEnabled
   });
 
   const enrichedLegs: EnrichedLeg[] = [];

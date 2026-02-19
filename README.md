@@ -66,6 +66,45 @@ cp .env.local.example .env.local
 
 Then fill in your Supabase values in `.env.local` before running `npm run dev`.
 
+### Local dev: real mode (recommended)
+
+1. Copy env template:
+
+```bash
+cp .env.example .env.local
+```
+
+2. Set required keys in `.env.local`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-anon-key>
+```
+
+3. Optional feature flag:
+
+```bash
+ENABLE_COVERAGE_AGENT=true
+```
+
+4. Start the app:
+
+```bash
+npm run dev
+```
+
+This path enables full ingest + research flow with live Supabase and optional unverified web notes.
+
+### Local dev: demo mode (no real keys)
+
+For local-only smoke work without real Supabase credentials:
+
+```bash
+ALLOW_DUMMY_ENV=true NODE_ENV=development npm run dev
+```
+
+In demo mode the app shows a banner: **"Live Supabase disabled."** and falls back to local browser storage.
+
 ### Supabase local env setup
 
 `.env.local` is required for local dev. Add your Supabase project URL and publishable key (used as `NEXT_PUBLIC_SUPABASE_ANON_KEY` in this app):

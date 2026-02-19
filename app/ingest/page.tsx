@@ -4,21 +4,12 @@ import React, { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { runSlip } from '@/src/core/pipeline/runSlip';
+import { runOcr } from '@/src/features/ingest/ocr/ocrClient';
+import { readCoverageAgentEnabled } from '@/src/core/ui/preferences';
 import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
 
 const DEFAULT_SLIP = 'Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)\nLeBron James over 6.5 rebounds (-105)';
-
-const normalizeOcrText = (rawText: string): string => {
-  return rawText
-    .replace(/\r/g, '\n')
-    .replace(/[•●◦▪▸►]/g, '\n')
-    .replace(/\t+/g, ' ')
-    .split('\n')
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .join('\n');
-};
 
 export default function IngestionPage() {
   const router = useRouter();
@@ -27,16 +18,18 @@ export default function IngestionPage() {
   const [slipText, setSlipText] = useState(prefill);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ocrProgress, setOcrProgress] = useState<number | null>(null);
+  const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<string | null>(null);
   const [ocrError, setOcrError] = useState<string | null>(null);
-  const [ocrWorker, setOcrWorker] = useState<{ terminate: () => Promise<unknown> } | null>(null);
+  const ocrWorkerRef = useRef<{ terminate: () => Promise<unknown> } | null>(null);
+  const ocrAbortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onSubmit = async () => {
     setLoading(true);
     setError(null);
     try {
-      const traceId = await runSlip(slipText);
+      const traceId = await runSlip(slipText, { coverageAgentEnabled: readCoverageAgentEnabled() });
       router.push(`/research?trace=${encodeURIComponent(traceId)}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to run analysis.');
@@ -51,9 +44,14 @@ export default function IngestionPage() {
   };
 
   const onCancelOcr = async () => {
-    if (!ocrWorker) return;
-    await ocrWorker.terminate();
-    setOcrWorker(null);
+    if (!isOcrRunning) return;
+    ocrAbortControllerRef.current?.abort();
+    if (ocrWorkerRef.current) {
+      await ocrWorkerRef.current.terminate().catch(() => undefined);
+      ocrWorkerRef.current = null;
+    }
+    ocrAbortControllerRef.current = null;
+    setIsOcrRunning(false);
     setOcrProgress(null);
     setOcrError('OCR canceled. You can upload a screenshot again.');
   };
@@ -68,37 +66,34 @@ export default function IngestionPage() {
       return;
     }
 
-    setOcrProgress(0);
+    setIsOcrRunning(true);
+    setOcrProgress('Reading text… 0%');
     setOcrError(null);
-
-    let worker: { recognize: (image: File) => Promise<{ data: { text?: string } }>; terminate: () => Promise<unknown> } | null = null;
+    const abortController = new AbortController();
+    ocrAbortControllerRef.current = abortController;
 
     try {
-      const tesseract = await import('tesseract.js');
-      worker = await tesseract.createWorker('eng', 1, {
-        logger: (message) => {
-          if (message.status === 'recognizing text' && typeof message.progress === 'number') {
-            setOcrProgress(Math.round(message.progress * 100));
-          }
+      const normalized = await runOcr(file, (progressLabel) => {
+        setOcrProgress(progressLabel);
+      }, {
+        signal: abortController.signal,
+        onWorkerChange: (worker) => {
+          ocrWorkerRef.current = worker;
         }
       });
-      setOcrWorker(worker);
-      const result = await worker.recognize(file);
-
-      const normalized = normalizeOcrText(result.data.text ?? '');
-      if (!normalized) {
-        setOcrError('Could not read enough text from the screenshot. Try another image or edit the text manually.');
-        return;
-      }
-
       setSlipText(normalized);
-    } catch {
-      setOcrError('Could not read the screenshot. Try another image or paste your slip manually.');
-    } finally {
-      if (worker) {
-        await worker.terminate();
+    } catch (uploadError) {
+      if (uploadError instanceof DOMException && uploadError.name === 'AbortError') {
+        setOcrError('OCR canceled. You can upload a screenshot again.');
+      } else if (uploadError instanceof Error) {
+        setOcrError(uploadError.message);
+      } else {
+        setOcrError('Could not read the screenshot. Try another image or paste your slip manually.');
       }
-      setOcrWorker(null);
+    } finally {
+      ocrAbortControllerRef.current = null;
+      ocrWorkerRef.current = null;
+      setIsOcrRunning(false);
       setOcrProgress(null);
     }
   };
@@ -126,13 +121,13 @@ export default function IngestionPage() {
             void onFileChange(event);
           }}
         />
-        {ocrProgress !== null ? <p className="text-sm text-slate-300">Reading text… {ocrProgress}%</p> : null}
+        {ocrProgress !== null ? <p className="text-sm text-slate-300">{ocrProgress}</p> : null}
         {error ? <p className="text-sm text-danger">{error}</p> : null}
         {ocrError ? <p className="text-sm text-danger">{ocrError}</p> : null}
         <div className="flex flex-wrap gap-2">
-          <Button intent="secondary" onClick={onUploadClick} disabled={loading || ocrWorker !== null}>Upload screenshot</Button>
-          {ocrWorker ? <Button intent="secondary" onClick={() => void onCancelOcr()}>Cancel OCR</Button> : null}
-          <Button intent="primary" onClick={() => void onSubmit()} disabled={loading || ocrWorker !== null || !slipText.trim()}>
+          <Button intent="secondary" onClick={onUploadClick} disabled={loading || isOcrRunning}>Upload screenshot</Button>
+          {isOcrRunning ? <Button intent="secondary" onClick={() => void onCancelOcr()}>Cancel OCR</Button> : null}
+          <Button intent="primary" onClick={() => void onSubmit()} disabled={loading || isOcrRunning || !slipText.trim()}>
             {loading ? 'Analyzing…' : 'Analyze now'}
           </Button>
         </div>
