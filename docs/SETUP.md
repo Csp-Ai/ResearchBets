@@ -13,6 +13,16 @@
 npm ci
 ```
 
+## 1.1) Bootstrap local env file
+
+Copy the template before running local commands:
+
+```bash
+cp .env.example .env.local
+```
+
+If you already ran `npm run supabase:setup`, keep your generated values and only fill any missing keys used by your workflow.
+
 ## 2) One-time Supabase setup (recommended)
 
 ```bash
@@ -106,3 +116,21 @@ Open:
 - Mirror baseline: `db/supabase/schema.sql` (must stay byte-for-byte identical).
 - Before commit/PR, run `npm run supabase:schema:drift-check` to prevent drift.
 - If you update canonical schema, copy it to mirror in the same commit.
+
+## 7) Minimum variables by workflow
+
+### Run dev server (`npm run dev`)
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### Run Project Mirror indexer (`npm run dev:mirror:index`)
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+
+### Use `/dev/mirror` chat UI
+- Development runtime (`NODE_ENV=development`)
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+- Optional: `ADMIN_SECRET_KEY` (if set, send it in `x-admin-secret`)

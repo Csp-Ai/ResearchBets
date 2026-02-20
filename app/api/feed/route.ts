@@ -16,7 +16,12 @@ const resolveViewerId = async (request: Request): Promise<string | null> => {
   return data.user?.id ?? null;
 };
 
-const applySort = (query: ReturnType<ReturnType<typeof getSupabaseServiceClient>['from']>, sort: FeedSortMode) => {
+const buildFeedQuery = (supabase: ReturnType<typeof getSupabaseServiceClient>, limit: number) => supabase
+  .from('community_posts')
+  .select('id, user_id, content, sport, league, tags, created_at, clone_count, comment_count, is_shared, bet_details, historical_bet_id, gm_confidence, settlement_status')
+  .limit(limit + 1);
+
+const applySort = (query: ReturnType<typeof buildFeedQuery>, sort: FeedSortMode) => {
   if (sort === 'trending') {
     return query
       .gte('created_at', trendingWindowStartIso())
@@ -49,10 +54,7 @@ export async function GET(request: Request) {
   const viewerId = await resolveViewerId(request);
   const supabase = getSupabaseServiceClient();
 
-  let query = supabase
-    .from('community_posts')
-    .select('id, user_id, content, sport, league, tags, created_at, clone_count, comment_count, is_shared, bet_details, historical_bet_id, gm_confidence, settlement_status')
-    .limit(limit + 1);
+  let query = buildFeedQuery(supabase, limit);
 
   query = applySort(query, sort);
 
