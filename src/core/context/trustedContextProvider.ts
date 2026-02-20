@@ -26,9 +26,11 @@ type TrustedAdapters = {
       sport: string;
       eventIds: string[];
       marketType: MarketType;
-    }) => Promise<{ platformLines: Array<{ eventId?: string; line: number; asOf?: string }>; provenance?: { sources?: Array<Partial<TrustedSourceRef> & { provider?: string; url?: string; label?: string; retrievedAt?: string }> } }>;
+    }) => Promise<{ platformLines: Array<{ eventId?: string; line: number; asOf?: string }>; provenance?: { sources?: Array<Partial<TrustedSourceRef> & { provider?: string; url?: string; label?: string; retrievedAt?: string }> }; fallbackReason?: string }>;
   };
 };
+
+type ProviderResult = { items: TrustedContextItem[]; fallbackReason?: string };
 
 type FetchInput = {
   sport: 'nba' | 'nfl' | 'soccer';
@@ -56,6 +58,25 @@ const withDefaultTrust = (item: Omit<TrustedContextItem, 'trust'> & { trust?: Tr
   trust: item.trust ?? (item.sources.some((source) => source.trust === 'unverified') ? 'unverified' : 'verified')
 });
 
+const sanitizeExternalItems = (result: ProviderResult): ProviderResult => {
+  const items = result.items.filter((item) => {
+    if (!item.headline?.trim() || !item.detail?.trim() || !item.asOf) return false;
+    return item.sources.some((source) => Boolean(source.label?.trim()) && Boolean(source.url?.trim()));
+  });
+  if (items.length > 0 || result.items.length === items.length) return { ...result, items };
+  return {
+    ...result,
+    items,
+    fallbackReason: result.fallbackReason ?? 'trusted_item_validation_failed'
+  };
+};
+
+const joinFallback = (...reasons: Array<string | undefined>): string | undefined => {
+  const values = [...new Set(reasons.filter((reason): reason is string => Boolean(reason)))];
+  if (values.length === 0) return undefined;
+  return values.join('; ');
+};
+
 
 export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clock: ProviderClock = defaultClock) => {
   const oddsBaseline = new Map<string, { line: number; asOf: string }>();
@@ -77,30 +98,35 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
         odds: 'none',
         schedule: 'none'
       };
+      const providerFallbackReasons: string[] = [];
 
       if (adapters.injuries?.fetchInjuries) {
         const injuryCacheKey = `${key}:injuries`;
-        const injuryResult = getTrustedContextCache<{ items: TrustedContextItem[] }>(injuryCacheKey) ?? setTrustedContextCache(
+        const injuryResult = getTrustedContextCache<Awaited<ReturnType<NonNullable<NonNullable<TrustedAdapters['injuries']>['fetchInjuries']>>>>(injuryCacheKey) ?? setTrustedContextCache(
           injuryCacheKey,
           await adapters.injuries.fetchInjuries({ sport: input.sport, teamIds, playerIds }),
           isGameDay(eventIds) ? TRUSTED_CONTEXT_TTL_MS.injuriesGameDay : TRUSTED_CONTEXT_TTL_MS.injuriesDefault
         );
-        if (injuryResult.items.length > 0) {
+        const validatedInjury = sanitizeExternalItems(injuryResult);
+        if (validatedInjury.fallbackReason) providerFallbackReasons.push(validatedInjury.fallbackReason);
+        if (validatedInjury.items.length > 0) {
           coverage.injuries = 'live';
-          items.push(...injuryResult.items.map(withDefaultTrust));
+          items.push(...validatedInjury.items.map(withDefaultTrust));
         }
       }
 
       if (adapters.transactions?.fetchTransactions) {
         const txCacheKey = `${key}:transactions`;
-        const txResult = getTrustedContextCache<{ items: TrustedContextItem[] }>(txCacheKey) ?? setTrustedContextCache(
+        const txResult = getTrustedContextCache<Awaited<ReturnType<NonNullable<NonNullable<TrustedAdapters['transactions']>['fetchTransactions']>>>>(txCacheKey) ?? setTrustedContextCache(
           txCacheKey,
           await adapters.transactions.fetchTransactions({ sport: input.sport, teamIds, playerIds }),
           TRUSTED_CONTEXT_TTL_MS.transactions
         );
-        if (txResult.items.length > 0) {
+        const validatedTransactions = sanitizeExternalItems(txResult);
+        if (validatedTransactions.fallbackReason) providerFallbackReasons.push(validatedTransactions.fallbackReason);
+        if (validatedTransactions.items.length > 0) {
           coverage.transactions = 'live';
-          items.push(...txResult.items.map(withDefaultTrust));
+          items.push(...validatedTransactions.items.map(withDefaultTrust));
         }
       }
 
@@ -127,9 +153,14 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
             sources: (oddsResult.provenance?.sources ?? []).map((source) => ({ provider: (source.provider as TrustedSourceRef['provider']) ?? 'theoddsapi', label: source.label ?? source.provider ?? 'Odds provider', url: source.url, retrievedAt: source.retrievedAt ?? asOf, trust: source.trust ?? 'verified' }))
           });
         }
-        if (movementItems.length > 0) {
+        const validatedMovement = sanitizeExternalItems({
+          items: movementItems,
+          fallbackReason: oddsResult.fallbackReason
+        });
+        if (validatedMovement.fallbackReason) providerFallbackReasons.push(validatedMovement.fallbackReason);
+        if (validatedMovement.items.length > 0) {
           coverage.odds = 'live';
-          items.push(...movementItems.map(withDefaultTrust));
+          items.push(...validatedMovement.items.map(withDefaultTrust));
         }
       }
 
@@ -153,7 +184,9 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
         asOf,
         items,
         coverage,
-        fallbackReason: items.length === 0 ? 'No verified update from trusted sources.' : undefined
+        fallbackReason: items.length === 0
+          ? (joinFallback(...providerFallbackReasons) ?? 'No verified update from trusted sources.')
+          : undefined
       };
 
       return setTrustedContextCache(key, bundle, TRUSTED_CONTEXT_TTL_MS.scheduleSpot);
@@ -162,12 +195,38 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
 };
 
 export const trustedContextProvider = createTrustedContextProvider({
+  injuries: {
+    fetchInjuries: async () => {
+      if (!process.env.SPORTSDATAIO_API_KEY && !process.env.TRUSTED_SPORTSDATAIO_KEY) {
+        return {
+          asOf: new Date().toISOString(),
+          items: [],
+          sources: [],
+          fallbackReason: 'provider key missing: SPORTSDataIO'
+        };
+      }
+      return {
+        asOf: new Date().toISOString(),
+        items: [],
+        sources: [],
+        fallbackReason: 'no_data'
+      };
+    }
+  },
   odds: {
-    fetchEventOdds: providerRegistry.oddsProvider.fetchEventOdds
+    fetchEventOdds: async (input) => {
+      if (!process.env.ODDS_API_KEY && !process.env.TRUSTED_ODDS_API_KEY) {
+        return {
+          platformLines: [],
+          provenance: { sources: [] },
+          fallbackReason: 'provider key missing: Odds API'
+        };
+      }
+      return providerRegistry.oddsProvider.fetchEventOdds(input);
+    }
   }
 });
 
 export async function fetchTrustedContext(input: FetchInput): Promise<TrustedContextBundle> {
   return trustedContextProvider.fetchTrustedContext(input);
 }
-
