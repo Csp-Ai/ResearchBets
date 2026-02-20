@@ -6,16 +6,19 @@ import { useEffect, useState } from 'react';
 import { readCoverageAgentEnabled, readDeveloperMode, writeCoverageAgentEnabled, writeDeveloperMode } from '@/src/core/ui/preferences';
 
 type ProviderStatus = { stats: string; odds: string; injuries: string };
+type HealthStatus = { ok: boolean; missing?: string[]; hint?: string };
 
 export default function SettingsPage() {
   const [developerMode, setDeveloperMode] = useState(false);
   const [coverageAgentEnabled, setCoverageAgentEnabled] = useState(false);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
+  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
     setCoverageAgentEnabled(readCoverageAgentEnabled());
     void fetch('/api/bettor-data').then((res) => res.json()).then((payload) => setProviderStatus(payload.providerStatus as ProviderStatus));
+    void fetch('/api/health').then((res) => res.json()).then((payload) => setHealthStatus(payload as HealthStatus)).catch(() => setHealthStatus(null));
   }, []);
 
   return (
@@ -24,6 +27,19 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-semibold">Settings</h1>
         <p className="text-sm text-slate-400">Control app behavior and data connections.</p>
       </header>
+
+
+      {process.env.NODE_ENV === 'development' && healthStatus && !healthStatus.ok ? (
+        <div className="bettor-card border-amber-500/40 p-5">
+          <h2 className="text-lg font-semibold text-amber-200">Local setup needed</h2>
+          <p className="mt-1 text-sm text-amber-100/80">{healthStatus.hint ?? 'Finish env setup to enable all services.'}</p>
+          <ul className="mt-2 list-disc pl-5 text-sm text-amber-100/90">
+            {(healthStatus.missing ?? []).map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="bettor-card p-5">
         <h2 className="text-lg font-semibold">Provider connections</h2>

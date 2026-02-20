@@ -1,7 +1,11 @@
 import 'server-only';
 
+import { randomUUID } from 'node:crypto';
+
 import { DEMO_GAMES, type BettorGame } from './demoData';
+import { getServerEnv } from '../env/server';
 import { providerRegistry } from '../providers/registry.server';
+import { getSupabaseServiceClient } from '@/src/services/supabase';
 
 export type BettorDataEnvelope = {
   mode: 'live' | 'demo';
@@ -17,16 +21,23 @@ export type BettorDataEnvelope = {
   };
 };
 
-const readProviderStatus = () => ({
-  stats: process.env.SPORTSDATAIO_API_KEY ? 'connected' : 'missing',
-  odds: process.env.ODDS_API_KEY ? 'connected' : 'missing',
-  injuries: process.env.SPORTSDATAIO_API_KEY ? 'connected' : 'missing'
-} as const);
+const providerCircuit = {
+  openUntilMs: 0,
+  consecutiveFailures: 0
+};
+
+const readProviderStatus = () => {
+  const env = getServerEnv();
+  return {
+    stats: env.sportsDataApiKey ? 'connected' : 'missing',
+    odds: env.oddsApiKey ? 'connected' : 'missing',
+    injuries: env.sportsDataApiKey ? 'connected' : 'missing'
+  } as const;
+};
 
 const liveModeEnabled = (override?: boolean) => {
   if (typeof override === 'boolean') return override;
-  if (process.env.NODE_ENV !== 'production') return false;
-  return process.env.LIVE_MODE === 'true';
+  return getServerEnv().liveMode;
 };
 
 const mapEventToGame = (event: { id: string; home_team?: string; away_team?: string; commence_time?: string }): BettorGame => {
@@ -35,7 +46,7 @@ const mapEventToGame = (event: { id: string; home_team?: string; away_team?: str
     ...base,
     id: event.id,
     status: 'upcoming',
-    startTime: event.commence_time ? new Date(event.commence_time).toLocaleTimeString() : (base?.startTime ?? "TBD"),
+    startTime: event.commence_time ? new Date(event.commence_time).toLocaleTimeString() : (base?.startTime ?? 'TBD'),
     matchup: `${event.away_team ?? base.awayTeam} @ ${event.home_team ?? base.homeTeam}`,
     homeTeam: event.home_team ?? base.homeTeam,
     awayTeam: event.away_team ?? base.awayTeam,
@@ -43,20 +54,71 @@ const mapEventToGame = (event: { id: string; home_team?: string; away_team?: str
   };
 };
 
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('provider_timeout')), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]);
+};
+
+const emitGatewayEvent = async (eventName: string, properties: Record<string, unknown>) => {
+  try {
+    const supabase = getSupabaseServiceClient();
+    await supabase.from('events_analytics').insert({
+      event_name: eventName,
+      request_id: randomUUID(),
+      trace_id: randomUUID(),
+      run_id: randomUUID(),
+      session_id: 'system:bettor_gateway',
+      user_id: 'system',
+      agent_id: 'bettor_gateway',
+      model_version: 'gateway-v2',
+      properties,
+      created_at: new Date().toISOString()
+    });
+  } catch {
+    // best-effort analytics only
+  }
+};
+
+const fallback = async (reason: string, providerStatus: BettorDataEnvelope['providerStatus']): Promise<BettorDataEnvelope> => {
+  await emitGatewayEvent('bettor_gateway_fallback', {
+    reason,
+    hasOddsKey: providerStatus.odds === 'connected',
+    hasStatsKey: providerStatus.stats === 'connected'
+  });
+
+  return {
+    mode: 'demo',
+    games: DEMO_GAMES,
+    providerStatus,
+    provenance: { source: 'fallback', reason }
+  };
+};
+
 export const getBettorData = async (options?: { liveModeOverride?: boolean }): Promise<BettorDataEnvelope> => {
   const providerStatus = readProviderStatus();
+  const env = getServerEnv();
 
   if (!liveModeEnabled(options?.liveModeOverride)) {
-    return {
-      mode: 'demo',
-      games: DEMO_GAMES,
-      providerStatus,
-      provenance: { source: 'fallback', reason: 'live_mode_disabled' }
-    };
+    return fallback('live_mode_disabled', providerStatus);
+  }
+
+  const missingLiveKeys: string[] = [];
+  if (!env.oddsApiKey) missingLiveKeys.push('ODDS_API_KEY');
+
+  if (missingLiveKeys.length > 0) {
+    return fallback('fallback_due_to_missing_keys', providerStatus);
+  }
+
+  if (providerCircuit.openUntilMs > Date.now()) {
+    return fallback('provider_circuit_open', providerStatus);
   }
 
   try {
-    const providerEvents = await providerRegistry.oddsProvider.fetchEvents({ sport: 'NBA' });
+    const providerEvents = await withTimeout(providerRegistry.oddsProvider.fetchEvents({ sport: 'NBA' }), 6_000);
+    providerCircuit.consecutiveFailures = 0;
+
     if (providerEvents.events.length > 0) {
       return {
         mode: 'live',
@@ -66,18 +128,12 @@ export const getBettorData = async (options?: { liveModeOverride?: boolean }): P
       };
     }
 
-    return {
-      mode: 'demo',
-      games: DEMO_GAMES,
-      providerStatus,
-      provenance: { source: 'fallback', reason: providerEvents.fallbackReason ?? 'provider_no_events' }
-    };
+    return fallback(providerEvents.fallbackReason ?? 'provider_no_events', providerStatus);
   } catch {
-    return {
-      mode: 'demo',
-      games: DEMO_GAMES,
-      providerStatus,
-      provenance: { source: 'fallback', reason: 'provider_error' }
-    };
+    providerCircuit.consecutiveFailures += 1;
+    if (providerCircuit.consecutiveFailures >= 2) {
+      providerCircuit.openUntilMs = Date.now() + 60_000;
+    }
+    return fallback('provider_error', providerStatus);
   }
 };

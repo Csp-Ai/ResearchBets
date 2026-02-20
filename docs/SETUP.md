@@ -134,3 +134,22 @@ Open:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 - Optional: `ADMIN_SECRET_KEY` (if set, send it in `x-admin-secret`)
+
+## 8) Deploy to Vercel (pre-launch hardening checklist)
+
+1. Add required env vars in Vercel project settings:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (**server only, never `NEXT_PUBLIC_`**)
+   - `SPORTSDATAIO_API_KEY` (optional for live providers)
+   - `ODDS_API_KEY` (required for live odds mode)
+   - `CRON_SECRET` (required for cron auth)
+   - `LIVE_MODE=false` (recommended default until all provider keys are confirmed)
+2. Confirm Next.js env variable rule: only `NEXT_PUBLIC_*` values are exposed to browser bundles at build time.
+3. Deploy and verify `/dev/mirror` and other `/dev/*` routes return 404 in production.
+4. Verify cron call uses `x-cron-secret: $CRON_SECRET`.
+5. Verify bettor UX remains safe when provider keys are missing: app should fall back to demo data instead of crashing.
+
+### Vercel WAF note
+
+This repo now includes a best-effort in-process rate limiter for key POST endpoints. For stronger production protection, enable Vercel WAF rate limiting rules at the edge.
