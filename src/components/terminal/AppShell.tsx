@@ -9,7 +9,7 @@ import { DEV_MODE_EVENT, LIVE_MODE_EVENT, readDeveloperMode, readLiveModeEnabled
 import { COPY_TOAST_EVENT } from './copyToast';
 
 const BASE_NAV_ITEMS = [
-  { label: 'Research', href: '/research' },
+  { label: 'Analyze', href: '/research' },
   { label: 'Scout', href: '/discover' },
   { label: 'Live', href: '/live' },
   { label: 'Community', href: '/community' }
