@@ -9,25 +9,20 @@ import { DEV_MODE_EVENT, readDeveloperMode } from '@/src/core/ui/preferences';
 import { COPY_TOAST_EVENT } from './copyToast';
 
 const BASE_NAV_ITEMS = [
-  { label: 'Analyze', href: '/research' },
-  { label: 'Build', href: '/discover' },
-  { label: 'Bets', href: '/pending-bets' },
-  { label: 'Settings', href: '/settings' },
+  { label: 'Home', href: '/' },
+  { label: 'Research', href: '/research' },
+  { label: 'Discover', href: '/discover' },
+  { label: 'Community', href: '/community' },
+  { label: 'Agents', href: '/agents' },
+  { label: 'Settings', href: '/settings' }
 ];
 
-const PRODUCT_PREFIXES = ['/', '/dashboard', '/discover', '/ingest', '/research', '/pending-bets', '/traces', '/live', '/settings'];
-const BETTOR_ROUTES = ['/research', '/ingest', '/discover'];
+const PRODUCT_PREFIXES = ['/', '/discover', '/ingest', '/research', '/pending-bets', '/traces', '/live', '/settings', '/community', '/agents', '/u'];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [toast, setToast] = useState<string | null>(null);
   const [developerMode, setDeveloperMode] = useState(false);
-
-  const demoMode = useMemo(() => {
-    if (process.env.NODE_ENV !== 'development') return false;
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-    return url.length === 0 || /^dummy([_-]|$)/i.test(url);
-  }, []);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
@@ -57,42 +52,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (!isProduct) return <>{children}</>;
 
-  const navItems = developerMode ? [...BASE_NAV_ITEMS, { label: 'Run details', href: '/traces' }] : BASE_NAV_ITEMS;
-  const showWorkspaceLine = developerMode || !BETTOR_ROUTES.some((route) => pathname?.startsWith(route));
+  const navItems = developerMode ? [...BASE_NAV_ITEMS, { label: 'Traces', href: '/traces' }] : BASE_NAV_ITEMS;
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-[1360px] px-3 py-5 lg:px-6">
-      <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
-        <aside className="rb-card h-fit p-3.5">
-          <p className="mb-1 text-xs uppercase tracking-wide text-slate-500">ResearchBets</p>
-          <p className="mb-3 text-[11px] text-slate-500">Decision-first bettor workflow</p>
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`block rounded-lg px-3 py-2 text-sm ${active ? 'bg-cyan-900/30 text-cyan-100' : 'text-slate-300 hover:bg-slate-800/60'}`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
-        <div className="space-y-6">
-          {demoMode ? <div className="rounded-lg border border-amber-700/50 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">Live Supabase disabled.</div> : null}
-          {showWorkspaceLine ? (
-            <div className="text-xs text-slate-500">
-              <span>ResearchBets</span>
-              <span className="mx-2 text-slate-600">/</span>
-              <span className="capitalize">{pathname?.replace('/', '') || 'home'}</span>
-            </div>
-          ) : null}
-          <main className="mx-auto w-full max-w-5xl space-y-8 pb-10">{children}</main>
+    <div className="mx-auto min-h-screen w-full max-w-[1240px] px-4 py-4 lg:px-6">
+      <header className="sticky top-2 z-40 mb-6 rounded-2xl border border-white/10 bg-slate-950/75 p-3 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="mr-3 text-sm font-semibold text-cyan-200">ResearchBets</p>
+          {navItems.map((item) => {
+            const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            return (
+              <Link key={item.href} href={item.href} className={`rounded-lg px-3 py-1.5 text-sm ${active ? 'bg-cyan-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'}`}>
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
-      </div>
+      </header>
+      <main className="mx-auto w-full max-w-5xl space-y-8 pb-10">{children}</main>
       {toast ? <div className="fixed bottom-5 right-5 rounded bg-slate-200 px-3 py-2 text-xs font-medium text-slate-900">{toast}</div> : null}
     </div>
   );

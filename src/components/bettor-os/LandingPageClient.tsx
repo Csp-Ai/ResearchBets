@@ -1,61 +1,37 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
 
-const heroContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
+import { useMotionVariants } from './motion';
 
-const heroItem = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0 }
-};
-
-export default function LandingPageClient() {
-  const prefersReducedMotion = useReducedMotion();
-
-  const containerVariants = prefersReducedMotion
-    ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
-    : heroContainer;
-
-  const itemVariants = prefersReducedMotion
-    ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
-    : heroItem;
+export function LandingPageClient({ hasRecentRun }: { hasRecentRun: boolean }) {
+  const { fadeUp, stagger } = useMotionVariants();
 
   return (
-    <main className="mx-auto flex min-h-[60vh] max-w-4xl flex-col items-center justify-center gap-4 px-6 py-20 text-center">
-      <motion.section initial="hidden" animate="visible" variants={containerVariants} className="space-y-4">
-        <motion.h1 variants={itemVariants} className="text-4xl font-semibold tracking-tight text-slate-100">
-          Everyday Bettor OS
-        </motion.h1>
-        <motion.p variants={itemVariants} className="max-w-2xl text-slate-300">
-          Decision-first workflows with confidence, context, and disciplined execution.
-        </motion.p>
-        <motion.div variants={itemVariants} className="flex items-center justify-center gap-3">
-          <motion.button
-            type="button"
-            whileHover={prefersReducedMotion ? undefined : { scale: 1.04 }}
-            whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-            transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 300 }}
-            className="rounded-lg bg-emerald-500 px-5 py-2.5 font-medium text-slate-950"
-          >
-            Analyze Slip
-          </motion.button>
-          <motion.a
-            href="/research"
-            variants={itemVariants}
-            className="rounded-lg border border-slate-500 px-5 py-2.5 font-medium text-slate-100"
-          >
-            Open Hub
-          </motion.a>
+    <motion.section initial="hidden" animate="show" variants={stagger} className="space-y-8">
+      <motion.div variants={fadeUp} className="rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,#1f2a44,transparent_58%),#0f121a] p-8 shadow-2xl">
+        <p className="text-sm text-cyan-300">Everyday Bettor OS</p>
+        <h1 className="mt-2 text-4xl font-semibold leading-tight">Clearer slip calls, smarter props, and live context in seconds.</h1>
+        <p className="mt-3 max-w-2xl text-sm text-slate-300">Paste your slip, get a verdict first, then quickly see the weakest leg and why it matters.</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/ingest" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Analyze a slip</Link>
+          <Link href="/research?tab=scout" className="rounded-xl border border-white/20 px-4 py-2 text-sm">Scout props</Link>
+          {hasRecentRun ? <Link href="/research" className="rounded-xl border border-white/20 px-4 py-2 text-sm">Continue last analysis</Link> : null}
+        </div>
+      </motion.div>
+
+      <motion.div variants={fadeUp} className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+        <p className="text-sm text-slate-400">Live demo preview</p>
+        <motion.div layout className="mt-3 space-y-3 text-sm">
+          <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">Paste slip → <span className="text-slate-300">Tatum O29.5 pts, Luka O8.5 ast, LeBron O6.5 reb</span></div>
+          <motion.div whileHover={{ scale: 1.01 }} className="rounded-lg border border-emerald-500/30 bg-emerald-900/20 p-3">
+            <p className="font-medium text-emerald-200">Verdict: 63% confidence (research only)</p>
+            <p className="mt-1 text-slate-300">Weakest leg: LeBron rebounds over 6.5 due to pace + fatigue angle.</p>
+          </motion.div>
+          <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-slate-300">Why peek: Dallas allows long boards, but back-to-back fatigue raises variance.</div>
         </motion.div>
-      </motion.section>
-    </main>
+      </motion.div>
+    </motion.section>
   );
 }

@@ -492,3 +492,29 @@ body {
   .tone-caution { @apply ui-tone-caution; }
   .tone-weak { @apply ui-tone-weak; }
 }
+
+.bettor-card {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.62));
+  border-radius: 1rem;
+}
+
+.bettor-skeleton {
+  background: linear-gradient(90deg, rgba(51, 65, 85, 0.35) 25%, rgba(100, 116, 139, 0.5) 50%, rgba(51, 65, 85, 0.35) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
