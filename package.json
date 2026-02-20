@@ -27,7 +27,8 @@
     "audit:app-root": "node scripts/audit/assert-single-app-root.mjs",
     "audit:security": "node scripts/audit/security-guards.mjs",
     "audit:unused": "node scripts/audit/unused-report.mjs",
-    "audit:unused:ci": "node scripts/audit/unused-ci.mjs"
+    "audit:unused:ci": "node scripts/audit/unused-ci.mjs",
+    "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
