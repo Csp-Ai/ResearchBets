@@ -32,10 +32,8 @@
     "dev:mirror:index": "tsx src/scripts/index-codebase.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.30",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
-    "ai": "^6.0.94",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",
