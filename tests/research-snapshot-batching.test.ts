@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   fetchEventOdds: vi.fn(async () => ({ platformLines: [], provenance: { asOf: new Date().toISOString(), sources: [] } }))
 }));
 
-vi.mock('../src/core/providers/registry', () => ({
+vi.mock('../src/core/providers/registry.server', () => ({
   computeHitRate: (logs: Array<{ stats?: { points?: number } }>) => {
     const vals = logs.map((l) => l.stats?.points).filter((v): v is number => typeof v === 'number');
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;

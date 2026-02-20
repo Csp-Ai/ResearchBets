@@ -1,5 +1,6 @@
 import type { MarketType } from '../../core/markets/marketType';
-import { computeHitRate, providerRegistry, type ProviderRegistry } from '../../core/providers/registry';
+import { providerRegistry } from '../../core/providers/registry.server';
+import { computeHitRate, type ProviderRegistry } from '../../core/providers/registry.shared';
 import { buildProvenance } from '../../core/sources/provenance';
 import type { HitProfileResult } from './types';
 

@@ -1,6 +1,4 @@
 import type { MarketType } from '@/src/core/markets/marketType';
-import { providerRegistry } from '@/src/core/providers/registry';
-
 import { getTrustedContextCache, setTrustedContextCache, TRUSTED_CONTEXT_TTL_MS } from './cache';
 import type { TrustedContextBundle, TrustedContextItem, TrustedSourceRef } from './types';
 
@@ -194,39 +192,3 @@ export const createTrustedContextProvider = (adapters: TrustedAdapters = {}, clo
   };
 };
 
-export const trustedContextProvider = createTrustedContextProvider({
-  injuries: {
-    fetchInjuries: async () => {
-      if (!process.env.SPORTSDATAIO_API_KEY && !process.env.TRUSTED_SPORTSDATAIO_KEY) {
-        return {
-          asOf: new Date().toISOString(),
-          items: [],
-          sources: [],
-          fallbackReason: 'provider key missing: SPORTSDataIO'
-        };
-      }
-      return {
-        asOf: new Date().toISOString(),
-        items: [],
-        sources: [],
-        fallbackReason: 'no_data'
-      };
-    }
-  },
-  odds: {
-    fetchEventOdds: async (input) => {
-      if (!process.env.ODDS_API_KEY && !process.env.TRUSTED_ODDS_API_KEY) {
-        return {
-          platformLines: [],
-          provenance: { sources: [] },
-          fallbackReason: 'provider key missing: Odds API'
-        };
-      }
-      return providerRegistry.oddsProvider.fetchEventOdds(input);
-    }
-  }
-});
-
-export async function fetchTrustedContext(input: FetchInput): Promise<TrustedContextBundle> {
-  return trustedContextProvider.fetchTrustedContext(input);
-}
