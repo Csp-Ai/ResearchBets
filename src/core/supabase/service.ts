@@ -1,4 +1,8 @@
-import 'server-only';
+const isBrowserRuntime = typeof window !== 'undefined';
+
+if (isBrowserRuntime) {
+  throw new Error('Supabase service client is server-only.');
+}
 
 import { createClient } from '@supabase/supabase-js';
 

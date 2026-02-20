@@ -28,7 +28,8 @@
     "audit:security": "node scripts/audit/security-guards.mjs",
     "audit:unused": "node scripts/audit/unused-report.mjs",
     "audit:unused:ci": "node scripts/audit/unused-ci.mjs",
-    "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs"
+    "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs",
+    "dev:mirror:index": "tsx src/scripts/index-codebase.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -57,6 +58,7 @@
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.2",
     "vitest": "^2.1.8"
   }
