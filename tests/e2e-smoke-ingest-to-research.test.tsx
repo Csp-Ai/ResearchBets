@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import IngestionPage from '@/app/ingest/page';
-import { ResearchPageContent } from '@/app/research/page';
+import ResearchPageContent from '@/src/components/research/ResearchPageContent';
 import { runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
 

@@ -6,7 +6,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import { ResearchPageContent } from '@/app/research/page';
+import ResearchPageContent from '@/src/components/research/ResearchPageContent';
 
 const push = vi.fn();
 
