@@ -6,22 +6,23 @@ const assertIncludes = (source, snippet, label) => {
   }
 };
 
-const checkPageGuard = async (filePath) => {
+const checkPageGuard = async (filePath, snippets) => {
   const source = await readFile(filePath, 'utf8');
-  assertIncludes(source, "process.env.NODE_ENV !== 'development'", filePath);
-  assertIncludes(source, 'notFound()', filePath);
-  console.log(`${filePath}: production guard present`);
+  for (const snippet of snippets) {
+    assertIncludes(source, snippet, filePath);
+  }
+  console.log(`${filePath}: guard present`);
 };
 
 const checkApiGuard = async (filePath) => {
   const source = await readFile(filePath, 'utf8');
-  assertIncludes(source, "process.env.NODE_ENV !== 'development'", filePath);
-  assertIncludes(source, "status: 404", filePath);
-  console.log(`${filePath}: production 404 guard present`);
+  assertIncludes(source, 'status: 404', filePath);
+  assertIncludes(source, 'Mirror disabled in launch branch', filePath);
+  console.log(`${filePath}: mirror disabled stub present`);
 };
 
-await checkPageGuard('app/dev/mirror/page.tsx');
-await checkPageGuard('app/dev/dashboard/page.tsx');
+await checkPageGuard('app/dev/mirror/page.tsx', ['notFound()']);
+await checkPageGuard('app/dev/dashboard/page.tsx', ["process.env.NODE_ENV !== 'development'", 'notFound()']);
 await checkApiGuard('app/api/dev/mirror/status/route.ts');
 await checkApiGuard('app/api/dev/mirror/chat/route.ts');
 

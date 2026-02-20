@@ -129,11 +129,7 @@ Open:
 - `OPENAI_API_KEY`
 
 ### Use `/dev/mirror` chat UI
-- Development runtime (`NODE_ENV=development`)
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
-- Optional: `ADMIN_SECRET_KEY` (if set, send it in `x-admin-secret`)
+- Mirror is disabled in this launch branch (route and API return 404 in all environments).
 
 ## 8) Deploy to Vercel (pre-launch hardening checklist)
 
@@ -142,7 +138,7 @@ Open:
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (**server only, never `NEXT_PUBLIC_`**)
    - `SPORTSDATAIO_API_KEY` (optional for live providers)
-   - `ODDS_API_KEY` (required for live odds mode)
+   - `ODDS_API_KEY` (optional for live providers)
    - `CRON_SECRET` (required for cron auth)
    - `LIVE_MODE=false` (recommended default until all provider keys are confirmed)
 2. Confirm Next.js env variable rule: only `NEXT_PUBLIC_*` values are exposed to browser bundles at build time.
