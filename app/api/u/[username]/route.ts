@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { getSupabaseServiceClient } from '@/src/core/supabase/service';
 
+const usernameSchema = z.object({
+  username: z.string().trim().min(3).max(24).regex(/^[a-zA-Z0-9_]+$/)
+});
+
 export async function GET(_: Request, { params }: { params: { username: string } }) {
+  const parsedParams = usernameSchema.safeParse(params);
+  if (!parsedParams.success) return NextResponse.json({ error: 'Invalid username.' }, { status: 400 });
+
   const supabase = getSupabaseServiceClient();
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
     .select('id, user_id, username, avatar_url, created_at')
-    .eq('username', params.username)
+    .eq('username', parsedParams.data.username)
     .maybeSingle();
 
   if (profileError) return NextResponse.json({ error: 'Unable to load profile.' }, { status: 500 });

@@ -1,54 +1,37 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-import { getSupabasePublicEnv } from '@/src/core/supabase/env';
+import { getServerEnv } from '@/src/core/env/server';
 
 export async function GET() {
-  const { url: supabaseUrl, anonKey: supabaseKey } = getSupabasePublicEnv();
+  const env = getServerEnv();
 
-  const supabaseUrlPresent = Boolean(supabaseUrl);
-  const supabaseKeyPresent = Boolean(supabaseKey);
-  const missing: string[] = [];
-
-  if (!supabaseUrlPresent) {
-    missing.push('NEXT_PUBLIC_SUPABASE_URL');
-  }
-
-  if (!supabaseKeyPresent) {
-    missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  }
-
-  if (missing.length > 0) {
-    return NextResponse.json({ ok: false, supabaseUrlPresent, supabaseKeyPresent, missing }, { status: 500 });
-  }
-
-  try {
-    const supabase = createClient(supabaseUrl!, supabaseKey!);
-    const { error } = await supabase.auth.getSession();
-
-    if (error) {
-      return NextResponse.json(
-        {
-          ok: false,
-          supabaseUrlPresent,
-          supabaseKeyPresent,
-          error: `Supabase session check failed: ${error.message}`
-        },
-        { status: 502 }
-      );
+  if (env.missing.length > 0) {
+    if (env.nodeEnv === 'production') {
+      return NextResponse.json({ ok: true, degraded: true, mode: env.liveMode ? 'live' : 'demo' });
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown Supabase error';
+
     return NextResponse.json(
       {
         ok: false,
-        supabaseUrlPresent,
-        supabaseKeyPresent,
-        error: `Supabase client initialization failed: ${message}`
+        missing: env.missing,
+        hint: 'Copy .env.example to .env.local and fill the required values.'
       },
-      { status: 502 }
+      { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, supabaseUrlPresent, supabaseKeyPresent });
+  try {
+    const supabase = createClient(env.supabaseUrl!, env.supabaseAnonKey!);
+    const { error } = await supabase.auth.getSession();
+
+    if (error) {
+      return NextResponse.json({ ok: false, error: `Supabase session check failed: ${error.message}` }, { status: 502 });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Supabase error';
+    return NextResponse.json({ ok: false, error: `Supabase client initialization failed: ${message}` }, { status: 502 });
+  }
+
+  return NextResponse.json({ ok: true, mode: env.liveMode ? 'live' : 'demo' });
 }

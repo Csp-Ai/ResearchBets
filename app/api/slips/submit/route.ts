@@ -4,19 +4,26 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { applyRateLimit } from '@/src/core/http/rateLimit';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 const payloadSchema = z.object({
   anon_session_id: z.string().min(1),
   user_id: z.string().optional().nullable(),
   source: z.enum(['paste', 'upload']),
-  raw_text: z.string().min(1),
+  raw_text: z.string().trim().min(1).max(6000),
   request_id: z.string().min(1),
   trace_id: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
-  const body = payloadSchema.parse(await request.json());
+  const limited = applyRateLimit(request, { route: 'slips:submit', limit: 10 });
+  if (limited) return limited;
+
+  const parsed = payloadSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid slip payload.' }, { status: 400 });
+
+  const body = parsed.data;
   const store = getRuntimeStore();
   const checksum = createHash('sha256').update(body.raw_text).digest('hex');
   const id = randomUUID();

@@ -15,6 +15,12 @@ type HistoricalBetRow = {
 };
 
 const nowIso = () => new Date().toISOString();
+const inProcessLocks = new Set<string>();
+
+const lockKeyForCurrentHour = () => {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}-${now.getUTCHours()}`;
+};
 
 const outcomeFromGameResult = (payload: Record<string, unknown> | null): 'win' | 'loss' | 'void' | null => {
   const value = String(payload?.outcome ?? payload?.result ?? '').toLowerCase();
@@ -69,74 +75,92 @@ const emitEvent = async (eventName: string, properties: Record<string, unknown>)
   });
 };
 
-export async function settlePendingBets(batchSize = 100): Promise<{ scanned: number; settled: number; skipped: number; failed: number }> {
-  const supabase = getSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('historical_bets')
-    .select('id, league, status, game_time, game_id, gm_confidence, agent_weights, black_swan_flag')
-    .eq('status', 'pending')
-    .lt('game_time', nowIso())
-    .limit(batchSize);
-
-  if (error) throw new Error('Unable to query pending bets.');
-  const bets = (data ?? []) as HistoricalBetRow[];
-  let settled = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  await emitEvent('settle_bets_run', { scanned: bets.length });
-
-  for (const bet of bets) {
-    try {
-      if (bet.status && bet.status !== 'pending') {
-        skipped += 1;
-        continue;
-      }
-
-      const resolved = await resolveOutcome(bet);
-      if (!resolved.outcome) {
-        skipped += 1;
-        continue;
-      }
-
-      const { error: updateError } = await supabase
-        .from('historical_bets')
-        .update({
-          status: resolved.outcome,
-          settlement_status: resolved.outcome,
-          outcome: resolved.outcome,
-          settled_at: nowIso(),
-          outcome_metadata: resolved.meta ?? null
-        })
-        .eq('id', bet.id)
-        .eq('status', 'pending');
-
-      if (updateError) {
-        failed += 1;
-        await emitEvent('settle_bet_failed', { betId: bet.id, reason: 'update_failed' });
-        continue;
-      }
-
-      if (resolved.outcome !== 'void') {
-        const feedbackSignal = await getHumanFeedbackSignal(bet.id);
-        await recordPostMortem({
-          betId: bet.id,
-          league: bet.league ?? 'unknown',
-          gmConfidence: Number(bet.gm_confidence ?? 0.5),
-          outcome: resolved.outcome,
-          blackSwan: Boolean(bet.black_swan_flag),
-          humanFeedbackSignal: feedbackSignal,
-          agentWeights: bet.agent_weights ?? []
-        });
-      }
-
-      settled += 1;
-      await emitEvent('settle_bet_success', { betId: bet.id, outcome: resolved.outcome });
-    } catch {
-      failed += 1;
-      await emitEvent('settle_bet_failed', { betId: bet.id, reason: 'exception' });
-    }
+export async function settlePendingBets(batchSize = 100): Promise<{ scanned: number; settled: number; skipped: number; failed: number; locked?: boolean }> {
+  const normalizedBatchSize = Math.max(1, Math.min(batchSize, 100));
+  const lockKey = lockKeyForCurrentHour();
+  if (inProcessLocks.has(lockKey)) {
+    return { scanned: 0, settled: 0, skipped: 0, failed: 0, locked: true };
   }
 
-  return { scanned: bets.length, settled, skipped, failed };
+  inProcessLocks.add(lockKey);
+
+  try {
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from('historical_bets')
+      .select('id, league, status, game_time, game_id, gm_confidence, agent_weights, black_swan_flag')
+      .eq('status', 'pending')
+      .lt('game_time', nowIso())
+      .limit(normalizedBatchSize);
+
+    if (error) throw new Error('Unable to query pending bets.');
+    const bets = (data ?? []) as HistoricalBetRow[];
+    let settled = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    await emitEvent('settle_bets_run', { scanned: bets.length, batchSize: normalizedBatchSize });
+
+    for (const bet of bets) {
+      try {
+        if (bet.status && bet.status !== 'pending') {
+          skipped += 1;
+          continue;
+        }
+
+        const resolved = await resolveOutcome(bet);
+        if (!resolved.outcome) {
+          skipped += 1;
+          continue;
+        }
+
+        const { data: updatedRows, error: updateError } = await supabase
+          .from('historical_bets')
+          .update({
+            status: resolved.outcome,
+            settlement_status: resolved.outcome,
+            outcome: resolved.outcome,
+            settled_at: nowIso(),
+            outcome_metadata: resolved.meta ?? null
+          })
+          .eq('id', bet.id)
+          .eq('status', 'pending')
+          .select('id');
+
+        if (updateError) {
+          failed += 1;
+          await emitEvent('settle_bet_failed', { betId: bet.id, reason: 'update_failed' });
+          continue;
+        }
+
+        if (!updatedRows || updatedRows.length === 0) {
+          skipped += 1;
+          continue;
+        }
+
+        if (resolved.outcome !== 'void') {
+          const feedbackSignal = await getHumanFeedbackSignal(bet.id);
+          await recordPostMortem({
+            betId: bet.id,
+            league: bet.league ?? 'unknown',
+            gmConfidence: Number(bet.gm_confidence ?? 0.5),
+            outcome: resolved.outcome,
+            blackSwan: Boolean(bet.black_swan_flag),
+            humanFeedbackSignal: feedbackSignal,
+            agentWeights: bet.agent_weights ?? []
+          });
+        }
+
+        settled += 1;
+        await emitEvent('settle_bet_success', { betId: bet.id, outcome: resolved.outcome });
+      } catch {
+        failed += 1;
+        await emitEvent('settle_bet_failed', { betId: bet.id, reason: 'exception' });
+      }
+    }
+
+    return { scanned: bets.length, settled, skipped, failed };
+  } finally {
+    inProcessLocks.delete(lockKey);
+  }
 }

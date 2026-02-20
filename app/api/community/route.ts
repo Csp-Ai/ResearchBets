@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { applyRateLimit } from '@/src/core/http/rateLimit';
 import { getSupabaseServiceClient } from '@/src/services/supabase';
 
 const createPostSchema = z.object({
-  content: z.string().min(8).max(500),
+  content: z.string().trim().min(8).max(500),
   sport: z.string().trim().max(40).optional(),
   league: z.string().trim().max(40).optional(),
   tags: z.array(z.string().trim().min(1).max(24)).max(8).optional()
@@ -66,6 +67,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const limited = applyRateLimit(request, { route: 'community:post', limit: 10 });
+  if (limited) return limited;
+
   const body = await request.json();
   const cloneParsed = cloneSchema.safeParse(body);
   if (cloneParsed.success) {
