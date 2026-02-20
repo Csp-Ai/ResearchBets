@@ -43,7 +43,7 @@ const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
 
 if (!OPENAI_API_KEY) {
-  throw new Error('Missing OPENAI_API_KEY. Set it before running dev:mirror:index.');
+  throw new Error('Missing OPENAI_API_KEY. Set it in .env.local to generate embeddings.');
 }
 
 const shouldIgnoreFile = (relativePath: string): boolean => {
@@ -275,6 +275,10 @@ const embedTexts = async (inputs: string[]): Promise<number[][]> => {
 };
 
 const main = async (): Promise<void> => {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY. Set it in .env.local to write embeddings to Supabase.');
+  }
+
   const supabase = getSupabaseServiceClient();
 
   const allFiles: string[] = [];
