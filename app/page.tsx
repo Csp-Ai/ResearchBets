@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { LandingPageClient } from '@/src/components/bettor-os/LandingPageClient';
 
 export default function HomePage() {
-  redirect('/research');
+  return <LandingPageClient hasRecentRun />;
 }
