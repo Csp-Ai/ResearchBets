@@ -4,7 +4,7 @@ This project supports source-stamped live research agents in the snapshot flow, 
 
 ## Required environment variables (server-only)
 
-- `SPORTSDATAIO_API_KEY` (required for live stats)
+- `SPORTSDATA_API_KEY` (required for live stats)
 - `ODDS_API_KEY` (required for live lines)
 - `SPORTSDATAIO_BASE_URL` (optional override for dev/testing)
 - `ODDS_API_BASE_URL` (optional override for dev/testing)

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { providerRegistry } from '@/src/core/providers/registry.server';
+import { getProviderRegistry } from '@/src/core/providers/registry.server';
 
 import { createTrustedContextProvider } from './trustedContextProvider';
 import type { TrustedContextBundle } from './types';
@@ -15,7 +15,7 @@ type FetchInput = {
 export const trustedContextProvider = createTrustedContextProvider({
   injuries: {
     fetchInjuries: async () => {
-      if (!process.env.SPORTSDATAIO_API_KEY && !process.env.TRUSTED_SPORTSDATAIO_KEY) {
+      if (!process.env.SPORTSDATA_API_KEY && !process.env.TRUSTED_SPORTSDATAIO_KEY) {
         return {
           asOf: new Date().toISOString(),
           items: [],
@@ -40,7 +40,7 @@ export const trustedContextProvider = createTrustedContextProvider({
           fallbackReason: 'provider key missing: Odds API'
         };
       }
-      return providerRegistry.oddsProvider.fetchEventOdds(input);
+      return getProviderRegistry().oddsProvider.fetchEventOdds(input);
     }
   }
 });

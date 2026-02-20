@@ -1,6 +1,6 @@
 import type { MarketType } from '../../core/markets/marketType';
 import { computeLineConsensus } from '../../core/providers/lineConsensus';
-import { providerRegistry } from '../../core/providers/registry.server';
+import { getProviderRegistry } from '../../core/providers/registry.server';
 import { buildProvenance } from '../../core/sources/provenance';
 import type { LineWatcherResult, PlatformLine } from './types';
 
@@ -20,7 +20,7 @@ export const runLineWatcher = async (input: {
   const preloaded = input.preload;
   const platformLines = preloaded
     ? preloaded.platformLines.filter((line) => line.player === input.player && line.marketType === input.marketType)
-    : (await providerRegistry.oddsProvider.fetchEventOdds({ sport: input.sport, eventIds: input.eventIds, marketType: input.marketType })).platformLines.filter((line) => line.player === input.player && line.marketType === input.marketType);
+    : (await getProviderRegistry().oddsProvider.fetchEventOdds({ sport: input.sport, eventIds: input.eventIds, marketType: input.marketType })).platformLines.filter((line) => line.player === input.player && line.marketType === input.marketType);
 
   const consensus = computeLineConsensus(platformLines);
   return {

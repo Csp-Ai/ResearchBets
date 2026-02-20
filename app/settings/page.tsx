@@ -49,7 +49,7 @@ export default function SettingsPage() {
           <li>Odds: {providerStatus?.odds ?? 'loading'}</li>
           <li>Injuries: {providerStatus?.injuries ?? 'loading'}</li>
         </ul>
-        <p className="mt-3 text-xs text-slate-500">Connect data source by setting SPORTSDATAIO_API_KEY and ODDS_API_KEY in your environment.</p>
+        <p className="mt-3 text-xs text-slate-500">Connect data source by setting SPORTSDATA_API_KEY and ODDS_API_KEY in your environment.</p>
       </div>
 
       <div className="bettor-card p-5">

@@ -29,7 +29,7 @@ export const getServerEnv = (): ServerEnv => {
     supabaseUrl: trimEnv('NEXT_PUBLIC_SUPABASE_URL'),
     supabaseAnonKey: trimEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     supabaseServiceRoleKey: trimEnv('SUPABASE_SERVICE_ROLE_KEY'),
-    sportsDataApiKey: trimEnv('SPORTSDATAIO_API_KEY'),
+    sportsDataApiKey: trimEnv('SPORTSDATA_API_KEY'),
     oddsApiKey: trimEnv('ODDS_API_KEY'),
     cronSecret: trimEnv('CRON_SECRET'),
     missing: []

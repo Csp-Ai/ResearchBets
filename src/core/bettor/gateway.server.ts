@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 
 import { DEMO_GAMES, type BettorGame } from './demoData';
 import { getServerEnv } from '../env/server';
-import { providerRegistry } from '../providers/registry.server';
+import { getProviderRegistry } from '../providers/registry.server';
 import { getSupabaseServiceClient } from '@/src/services/supabase';
 
 export type BettorDataEnvelope = {
@@ -101,13 +101,15 @@ export const getBettorData = async (options?: { liveModeOverride?: boolean }): P
   const env = getServerEnv();
 
   if (!liveModeEnabled(options?.liveModeOverride)) {
-    return fallback('live_mode_disabled', providerStatus);
+    return fallback('demo_mode', providerStatus);
   }
 
   const missingLiveKeys: string[] = [];
   if (!env.oddsApiKey) missingLiveKeys.push('ODDS_API_KEY');
+  if (!env.sportsDataApiKey) missingLiveKeys.push('SPORTSDATA_API_KEY');
 
   if (missingLiveKeys.length > 0) {
+    console.warn('[bettor_gateway] Missing live provider keys, falling back to demo fixtures.', { missingKeys: missingLiveKeys });
     return fallback('fallback_due_to_missing_keys', providerStatus);
   }
 
@@ -116,7 +118,7 @@ export const getBettorData = async (options?: { liveModeOverride?: boolean }): P
   }
 
   try {
-    const providerEvents = await withTimeout(providerRegistry.oddsProvider.fetchEvents({ sport: 'NBA' }), 6_000);
+    const providerEvents = await withTimeout(getProviderRegistry().oddsProvider.fetchEvents({ sport: 'NBA' }), 6_000);
     providerCircuit.consecutiveFailures = 0;
 
     if (providerEvents.events.length > 0) {

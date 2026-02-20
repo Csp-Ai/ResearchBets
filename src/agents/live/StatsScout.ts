@@ -1,5 +1,5 @@
 import type { MarketType } from '../../core/markets/marketType';
-import { providerRegistry } from '../../core/providers/registry.server';
+import { getProviderRegistry } from '../../core/providers/registry.server';
 import { computeHitRate, type ProviderRegistry } from '../../core/providers/registry.shared';
 import { buildProvenance } from '../../core/sources/provenance';
 import type { HitProfileResult } from './types';
@@ -21,8 +21,8 @@ export const runStatsScout = async (input: {
   const source = input.preload;
   if (!source) {
     const [logs, season] = await Promise.all([
-      providerRegistry.statsProvider.fetchRecentPlayerGameLogs({ sport: input.sport, playerIds: [input.playerId], limit: 10 }),
-      providerRegistry.statsProvider.fetchSeasonPlayerAverages({ sport: input.sport, playerIds: [input.playerId] })
+      getProviderRegistry().statsProvider.fetchRecentPlayerGameLogs({ sport: input.sport, playerIds: [input.playerId], limit: 10 }),
+      getProviderRegistry().statsProvider.fetchSeasonPlayerAverages({ sport: input.sport, playerIds: [input.playerId] })
     ]);
     const recent = logs.byPlayerId[input.playerId] ?? [];
     const seasonAvg = season.byPlayerId[input.playerId]?.averages.points ?? 0;
