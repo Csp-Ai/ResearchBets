@@ -30,6 +30,7 @@
     "audit:unused:ci": "node scripts/audit/unused-ci.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

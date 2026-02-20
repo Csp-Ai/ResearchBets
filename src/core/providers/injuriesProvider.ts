@@ -1,6 +1,8 @@
 import type { ExtractedLeg } from '@/src/core/run/types';
 
-export async function enrichInjuries(_leg: ExtractedLeg): Promise<{ injury: string | null; news: string | null; source: 'live' | 'fallback'; notes: string[] }> {
+export async function enrichInjuries(leg: ExtractedLeg): Promise<{ injury: string | null; news: string | null; source: 'live' | 'fallback'; notes: string[] }> {
+  void leg;
+
   return {
     injury: null,
     news: null,

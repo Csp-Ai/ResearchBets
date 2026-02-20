@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createCoverageAgentProvider } from '@/src/core/context/coverageAgentProvider';
 import type { TrustedContextBundle } from '@/src/core/context/types';
