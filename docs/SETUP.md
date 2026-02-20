@@ -137,7 +137,7 @@ Open:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (**server only, never `NEXT_PUBLIC_`**)
-   - `SPORTSDATAIO_API_KEY` (optional for live providers)
+   - `SPORTSDATA_API_KEY` (optional for live providers)
    - `ODDS_API_KEY` (optional for live providers)
    - `CRON_SECRET` (required for cron auth)
    - `LIVE_MODE=false` (recommended default until all provider keys are confirmed)

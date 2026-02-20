@@ -106,7 +106,7 @@ const dedupeAndSortLogs = (logs: GameLog[], limit?: number): GameLog[] => {
 };
 
 export const createSportsDataIoProvider = (options: SportsDataIoOptions = {}) => {
-  const apiKey = options.apiKey ?? process.env.SPORTSDATAIO_API_KEY;
+  const apiKey = options.apiKey ?? process.env.SPORTSDATA_API_KEY;
   const baseUrl = (options.baseUrl ?? process.env.SPORTSDATAIO_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
 
   const fetchPlayerLogs = async (

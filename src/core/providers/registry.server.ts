@@ -116,21 +116,27 @@ const warn = (code: string, details: Record<string, unknown>) => {
 };
 
 export const createProviderRegistry = (env: Record<string, string | undefined> = process.env): ProviderRegistry => {
-  const hasSportsDataKey = Boolean(env.SPORTSDATAIO_API_KEY);
+  const hasSportsDataKey = Boolean(env.SPORTSDATA_API_KEY);
   const hasOddsKey = Boolean(env.ODDS_API_KEY);
 
   const statsProvider: StatsProvider = hasSportsDataKey
-    ? (createSportsDataIoProvider({ apiKey: env.SPORTSDATAIO_API_KEY, baseUrl: env.SPORTSDATAIO_BASE_URL }) as SportsDataIoProvider)
+    ? (createSportsDataIoProvider({ apiKey: env.SPORTSDATA_API_KEY, baseUrl: env.SPORTSDATAIO_BASE_URL }) as SportsDataIoProvider)
     : mockStatsProvider('stats-demo');
 
   const oddsProvider: OddsProvider = hasOddsKey
     ? (createTheOddsApiProvider({ apiKey: env.ODDS_API_KEY, baseUrl: env.ODDS_API_BASE_URL }) as TheOddsApiProvider)
     : mockOddsProvider('odds-demo');
 
-  if (!hasSportsDataKey) warn('stats_provider_fallback', { provider: 'stats-demo', reason: 'SPORTSDATAIO_API_KEY missing' });
+  if (!hasSportsDataKey) warn('stats_provider_fallback', { provider: 'stats-demo', reason: 'SPORTSDATA_API_KEY missing' });
   if (!hasOddsKey) warn('odds_provider_fallback', { provider: 'odds-demo', reason: 'ODDS_API_KEY missing' });
 
   return { statsProvider, oddsProvider };
 };
 
-export const providerRegistry: ProviderRegistry = createProviderRegistry();
+let providerRegistryCache: ProviderRegistry | null = null;
+
+export const getProviderRegistry = (): ProviderRegistry => {
+  if (providerRegistryCache) return providerRegistryCache;
+  providerRegistryCache = createProviderRegistry();
+  return providerRegistryCache;
+};

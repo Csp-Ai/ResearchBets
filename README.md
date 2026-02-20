@@ -128,7 +128,7 @@ ODDS_API_KEY=<your-odds-api-key>
 # or
 TRUSTED_ODDS_API_KEY=<your-odds-api-key>
 
-SPORTSDATAIO_API_KEY=<your-sportsdataio-key>
+SPORTSDATA_API_KEY=<your-sportsdataio-key>
 # or
 TRUSTED_SPORTSDATAIO_KEY=<your-sportsdataio-key>
 ```
