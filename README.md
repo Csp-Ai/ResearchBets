@@ -118,6 +118,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-key>
 
 After editing environment variables, restart the dev server. To verify config and connectivity, run `npm run env:check` and visit `http://localhost:3000/api/health`.
 
+
+### Trusted context provider keys (Phase 4)
+
+To enable verified injuries/odds context in local real mode, set at least one key in each pair below in `.env.local`:
+
+```bash
+ODDS_API_KEY=<your-odds-api-key>
+# or
+TRUSTED_ODDS_API_KEY=<your-odds-api-key>
+
+SPORTSDATAIO_API_KEY=<your-sportsdataio-key>
+# or
+TRUSTED_SPORTSDATAIO_KEY=<your-sportsdataio-key>
+```
+
+If a key is missing, trusted context now degrades gracefully and the UI shows explicit coverage/fallback messaging instead of throwing.
+
 ## Database Schema Must Be Applied
 
 The app expects Supabase schema parity with `supabase/migrations/*.sql`. Before running local/dev against a shared project, apply migrations:

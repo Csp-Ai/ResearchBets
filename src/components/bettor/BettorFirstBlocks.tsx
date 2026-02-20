@@ -214,6 +214,27 @@ function WhyDrawer({ leg, open, onClose, trustedContext }: { leg: AnalyzeLeg | n
   );
 }
 
+export function ContextCoverageRow({ trustedContext }: { trustedContext?: TrustedContextBundle }) {
+  const injuries = trustedContext?.coverage.injuries ?? 'none';
+  const odds = trustedContext?.coverage.odds ?? 'none';
+  const unverifiedCount = trustedContext?.unverifiedItems?.length ?? 0;
+
+  const toneFor = (value: 'live' | 'fallback' | 'none') => value === 'live' ? 'strong' : value === 'fallback' ? 'caution' : 'weak';
+
+  return (
+    <Surface className="space-y-2" data-testid="context-coverage-row">
+      <p className="text-xs uppercase tracking-wide text-muted">Context coverage</p>
+      <div className="flex flex-wrap gap-2">
+        <Chip tone={toneFor(injuries)}>Verified injuries: {injuries === 'live' ? 'full' : injuries === 'fallback' ? 'partial' : 'none'}</Chip>
+        <Chip tone={toneFor(odds)}>Verified odds: {odds === 'live' ? 'full' : odds === 'fallback' ? 'partial' : 'none'}</Chip>
+        <Chip tone={unverifiedCount > 0 ? 'caution' : 'strong'}>Unverified notes: {unverifiedCount > 0 ? `on (${unverifiedCount})` : 'off (0)'}</Chip>
+      </div>
+      {injuries === 'none' ? <p className="text-xs text-muted">No verified injury/suspension updates yet.</p> : null}
+      {trustedContext?.fallbackReason ? <p className="text-xs text-muted">{trustedContext.fallbackReason}</p> : null}
+    </Surface>
+  );
+}
+
 export function LegCardCompact({ leg, onRemove, onWhy }: { leg: AnalyzeLeg; onRemove: () => void; onWhy: () => void }) {
   const tone = leg.risk === 'strong' ? 'strong' : leg.risk === 'caution' ? 'caution' : 'weak';
 

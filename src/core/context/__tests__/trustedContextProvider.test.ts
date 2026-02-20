@@ -28,6 +28,35 @@ describe('trustedContextProvider', () => {
     expect(bundle.fallbackReason).toBe('No verified update from trusted sources.');
   });
 
+
+
+  it('drops unverifiable provider items and returns validation fallback when nothing remains', async () => {
+    const provider = createTrustedContextProvider({
+      injuries: {
+        fetchInjuries: async () => ({
+          asOf: '2025-01-01T12:00:00.000Z',
+          sources: [],
+          items: [
+            {
+              kind: 'injury',
+              subject: { sport: 'nba', team: 'Boston' },
+              headline: 'Questionable tag',
+              detail: 'Missing source URL should drop this item',
+              confidence: 'verified',
+              asOf: '2025-01-01T12:00:00.000Z',
+              sources: [{ provider: 'sportsdataio', label: 'SportsDataIO', retrievedAt: '2025-01-01T12:00:00.000Z' }]
+            }
+          ]
+        })
+      }
+    }, fixedClock);
+
+    const bundle = await provider.fetchTrustedContext({ sport: 'nba', teams: [], players: [{ playerId: 'VALIDATION-P' }], eventIds: [] });
+    expect(bundle.items.filter((item) => item.kind !== 'schedule_spot')).toHaveLength(0);
+    expect(bundle.coverage.injuries).toBe('none');
+    expect(bundle.fallbackReason).toContain('trusted_item_validation_failed');
+  });
+
   it('does not fabricate injury headlines when provider returns no injuries', async () => {
     const provider = createTrustedContextProvider({
       injuries: {

@@ -12,6 +12,7 @@ import {
   AdvancedDrawer,
   EmptyStateBettor,
   HowItWorksMini,
+  ContextCoverageRow,
   LegRankList,
   RecentActivityPanel,
   SlipActionsBar,
@@ -211,6 +212,7 @@ export function ResearchPageContent() {
         {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
           <>
             <VerdictHero confidence={currentRun?.analysis.confidencePct ?? 0} weakestLeg={weakestLeg} reasons={currentRun?.analysis.reasons ?? []} dataQuality={getDataQuality(currentRun)} />
+            <ContextCoverageRow trustedContext={currentRun?.trustedContext} />
             <SlipActionsBar onRemoveWeakest={() => void removeWeakest()} onRerun={() => void rerunResearch()} canTrack />
             <Surface className="space-y-4">
               <h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2>
