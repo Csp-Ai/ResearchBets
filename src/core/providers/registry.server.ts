@@ -2,61 +2,21 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 
-import type { MarketType } from '../markets/marketType';
 import type { GameLog, SeasonAverages, SportsDataIoProvider } from './sportsdataio';
 import { createSportsDataIoProvider } from './sportsdataio';
 import type { TheOddsApiProvider } from './theoddsapi';
 import { createTheOddsApiProvider } from './theoddsapi';
-import type { PlatformLine } from '../../agents/live/types';
-import { buildProvenance, type DataProvenance } from '../sources/provenance';
+import { buildProvenance } from '../sources/provenance';
+import type { OddsProvider, ProviderRegistry, StatsProvider } from './registry.shared';
+
+if (typeof window !== 'undefined') {
+  throw new Error('registry.server.ts must only be imported from server code. Import from registry.shared.ts in client/UI modules.');
+}
 
 const seeded = (seed: string): number => {
   const hex = createHash('sha1').update(seed).digest('hex').slice(0, 8);
   return Number.parseInt(hex, 16);
 };
-
-const mapMarketStatKey = (marketType: MarketType): keyof GameLog['stats'] => {
-  switch (marketType) {
-    case 'rebounds':
-      return 'rebounds';
-    case 'assists':
-      return 'assists';
-    case 'threes':
-      return 'threes';
-    default:
-      return 'points';
-  }
-};
-
-export interface StatsProvider {
-  id: string;
-  fetchRecentPlayerGameLogs(input: { sport: string; playerIds: string[]; limit: number }): Promise<{
-    byPlayerId: Record<string, GameLog[]>;
-    provenance: DataProvenance;
-    fallbackReason?: string;
-  }>;
-  fetchSeasonPlayerAverages(input: { sport: string; playerIds: string[] }): Promise<{
-    byPlayerId: Record<string, SeasonAverages>;
-    provenance: DataProvenance;
-    fallbackReason?: string;
-  }>;
-  fetchVsOpponentHistory(input: {
-    sport: string;
-    playerId: string;
-    opponentTeamId?: string;
-    limit: number;
-  }): Promise<{ logs: GameLog[]; provenance: DataProvenance; fallbackReason?: string }>;
-}
-
-export interface OddsProvider {
-  id: string;
-  fetchEvents(input: { sport: string }): Promise<{ events: Array<{ id: string }>; provenance: DataProvenance; fallbackReason?: string }>;
-  fetchEventOdds(input: { sport: string; eventIds: string[]; marketType: MarketType }): Promise<{
-    platformLines: PlatformLine[];
-    provenance: DataProvenance;
-    fallbackReason?: string;
-  }>;
-}
 
 const mockStatsProvider = (id: string): StatsProvider => ({
   id,
@@ -151,11 +111,6 @@ const mockOddsProvider = (id: string): OddsProvider => ({
   }
 });
 
-export interface ProviderRegistry {
-  statsProvider: StatsProvider;
-  oddsProvider: OddsProvider;
-}
-
 const warn = (code: string, details: Record<string, unknown>) => {
   console.warn(JSON.stringify({ level: 'warn', scope: 'provider_registry', code, ...details }));
 };
@@ -179,12 +134,3 @@ export const createProviderRegistry = (env: Record<string, string | undefined> =
 };
 
 export const providerRegistry: ProviderRegistry = createProviderRegistry();
-
-export const computeHitRate = (logs: GameLog[], marketType: MarketType): number => {
-  const key = mapMarketStatKey(marketType);
-  const values = logs
-    .map((log) => log.stats[key])
-    .filter((value): value is number => typeof value === 'number');
-  if (values.length === 0) return 0;
-  return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2));
-};

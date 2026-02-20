@@ -30,7 +30,7 @@ import {
   type InsightType
 } from '../../core/insights/insightGraph';
 import { asMarketType, type MarketType } from '../../core/markets/marketType';
-import { createProviderRegistry } from '../../core/providers/registry';
+import { createProviderRegistry } from '../../core/providers/registry.server';
 import {
   logAgentRecommendation,
   logFinalRecommendation

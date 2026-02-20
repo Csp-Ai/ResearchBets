@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/src/core/context/trustedContextProvider', () => ({
+vi.mock('@/src/core/context/trustedContextProvider.server', () => ({
   fetchTrustedContext: vi.fn(async () => ({
     asOf: '2025-01-01T12:00:00.000Z',
     items: [],

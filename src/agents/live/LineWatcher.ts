@@ -1,6 +1,6 @@
 import type { MarketType } from '../../core/markets/marketType';
 import { computeLineConsensus } from '../../core/providers/lineConsensus';
-import { providerRegistry } from '../../core/providers/registry';
+import { providerRegistry } from '../../core/providers/registry.server';
 import { buildProvenance } from '../../core/sources/provenance';
 import type { LineWatcherResult, PlatformLine } from './types';
 
