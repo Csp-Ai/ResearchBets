@@ -4,7 +4,7 @@ import React, { type ReactNode, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { DEV_MODE_EVENT, readDeveloperMode } from '@/src/core/ui/preferences';
+import { DEV_MODE_EVENT, LIVE_MODE_EVENT, readDeveloperMode, readLiveModeEnabled, writeLiveModeEnabled } from '@/src/core/ui/preferences';
 
 import { COPY_TOAST_EVENT } from './copyToast';
 
@@ -21,15 +21,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [toast, setToast] = useState<string | null>(null);
   const [developerMode, setDeveloperMode] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
+    setLiveMode(readLiveModeEnabled());
     const onModeChange = () => setDeveloperMode(readDeveloperMode());
+    const onLiveModeChange = () => setLiveMode(readLiveModeEnabled());
     window.addEventListener(DEV_MODE_EVENT, onModeChange);
+    window.addEventListener(LIVE_MODE_EVENT, onLiveModeChange);
     window.addEventListener('storage', onModeChange);
+    window.addEventListener('storage', onLiveModeChange);
     return () => {
       window.removeEventListener(DEV_MODE_EVENT, onModeChange);
+      window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
       window.removeEventListener('storage', onModeChange);
+      window.removeEventListener('storage', onLiveModeChange);
     };
   }, []);
 
@@ -74,6 +81,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
                 <Link href="/settings" className="block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Settings</Link>
                 {developerMode ? <Link href="/dev/dashboard" className="mt-1 block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Dev dashboard</Link> : null}
+                {process.env.NODE_ENV !== 'production' ? (
+                  <button
+                    type="button"
+                    onClick={() => writeLiveModeEnabled(!liveMode)}
+                    className="mt-1 w-full rounded px-2 py-1 text-left text-slate-200 hover:bg-white/10"
+                  >
+                    Live Mode: {liveMode ? 'On' : 'Off'}
+                  </button>
+                ) : null}
               </div>
             </details>
           </div>

@@ -1,46 +1,46 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-type CommunityPost = {
-  id: string;
-  content: string;
-  sport?: string | null;
-  league?: string | null;
-  tags: string[];
-  createdAt: string;
-  author: { username: string; avatarUrl?: string | null };
-};
+import { FeedCard, type FeedCardPost } from '@/src/components/bettor-os/FeedCard';
+import { Button } from '@/src/components/ui/button';
 
 export default function CommunityPage() {
-  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const router = useRouter();
+  const [posts, setPosts] = useState<FeedCardPost[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+
+  const load = async (next?: string | null) => {
+    const query = new URLSearchParams({ limit: '10' });
+    if (next) query.set('cursor', next);
+    const data = await fetch(`/api/feed?${query.toString()}`).then((res) => res.json());
+    setPosts((prev) => [...prev, ...((data.posts ?? []) as FeedCardPost[])]);
+    setCursor((data.nextCursor as string | null) ?? null);
+  };
 
   useEffect(() => {
-    fetch('/api/community?limit=20')
-      .then((res) => res.json())
-      .then((data) => setPosts((data.posts ?? []) as CommunityPost[]));
+    void load();
   }, []);
 
   return (
     <section className="space-y-5">
       <header>
         <h1 className="text-3xl font-semibold">Community</h1>
-        <p className="text-sm text-slate-300">Share your angle with evidence and context.</p>
+        <p className="text-sm text-slate-300">Track ideas, clone smart slips, and run your own research in one feed.</p>
       </header>
       <div className="space-y-3">
         {posts.map((post) => (
-          <article key={post.id} className="bettor-card p-4">
-            <Link href={`/u/${post.author.username}`} className="text-sm text-cyan-300">@{post.author.username}</Link>
-            <p className="mt-2 text-base">{post.content}</p>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
-              {post.league ? <span className="rounded-full border border-white/15 px-2 py-0.5">{post.league}</span> : null}
-              {post.sport ? <span className="rounded-full border border-white/15 px-2 py-0.5">{post.sport}</span> : null}
-              {post.tags?.map((tag) => <span key={tag} className="rounded-full border border-white/15 px-2 py-0.5">#{tag}</span>)}
-            </div>
-            <p className="mt-3 text-xs text-slate-400">{new Date(post.createdAt).toLocaleString()}</p>
-          </article>
+          <FeedCard
+            key={post.id}
+            post={post}
+            onCloned={(_postId, legs) => {
+              const prefill = legs.map((leg) => leg.text).join('\n');
+              router.push(`/research?tab=analyze&prefill=${encodeURIComponent(prefill)}`);
+            }}
+          />
         ))}
+        {cursor ? <Button intent="secondary" onClick={() => void load(cursor)}>Load more</Button> : null}
         {posts.length === 0 ? <p className="text-sm text-slate-400">No posts yet.</p> : null}
       </div>
     </section>

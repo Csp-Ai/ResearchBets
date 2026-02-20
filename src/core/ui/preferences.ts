@@ -2,6 +2,8 @@ export const DEV_MODE_STORAGE_KEY = 'rb-developer-mode';
 export const DEV_MODE_EVENT = 'rb:developer-mode-change';
 export const COVERAGE_AGENT_STORAGE_KEY = 'rb-coverage-agent-enabled';
 export const COVERAGE_AGENT_EVENT = 'rb:coverage-agent-change';
+export const LIVE_MODE_STORAGE_KEY = 'rb-live-mode-enabled';
+export const LIVE_MODE_EVENT = 'rb:live-mode-change';
 
 export function readDeveloperMode(): boolean {
   if (typeof window === 'undefined') return false;
@@ -25,4 +27,17 @@ export function writeCoverageAgentEnabled(enabled: boolean): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(COVERAGE_AGENT_STORAGE_KEY, enabled ? '1' : '0');
   window.dispatchEvent(new CustomEvent(COVERAGE_AGENT_EVENT, { detail: { enabled } }));
+}
+
+export function readLiveModeEnabled(defaultValue = false): boolean {
+  if (typeof window === 'undefined') return defaultValue;
+  const value = window.localStorage.getItem(LIVE_MODE_STORAGE_KEY);
+  if (value === null) return defaultValue;
+  return value === '1';
+}
+
+export function writeLiveModeEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LIVE_MODE_STORAGE_KEY, enabled ? '1' : '0');
+  window.dispatchEvent(new CustomEvent(LIVE_MODE_EVENT, { detail: { enabled } }));
 }

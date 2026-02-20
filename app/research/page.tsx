@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { computeLegRisk, computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
-import { readCoverageAgentEnabled, readDeveloperMode } from '@/src/core/ui/preferences';
+import { LIVE_MODE_EVENT, readCoverageAgentEnabled, readDeveloperMode, readLiveModeEnabled } from '@/src/core/ui/preferences';
 import { useMotionVariants } from '@/src/components/bettor-os/motion';
 import type { BettorDataEnvelope } from '@/src/core/bettor/gateway.server';
 import {
@@ -71,6 +71,7 @@ export function ResearchPageContent() {
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
   const safeTab: HubTab = tabs.includes(tab) ? tab : 'analyze';
   const traceFromQuery = search.get('trace') ?? search.get('trace_id') ?? '';
+  const prefillFromQuery = search.get('prefill') ?? '';
 
   const refreshRecent = async () => {
     const runs = await runStore.listRuns(5);
@@ -80,8 +81,18 @@ export function ResearchPageContent() {
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
     void refreshRecent();
+    const loadData = () => fetch('/api/bettor-data', { headers: { 'x-live-mode': readLiveModeEnabled() ? 'true' : 'false' } })
+      .then((res) => res.json())
+      .then((payload) => setData(payload as BettorDataEnvelope))
+      .catch(() => undefined);
+
     if (typeof window !== 'undefined') {
-      void fetch('/api/bettor-data').then((res) => res.json()).then((payload) => setData(payload as BettorDataEnvelope)).catch(() => undefined);
+      void loadData();
+      const onLiveModeChange = () => {
+        void loadData();
+      };
+      window.addEventListener(LIVE_MODE_EVENT, onLiveModeChange);
+      return () => window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
     }
   }, []);
 
@@ -92,6 +103,12 @@ export function ResearchPageContent() {
     }
     void runStore.listRuns(1).then((runs) => setCurrentRun(runs[0] ?? null));
   }, [traceFromQuery]);
+
+  useEffect(() => {
+    if (!prefillFromQuery) return;
+    setRawSlip(prefillFromQuery);
+    setPasteOpen(true);
+  }, [prefillFromQuery]);
 
   const legs = useMemo(() => (currentRun ? toAnalyzeLeg(currentRun) : []), [currentRun]);
   const sortedLegs = useMemo(() => {

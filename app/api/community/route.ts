@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getSupabaseServiceClient } from '@/src/core/supabase/service';
+import { getSupabaseServiceClient } from '@/src/services/supabase';
 
 const createPostSchema = z.object({
   content: z.string().min(8).max(500),
   sport: z.string().trim().max(40).optional(),
   league: z.string().trim().max(40).optional(),
   tags: z.array(z.string().trim().min(1).max(24)).max(8).optional()
+});
+
+const cloneSchema = z.object({
+  action: z.literal('clone'),
+  postId: z.string().uuid()
 });
 
 export async function GET(request: Request) {
@@ -61,6 +66,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const body = await request.json();
+  const cloneParsed = cloneSchema.safeParse(body);
+  if (cloneParsed.success) {
+    const supabase = getSupabaseServiceClient();
+    const { error } = await supabase.rpc('increment_clone_count', { p_post_id: cloneParsed.data.postId });
+    if (error) return NextResponse.json({ error: 'Unable to clone post.' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
   if (!bearer) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
@@ -69,7 +83,7 @@ export async function POST(request: Request) {
   const user = authData?.user;
   if (authError || !user) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
-  const parsed = createPostSchema.safeParse(await request.json());
+  const parsed = createPostSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid post payload.' }, { status: 400 });
 
   const { data, error } = await supabase
