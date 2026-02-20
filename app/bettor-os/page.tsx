@@ -1,5 +1,5 @@
-import LandingPageClient from '@/src/components/bettor-os/LandingPageClient';
+import { LandingPageClient } from '@/src/components/bettor-os/LandingPageClient';
 
 export default function BettorOsLandingPage() {
-  return <LandingPageClient />;
+  return <LandingPageClient hasRecentRun={false} />;
 }

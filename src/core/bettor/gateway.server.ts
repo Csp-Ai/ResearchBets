@@ -23,7 +23,11 @@ const readProviderStatus = () => ({
   injuries: process.env.SPORTSDATAIO_API_KEY ? 'connected' : 'missing'
 } as const);
 
-const liveModeEnabled = () => process.env.LIVE_MODE === 'true';
+const liveModeEnabled = (override?: boolean) => {
+  if (typeof override === 'boolean') return override;
+  if (process.env.NODE_ENV !== 'production') return false;
+  return process.env.LIVE_MODE === 'true';
+};
 
 const mapEventToGame = (event: { id: string; home_team?: string; away_team?: string; commence_time?: string }): BettorGame => {
   const base = DEMO_GAMES[0] ?? DEMO_GAMES[1]!;
@@ -39,10 +43,10 @@ const mapEventToGame = (event: { id: string; home_team?: string; away_team?: str
   };
 };
 
-export const getBettorData = async (): Promise<BettorDataEnvelope> => {
+export const getBettorData = async (options?: { liveModeOverride?: boolean }): Promise<BettorDataEnvelope> => {
   const providerStatus = readProviderStatus();
 
-  if (!liveModeEnabled()) {
+  if (!liveModeEnabled(options?.liveModeOverride)) {
     return {
       mode: 'demo',
       games: DEMO_GAMES,
