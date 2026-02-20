@@ -106,6 +106,8 @@ jobs:
           npm run audit:routes
       - name: Security guards
         run: npm run audit:security
+      - name: Supabase schema drift guard
+        run: npm run supabase:schema:drift-check
       - name: Lint
         run: npm run lint
       - name: Typecheck

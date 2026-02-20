@@ -413,3 +413,39 @@ create table if not exists public.slip_submissions (
 create index if not exists slip_submissions_anon_session_idx on public.slip_submissions (anon_session_id);
 create index if not exists slip_submissions_created_at_idx on public.slip_submissions (created_at desc);
 create index if not exists slip_submissions_checksum_idx on public.slip_submissions (checksum);
+
+-- Sprint 1 hardening baseline
+alter table if exists public.user_profiles
+  add column if not exists user_id uuid,
+  add column if not exists avatar_url text,
+  add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+alter table if exists public.historical_bets
+  add column if not exists user_id uuid,
+  add column if not exists slip_text text;
+
+alter table if exists public.community_posts
+  add column if not exists user_id uuid,
+  add column if not exists content text,
+  add column if not exists sport text,
+  add column if not exists league text,
+  add column if not exists tags text[] default '{}';
+
+alter table if exists public.research_reports
+  add column if not exists user_id uuid;
+
+alter table if exists public.events_analytics
+  add column if not exists actor_user_id uuid;
+
+create index if not exists events_analytics_trace_id_idx on public.events_analytics(trace_id);
+create index if not exists events_analytics_timestamp_idx on public.events_analytics(timestamp desc);
+create index if not exists events_analytics_trace_time_idx on public.events_analytics(trace_id, timestamp desc);
+create index if not exists historical_bets_profile_id_idx on public.historical_bets(profile_id);
+create index if not exists historical_bets_created_at_desc_idx on public.historical_bets(created_at desc);
+
+alter table if exists public.bets enable row level security;
+alter table if exists public.events_analytics enable row level security;
+alter table if exists public.research_reports enable row level security;
+alter table if exists public.user_profiles enable row level security;
+alter table if exists public.historical_bets enable row level security;
+alter table if exists public.community_posts enable row level security;

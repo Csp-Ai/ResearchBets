@@ -99,3 +99,10 @@ Open:
 
 - Never commit `.env.local`, `.env.expo`, or service role secrets.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` via `NEXT_PUBLIC_*` variables.
+
+## Schema baseline policy
+
+- Canonical baseline: `supabase/schema.sql`.
+- Mirror baseline: `db/supabase/schema.sql` (must stay byte-for-byte identical).
+- Before commit/PR, run `npm run supabase:schema:drift-check` to prevent drift.
+- If you update canonical schema, copy it to mirror in the same commit.

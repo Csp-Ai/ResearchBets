@@ -1,26 +1,47 @@
-import Link from 'next/link';
+'use client';
 
-const FEED = [
-  { id: '1', user: 'DesertParlayKing', idea: 'Luka 8.5+ assists', receipt: 'Trend + matchup both point to playmaking volume.', reactions: 24 },
-  { id: '2', user: 'LineMover27', idea: 'Tatum 28.5+ points', receipt: 'Usage plus opponent wing injuries create scoring runway.', reactions: 17 }
-];
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+type CommunityPost = {
+  id: string;
+  content: string;
+  sport?: string | null;
+  league?: string | null;
+  tags: string[];
+  createdAt: string;
+  author: { username: string; avatarUrl?: string | null };
+};
 
 export default function CommunityPage() {
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+
+  useEffect(() => {
+    fetch('/api/community?limit=20')
+      .then((res) => res.json())
+      .then((data) => setPosts((data.posts ?? []) as CommunityPost[]));
+  }, []);
+
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <header>
         <h1 className="text-3xl font-semibold">Community</h1>
-        <p className="text-sm text-slate-300">Share ideas with receipts. No lock language, only research framing.</p>
+        <p className="text-sm text-slate-300">Share your angle with evidence and context.</p>
       </header>
       <div className="space-y-3">
-        {FEED.map((post) => (
+        {posts.map((post) => (
           <article key={post.id} className="bettor-card p-4">
-            <Link href={`/u/${post.user}`} className="text-sm text-cyan-300">@{post.user}</Link>
-            <p className="mt-2 font-medium">{post.idea}</p>
-            <p className="mt-1 text-sm text-slate-300">Receipt: {post.receipt}</p>
-            <div className="mt-3 flex gap-2 text-xs"><button type="button" className="rounded border border-white/15 px-2 py-1">React ({post.reactions})</button><button type="button" className="rounded border border-white/15 px-2 py-1">Save</button><button type="button" className="rounded border border-white/15 px-2 py-1">Follow</button></div>
+            <Link href={`/u/${post.author.username}`} className="text-sm text-cyan-300">@{post.author.username}</Link>
+            <p className="mt-2 text-base">{post.content}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+              {post.league ? <span className="rounded-full border border-white/15 px-2 py-0.5">{post.league}</span> : null}
+              {post.sport ? <span className="rounded-full border border-white/15 px-2 py-0.5">{post.sport}</span> : null}
+              {post.tags?.map((tag) => <span key={tag} className="rounded-full border border-white/15 px-2 py-0.5">#{tag}</span>)}
+            </div>
+            <p className="mt-3 text-xs text-slate-400">{new Date(post.createdAt).toLocaleString()}</p>
           </article>
         ))}
+        {posts.length === 0 ? <p className="text-sm text-slate-400">No posts yet.</p> : null}
       </div>
     </section>
   );

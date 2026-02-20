@@ -1,118 +1,389 @@
-create extension if not exists "pgcrypto";
+-- Observability and KPI baseline schema
+-- PostgreSQL / Supabase SQL
+
+create extension if not exists pgcrypto;
+
+create table if not exists public.agent_runs (
+  id uuid primary key default gen_random_uuid(),
+  request_id text not null,
+  user_id uuid,
+  agent_id text not null,
+  model_version text not null,
+  timestamp timestamptz not null default timezone('utc', now()),
+  invocation_started_at timestamptz not null,
+  invocation_completed_at timestamptz,
+  status text not null check (status in ('started', 'success', 'error', 'partial_error')),
+  confidence numeric(5,4) check (confidence >= 0 and confidence <= 1),
+  assumptions jsonb,
+  input_type text,
+  output_type text,
+  error_code text,
+  error_message text,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_agent_runs_request_id on public.agent_runs (request_id);
+create index if not exists idx_agent_runs_user_id on public.agent_runs (user_id);
+create index if not exists idx_agent_runs_agent_id_timestamp on public.agent_runs (agent_id, timestamp desc);
+
+create table if not exists public.agent_scores (
+  id uuid primary key default gen_random_uuid(),
+  run_id uuid not null references public.agent_runs(id) on delete cascade,
+  request_id text not null,
+  user_id uuid,
+  agent_id text not null,
+  model_version text not null,
+  timestamp timestamptz not null default timezone('utc', now()),
+  decision_id text not null,
+  market text not null,
+  score numeric(6,5) not null,
+  confidence numeric(5,4) not null check (confidence >= 0 and confidence <= 1),
+  assumptions jsonb,
+  rationale text,
+  features jsonb,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_agent_scores_run_id on public.agent_scores (run_id);
+create index if not exists idx_agent_scores_agent_id_timestamp on public.agent_scores (agent_id, timestamp desc);
+
+create table if not exists public.bet_outcomes (
+  id uuid primary key default gen_random_uuid(),
+  request_id text,
+  user_id uuid,
+  agent_id text,
+  model_version text,
+  timestamp timestamptz not null default timezone('utc', now()),
+  outcome_id text not null unique,
+  run_id uuid references public.agent_runs(id) on delete set null,
+  bet_id text not null,
+  settlement_status text not null check (settlement_status in ('won', 'lost', 'void', 'pending')),
+  pnl_amount numeric(12,2) not null default 0,
+  odds numeric(8,4),
+  confidence numeric(5,4) check (confidence >= 0 and confidence <= 1),
+  assumptions jsonb,
+  settled_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_bet_outcomes_user_id_timestamp on public.bet_outcomes (user_id, timestamp desc);
+create index if not exists idx_bet_outcomes_run_id on public.bet_outcomes (run_id);
+
+create table if not exists public.line_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  request_id text,
+  user_id uuid,
+  agent_id text,
+  model_version text,
+  timestamp timestamptz not null default timezone('utc', now()),
+  run_id uuid references public.agent_runs(id) on delete set null,
+  sportsbook text not null,
+  event_id text not null,
+  market text not null,
+  selection text,
+  line_value numeric(10,4),
+  odds numeric(8,4),
+  confidence numeric(5,4) check (confidence >= 0 and confidence <= 1),
+  assumptions jsonb,
+  captured_at timestamptz not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_line_snapshots_event_market on public.line_snapshots (event_id, market, captured_at desc);
+create index if not exists idx_line_snapshots_run_id on public.line_snapshots (run_id);
+
+create table if not exists public.user_kpi_daily (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  request_id text,
+  user_id uuid not null,
+  agent_id text,
+  model_version text,
+  timestamp timestamptz not null default timezone('utc', now()),
+  dau_bettor boolean not null default false,
+  research_queries integer not null default 0,
+  slips_analyzed integer not null default 0,
+  tracked_bets integer not null default 0,
+  total_bets integer not null default 0,
+  agent_decisions integer not null default 0,
+  agent_correct integer not null default 0,
+  mean_confidence numeric(5,4),
+  confidence numeric(5,4) check (confidence >= 0 and confidence <= 1),
+  assumptions jsonb,
+  clv_delta numeric(12,2),
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (date, user_id)
+);
+
+create index if not exists idx_user_kpi_daily_date on public.user_kpi_daily (date desc);
+create index if not exists idx_user_kpi_daily_user_id_date on public.user_kpi_daily (user_id, date desc);
+
+-- Core economic loop tables
+create table if not exists public.profiles (
+  user_id uuid primary key,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table if exists public.profiles
+  add column if not exists id uuid,
+  add column if not exists display_name text,
+  add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+update public.profiles
+set id = user_id
+where id is null;
+
+alter table if exists public.profiles
+  alter column id set not null;
+
+create unique index if not exists profiles_id_unique_idx on public.profiles (id);
+
+create table if not exists public.historical_bets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  bet_title text not null,
+  stake numeric(12,2) not null,
+  odds numeric(10,4) not null,
+  outcome text not null default 'pending' check (outcome in ('pending', 'won', 'lost', 'void')),
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists historical_bets_user_created_idx
+  on public.historical_bets(user_id, created_at desc);
+
+create table if not exists public.community_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  body text not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists community_posts_created_idx on public.community_posts(created_at desc);
+
+alter table if exists public.profiles enable row level security;
+alter table if exists public.historical_bets enable row level security;
+alter table if exists public.community_posts enable row level security;
+
+drop policy if exists "profiles_public_select" on public.profiles;
+create policy "profiles_public_select"
+  on public.profiles
+  for select
+  using (true);
+
+drop policy if exists "profiles_owner_update" on public.profiles;
+create policy "profiles_owner_update"
+  on public.profiles
+  for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+drop policy if exists "historical_bets_owner_select" on public.historical_bets;
+create policy "historical_bets_owner_select"
+  on public.historical_bets
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "historical_bets_owner_insert" on public.historical_bets;
+create policy "historical_bets_owner_insert"
+  on public.historical_bets
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "community_posts_public_select" on public.community_posts;
+create policy "community_posts_public_select"
+  on public.community_posts
+  for select
+  using (true);
+
+drop policy if exists "community_posts_authenticated_insert" on public.community_posts;
+create policy "community_posts_authenticated_insert"
+  on public.community_posts
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id or user_id is null);
+
+create table if not exists public.research_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  session_id uuid not null,
+  run_id text not null,
+  trace_id text not null,
+  confidence numeric(5,4),
+  report_json jsonb not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
 
 create table if not exists public.bets (
   id uuid primary key default gen_random_uuid(),
-  user_id text,
-  session_id text not null,
-  snapshot_id text,
-  trace_id text,
+  user_id uuid not null,
+  session_id uuid not null,
+  snapshot_id uuid,
   run_id text,
+  trace_id text,
   selection text not null,
-  game_id text,
-  market_type text,
-  line numeric,
-  book text,
-  odds_format text,
-  price numeric,
-  odds numeric not null,
-  recommended_id uuid,
-  followed_ai boolean not null default false,
-  placed_line numeric,
-  placed_price numeric,
-  placed_odds numeric,
-  closing_line numeric,
-  closing_price numeric,
-  clv_line numeric,
-  clv_price numeric,
+  odds numeric(8,4) not null,
   stake numeric(12,2) not null,
-  status text not null,
-  outcome text,
-  settled_profit numeric,
-  confidence numeric,
-  settled_at timestamptz,
-  resolution_reason text,
-  source_url text,
-  source_domain text,
-  created_at timestamptz not null default now()
+  status text not null check (status in ('pending', 'settled')),
+  outcome text check (outcome in ('won', 'lost', 'push')),
+  settled_profit numeric(12,2),
+  confidence numeric(5,4),
+  created_at timestamptz not null default timezone('utc', now()),
+  settled_at timestamptz
 );
 
-create table if not exists public.recommendation_outcomes (
+create table if not exists public.events_analytics (
   id uuid primary key default gen_random_uuid(),
-  recommendation_id uuid not null unique,
-  game_id text not null,
-  outcome text not null,
-  closing_line numeric,
-  closing_price numeric,
-  clv_line numeric,
-  clv_price numeric,
-  settled_at timestamptz not null,
-  resolution_reason text,
-  source_url text,
-  source_domain text
+  event_name text not null,
+  trace_id text not null,
+  run_id text,
+  session_id text not null,
+  user_id text not null,
+  properties_json jsonb not null,
+  timestamp timestamptz not null
 );
+
+create table if not exists public.idempotency_keys (
+  key text not null,
+  endpoint text not null,
+  user_id text not null,
+  response_hash text not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  primary key (key, endpoint, user_id)
+);
+
+
+create table if not exists public.runtime_sessions (
+  session_id text primary key,
+  user_id text not null,
+  last_seen_at timestamptz not null
+);
+
+create table if not exists public.research_reports (
+  report_id text primary key,
+  report jsonb not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table if exists public.idempotency_keys
+  add column if not exists response_json jsonb;
+
+-- Measurement engine tables
+alter table if exists public.bets
+  add column if not exists recommended_id uuid,
+  add column if not exists followed_ai boolean not null default false,
+  add column if not exists game_id text,
+  add column if not exists market_type text,
+  add column if not exists line numeric(10,4),
+  add column if not exists odds_format text,
+  add column if not exists price numeric(10,4),
+  add column if not exists placed_line numeric(10,4),
+  add column if not exists placed_price numeric(10,4),
+  add column if not exists placed_odds numeric(10,4),
+  add column if not exists closing_line numeric(10,4),
+  add column if not exists closing_price numeric(10,4),
+  add column if not exists clv_line numeric(12,6),
+  add column if not exists clv_price numeric(12,6),
+  add column if not exists placed_at timestamptz,
+  add column if not exists book text,
+  add constraint bets_market_type_check check (market_type in ('spread', 'total', 'moneyline'));
+
+create table if not exists public.ai_recommendations (
+  id uuid primary key default gen_random_uuid(),
+  parent_recommendation_id uuid references public.ai_recommendations(id) on delete set null,
+  group_id text,
+  recommendation_type text not null check (recommendation_type in ('agent', 'final')),
+  anon_session_id text,
+  session_id text not null,
+  user_id text,
+  request_id text not null,
+  trace_id text not null,
+  run_id text not null,
+  agent_id text not null,
+  agent_version text not null,
+  game_id text not null,
+  market_type text not null check (market_type in ('spread', 'total', 'moneyline')),
+  market text not null,
+  selection text not null,
+  line numeric(10,4),
+  price numeric(10,4),
+  confidence numeric(5,4) not null,
+  rationale jsonb not null default '{}'::jsonb,
+  evidence_refs jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_ai_recommendations_game_market on public.ai_recommendations(game_id, market, selection, created_at desc);
+create index if not exists idx_ai_recommendations_trace on public.ai_recommendations(trace_id);
 
 create table if not exists public.odds_snapshots (
   id uuid primary key default gen_random_uuid(),
   game_id text not null,
   market text not null,
-  market_type text not null,
+  market_type text not null check (market_type in ('spread', 'total', 'moneyline')),
   selection text not null,
-  line numeric,
-  price numeric,
+  line numeric(10,4),
+  price numeric(10,4),
   book text not null,
   captured_at timestamptz not null,
   game_starts_at timestamptz,
-  source_url text,
-  source_domain text,
-  fetched_at timestamptz not null,
-  published_at timestamptz,
-  parser_version text not null,
-  checksum text not null,
-  staleness_ms bigint not null default 0,
-  freshness_score numeric(6,5) not null default 1,
-  resolution_reason text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default timezone('utc', now())
 );
+
+create index if not exists idx_odds_snapshots_lookup on public.odds_snapshots(game_id, market, selection, captured_at desc);
 
 create table if not exists public.game_results (
   id uuid primary key default gen_random_uuid(),
   game_id text not null unique,
   payload jsonb not null,
   completed_at timestamptz not null,
-  is_final boolean not null default false,
-  source_url text,
-  source_domain text,
-  fetched_at timestamptz not null,
-  published_at timestamptz,
-  parser_version text not null,
-  checksum text not null,
-  staleness_ms bigint not null default 0,
-  freshness_score numeric(6,5) not null default 1,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default timezone('utc', now())
 );
 
-create table if not exists public.web_cache (
+create table if not exists public.recommendation_outcomes (
   id uuid primary key default gen_random_uuid(),
-  url text not null,
-  domain text not null,
-  fetched_at timestamptz not null,
-  status integer not null,
-  etag text,
-  last_modified text,
-  content_hash text not null,
-  response_body text not null,
-  expires_at timestamptz,
-  created_at timestamptz not null default now()
+  recommendation_id uuid not null references public.ai_recommendations(id) on delete cascade,
+  game_id text not null,
+  outcome text not null check (outcome in ('won', 'lost', 'push', 'void')),
+  closing_line numeric(10,4),
+  closing_price numeric(10,4),
+  clv_line numeric(12,6),
+  clv_price numeric(12,6),
+  settled_at timestamptz not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique(recommendation_id)
 );
 
-create index if not exists bets_status_idx on public.bets (status);
-create index if not exists bets_game_id_idx on public.bets (game_id, created_at desc);
-create index if not exists odds_snapshots_lookup_idx on public.odds_snapshots (game_id, market, selection, captured_at desc);
-create index if not exists odds_snapshots_source_idx on public.odds_snapshots (source_domain, fetched_at desc);
-create index if not exists game_results_lookup_idx on public.game_results (game_id, completed_at desc);
-create index if not exists game_results_source_idx on public.game_results (source_domain, fetched_at desc);
-create index if not exists web_cache_url_fetch_idx on public.web_cache (url, fetched_at desc);
-create index if not exists web_cache_domain_fetch_idx on public.web_cache (domain, fetched_at desc);
+create table if not exists public.experiments (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  description text,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.experiment_assignments (
+  id uuid primary key default gen_random_uuid(),
+  experiment_name text not null references public.experiments(name) on delete cascade,
+  assignment text not null check (assignment in ('control', 'treatment')),
+  subject_key text not null,
+  user_id text,
+  anon_session_id text,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique(experiment_name, subject_key)
+);
+
+alter table public.ai_recommendations enable row level security;
+alter table public.odds_snapshots enable row level security;
+alter table public.game_results enable row level security;
+alter table public.recommendation_outcomes enable row level security;
+alter table public.experiment_assignments enable row level security;
+
+create policy if not exists ai_recommendations_session_policy on public.ai_recommendations
+  for all using (coalesce(auth.uid()::text, anon_session_id) = coalesce(user_id, anon_session_id))
+  with check (coalesce(auth.uid()::text, anon_session_id) = coalesce(user_id, anon_session_id));
+
+create policy if not exists experiment_assignments_subject_policy on public.experiment_assignments
+  for all using (coalesce(auth.uid()::text, anon_session_id) = coalesce(user_id, anon_session_id))
+  with check (coalesce(auth.uid()::text, anon_session_id) = coalesce(user_id, anon_session_id));
 
 
 alter table if exists public.odds_snapshots
@@ -142,3 +413,39 @@ create table if not exists public.slip_submissions (
 create index if not exists slip_submissions_anon_session_idx on public.slip_submissions (anon_session_id);
 create index if not exists slip_submissions_created_at_idx on public.slip_submissions (created_at desc);
 create index if not exists slip_submissions_checksum_idx on public.slip_submissions (checksum);
+
+-- Sprint 1 hardening baseline
+alter table if exists public.user_profiles
+  add column if not exists user_id uuid,
+  add column if not exists avatar_url text,
+  add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+alter table if exists public.historical_bets
+  add column if not exists user_id uuid,
+  add column if not exists slip_text text;
+
+alter table if exists public.community_posts
+  add column if not exists user_id uuid,
+  add column if not exists content text,
+  add column if not exists sport text,
+  add column if not exists league text,
+  add column if not exists tags text[] default '{}';
+
+alter table if exists public.research_reports
+  add column if not exists user_id uuid;
+
+alter table if exists public.events_analytics
+  add column if not exists actor_user_id uuid;
+
+create index if not exists events_analytics_trace_id_idx on public.events_analytics(trace_id);
+create index if not exists events_analytics_timestamp_idx on public.events_analytics(timestamp desc);
+create index if not exists events_analytics_trace_time_idx on public.events_analytics(trace_id, timestamp desc);
+create index if not exists historical_bets_profile_id_idx on public.historical_bets(profile_id);
+create index if not exists historical_bets_created_at_desc_idx on public.historical_bets(created_at desc);
+
+alter table if exists public.bets enable row level security;
+alter table if exists public.events_analytics enable row level security;
+alter table if exists public.research_reports enable row level security;
+alter table if exists public.user_profiles enable row level security;
+alter table if exists public.historical_bets enable row level security;
+alter table if exists public.community_posts enable row level security;
