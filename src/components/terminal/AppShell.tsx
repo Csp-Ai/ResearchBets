@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { DEV_MODE_EVENT, LIVE_MODE_EVENT, readDeveloperMode, readLiveModeEnabled, writeLiveModeEnabled } from '@/src/core/ui/preferences';
+import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
+import { SCOUT_DRAFT_UPDATED_EVENT, readDraftLegs } from '@/src/core/slips/draftStorage';
 
 import { COPY_TOAST_EVENT } from './copyToast';
 
@@ -22,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const [developerMode, setDeveloperMode] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
+  const [draftCount, setDraftCount] = useState(0);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
@@ -37,6 +40,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
       window.removeEventListener('storage', onModeChange);
       window.removeEventListener('storage', onLiveModeChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncDraftCount = () => setDraftCount(readDraftLegs().length);
+    syncDraftCount();
+    window.addEventListener(SCOUT_DRAFT_UPDATED_EVENT, syncDraftCount);
+    window.addEventListener('storage', syncDraftCount);
+    return () => {
+      window.removeEventListener(SCOUT_DRAFT_UPDATED_EVENT, syncDraftCount);
+      window.removeEventListener('storage', syncDraftCount);
     };
   }, []);
 
@@ -59,9 +73,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const navItems = developerMode ? [...BASE_NAV_ITEMS, { label: 'Profile', href: '/u/me' }] : BASE_NAV_ITEMS;
 
+  const onAnalyzeDraft = () => {
+    const legs = readDraftLegs();
+    const prefillText = serializeDraftSlip(legs);
+    if (!prefillText) return;
+    window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
+    window.location.href = `/research?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`;
+  };
+
   return (
-    <div className="mx-auto min-h-screen w-full max-w-[1240px] px-4 py-6 lg:px-6">
-      <header className="sticky top-2 z-40 mb-8 rounded-2xl border border-white/10 bg-slate-950/85 px-4 py-3 backdrop-blur">
+    <div className="mx-auto min-h-screen w-full max-w-[1120px] px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
+      <header className="sticky top-2 z-40 mb-4 hidden rounded-2xl border border-white/10 bg-slate-950/85 px-4 py-3 backdrop-blur sm:block">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <p className="mr-2 text-base font-semibold text-white">ResearchBets</p>
@@ -95,7 +117,28 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl space-y-8 pb-10">{children}</main>
+      <main className="mx-auto w-full max-w-5xl space-y-6 pb-24 sm:pb-10">{children}</main>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 py-2 backdrop-blur sm:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          {BASE_NAV_ITEMS.map((item) => {
+            const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            return (
+              <Link key={item.href} href={item.href} className={`rounded-lg px-2 py-2 text-center text-xs ${active ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+      {draftCount > 0 ? (
+        <button
+          type="button"
+          onClick={onAnalyzeDraft}
+          className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
+        >
+          Analyze slip ({draftCount})
+        </button>
+      ) : null}
       {toast ? <div className="fixed bottom-5 right-5 rounded bg-slate-200 px-3 py-2 text-xs font-medium text-slate-900">{toast}</div> : null}
     </div>
   );

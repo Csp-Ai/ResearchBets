@@ -1,5 +1,7 @@
-import { LandingPageClient } from '@/src/components/bettor-os/LandingPageClient';
+import { TodayPageClient } from '@/src/components/today/TodayPageClient';
+import { getTodayPayload } from '@/src/core/today/service.server';
 
-export default function HomePage() {
-  return <LandingPageClient hasRecentRun />;
+export default async function HomePage() {
+  const payload = await getTodayPayload();
+  return <TodayPageClient initialPayload={payload} />;
 }
