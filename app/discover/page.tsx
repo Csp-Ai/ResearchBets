@@ -1,10 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { GamesToday, type TodayGame } from '@/features/dashboard/GamesToday';
 import { PlayerPropHeatmap, type PlayerWithPropStats } from '@/features/props/PlayerPropHeatmap';
 import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 
 const TODAY_GAMES: TodayGame[] = [
   {
@@ -33,8 +35,17 @@ const HEATMAP_PLAYERS: PlayerWithPropStats[] = [
 
 export default function DiscoverPage() {
   const [draftLegs, setDraftLegs] = useState<SlipBuilderLeg[]>([]);
+  const router = useRouter();
   const [showHeatmap, setShowHeatmap] = useState(false);
   const dedupedLegs = useMemo(() => Array.from(new Map(draftLegs.map((leg) => [leg.id, leg])).values()), [draftLegs]);
+
+  const onAnalyzeSlip = () => {
+    if (dedupedLegs.length === 0 || typeof window === 'undefined') return;
+    const prefillText = serializeDraftSlip(dedupedLegs);
+    if (!prefillText) return;
+    window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
+    router.push(`/research?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
+  };
 
   return (
     <section className="space-y-6">
@@ -51,8 +62,16 @@ export default function DiscoverPage() {
           </button>
           {showHeatmap ? <PlayerPropHeatmap players={HEATMAP_PLAYERS} /> : null}
         </div>
-        <div className="xl:sticky xl:top-4 xl:h-fit">
+        <div className="xl:sticky xl:top-4 xl:h-fit space-y-3">
           <SlipBuilder legs={dedupedLegs} onLegsChange={setDraftLegs} />
+          <button
+            type="button"
+            className="w-full rounded-xl border border-cyan-500/50 px-3 py-2 text-sm font-medium text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={onAnalyzeSlip}
+            disabled={dedupedLegs.length === 0}
+          >
+            Analyze slip
+          </button>
         </div>
       </div>
     </section>

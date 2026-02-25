@@ -59,6 +59,10 @@ export interface SourceStats {
 
 export interface Run {
   traceId: string;
+  slipId?: string;
+  snapshotId?: string;
+  anonSessionId?: string;
+  requestId?: string;
   createdAt: string;
   updatedAt: string;
   status: 'running' | 'complete' | 'failed';

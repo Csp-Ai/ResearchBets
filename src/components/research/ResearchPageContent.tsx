@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 import { computeLegRisk, computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
+import type { ResearchReport } from '@/src/core/evidence/evidenceSchema';
+import { mergeSnapshotHighlights, toResearchRunDTOFromRun, validateResearchRunDTO } from '@/src/core/run/researchRunDTO';
 import { LIVE_MODE_EVENT, readCoverageAgentEnabled, readDeveloperMode, readLiveModeEnabled } from '@/src/core/ui/preferences';
 import { useMotionVariants } from '@/src/components/bettor-os/motion';
 import type { BettorDataEnvelope } from '@/src/core/bettor/gateway.server';
@@ -57,6 +59,28 @@ const toAnalyzeLeg = (run: Run): AnalyzeLeg[] => run.extractedLegs.map((leg) => 
   };
 });
 
+
+function SnapshotHighlights({ cards }: { cards: Array<{ title: string; bullets: string[]; severity?: 'info' | 'warn' | 'danger'; source?: string }> }) {
+  if (cards.length === 0) return null;
+  const toneClass = (severity?: 'info' | 'warn' | 'danger') => severity === 'danger' ? 'border-rose-700/70' : severity === 'warn' ? 'border-amber-700/70' : 'border-cyan-700/70';
+  return (
+    <Surface className="space-y-3">
+      <h2 className="text-xl font-semibold">Snapshot highlights</h2>
+      <div className="grid gap-3 md:grid-cols-2">
+        {cards.slice(0, 2).map((card) => (
+          <div key={card.title} className={`rounded-lg border bg-slate-950/40 p-3 ${toneClass(card.severity)}`}>
+            <p className="font-medium">{card.title}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-300">
+              {card.bullets.slice(0, 4).map((bullet) => <li key={bullet}>{bullet}</li>)}
+            </ul>
+            {card.source ? <p className="mt-2 text-xs text-slate-500">Source: {card.source}</p> : null}
+          </div>
+        ))}
+      </div>
+    </Surface>
+  );
+}
+
 export default function ResearchPageContent() {
   const search = useSearchParams();
   const router = useRouter();
@@ -67,16 +91,19 @@ export default function ResearchPageContent() {
   const [currentRun, setCurrentRun] = useState<Run | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
   const [data, setData] = useState<BettorDataEnvelope | null>(null);
+  const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
   const safeTab: HubTab = tabs.includes(tab) ? tab : 'analyze';
   const traceFromQuery = search.get('trace') ?? search.get('trace_id') ?? '';
   const prefillFromQuery = search.get('prefill') ?? '';
+  const prefillKeyFromQuery = search.get('prefillKey') ?? '';
+  const snapshotIdFromQuery = search.get('snapshotId') ?? '';
 
-  const refreshRecent = async () => {
+  const refreshRecent = useCallback(async () => {
     const runs = await runStore.listRuns(5);
     setRecentRuns(runs.map((run) => ({ traceId: run.traceId, updatedAt: run.updatedAt, status: toRecentStatus(run) })));
-  };
+  }, []);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
@@ -94,7 +121,7 @@ export default function ResearchPageContent() {
       window.addEventListener(LIVE_MODE_EVENT, onLiveModeChange);
       return () => window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
     }
-  }, []);
+  }, [refreshRecent]);
 
   useEffect(() => {
     if (traceFromQuery) {
@@ -105,10 +132,49 @@ export default function ResearchPageContent() {
   }, [traceFromQuery]);
 
   useEffect(() => {
-    if (!prefillFromQuery) return;
-    setRawSlip(prefillFromQuery);
-    setPasteOpen(true);
-  }, [prefillFromQuery]);
+    if (prefillFromQuery) {
+      setRawSlip(prefillFromQuery);
+      void runSlip(prefillFromQuery, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
+        await refreshRecent();
+        router.replace(`/research?tab=analyze&trace=${encodeURIComponent(traceId)}`);
+      });
+      return;
+    }
+
+    if (!prefillKeyFromQuery || typeof window === 'undefined') return;
+    const stored = window.sessionStorage.getItem(prefillKeyFromQuery);
+    if (!stored) return;
+    window.sessionStorage.removeItem(prefillKeyFromQuery);
+    setRawSlip(stored);
+    void runSlip(stored, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
+      await refreshRecent();
+      router.replace(`/research?tab=analyze&trace=${encodeURIComponent(traceId)}`);
+    });
+  }, [prefillFromQuery, prefillKeyFromQuery, refreshRecent, router]);
+
+
+  useEffect(() => {
+    const snapshotId = currentRun?.snapshotId ?? snapshotIdFromQuery;
+    if (!snapshotId) {
+      setSnapshotReport(null);
+      return;
+    }
+
+    let active = true;
+    fetch(`/api/researchSnapshot/${encodeURIComponent(snapshotId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload) => {
+        if (!active || !payload || payload.error) return;
+        setSnapshotReport(payload as ResearchReport);
+      })
+      .catch(() => {
+        if (active) setSnapshotReport(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentRun?.snapshotId, snapshotIdFromQuery]);
 
   const legs = useMemo(() => (currentRun ? toAnalyzeLeg(currentRun) : []), [currentRun]);
   const sortedLegs = useMemo(() => {
@@ -131,6 +197,14 @@ export default function ResearchPageContent() {
     await refreshRecent();
     router.push(`/research?trace=${encodeURIComponent(traceId)}`);
   };
+
+
+  const runDto = useMemo(() => {
+    if (!currentRun) return null;
+    const base = toResearchRunDTOFromRun(currentRun);
+    const merged = snapshotReport ? mergeSnapshotHighlights(base, snapshotReport) : base;
+    return validateResearchRunDTO(merged) ? merged : null;
+  }, [currentRun, snapshotReport]);
 
   const removeWeakest = async () => {
     if (!currentRun?.analysis.weakestLegId) return;
@@ -160,12 +234,14 @@ export default function ResearchPageContent() {
         <motion.div variants={fadeUp} className="space-y-5">
           {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
             <>
-              <VerdictHero confidence={currentRun?.analysis.confidencePct ?? 0} weakestLeg={weakestLeg} reasons={currentRun?.analysis.reasons ?? []} dataQuality="Partial live" />
+              <VerdictHero confidence={runDto?.verdict.confidence ?? currentRun?.analysis.confidencePct ?? 0} weakestLeg={weakestLeg} reasons={runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []} dataQuality="Partial live" />
+              {runDto?.snapshotHighlights?.length ? <SnapshotHighlights cards={runDto.snapshotHighlights} /> : null}
               <SlipActionsBar onRemoveWeakest={() => void removeWeakest()} onRerun={() => router.push('/ingest')} canTrack />
               <Surface className="space-y-4"><h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2><LegRankList legs={sortedLegs} onRemove={() => void removeWeakest()} trustedContext={currentRun?.trustedContext} /></Surface>
             </>
           )}
           <div className="flex flex-wrap gap-2">
+            {prefillKeyFromQuery ? <Chip tone="strong">Draft from Scout</Chip> : null}
             <Button intent="primary" onClick={() => setPasteOpen(true)}>Paste slip</Button>
             <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm" onClick={() => router.push(`/ingest?prefill=${encodeURIComponent(DEMO_SLIP)}`)}>Try an example</button>
           </div>

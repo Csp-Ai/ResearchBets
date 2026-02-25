@@ -48,6 +48,32 @@ describe('runSlip pipeline', () => {
   });
 
 
+
+  it('uses submit response trace_id over pre-generated trace id', async () => {
+    const serverTraceId = 'trace-from-server-123';
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/slips/submit')) {
+        return new Response(JSON.stringify({ slip_id: '00000000-0000-0000-0000-000000000042', trace_id: serverTraceId }), { status: 200 });
+      }
+
+      if (url.includes('/api/slips/extract')) {
+        return new Response(JSON.stringify({ extracted_legs: [{ selection: 'LeBron James over 6.5 rebounds (-105)', market: 'rebounds', odds: '-105' }] }), { status: 200 });
+      }
+
+      return new Response('{}', { status: 404 });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const traceId = await runSlip('LeBron James over 6.5 rebounds (-105)');
+    const run = await runStore.getRun(traceId);
+
+    expect(traceId).toBe(serverTraceId);
+    expect(run?.traceId).toBe(serverTraceId);
+    expect(run?.slipId).toBe('00000000-0000-0000-0000-000000000042');
+  });
+
   it('computeVerdict keeps weakest leg aligned with sorted risk and reason wording', () => {
     const extracted = [
       { id: 'a', selection: 'Leg A' },

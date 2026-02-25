@@ -188,14 +188,26 @@ export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: Extra
   };
 }
 
-async function extractWithApi(slipText: string): Promise<Array<{ selection: string; market?: string; line?: string; odds?: string }>> {
+type ExtractApiResult = {
+  legs: Array<{ selection: string; market?: string; line?: string; odds?: string }>;
+  slipId?: string;
+  traceId?: string;
+  anonSessionId?: string;
+  requestId?: string;
+};
+
+async function extractWithApi(slipText: string, initialTraceId: string): Promise<ExtractApiResult> {
   try {
     const anonSessionId = ensureAnonSessionId();
+    const requestId = createClientRequestId();
     const submitRes = await fetch('/api/slips/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'paste', raw_text: slipText, anon_session_id: anonSessionId, request_id: createClientRequestId() })
+      body: JSON.stringify({ source: 'paste', raw_text: slipText, anon_session_id: anonSessionId, request_id: requestId, trace_id: initialTraceId })
     }).then((res) => res.json());
+
+    const traceId = typeof submitRes.trace_id === 'string' && submitRes.trace_id ? submitRes.trace_id : initialTraceId;
+    const slipId = typeof submitRes.slip_id === 'string' ? submitRes.slip_id : undefined;
 
     const extractRes = await fetch('/api/slips/extract', {
       method: 'POST',
@@ -203,18 +215,24 @@ async function extractWithApi(slipText: string): Promise<Array<{ selection: stri
       body: JSON.stringify({ slip_id: submitRes.slip_id, request_id: createClientRequestId(), anon_session_id: anonSessionId })
     }).then((res) => res.json());
 
-    return Array.isArray(extractRes.extracted_legs) ? extractRes.extracted_legs : [];
+    return {
+      legs: Array.isArray(extractRes.extracted_legs) ? extractRes.extracted_legs : [],
+      slipId,
+      traceId,
+      anonSessionId,
+      requestId
+    };
   } catch {
-    return [];
+    return { legs: [] };
   }
 }
 
 export async function runSlip(slipText: string, options?: { coverageAgentEnabled?: boolean }): Promise<string> {
   const normalizedSlipText = normalizeSlipText(slipText);
-  const traceId = createClientRequestId();
+  const initialTraceId = createClientRequestId();
   const now = new Date().toISOString();
   const initial: Run = {
-    traceId,
+    traceId: initialTraceId,
     createdAt: now,
     updatedAt: now,
     status: 'running',
@@ -234,8 +252,16 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
 
   await runStore.saveRun(initial);
 
-  const apiLegs = await extractWithApi(normalizedSlipText);
-  const extracted = normalizeLegs(apiLegs.length > 0 ? apiLegs : extractLegs(normalizedSlipText));
+  const apiResult = await extractWithApi(normalizedSlipText, initialTraceId);
+  const canonicalTraceId = apiResult.traceId ?? initialTraceId;
+  const traceChanged = canonicalTraceId !== initialTraceId;
+  if (traceChanged) {
+    await runStore.saveRun({ ...initial, traceId: canonicalTraceId, slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
+  } else if (apiResult.slipId || apiResult.anonSessionId || apiResult.requestId) {
+    await runStore.updateRun(canonicalTraceId, { slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
+  }
+
+  const extracted = normalizeLegs(apiResult.legs.length > 0 ? apiResult.legs : extractLegs(normalizedSlipText));
   const sportRaw = extracted.find((leg) => leg.sport)?.sport?.toLowerCase();
   const inferredSport = !sportRaw;
   const sport: 'nba' | 'nfl' | 'soccer' = sportRaw === 'nfl' || sportRaw === 'soccer' ? sportRaw : 'nba';
@@ -290,7 +316,7 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
 
   const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries, trustedContext.unverifiedItems ?? []);
 
-  await runStore.updateRun(traceId, {
+  await runStore.updateRun(canonicalTraceId, {
     status: 'complete',
     extractedLegs: extracted,
     enrichedLegs,
@@ -304,5 +330,5 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
     updatedAt: new Date().toISOString()
   });
 
-  return traceId;
+  return canonicalTraceId;
 }
