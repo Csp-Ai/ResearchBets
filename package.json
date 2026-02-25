@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "env:check": "node scripts/env-check.mjs",
+    "env:check:strict": "LIVE_MODE=true node scripts/env-check.mjs",
     "predev": "npm run env:check",
     "dev": "next dev",
     "build": "next build",
