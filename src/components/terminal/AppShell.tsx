@@ -18,6 +18,7 @@ const BASE_NAV_ITEMS = [
 ];
 
 const PRODUCT_PREFIXES = ['/', '/slip', '/stress-test', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
+const RAIL_ROUTES = ['/', '/slip', '/stress-test', '/control'];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -59,6 +60,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => PRODUCT_PREFIXES.some((prefix) => (prefix === '/' ? pathname === '/' : pathname?.startsWith(prefix))),
     [pathname]
   );
+  const showRail = useMemo(
+    () => RAIL_ROUTES.some((route) => (route === '/' ? pathname === '/' : pathname?.startsWith(route))),
+    [pathname]
+  );
 
   if (!isProduct) return <>{children}</>;
 
@@ -72,16 +77,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
   };
 
+  const toStressTestFromDrawer = () => {
+    setMobileSlipOpen(false);
+    toStressTest();
+  };
+
   return (
     <div className="mx-auto min-h-screen w-full max-w-[1400px] px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
-      <header className="sticky top-2 z-40 mb-4 hidden rounded-2xl border border-white/10 bg-slate-950/85 px-4 py-3 backdrop-blur sm:block">
+      <header className="sticky top-2 z-40 mb-4 hidden rounded-xl border border-white/10 bg-slate-950/85 px-3 py-2 backdrop-blur sm:block">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <p className="mr-2 text-base font-semibold text-white">ResearchBets</p>
+            <p className="mr-1 text-sm font-semibold text-white">ResearchBets</p>
             {BASE_NAV_ITEMS.map((item) => {
               const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
               return (
-                <Link key={item.href} href={item.href} className={`rounded-lg px-3 py-1.5 text-sm ${active ? 'bg-cyan-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'}`}>
+                <Link key={item.href} href={item.href} className={`rounded-md px-2.5 py-1 text-sm transition ${active ? 'border border-cyan-300/40 bg-cyan-400/20 text-cyan-100' : 'text-slate-300 hover:bg-white/10'}`}>
                   {item.label}
                 </Link>
               );
@@ -108,14 +118,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <main className="mx-auto w-full max-w-5xl space-y-6 pb-28 sm:pb-10">{children}</main>
-        <aside className="sticky top-20 hidden h-fit space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 lg:block">
+      <div className={`grid gap-6 ${showRail ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
+        <main className="min-w-0 space-y-6 pb-28 sm:pb-10">{children}</main>
+        <aside className={`sticky top-20 hidden h-fit space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 ${showRail ? 'lg:block' : ''}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Draft Slip</h2>
             {slip.length > 0 ? <button type="button" className="text-xs text-slate-400 hover:text-white" onClick={clearSlip}>Clear</button> : null}
           </div>
-          {slip.length === 0 ? <p className="text-xs text-slate-400">Add props from Board to build your slip.</p> : (
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">Pipeline: Browse → Add → Slip → Stress Test</p>
+          {slip.length === 0 ? <p className="text-xs text-slate-400">Add props from Board to start a stress-ready ticket.</p> : (
             <ul className="space-y-2 text-xs">
               {slip.map((leg) => (
                 <li key={leg.id} className="rounded-lg border border-white/10 bg-slate-900/60 p-2">
@@ -143,21 +154,29 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </nav>
 
-      <button
-        type="button"
-        onClick={() => setMobileSlipOpen((value) => !value)}
-        className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
-      >
-        Stress Test ({slip.length})
-      </button>
-      {mobileSlipOpen ? (
+      {showRail ? (
+        <button
+          type="button"
+          onClick={() => setMobileSlipOpen((value) => !value)}
+          className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
+        >
+          Slip ({slip.length})
+        </button>
+      ) : null}
+      {mobileSlipOpen && showRail ? (
         <div className="fixed inset-x-0 bottom-24 z-40 mx-3 rounded-xl border border-white/10 bg-slate-950 p-3 sm:hidden">
-          <p className="mb-2 text-sm font-semibold">Draft Slip</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold">Draft Slip</p>
+            {slip.length > 0 ? <button type="button" className="text-xs text-slate-400" onClick={clearSlip}>Clear</button> : null}
+          </div>
           {slip.length === 0 ? <p className="text-xs text-slate-400">No legs yet.</p> : (
             <ul className="max-h-48 space-y-2 overflow-auto text-xs">
               {slip.map((leg) => <li key={leg.id} className="rounded border border-white/10 p-2">{leg.player} {leg.marketType} {leg.line}</li>)}
             </ul>
           )}
+          <button type="button" onClick={toStressTestFromDrawer} className="mt-3 w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">
+            Stress Test ({slip.length})
+          </button>
         </div>
       ) : null}
       {toast ? <div className="fixed bottom-5 right-5 rounded bg-slate-200 px-3 py-2 text-xs font-medium text-slate-900">{toast}</div> : null}

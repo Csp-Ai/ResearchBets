@@ -20,16 +20,16 @@ export function GamesSection({
   onOpenScout: () => void;
 }) {
   return (
-    <section className="space-y-2.5">
+    <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 className="text-base font-semibold sm:text-lg">{title}</h2>
         <p className="text-xs text-slate-400">{games.length} games</p>
       </div>
-      <div className="grid gap-2.5">
+      <div className="grid gap-3 sm:grid-cols-2">
         {games.map((game) => (
           <GameCard key={game.id} game={game} mode={mode} onAdd={onAdd} onAnalyze={onAnalyze} onOpenScout={onOpenScout} />
         ))}
-        {games.length === 0 ? <p className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-slate-400">No games for this filter.</p> : null}
+        {games.length === 0 ? <p className="sm:col-span-2 rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-slate-400">No games for this filter.</p> : null}
       </div>
     </section>
   );
