@@ -146,8 +146,16 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Verify required architecture and governance docs
         run: scripts/check-required-docs
+      - name: Verify README route and mode consistency
+        run: npm run docs:check
 
   repo-intelligence:
     name: Repo intelligence audit
