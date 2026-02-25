@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
-import { readDraftLegs, upsertDraftLeg } from '@/src/core/slips/draftStorage';
+import { upsertDraftLeg } from '@/src/core/slips/draftStorage';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
 
@@ -64,17 +64,8 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
 
   const openScout = () => router.push('/slip');
 
-  const analyzeDraft = () => {
-    if (typeof window === 'undefined') return;
-    const legs = readDraftLegs();
-    const prefillText = serializeDraftSlip(legs);
-    if (!prefillText) return;
-    window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
-  };
-
   return (
-    <section className="mx-auto w-full max-w-4xl space-y-3 pb-20 sm:space-y-4">
+    <section className="w-full space-y-4 pb-20 sm:space-y-5">
       <TodayHeader
         leagues={FILTERS}
         activeLeague={league}
@@ -83,12 +74,15 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
         freshness={timeAgo(payload.generatedAt)}
         mode={payload.mode}
       />
-      {payload.mode === 'demo' ? <p className="text-xs text-amber-200">Demo mode: live providers unavailable. Showing deterministic slate.</p> : null}
-      <GamesSection title="Live now" games={liveGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
-      <GamesSection title="Upcoming" games={upcomingGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
-      <button type="button" onClick={analyzeDraft} className="fixed bottom-20 right-4 z-40 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg sm:hidden">
-        Stress Test
-      </button>
+      {payload.mode === 'demo' ? (
+        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+          Demo mode: live providers unavailable. Showing deterministic slate.
+        </p>
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <GamesSection title="Live now" games={liveGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
+        <GamesSection title="Upcoming" games={upcomingGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
+      </div>
     </section>
   );
 }
