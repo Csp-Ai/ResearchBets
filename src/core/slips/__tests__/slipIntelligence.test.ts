@@ -32,7 +32,8 @@ describe('computeSlipIntelligence', () => {
     expect(intel.correlationScore).toBeLessThan(45);
     expect(intel.fragilityScore).toBeLessThan(65);
     expect(['Low', 'Med']).toContain(intel.volatilityTier);
-    expect(intel.exposureSummary.topGames[0].count).toBe(1);
+    expect(intel.exposureSummary.topGames.length).toBeGreaterThan(0);
+    expect(intel.exposureSummary.topGames[0]!.count).toBe(1);
   });
 
   it('returns empty-state hints for empty slips', () => {
@@ -40,6 +41,7 @@ describe('computeSlipIntelligence', () => {
 
     expect(intel.correlationScore).toBe(0);
     expect(intel.fragilityScore).toBe(0);
-    expect(intel.weakestLegHints[0]).toContain('No legs yet');
+    expect(intel.weakestLegHints.length).toBeGreaterThan(0);
+    expect(intel.weakestLegHints[0]!).toContain('No legs yet');
   });
 });
