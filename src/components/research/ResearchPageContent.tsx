@@ -136,7 +136,7 @@ export default function ResearchPageContent() {
       setRawSlip(prefillFromQuery);
       void runSlip(prefillFromQuery, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
         await refreshRecent();
-        router.replace(`/research?tab=analyze&trace=${encodeURIComponent(traceId)}`);
+        router.replace(`/stress-test?tab=analyze&trace=${encodeURIComponent(traceId)}`);
       });
       return;
     }
@@ -148,7 +148,7 @@ export default function ResearchPageContent() {
     setRawSlip(stored);
     void runSlip(stored, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
       await refreshRecent();
-      router.replace(`/research?tab=analyze&trace=${encodeURIComponent(traceId)}`);
+      router.replace(`/stress-test?tab=analyze&trace=${encodeURIComponent(traceId)}`);
     });
   }, [prefillFromQuery, prefillKeyFromQuery, refreshRecent, router]);
 
@@ -195,7 +195,7 @@ export default function ResearchPageContent() {
     const traceId = await runSlip(rawSlip, { coverageAgentEnabled: readCoverageAgentEnabled() });
     setPasteOpen(false);
     await refreshRecent();
-    router.push(`/research?trace=${encodeURIComponent(traceId)}`);
+    router.push(`/stress-test?trace=${encodeURIComponent(traceId)}`);
   };
 
 
@@ -221,11 +221,11 @@ export default function ResearchPageContent() {
   return (
     <motion.section initial="hidden" animate="show" variants={stagger} className="space-y-6">
       <motion.header variants={fadeUp} className="bettor-card p-5">
-        <h1 className="text-3xl font-semibold">Research Hub</h1>
-        <p className="mt-1 text-sm text-slate-300">Analyze slips, scout props, and check live win likelihood from one bettor-first workspace.</p>
+        <h1 className="text-3xl font-semibold">Stress Test</h1>
+        <p className="mt-1 text-sm text-slate-300">Run full slip stress tests, inspect weakest-leg risk drivers, and decide before placing.</p>
         <div className="mt-4 flex gap-2 rounded-xl bg-slate-950/60 p-1 w-fit">
           {tabs.map((candidate) => (
-            <button key={candidate} type="button" onClick={() => router.push(`/research?tab=${candidate}`)} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
+            <button key={candidate} type="button" onClick={() => router.push(`/stress-test?tab=${candidate}`)} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
           ))}
         </div>
       </motion.header>
@@ -287,7 +287,7 @@ export default function ResearchPageContent() {
         </motion.div>
       ) : null}
 
-      <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(`/research?trace=${encodeURIComponent(recentTraceId)}`)} />
+      <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(`/stress-test?trace=${encodeURIComponent(recentTraceId)}`)} />
       <HowItWorksMini />
 
       <AdvancedDrawer developerMode={developerMode}>
@@ -299,7 +299,7 @@ export default function ResearchPageContent() {
           <Surface className="w-full max-w-2xl">
             <h2 className="text-lg font-semibold">Paste slip</h2>
             <textarea className="mt-3 h-56 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm" value={rawSlip} onChange={(event) => setRawSlip(event.target.value)} placeholder="Paste each leg on a new line" />
-            <div className="mt-3 flex gap-2"><Button intent="primary" onClick={() => void submitPaste()}>Analyze now</Button><Button intent="secondary" onClick={() => setPasteOpen(false)}>Cancel</Button></div>
+            <div className="mt-3 flex gap-2"><Button intent="primary" onClick={() => void submitPaste()}>Stress Test now</Button><Button intent="secondary" onClick={() => setPasteOpen(false)}>Cancel</Button></div>
           </Surface>
         </div>
       ) : null}

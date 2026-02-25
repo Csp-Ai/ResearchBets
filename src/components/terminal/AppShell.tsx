@@ -2,29 +2,31 @@
 
 import React, { type ReactNode, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { DEV_MODE_EVENT, LIVE_MODE_EVENT, readDeveloperMode, readLiveModeEnabled, writeLiveModeEnabled } from '@/src/core/ui/preferences';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
-import { SCOUT_DRAFT_UPDATED_EVENT, readDraftLegs } from '@/src/core/slips/draftStorage';
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 import { COPY_TOAST_EVENT } from './copyToast';
 
 const BASE_NAV_ITEMS = [
-  { label: 'Analyze', href: '/research' },
-  { label: 'Scout', href: '/discover' },
-  { label: 'Live', href: '/live' },
-  { label: 'Community', href: '/community' }
+  { label: 'Board', href: '/' },
+  { label: 'Slip', href: '/slip' },
+  { label: 'Stress Test', href: '/stress-test' },
+  { label: 'Control Room', href: '/control' }
 ];
 
-const PRODUCT_PREFIXES = ['/', '/discover', '/ingest', '/research', '/pending-bets', '/traces', '/live', '/settings', '/community', '/agents', '/u', '/dev'];
+const PRODUCT_PREFIXES = ['/', '/slip', '/stress-test', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [developerMode, setDeveloperMode] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
-  const [draftCount, setDraftCount] = useState(0);
+  const [mobileSlipOpen, setMobileSlipOpen] = useState(false);
+  const { slip, removeLeg, clearSlip } = useDraftSlip();
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
@@ -40,17 +42,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
       window.removeEventListener('storage', onModeChange);
       window.removeEventListener('storage', onLiveModeChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    const syncDraftCount = () => setDraftCount(readDraftLegs().length);
-    syncDraftCount();
-    window.addEventListener(SCOUT_DRAFT_UPDATED_EVENT, syncDraftCount);
-    window.addEventListener('storage', syncDraftCount);
-    return () => {
-      window.removeEventListener(SCOUT_DRAFT_UPDATED_EVENT, syncDraftCount);
-      window.removeEventListener('storage', syncDraftCount);
     };
   }, []);
 
@@ -71,23 +62,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (!isProduct) return <>{children}</>;
 
-  const navItems = developerMode ? [...BASE_NAV_ITEMS, { label: 'Profile', href: '/u/me' }] : BASE_NAV_ITEMS;
-
-  const onAnalyzeDraft = () => {
-    const legs = readDraftLegs();
-    const prefillText = serializeDraftSlip(legs);
-    if (!prefillText) return;
+  const toStressTest = () => {
+    const prefillText = serializeDraftSlip(slip);
+    if (!prefillText || typeof window === 'undefined') {
+      router.push('/stress-test');
+      return;
+    }
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    window.location.href = `/research?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`;
+    router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
   };
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-[1120px] px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
+    <div className="mx-auto min-h-screen w-full max-w-[1400px] px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
       <header className="sticky top-2 z-40 mb-4 hidden rounded-2xl border border-white/10 bg-slate-950/85 px-4 py-3 backdrop-blur sm:block">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <p className="mr-2 text-base font-semibold text-white">ResearchBets</p>
-            {navItems.map((item) => {
+            {BASE_NAV_ITEMS.map((item) => {
               const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
               return (
                 <Link key={item.href} href={item.href} className={`rounded-lg px-3 py-1.5 text-sm ${active ? 'bg-cyan-400 text-slate-950' : 'text-slate-300 hover:bg-white/10'}`}>
@@ -97,7 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/discover" className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Analyze Slip</Link>
+            <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
@@ -117,7 +108,28 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl space-y-6 pb-24 sm:pb-10">{children}</main>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <main className="mx-auto w-full max-w-5xl space-y-6 pb-28 sm:pb-10">{children}</main>
+        <aside className="sticky top-20 hidden h-fit space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 lg:block">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Draft Slip</h2>
+            {slip.length > 0 ? <button type="button" className="text-xs text-slate-400 hover:text-white" onClick={clearSlip}>Clear</button> : null}
+          </div>
+          {slip.length === 0 ? <p className="text-xs text-slate-400">Add props from Board to build your slip.</p> : (
+            <ul className="space-y-2 text-xs">
+              {slip.map((leg) => (
+                <li key={leg.id} className="rounded-lg border border-white/10 bg-slate-900/60 p-2">
+                  <p className="font-medium">{leg.player}</p>
+                  <p className="text-slate-400">{leg.marketType} {leg.line} {leg.odds ?? ''}</p>
+                  <button type="button" className="mt-2 rounded border border-rose-500/40 px-2 py-0.5 text-[11px]" onClick={() => removeLeg(leg.id)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button type="button" onClick={toStressTest} className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
+        </aside>
+      </div>
+
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 py-2 backdrop-blur sm:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
           {BASE_NAV_ITEMS.map((item) => {
@@ -130,14 +142,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
-      {draftCount > 0 ? (
-        <button
-          type="button"
-          onClick={onAnalyzeDraft}
-          className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
-        >
-          Analyze slip ({draftCount})
-        </button>
+
+      <button
+        type="button"
+        onClick={() => setMobileSlipOpen((value) => !value)}
+        className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
+      >
+        Stress Test ({slip.length})
+      </button>
+      {mobileSlipOpen ? (
+        <div className="fixed inset-x-0 bottom-24 z-40 mx-3 rounded-xl border border-white/10 bg-slate-950 p-3 sm:hidden">
+          <p className="mb-2 text-sm font-semibold">Draft Slip</p>
+          {slip.length === 0 ? <p className="text-xs text-slate-400">No legs yet.</p> : (
+            <ul className="max-h-48 space-y-2 overflow-auto text-xs">
+              {slip.map((leg) => <li key={leg.id} className="rounded border border-white/10 p-2">{leg.player} {leg.marketType} {leg.line}</li>)}
+            </ul>
+          )}
+        </div>
       ) : null}
       {toast ? <div className="fixed bottom-5 right-5 rounded bg-slate-200 px-3 py-2 text-xs font-medium text-slate-900">{toast}</div> : null}
     </div>

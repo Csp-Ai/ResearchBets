@@ -54,7 +54,7 @@ describe('research run rendering and reload', () => {
     const openButtons = screen.getAllByText('Open');
     fireEvent.click(openButtons[0] as HTMLElement);
 
-    expect(push).toHaveBeenCalledWith(expect.stringContaining('/research?trace='));
+    expect(push).toHaveBeenCalledWith(expect.stringContaining('/stress-test?trace='));
   });
 
 

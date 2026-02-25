@@ -23,11 +23,11 @@ export function TodayHeader({
     <header className="space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Today</h1>
+          <h1 className="text-2xl font-semibold">Board</h1>
           <p className="text-xs text-slate-400">Live now + upcoming slate with prop keys.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Chip tone={mode === 'demo' ? 'caution' : mode === 'live' ? 'strong' : 'neutral'}>{mode === 'demo' ? 'DEMO' : mode.toUpperCase()}</Chip>
+          <Chip tone={mode === 'demo' ? 'caution' : mode === 'live' ? 'strong' : 'neutral'}>{mode === 'demo' ? 'Demo mode' : mode === 'live' ? 'Live feed' : 'Synced feed'}</Chip>
           <Button intent="secondary" className="px-3 py-1.5 text-xs" onClick={onRefresh}>Refresh</Button>
         </div>
       </div>
