@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { GamesToday, type TodayGame } from '@/features/dashboard/GamesToday';
 import { PlayerPropHeatmap, type PlayerWithPropStats } from '@/features/props/PlayerPropHeatmap';
 import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
+import { readDraftLegs, writeDraftLegs } from '@/src/core/slips/draftStorage';
 
 const TODAY_GAMES: TodayGame[] = [
   {
@@ -38,6 +39,14 @@ export default function DiscoverPage() {
   const router = useRouter();
   const [showHeatmap, setShowHeatmap] = useState(false);
   const dedupedLegs = useMemo(() => Array.from(new Map(draftLegs.map((leg) => [leg.id, leg])).values()), [draftLegs]);
+
+  useEffect(() => {
+    setDraftLegs(readDraftLegs());
+  }, []);
+
+  useEffect(() => {
+    writeDraftLegs(dedupedLegs);
+  }, [dedupedLegs]);
 
   const onAnalyzeSlip = () => {
     if (dedupedLegs.length === 0 || typeof window === 'undefined') return;
