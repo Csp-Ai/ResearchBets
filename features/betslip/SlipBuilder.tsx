@@ -15,6 +15,7 @@ export type SlipBuilderLeg = {
   odds?: string;
   volatility?: 'low' | 'medium' | 'high';
   confidence?: number;
+  game?: string;
 };
 
 export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {

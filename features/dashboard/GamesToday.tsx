@@ -22,7 +22,7 @@ export type TodayGame = {
   }>;
 };
 
-export function mapPropToLeg(player: string, prop: { market: MarketType; line: string; odds?: string }): SlipBuilderLeg {
+export function mapPropToLeg(player: string, prop: { market: MarketType; line: string; odds?: string }, game?: string): SlipBuilderLeg {
   const insight = buildPropLegInsight({ selection: player, market: prop.market, odds: prop.odds });
   return {
     id: `${player}-${prop.market}-${prop.line}`,
@@ -32,6 +32,7 @@ export function mapPropToLeg(player: string, prop: { market: MarketType; line: s
     odds: prop.odds,
     volatility: insight.riskTag === 'High' ? 'high' : insight.riskTag === 'Medium' ? 'medium' : 'low',
     confidence: insight.hitRateLast5 / 100,
+    game
   };
 }
 
@@ -68,7 +69,7 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
                                 title={`Add to slip · ${player.matchupNotes} · ${player.injuryStatus} · ${insight.riskTag} volatility`}
                                 onClick={() => {
                                   setSelectedChip(chipId);
-                                  onAddLeg(mapPropToLeg(player.name, prop));
+                                  onAddLeg(mapPropToLeg(player.name, prop, game.matchup));
                                 }}
                               >
                                 {prop.market} {prop.line}
