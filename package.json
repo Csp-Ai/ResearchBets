@@ -25,6 +25,7 @@
     "supabase:setup": "node scripts/supabase-setup.mjs",
     "supabase:setup:ci": "node scripts/supabase-setup.mjs --ci",
     "audit:routes": "node scripts/audit/routes-manifest.mjs",
+    "docs:check": "node scripts/docs-check.mjs",
     "audit:app-root": "node scripts/audit/assert-single-app-root.mjs",
     "audit:security": "node scripts/audit/security-guards.mjs",
     "audit:unused": "node scripts/audit/unused-report.mjs",

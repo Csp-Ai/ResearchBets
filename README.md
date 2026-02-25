@@ -1,200 +1,174 @@
 # ResearchBets
 
-ResearchBets is a **copilot for player prop bettors**.
+**ResearchBets is a bettor lifecycle OS** for turning game-day ideas into disciplined slips, stress-tested decisions, and repeatable postmortem learning.
 
-North Star: **Slip ingestion ➝ leg insights ➝ auto research ➝ risk framing** so bettors can move from noisy slips to confident, traceable decisions.
+## Lifecycle OS (canonical flow)
 
-## Product Loop
+1. **Board** (`/`) — scan today's slate, shortlist prop ideas, and queue legs.
+2. **Slip** (`/slip`) — build a draft slip and see live fragility/correlation intelligence.
+3. **Stress Test** (`/stress-test`) — run deterministic extraction + risk analysis before placing.
+4. **Control** (`/control`) — monitor live risk and run review mode for settled slips.
+5. **Review / Improve** (`/control?tab=review`) — classify what failed and what to change next.
 
-1. Bettor uploads or pastes a slip.
-2. System extracts each leg and normalizes the market via `MarketType`.
-3. UI shows market-specific context (hit rate, matchup notes, injuries, trend, risk tags).
-4. Snapshot pipeline produces recommendation evidence and reasoning for follow-through.
+Legacy aliases are preserved for continuity:
 
-## Canonical Prop Architecture
+- `/discover` → `/slip`
+- `/research` → `/stress-test`
+- `/live` → `/control?tab=live`
 
-`MarketType` is the canonical market enum used across ingestion, persistence, measurement, and UX.
+## New user journey in 60 seconds (guest)
 
-- Ingestion parsing: `src/core/slips/extract.ts`
-- Snapshot composition: `src/flows/researchSnapshot/buildResearchSnapshot.ts`
-- Runtime persistence: `src/core/persistence/runtimeStore.ts`
-- Recommendation measurement: `src/core/measurement/recommendations.ts`
-- Market normalization source of truth: `src/core/markets/marketType.ts`
+1. Open `/` and pick a prop from the today board.
+2. Add it to draft and jump to `/slip`.
+3. Build your slip and check `SlipIntelBar` for correlation + volatility warnings.
+4. Hit **Stress Test** to run analysis on `/stress-test`.
+5. Open `/control` to monitor live risk deltas.
+6. After result, use review mode with an uploaded slip image to generate a postmortem.
 
-## Core Components
+No account is required for this loop; draft and recent postmortem state are stored locally first.
 
-- **SlipIngestion**: capture raw slips + normalize markets.
-- **SnapshotAgent**: produce deterministic research snapshots scoped by market.
-- **Graph View**: trace runtime events and orchestration nodes.
-- **SnapshotReplayView**: replay per-leg prop context (trend, matchup, injury, confidence) and parlay risk summary.
-- **EvidenceDrawer**: inspect claims, evidence, and event-level detail.
+## Demo vs Live modes
 
-## LLM / Copilot Primary Context Files
+ResearchBets is deterministic-first and degrades safely.
 
-Keep these files clean and declarative; they are the highest-value context for Copilot/Codex:
+- **Demo mode (default):**
+  - `LIVE_MODE` is unset/false.
+  - `/api/today` serves deterministic slate data and can return `mode: demo` or cached payloads.
+  - Live market APIs and outcome APIs use demo-first snapshots and deterministic fallbacks.
+- **Live mode:**
+  - Set `LIVE_MODE=true` and provide real provider + Supabase keys.
+  - `/api/today` attempts provider aggregation; if provider calls fail it falls back to deterministic demo payloads with a reason.
 
-- `src/core/markets/marketType.ts`
-- `src/flows/researchSnapshot/buildResearchSnapshot.ts`
-- `src/core/slips/extract.ts`
-- `src/agents/researchSnapshot/ResearchSnapshotAgent.ts`
+## Local development
 
-## Runtime & Workspace Policy
-
-- **Node.js policy**: Node 20.x (matches CI and GitHub Actions).
-- **Package manager policy**: npm + `package-lock.json` are canonical.
-- **Canonical Next.js app root**: `app/` (top-level). `apps/web/app` must not contain active routes.
-- **Supabase mode**: local development may target hosted Supabase or local stack, but required client keys must be in `.env.local` and `SUPABASE_SERVICE_ROLE_KEY` remains server-only.
-
-## Local Development
-
-For the full operational path (fresh clone through schema verification and health checks), see `docs/SETUP.md`.
-
+### 1) Install + start (offline/demo)
 
 ```bash
-npm install
+npm ci
 cp .env.local.example .env.local
 npm run dev
 ```
 
-### Quick start env template
+This works in demo mode with graceful degradation for Supabase-backed features.
 
-A repo-local starter env is provided for onboarding:
+### 2) Full mode (Supabase + providers)
+
+Set at minimum:
 
 ```bash
-cp .env.local.example .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable-or-anon-key>
+# optional alias supported by env checker:
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=<publishable-key>
+SUPABASE_SERVICE_ROLE_KEY=<server-only>
+LIVE_MODE=true
 ```
 
-Then fill in your Supabase values in `.env.local` before running `npm run dev`.
-
-### Local dev (full Supabase mode)
-
-1. Copy env template:
+Optional provider keys for richer live context:
 
 ```bash
-cp .env.example .env.local
+ODDS_API_KEY=<key>
+SPORTSDATA_API_KEY=<key>
 ```
 
-2. Set required keys in `.env.local`:
+### 3) Environment validation (`env:check` strict vs relaxed)
+
+- **Strict mode:** CI, production, or `LIVE_MODE=true`.
+  - Missing required Supabase public keys fails hard.
+- **Relaxed mode:** local demo mode.
+  - Missing keys warn and continue with degraded/offline behavior.
+
+Run checks directly:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-anon-key>
-# optional for server routes:
-SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
+npm run env:check
+npm run env:check:strict
 ```
 
-3. Optional feature flag:
+Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_URL` and one public key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`), then restart dev server.
+
+## Key routes
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
+| `/slip` | Draft slip builder with `useDraftSlip`, `DraftSlipStore`, and `SlipIntelBar`. |
+| `/stress-test` | Suspense-wrapped stress-test workspace using `ResearchPageContent`. |
+| `/control` | Control Room with live monitoring and review/postmortem tabs. |
+| `/discover` | Alias redirect to `/slip`. |
+| `/research` | Alias redirect to `/stress-test`. |
+| `/live` | Alias redirect to `/control?tab=live`. |
+
+## Key APIs
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/today` | Board payload aggregator with live→demo fallback and cache mode. |
+| `POST /api/slips/submit` | Store raw slip text + emit `slip_submitted` telemetry event. |
+| `POST /api/slips/extract` | Parse slip legs + leg insights and emit extraction events. |
+| `POST /api/postmortem` | Deterministic postmortem classification + slip intelligence summaries. |
+| `GET/POST /api/events` | Control-plane event ingestion and trace/event retrieval. |
+| `GET /api/live/market` | Market snapshot list (demo-safe, envelope-based response). |
+| `GET /api/live/game/:gameId` | Single game payload with model/props/heuristics. |
+| `POST /api/live/model` | Quick model run for selected game. |
+| `GET /api/live/outcome/:gameId` | Deterministic outcome simulation + edge realization + emitted events. |
+| `POST /api/live/props/track` | Persist tracked prop and emit tracking events. |
+| `POST /api/researchSnapshot/start` | Start snapshot run and persist report metadata. |
+| `GET /api/researchSnapshot/:id` | Retrieve snapshot + normalized recommendation payload. |
+
+## Slip intelligence: where it lives and what it outputs
+
+- Engine: `src/core/slips/slipIntelligence.ts` (`computeSlipIntelligence`).
+- UI bar: `src/components/slips/SlipIntelBar.tsx`.
+- State: `src/core/slips/draftSlipStore.ts` + `src/hooks/useDraftSlip.ts`.
+
+Outputs include:
+
+- `correlationScore`
+- `fragilityScore`
+- `volatilityTier`
+- `exposureSummary` (top games + players)
+- `weakestLegHints` (actionable fragility explanations)
+
+## Postmortem flow
+
+1. User uploads a slip image in `/control` review tab.
+2. Client runs deterministic mock OCR parse (`mockParseSlip`) from file name to slip text.
+3. Parsed text is replayed through stress-test pipeline (`runSlip`) to recover legs/verdict context.
+4. Client calls `POST /api/postmortem` with legs + outcome.
+5. API returns deterministic classification and intelligence-driven notes:
+   - **what failed** (correlation/injury/line-value misses)
+   - **what to change next** (derived in UI from returned exposure + volatility signals)
+
+## Repo audits
+
+Audit artifacts live in `docs/audits/` and root reports. Start with:
+
+- `AUDIT_REPORT.md`
+- `docs/audits/state-of-union-everyday-bettor-os.md`
+- `docs/audits/routes.manifest.md`
+- `docs/repository-systems-audit.md`
+
+Use these as snapshots of architecture risk and drift; prefer summaries in docs over duplicating report content.
+
+## Docs index
+
+- `docs/ARCHITECTURE.md` — system/data flow and deployment model.
+- `docs/PRODUCT.md` — product positioning, user journey, and promises.
+- `docs/CHANGELOG_HACKATHON.md` — recent sprint-level lifecycle changes.
+- `docs/SETUP.md` — extended setup/deployment details.
+
+## Quality checks
 
 ```bash
-ENABLE_COVERAGE_AGENT=true
-```
-
-4. Start the app:
-
-```bash
-npm run dev
-```
-
-This path enables full ingest + research flow with live Supabase and optional unverified web notes.
-
-### Local dev (offline/demo mode)
-
-Run local dev without Supabase public keys by leaving `LIVE_MODE` unset (or setting `LIVE_MODE=false`):
-
-```bash
-export LIVE_MODE=false
-npm run dev
-```
-
-Supabase-backed endpoints/features (persistence/community/research paths) are disabled or degraded in offline mode.
-
-### Supabase local env setup
-
-`.env.local` is required for local dev. Add your Supabase project URL and publishable key (used as `NEXT_PUBLIC_SUPABASE_ANON_KEY` in this app):
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-publishable-key>
-```
-
-`SUPABASE_SERVICE_ROLE_KEY` is optional for local dev and must remain server-only (API routes / server code). Never expose it in client components.
-
-After editing environment variables, restart the dev server. To verify config and connectivity, run `npm run env:check` and visit `http://localhost:3000/api/health`.
-
-
-### Trusted context provider keys (Phase 4)
-
-To enable verified injuries/odds context in local real mode, set at least one key in each pair below in `.env.local`:
-
-```bash
-ODDS_API_KEY=<your-odds-api-key>
-# or
-TRUSTED_ODDS_API_KEY=<your-odds-api-key>
-
-SPORTSDATA_API_KEY=<your-sportsdataio-key>
-# or
-TRUSTED_SPORTSDATAIO_KEY=<your-sportsdataio-key>
-```
-
-If a key is missing, trusted context now degrades gracefully and the UI shows explicit coverage/fallback messaging instead of throwing.
-
-## Database Schema Must Be Applied
-
-The app expects Supabase schema parity with `supabase/migrations/*.sql`. Before running local/dev against a shared project, apply migrations:
-
-```bash
-supabase db push
-```
-
-If Supabase CLI is unavailable, apply the SQL migration files manually in order from `supabase/migrations`.
-
-Run a schema drift check anytime you see runtime DB errors:
-
-```bash
-npm run supabase:schema:check
-```
-
-### Troubleshooting: PGRST204 / 42703
-
-If you see errors like:
-
-- `PGRST204 Could not find column ... in schema cache`
-- `42703 column ... does not exist`
-
-Then run `npm run supabase:schema:check`, apply pending migrations, and restart the dev server.
-
-### npm proxy warning (`Unknown env config "http-proxy"`)
-
-If you see this warning, it is usually coming from user or CI environment variables (for example `npm_config_http_proxy`) rather than this repository. npm now expects:
-
-- `proxy=...`
-- `https-proxy=...`
-
-If your shell/CI defines `npm_config_http_proxy`, rename it to `npm_config_proxy` (and keep `npm_config_https_proxy` as needed).
-
-## Quality Gates
-
-```bash
+npm run docs:check
 npm run lint
 npm run typecheck
-npm run test
+npm run build
 ```
 
-## Research Path
-
-Slip ingestion ➝ `buildPropLegInsight` leg context ➝ snapshot creation ➝ `/research/snapshot/[snapshotId]` replay via `SnapshotReplayView` ➝ trace replay graph (`?replay=1`).
-
-## Security Audits
-
-We run a production audit policy check in CI via `npm run audit:prod` (allowlist-aware) as a blocking gate for non-allowlisted (or expired) production advisories.
-
-Run audits locally with:
+Targeted deterministic tests worth running during lifecycle changes:
 
 ```bash
-npm run audit:prod
-npm run audit:all
+npx vitest run app/api/today/__tests__/route.test.ts app/api/postmortem/__tests__/route.test.ts src/core/slips/__tests__/slipIntelligence.test.ts
 ```
-
-Allowlist exceptions must include explicit expiry dates and short remediation windows.
-
-Do **not** run `npm audit fix --force` on `main` without an explicit **Dependency Major Upgrade** PR, because force-fixes can introduce breaking major upgrades across the stack.
