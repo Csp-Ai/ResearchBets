@@ -8,6 +8,7 @@ import { PlayerPropHeatmap, type PlayerWithPropStats } from '@/features/props/Pl
 import { SlipBuilder } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
+import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 
 const TODAY_GAMES: TodayGame[] = [
   {
@@ -49,13 +50,15 @@ export default function SlipPage() {
   };
 
   return (
-    <section className="space-y-6">
+    <section className="mx-auto max-w-7xl space-y-4">
       <header className="space-y-2">
         <h1 className="text-4xl font-semibold">Slip</h1>
         <p className="text-sm text-slate-400">Build your active slip, then run a full stress test before placing.</p>
       </header>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <SlipIntelBar legs={dedupedLegs} />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           <GamesToday games={TODAY_GAMES} onAddLeg={addLeg} />
           <button type="button" className="rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-medium" onClick={() => setShowHeatmap((value) => !value)}>
@@ -75,7 +78,7 @@ export default function SlipPage() {
             onClick={onAnalyzeSlip}
             disabled={dedupedLegs.length === 0}
           >
-            Stress Test slip
+            Stress Test ({dedupedLegs.length})
           </button>
         </div>
       </div>

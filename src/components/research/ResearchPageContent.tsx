@@ -27,6 +27,8 @@ import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
 import { ShareReply } from '@/src/components/bettor/ShareReply';
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
+import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)
@@ -92,6 +94,7 @@ export default function ResearchPageContent() {
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
   const [data, setData] = useState<BettorDataEnvelope | null>(null);
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
+  const { slip } = useDraftSlip();
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
   const safeTab: HubTab = tabs.includes(tab) ? tab : 'analyze';
@@ -218,8 +221,12 @@ export default function ResearchPageContent() {
     setCurrentRun(next);
   };
 
+  const intelLegs = useMemo(() => (runDto?.legs?.length
+    ? runDto.legs.map((leg) => ({ id: leg.id, player: leg.player, selection: leg.selection, market: leg.market, line: leg.line, odds: leg.odds, team: leg.team }))
+    : slip), [runDto, slip]);
+
   return (
-    <motion.section initial="hidden" animate="show" variants={stagger} className="space-y-6">
+    <motion.section initial="hidden" animate="show" variants={stagger} className="mx-auto max-w-6xl space-y-4">
       <motion.header variants={fadeUp} className="bettor-card p-5">
         <h1 className="text-3xl font-semibold">Stress Test</h1>
         <p className="mt-1 text-sm text-slate-300">Run full slip stress tests, inspect weakest-leg risk drivers, and decide before placing.</p>
@@ -231,7 +238,8 @@ export default function ResearchPageContent() {
       </motion.header>
 
       {safeTab === 'analyze' ? (
-        <motion.div variants={fadeUp} className="space-y-5">
+        <motion.div variants={fadeUp} className="space-y-4">
+          <SlipIntelBar legs={intelLegs} />
           {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
             <>
               <VerdictHero confidence={runDto?.verdict.confidence ?? currentRun?.analysis.confidencePct ?? 0} weakestLeg={weakestLeg} reasons={runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []} dataQuality="Partial live" />
