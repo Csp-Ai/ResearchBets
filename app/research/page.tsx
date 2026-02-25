@@ -1,7 +1,5 @@
-import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 
-import ResearchPageContent from '@/src/components/research/ResearchPageContent';
-
-export default function ResearchPage() {
-  return <Suspense fallback={null}><ResearchPageContent /></Suspense>;
+export default function ResearchAliasPage() {
+  redirect('/stress-test');
 }

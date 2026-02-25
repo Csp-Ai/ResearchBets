@@ -59,10 +59,10 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     const prefillText = serializeDraftSlip(legs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(`/research?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
+    router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
   };
 
-  const openScout = () => router.push('/discover');
+  const openScout = () => router.push('/slip');
 
   const analyzeDraft = () => {
     if (typeof window === 'undefined') return;
@@ -70,7 +70,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     const prefillText = serializeDraftSlip(legs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(`/research?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
+    router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
   };
 
   return (
@@ -87,7 +87,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
       <GamesSection title="Live now" games={liveGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
       <GamesSection title="Upcoming" games={upcomingGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
       <button type="button" onClick={analyzeDraft} className="fixed bottom-20 right-4 z-40 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg sm:hidden">
-        Analyze slip
+        Stress Test
       </button>
     </section>
   );

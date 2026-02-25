@@ -1,5 +1,5 @@
-import { LiveGamesClient } from '@/src/components/live/LiveGamesClient';
+import { redirect } from 'next/navigation';
 
-export default function LiveGamesPage({ searchParams }: { searchParams?: { sport?: string } }) {
-  return <LiveGamesClient initialSport={searchParams?.sport ?? 'NFL'} />;
+export default function LiveAliasPage() {
+  redirect('/control?tab=live');
 }

@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/research',
+  usePathname: () => '/stress-test',
+  useRouter: () => ({ push: vi.fn() })
 }));
 
 import { AppShell } from '../src/components/terminal/AppShell';
@@ -16,11 +17,10 @@ describe('AppShell top nav', () => {
       </AppShell>
     );
 
-    expect(html).toContain('Analyze');
-    expect(html).toContain('Scout');
-    expect(html).toContain('Live');
-    expect(html).toContain('Community');
-    expect(html).not.toContain('>Build<');
-    expect(html).not.toContain('href="/bets"');
+    expect(html).toContain('Board');
+    expect(html).toContain('Slip');
+    expect(html).toContain('Stress Test');
+    expect(html).toContain('Control Room');
+    expect(html).not.toContain('Community');
   });
 });

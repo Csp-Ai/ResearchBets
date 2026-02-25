@@ -1,29 +1,21 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 
-export const SCOUT_DRAFT_STORAGE_KEY = 'rb:scout:draft-legs';
-export const SCOUT_DRAFT_UPDATED_EVENT = 'rb:scout:draft-updated';
+import { DraftSlipStore, DRAFT_SLIP_STORAGE_KEY, DRAFT_SLIP_UPDATED_EVENT } from './draftSlipStore';
+
+export const SCOUT_DRAFT_STORAGE_KEY = DRAFT_SLIP_STORAGE_KEY;
+export const SCOUT_DRAFT_UPDATED_EVENT = DRAFT_SLIP_UPDATED_EVENT;
 
 export function readDraftLegs(): SlipBuilderLeg[] {
-  if (typeof window === 'undefined') return [];
-  const raw = window.sessionStorage.getItem(SCOUT_DRAFT_STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as SlipBuilderLeg[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return DraftSlipStore.getSlip();
 }
 
 export function writeDraftLegs(legs: SlipBuilderLeg[]): void {
-  if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(SCOUT_DRAFT_STORAGE_KEY, JSON.stringify(legs));
-  window.dispatchEvent(new CustomEvent(SCOUT_DRAFT_UPDATED_EVENT, { detail: { count: legs.length } }));
+  DraftSlipStore.clearSlip();
+  legs.forEach((leg) => {
+    DraftSlipStore.addLeg(leg);
+  });
 }
 
 export function upsertDraftLeg(leg: SlipBuilderLeg): SlipBuilderLeg[] {
-  const current = readDraftLegs();
-  const deduped = Array.from(new Map([...current, leg].map((item) => [item.id, item])).values());
-  writeDraftLegs(deduped);
-  return deduped;
+  return DraftSlipStore.addLeg(leg);
 }
