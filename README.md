@@ -4,7 +4,7 @@
 
 ## Lifecycle OS (canonical flow)
 
-1. **Landing** (`/`) — rendered by App Router at `app/page.tsx` using `LandingPageClient`.
+1. **Landing** (`/`) — rendered by App Router at `app/page.tsx` using `HomeLandingClient` → `src/components/landing/HomeLandingPage.tsx`.
 2. **Slip** (`/slip`) — build a draft slip and see live fragility/correlation intelligence.
 3. **Stress Test** (`/stress-test`) — run deterministic extraction + risk analysis before placing.
 4. **Control** (`/control`) — monitor live risk and run review mode for settled slips.
@@ -90,9 +90,40 @@ npm run env:check:strict
 Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_URL` and one public key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`), then restart dev server.
 
 
+## Repo Grounding
+
+- Canonical home routing chain is `app/page.tsx` (server wrapper with `Suspense`) → `app/HomeLandingClient.tsx` → `src/components/landing/HomeLandingPage.tsx`.
+- Keep one spine for internal navigation: `nervous.toHref()` + `appendQuery()` on route transitions.
+
+### Key routes (BEFORE / DURING / AFTER)
+
+- **BEFORE placement**: `/`, `/today`, `/slip`, `/ingest`.
+- **DURING decisioning**: `/stress-test`, `/research` (alias redirect).
+- **AFTER placement**: `/control`, `/control?tab=review`, `/live` (alias redirect).
+
+### Demo vs live contract
+
+- Demo mode remains deterministic-first and should continue to return useful payloads without external provider keys.
+- Live mode attempts provider-backed data and safely degrades to cached/demo payloads with explicit `mode` and optional reason labels.
+
+### Guardrails
+
+```bash
+npm run verify:landing
+npm run typecheck
+npm run lint
+npm run build
+```
+
+### Sprint 6 focus
+
+- Performance: lazy-load heavy OCR and non-critical panels so ingest/stress-test/control show value faster.
+- Prune: reduce duplicate/legacy variants and keep canonical entry points authoritative.
+- Spine: preserve query/context continuity through `nervous.toHref()` + `appendQuery()`.
+
 ## Landing page wiring
 
-- Canonical home route is `/`, served by App Router in `app/page.tsx` and rendered by `LandingPageClient`.
+- Canonical home route is `/`, served by App Router in `app/page.tsx` and rendered by `HomeLandingClient` + `HomeLandingPage`.
 - `public/landing.html` is optional legacy/reference content and is **not** the canonical home route.
 - Run `npm run verify:landing` to enforce this contract in local/CI checks.
 - No placeholder routes were added: `/ingest`, `/research?demo=1`, `/ingest?mode=screenshot`, and `/control` already exist in the app router.
@@ -101,7 +132,7 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Canonical App Router home route rendered by `app/page.tsx` (`LandingPageClient`). |
+| `/` | Canonical App Router home route rendered by `app/page.tsx` (`HomeLandingClient` → `HomeLandingPage`). |
 | `/today` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
 | `/slip` | Draft slip builder with `useDraftSlip`, `DraftSlipStore`, and `SlipIntelBar`. |
 | `/stress-test` | Suspense-wrapped stress-test workspace using `ResearchPageContent`. |
@@ -185,6 +216,11 @@ Use these as snapshots of architecture risk and drift; prefer summaries in docs 
 - `docs/PRODUCT.md` — product positioning, user journey, and promises.
 - `docs/CHANGELOG_HACKATHON.md` — recent sprint-level lifecycle changes.
 - `docs/SETUP.md` — extended setup/deployment details.
+
+## Dependency notes
+
+- `autoprefixer` and `postcss` remain because `postcss.config.js` and Tailwind CSS processing depend on them.
+- `knip` remains because `audit:unused` scripts execute `npx knip` for prune visibility.
 
 ## Quality checks
 

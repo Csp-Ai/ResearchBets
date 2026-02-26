@@ -4,8 +4,6 @@ import React, { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
-import { runSlip } from '@/src/core/pipeline/runSlip';
-import { runOcr } from '@/src/features/ingest/ocr/ocrClient';
 import { readCoverageAgentEnabled } from '@/src/core/ui/preferences';
 import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
@@ -31,6 +29,7 @@ export default function IngestionPage() {
     setLoading(true);
     setError(null);
     try {
+      const { runSlip } = await import('@/src/core/pipeline/runSlip');
       const traceId = await runSlip(slipText, { coverageAgentEnabled: readCoverageAgentEnabled() });
       router.push(nervous.toHref('/research', { trace_id: traceId }));
     } catch (submitError) {
@@ -75,6 +74,7 @@ export default function IngestionPage() {
     ocrAbortControllerRef.current = abortController;
 
     try {
+      const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
       const normalized = await runOcr(file, (progressLabel) => {
         setOcrProgress(progressLabel);
       }, {

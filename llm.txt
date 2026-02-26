@@ -27,3 +27,20 @@ Structural Risk Terminal for parlays (not picks).
 
 ## Forward note
 When adding new analysis features later, emit `SlipStructureReport` (future PR).
+
+## Operating Rules for LLMs/Codex
+- Preserve spine continuity on all internal nav actions by using `nervous.toHref()` with `appendQuery()`; avoid manual query-string concatenation.
+- Keep demo/live language truthful and emotionally neutral.
+  - Preferred: "demo fallback active", "copy unavailable in this browser", "default feed while additional books sync".
+  - Avoid alarmed wording.
+- Performance rule: do not pull heavy dependencies into first render when avoidable; lazy-load OCR and larger diagnostics/widgets behind user intent.
+- Do not add new alternate landing/today variants without a deprecation or archive plan.
+- If you modify routes or APIs, update README route mapping in the same change.
+
+## Preflight Checklist
+```bash
+npm run verify:landing
+npm run typecheck
+npm run lint
+npm run build
+```

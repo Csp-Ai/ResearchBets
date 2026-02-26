@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 import { renderWithNervousSystem } from '@/src/test-utils/renderWithNervousSystem';
 
-import LandingVisionClient from '../LandingVisionClient';
+import LandingVisionClient from '../../_archive/landing/LandingVisionClient';
 
 const push = vi.fn();
 

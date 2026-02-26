@@ -1,14 +1,20 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-import { runSlip } from '@/src/core/pipeline/runSlip';
-import { runStore } from '@/src/core/run/store';
-import { toResearchRunDTOFromRun, type ResearchRunDTO } from '@/src/core/run/researchRunDTO';
+import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { appendQuery } from '@/src/components/landing/navigation';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
+
+const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPanel), {
+  ssr: false,
+  loading: () => <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm text-slate-300">Loading review panel…</div>
+});
 
 type Tab = 'live' | 'review';
 
@@ -36,21 +42,13 @@ const mockParseSlip = (fileName: string): string => {
   return 'LeBron James over 6.5 rebounds (-105)\nJayson Tatum over 29.5 points (-110)';
 };
 
-const buildNextTimeAdjustments = (postmortem: PostMortemResult): string[] => {
-  const topGame = postmortem.exposureSummary.topGames[0];
-  const bullets: string[] = [];
-  if (topGame && topGame.count >= 4) bullets.push(`${topGame.count}-leg concentration in ${topGame.game}: split across 2+ games or hedge live after first quarter.`);
-  if (postmortem.correlationScore >= 65) bullets.push('Correlation ran hot: trim duplicate player dependencies to lower one-script failure risk.');
-  if (postmortem.volatilityTier === 'High' || postmortem.volatilityTier === 'Extreme') bullets.push(`Volatility was ${postmortem.volatilityTier}: reduce alt lines/longshots before scaling stake.`);
-  if (bullets.length === 0) bullets.push('Keep this construction pattern; no major concentration or fragility misses in deterministic review.');
-  return bullets.slice(0, 3);
-};
 
 export function ControlPageClient() {
   const search = useSearchParams();
   const initialTab = search.get('tab') === 'review' ? 'review' : 'live';
   const [tab, setTab] = useState<Tab>(initialTab);
   const { slip } = useDraftSlip();
+  const nervous = useNervousSystem();
   const [outcome, setOutcome] = useState<'win' | 'loss' | 'push'>('loss');
   const [postmortem, setPostmortem] = useState<PostMortemResult | null>(null);
   const [retroDto, setRetroDto] = useState<ResearchRunDTO | null>(null);
@@ -63,18 +61,14 @@ export function ControlPageClient() {
     return Math.round((avg - 0.6) * 100);
   }, [slip]);
 
-  const reviewIntelLegs = retroDto?.legs.map((leg) => ({
-    id: leg.id,
-    player: leg.player,
-    selection: leg.selection,
-    market: leg.market,
-    line: leg.line,
-    odds: leg.odds,
-    team: leg.team
-  })) ?? [];
 
   const runReview = useCallback(async (file?: File) => {
     const slipText = mockParseSlip(file?.name ?? 'upload.png');
+    const [{ runSlip }, { runStore }, { toResearchRunDTOFromRun }] = await Promise.all([
+      import('@/src/core/pipeline/runSlip'),
+      import('@/src/core/run/store'),
+      import('@/src/core/run/researchRunDTO')
+    ]);
     const traceId = await runSlip(slipText);
     const run = await runStore.getRun(traceId);
     if (!run) return;
@@ -96,7 +90,7 @@ export function ControlPageClient() {
   }, [outcome]);
 
   useEffect(() => {
-    void runStore.listRuns(1).then((runs) => setLatestTrace(runs[0]?.traceId ?? null));
+    void import('@/src/core/run/store').then(({ runStore }) => runStore.listRuns(1)).then((runs) => setLatestTrace(runs[0]?.traceId ?? null));
   }, []);
 
   useEffect(() => {
@@ -126,10 +120,10 @@ export function ControlPageClient() {
               <p>No active slip found yet. Pick a path below to get a live run in motion.</p>
               <div className="flex flex-wrap gap-2">
                 {latestTrace ? (
-                  <Link href={`/stress-test?trace=${encodeURIComponent(latestTrace)}`} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link>
+                  <Link href={appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace })} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link>
                 ) : null}
-                <Link href="/stress-test?demo=1" className="rounded border border-white/20 px-3 py-2 text-sm">Try sample slip</Link>
-                <Link href="/slip" className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
+                <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded border border-white/20 px-3 py-2 text-sm">Try sample slip</Link>
+                <Link href={nervous.toHref('/slip')} className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
               </div>
             </div>
           ) : (
@@ -151,7 +145,7 @@ export function ControlPageClient() {
       {tab === 'review' ? (
         <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
           <h2 className="text-lg font-semibold">Review</h2>
-          <p className="text-sm text-slate-300">Upload a FanDuel screenshot for mock OCR parsing and deterministic postmortem classification.</p>
+          <p className="text-sm text-slate-300">Upload a FanDuel screenshot for demo OCR parsing and deterministic postmortem classification.</p>
           <div className="flex flex-wrap items-center gap-2">
             <input type="file" accept="image/*" onChange={(event) => {
               const file = event.target.files?.[0];
@@ -166,23 +160,7 @@ export function ControlPageClient() {
             <button type="button" onClick={() => void runReview()} className="rounded bg-cyan-400 px-3 py-1.5 text-sm font-medium text-slate-950">Run sample review</button>
           </div>
 
-          {retroDto ? (
-            <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm space-y-2">
-              <SlipIntelBar legs={reviewIntelLegs} />
-              <p className="font-medium">Parsed slip ({uploadName || 'sample'}): {retroDto.legs.length} legs</p>
-              <p>What failed: <span className="text-cyan-300">{postmortem?.classification.process ?? 'Running…'}</span></p>
-              <p>Weakest leg: {retroDto.verdict.weakest_leg_id ?? 'n/a'}</p>
-              <p>Risk flags missed: {postmortem ? postmortem.notes.join(' • ') : 'Running…'}</p>
-              {postmortem ? (
-                <div>
-                  <p className="font-medium mt-2">What to change next time</p>
-                  <ul className="mt-1 list-disc pl-5 text-slate-300">
-                    {buildNextTimeAdjustments(postmortem).map((item) => <li key={item}>{item}</li>)}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          <ReviewPanel retroDto={retroDto} uploadName={uploadName} postmortem={postmortem} />
         </div>
       ) : null}
     </section>

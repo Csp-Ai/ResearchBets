@@ -7,6 +7,6 @@ export async function enrichInjuries(leg: ExtractedLeg): Promise<{ injury: strin
     injury: null,
     news: null,
     source: 'fallback',
-    notes: ['Injury/news provider unavailable in this environment.']
+    notes: ['Injury/news updates are currently using deterministic fallback notes.']
   };
 }

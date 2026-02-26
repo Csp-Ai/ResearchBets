@@ -12,9 +12,6 @@ import { mergeSnapshotHighlights, toResearchRunDTOFromRun, validateResearchRunDT
 import { LIVE_MODE_EVENT, readCoverageAgentEnabled, readDeveloperMode, readLiveModeEnabled } from '@/src/core/ui/preferences';
 import type { BettorDataEnvelope } from '@/src/core/bettor/gateway.server';
 import {
-  AdvancedDrawer,
-  HowItWorksMini,
-  RecentActivityPanel,
   type AnalyzeLeg,
   type RecentRun,
   type RecentRunDemo
@@ -25,7 +22,6 @@ import { Surface } from '@/src/components/ui/surface';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
-import AnalyzeTabPanel from '@/src/components/research/AnalyzeTabPanel';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
   loading: () => <Surface className="h-48 animate-pulse bg-slate-900/60" />
@@ -34,6 +30,25 @@ const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPa
 const LiveTabPanel = dynamic(() => import('@/src/components/research/LiveTabPanel'), {
   loading: () => <Surface className="h-40 animate-pulse bg-slate-900/60" />
 });
+
+const AnalyzeTabPanel = dynamic(() => import('@/src/components/research/AnalyzeTabPanel'), {
+  loading: () => <Surface className="h-56 animate-pulse bg-slate-900/60" />
+});
+
+const RecentActivityPanel = dynamic(
+  () => import('@/src/components/bettor/BettorFirstBlocks').then((m) => m.RecentActivityPanel),
+  { loading: () => <Surface className="h-28 animate-pulse bg-slate-900/60" /> }
+);
+
+const HowItWorksMini = dynamic(
+  () => import('@/src/components/bettor/BettorFirstBlocks').then((m) => m.HowItWorksMini),
+  { loading: () => <Surface className="h-20 animate-pulse bg-slate-900/60" /> }
+);
+
+const AdvancedDrawer = dynamic(
+  () => import('@/src/components/bettor/BettorFirstBlocks').then((m) => m.AdvancedDrawer),
+  { ssr: false }
+);
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)

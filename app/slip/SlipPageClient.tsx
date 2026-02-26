@@ -150,7 +150,7 @@ export default function SlipPageClient() {
                 </li>
               ))}
             </ul>
-            <button type="button" className="w-full rounded-lg border border-slate-500/70 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(clipboard blocked)' : ''}</button>
+            <button type="button" className="w-full rounded-lg border border-slate-500/70 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</button>
           </section>
           <SlipBuilder legs={dedupedLegs} onLegsChange={(nextLegs) => {
             if (nextLegs.length === 0) {
