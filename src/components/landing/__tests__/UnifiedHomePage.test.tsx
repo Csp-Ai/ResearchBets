@@ -14,7 +14,7 @@ describe('Unified home landing', () => {
     render(<HomePage searchParams={{ mode: 'demo' }} />);
 
     expect(screen.getByText("Tonight's Board")).toBeTruthy();
-    expect(screen.getByText('DEMO')).toBeTruthy();
+    expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
     expect(screen.getByText('Slip rail')).toBeTruthy();
     expect(screen.getByLabelText('landing-how-it-works')).toBeTruthy();
     expect(screen.getByLabelText('bda-strip')).toBeTruthy();

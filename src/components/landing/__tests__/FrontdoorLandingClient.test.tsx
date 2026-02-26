@@ -71,13 +71,29 @@ describe('FrontdoorLandingClient', () => {
     expect(screen.getByText('Slip rail')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add Player 1 points 20.5 to slip' })).toBeTruthy();
     expect(screen.getByText('Player 1')).toBeTruthy();
+    expect(screen.getAllByText('-110').length).toBeGreaterThan(0);
+  });
+
+  it('uses desktop rail grid structure and compact plus-minus row controls', async () => {
+    const { container } = renderWithNervousSystem(<FrontdoorLandingClient />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('slip-rail-desktop').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.getAllByTestId('landing-terminal-grid').length).toBeGreaterThan(0);
+
+    const rows = screen.getAllByTestId('terminal-prop-rows');
+    expect(rows.length).toBeGreaterThan(0);
+    expect(container.querySelector('.legacy-prop-bar')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add Player 1 points 20.5 to slip' }).textContent).toBe('+');
   });
 
   it('keeps primary CTA disabled when empty and enables after trying sample slip', async () => {
     const view = renderWithNervousSystem(<FrontdoorLandingClient />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: 'Start by adding legs' }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Start by adding legs →').length).toBeGreaterThan(0);
     });
 
     const sampleAction = screen.getAllByRole('button', { name: 'Try sample slip' })[0];
@@ -85,7 +101,7 @@ describe('FrontdoorLandingClient', () => {
     view.rerender(<FrontdoorLandingClient />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: 'Stress test this slip' }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Stress test this slip →').length).toBeGreaterThan(0);
     });
     expect(addLeg).toHaveBeenCalled();
   });

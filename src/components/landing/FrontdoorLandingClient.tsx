@@ -160,43 +160,53 @@ export function FrontdoorLandingClient() {
   }, [addLeg, board, gameById, slipIds]);
 
   return (
-    <section aria-label="frontdoor-client" className={hydrated ? 'block' : 'hidden'}>
+    <section aria-label="frontdoor-client-board" data-landing-client hidden={!hydrated} className={hydrated ? 'contents' : 'hidden'}>
       <LandingTerminalShell mode={today.mode} reason={today.reason}>
-        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" data-testid="landing-terminal-grid">
           <div>
-            <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+            <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
               <span>{loading ? 'Loading board…' : `${compactBoard.length} games · ${board.length} props`}</span>
               <Link href={spineHref('/today')} className="text-cyan-200 hover:text-cyan-100">Open full board</Link>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {loading
                 ? Array.from({ length: 6 }, (_, i) => (
-                    <div key={`sk-${i}`} className="rounded-xl border border-white/10 bg-slate-950/70 p-3">
-                      <div className="mb-2 h-4 w-2/3 rounded bg-white/10" />
-                      <div className="mb-3 h-3 w-1/2 rounded bg-white/10" />
-                      <div className="h-20 rounded bg-white/10" />
+                    <div key={`sk-${i}`} className="rounded-xl border border-white/10 bg-slate-950/70 p-2.5">
+                      <div className="mb-1.5 h-4 w-2/3 rounded bg-white/10" />
+                      <div className="mb-2 h-3 w-1/2 rounded bg-white/10" />
+                      <div className="divide-y divide-white/10 rounded-md border border-white/10 bg-slate-950/60">
+                        {Array.from({ length: 3 }, (_, row) => (
+                          <div key={`sk-row-${row}`} className="grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-2">
+                            <div className="h-3 w-4/5 rounded bg-white/10" />
+                            <div className="h-3 w-3/4 rounded bg-white/10" />
+                            <div className="h-5 w-12 rounded-full bg-white/10" />
+                            <div className="h-3 w-8 rounded bg-white/10" />
+                            <div className="h-5 w-5 rounded border border-white/10" />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))
                 : compactBoard.map(({ gameId, props, game }) => (
-                    <article key={gameId} className={`rounded-xl border bg-slate-950/70 p-3 ${props.some((prop) => slipIds.has(prop.id)) ? 'border-cyan-400/60' : 'border-white/10'}`}>
+                    <article key={gameId} className={`rounded-xl border bg-slate-950/70 p-2.5 ${props.some((prop) => slipIds.has(prop.id)) ? 'border-cyan-400/60' : 'border-white/10'}`}>
                       <Link href={spineHref('/slip', { gameId })} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
                         <p className="text-sm font-medium text-slate-100">{game?.matchup ?? 'Featured matchup'}</p>
                         <p className="text-xs text-slate-400">{game?.startTime ?? 'Tonight'}</p>
                       </Link>
-                      <div className="mt-2 divide-y divide-white/10 rounded-md border border-white/10 bg-slate-950/60">
+                      <div className="mt-1.5 divide-y divide-white/10 rounded-md border border-white/10 bg-slate-950/60" data-testid="terminal-prop-rows">
                         {props.map((prop) => {
                           const inSlip = slipIds.has(prop.id);
                           return (
-                            <div key={prop.id} className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-2 py-1 text-[11px]">
-                              <span className="truncate font-medium" title={prop.player}>{prop.player}</span>
-                              <span className="truncate text-slate-300">{prop.market} {prop.line}</span>
+                            <div key={prop.id} className="compact-prop-row grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-2 text-[11px]">
+                              <span className="truncate font-medium text-slate-100" title={prop.player}>{prop.player}</span>
+                              <span className="truncate font-mono text-slate-300">{prop.market} {prop.line}</span>
                               <span className="rounded-full border border-cyan-300/30 px-1.5 py-0.5 text-[10px] text-cyan-100">L10 {prop.hitRateL10 ?? 58}%</span>
-                              <span className="text-slate-300">{prop.odds}</span>
+                              <span className="font-mono text-slate-300">{prop.odds}</span>
                               <button
                                 type="button"
                                 onClick={() => toggleLeg(prop, game?.matchup)}
                                 aria-label={`${inSlip ? 'Remove' : 'Add'} ${prop.player} ${prop.market} ${prop.line} ${inSlip ? 'from' : 'to'} slip`}
-                                className="rounded border border-white/20 px-1.5 py-0.5 text-[10px] text-cyan-100 hover:border-cyan-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                                className="h-5 min-w-5 rounded border border-white/20 px-1 text-[10px] leading-none text-cyan-100 hover:border-cyan-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
                               >
                                 {inSlip ? '−' : '+'}
                               </button>
@@ -209,8 +219,8 @@ export function FrontdoorLandingClient() {
             </div>
           </div>
 
-          <aside className="lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
+          <aside className="lg:sticky lg:top-6 lg:self-start" data-testid="slip-rail-desktop">
+            <div className="rounded-xl border border-white/10 bg-slate-950/70 p-3 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
               <h3 className="text-sm font-semibold">Slip rail</h3>
               {slip.length === 0 ? (
                 <div className="mt-2 space-y-2">
@@ -233,11 +243,11 @@ export function FrontdoorLandingClient() {
                   ))}
                 </ul>
               )}
-              <div className="mt-4 rounded-md border border-white/10 bg-slate-900/70 px-3 py-2 text-xs text-slate-300">
+              <div className="mt-3 rounded-md border border-white/10 bg-slate-900/70 px-3 py-2 text-xs text-slate-300">
                 <p>Slip intel</p>
                 <p className="mt-1">Legs: {slip.length} · Correlation watch: {slip.length >= 2 ? 'On' : 'Low'} · Fragility: {slip.length >= 4 ? 'High' : 'Moderate'}</p>
               </div>
-              <div className="mt-4 lg:sticky lg:bottom-0 lg:bg-slate-950/70 lg:pb-1">
+              <div className="mt-3 lg:sticky lg:bottom-0 lg:bg-slate-950/90 lg:pt-2">
                 <Link
                   href={appendQuery(spineHref('/stress-test'), { source: 'frontdoor' })}
                   className={`block rounded-md px-3 py-2 text-center text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 ${slip.length > 0 ? 'border border-cyan-300/60 bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'cursor-not-allowed border border-white/15 text-slate-500'}`}
