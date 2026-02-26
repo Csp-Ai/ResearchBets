@@ -84,7 +84,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
       />
       {payload.mode === 'demo' ? (
         <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
-          Demo mode: live providers unavailable. Showing deterministic slate.
+          Live feeds unavailable (demo mode active). Showing deterministic slate.
         </p>
       ) : null}
       <div className={denseLayout ? 'grid gap-2 lg:grid-cols-2' : 'grid gap-4 lg:grid-cols-2'}>

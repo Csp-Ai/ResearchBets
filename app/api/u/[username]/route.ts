@@ -13,35 +13,36 @@ export async function GET(_: Request, { params }: { params: { username: string }
 
   const supabase = getSupabaseServiceClient();
   const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id, user_id, username, avatar_url, created_at')
+    .from('profiles')
+    .select('id, username, created_at')
     .eq('username', parsedParams.data.username)
     .maybeSingle();
 
   if (profileError) return NextResponse.json({ error: 'Unable to load profile.' }, { status: 500 });
   if (!profile) return NextResponse.json({ error: 'Profile not found.' }, { status: 404 });
 
-  const { data: bets, error: betsError } = await supabase
-    .from('historical_bets')
-    .select('id, slip_text, outcome, closing_line, created_at')
-    .eq('user_id', profile.user_id)
+  const { data: slips, error: slipsError } = await supabase
+    .from('slips')
+    .select('id, raw_text, source_type, created_at, settlements(status)')
+    .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
     .limit(5);
 
-  if (betsError) return NextResponse.json({ error: 'Unable to load profile bets.' }, { status: 500 });
+  if (slipsError) return NextResponse.json({ error: 'Unable to load profile slips.' }, { status: 500 });
 
   return NextResponse.json({
     profile: {
       username: profile.username,
-      avatarUrl: profile.avatar_url,
       joinedAt: profile.created_at
     },
-    historicalBets: (bets ?? []).map((bet) => ({
-      id: bet.id,
-      slipText: bet.slip_text,
-      outcome: bet.outcome,
-      closingLine: bet.closing_line,
-      createdAt: bet.created_at
+    historicalBets: (slips ?? []).map((slip) => ({
+      id: slip.id,
+      slipText: slip.raw_text,
+      outcome: Array.isArray((slip as { settlements?: Array<{ status?: string }> }).settlements)
+        ? (((slip as { settlements?: Array<{ status?: string }> }).settlements?.[0]?.status) ?? 'pending')
+        : 'pending',
+      createdAt: slip.created_at,
+      sourceType: slip.source_type,
     }))
   });
 }

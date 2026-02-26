@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 type ProfilePayload = {
-  profile: { username: string; avatarUrl?: string | null; joinedAt: string };
+  profile: { username: string; joinedAt: string };
   historicalBets: Array<{ id: string; slipText: string; outcome: string; closingLine?: string | null; createdAt: string }>;
 };
 
@@ -36,7 +36,7 @@ export default function UserProfilePage({ params }: { params: { username: string
         {payload.historicalBets.map((bet) => (
           <article key={bet.id} className="bettor-card p-4">
             <p className="text-sm text-slate-200 whitespace-pre-wrap">{bet.slipText}</p>
-            <p className="mt-2 text-xs text-slate-400">Outcome: {bet.outcome} • {new Date(bet.createdAt).toLocaleString()}</p>
+            <p className="mt-2 text-xs text-slate-400">Status: {bet.outcome} • {new Date(bet.createdAt).toLocaleString()}</p>
           </article>
         ))}
         {payload.historicalBets.length === 0 ? <p className="text-sm text-slate-400">No recent bets shared.</p> : null}
