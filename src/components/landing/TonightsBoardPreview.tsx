@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ScoutCardCompact } from './ScoutCardCompact';
 import styles from './landing.module.css';
 import { useTonightsBoard } from './useTonightsBoard';
+import { appendQuery } from './navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 export function TonightsBoardPreview() {
@@ -21,7 +22,12 @@ export function TonightsBoardPreview() {
             <h2>2 quick spots to scout before you lock.</h2>
             <p className={styles.sectionCaption}>Actionable props with reasons, uncertainty, and direct handoff into Stress Test.</p>
           </div>
-          <Link href={`${nervous.toHref('/stress-test')}&tab=scout`} className={styles.btnSecondary}>Open full Scout</Link>
+          <Link
+            href={appendQuery(nervous.toHref('/stress-test'), { tab: 'scout' })}
+            className={styles.btnSecondary}
+          >
+            Open full Scout
+          </Link>
         </div>
 
         {loading ? (

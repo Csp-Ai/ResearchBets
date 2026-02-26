@@ -17,33 +17,25 @@ import { PostmortemPreviewCard } from './PostmortemPreviewCard';
 import { RiskGauge } from './RiskGauge';
 import { TonightsBoardPreview } from './TonightsBoardPreview';
 import { Tracker } from './Tracker';
+import { appendQuery } from './navigation';
 import { getModeFromSearchParams } from './mode';
 import { useLandingTelemetry } from './useLandingTelemetry';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import styles from './landing.module.css';
 
 export function LandingPageClient() {
+  const nervous = useNervousSystem();
   const searchParams = useSearchParams();
   const mode = getModeFromSearchParams(searchParams);
-  const { summary, today, loading, freshnessMinutes, providerHealth } = useLandingTelemetry(mode);
+  const { summary, today, loading, freshnessMinutes, providerHealth } = useLandingTelemetry({
+    mode,
+    sport: nervous.sport,
+    tz: nervous.tz,
+    date: nervous.date
+  });
   const [runToken, setRunToken] = useState(0);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [activePhase, setActivePhase] = useState<LandingPhase>('before');
-  const nervous = useNervousSystem();
-
-  // Build a safe href with an extra search param — avoids brittle string concat
-  const toHrefWithParam = (path: string, key: string, value: string) => {
-    const base = nervous.toHref(path);
-    try {
-      // nervous.toHref may return a relative URL; parse against a dummy base
-      const url = new URL(base, 'https://x');
-      url.searchParams.set(key, value);
-      return url.pathname + (url.search ? url.search : '');
-    } catch {
-      // Fallback: append safely
-      return base + (base.includes('?') ? '&' : '?') + `${key}=${value}`;
-    }
-  };
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -174,7 +166,7 @@ export function LandingPageClient() {
                 <h3>Need the live board?</h3>
                 <p>Open Control Room live view to monitor game state and market movement.</p>
                 <Link
-                  href={toHrefWithParam('/control', 'tab', 'live')}
+                  href={appendQuery(nervous.toHref('/control'), { tab: 'live' })}
                   className={styles.btnSecondary}
                 >
                   Open live view
