@@ -7,7 +7,6 @@ import { useSearchParams } from 'next/navigation';
 import { runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 import { toResearchRunDTOFromRun, type ResearchRunDTO } from '@/src/core/run/researchRunDTO';
-import type { SlipIntelligence } from '@/src/core/slips/slipIntelligence';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 
@@ -23,8 +22,11 @@ type PostMortemResult = {
   };
   notes: string[];
   correlationScore: number;
-  volatilityTier: SlipIntelligence['volatilityTier'];
-  exposureSummary: SlipIntelligence['exposureSummary'];
+  volatilityTier: 'Low' | 'Med' | 'High' | 'Extreme';
+  exposureSummary: {
+    topGames: Array<{ game: string; count: number }> ;
+    topPlayers: Array<{ player: string; count: number }> ;
+  };
 };
 
 const mockParseSlip = (fileName: string): string => {

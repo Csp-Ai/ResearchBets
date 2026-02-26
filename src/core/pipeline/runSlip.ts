@@ -1,12 +1,14 @@
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
 import { extractLegs } from '@/src/core/slips/extract';
 import { getRunContext } from '@/src/core/context/getRunContext';
+import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 
 import { enrichInjuries } from '@/src/core/providers/injuriesProvider';
 import { enrichOdds } from '@/src/core/providers/oddsProvider';
 import { enrichStats } from '@/src/core/providers/statsProvider';
 import { runStore } from '@/src/core/run/store';
 import type { EnrichedLeg, ExtractedLeg, ProviderMode, Run, SourceStats, VerdictAnalysis } from '@/src/core/run/types';
+import type { SlipStructureReport } from '@/src/core/contracts/slipStructureReport';
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
@@ -227,6 +229,55 @@ async function extractWithApi(slipText: string, initialTraceId: string): Promise
   }
 }
 
+
+
+const toBand = (value: number): 'low' | 'med' | 'high' => (value >= 70 ? 'high' : value >= 55 ? 'med' : 'low');
+
+const mapReportLegsFromRun = (
+  extracted: ExtractedLeg[],
+  enriched: EnrichedLeg[],
+  analysis: VerdictAnalysis,
+  sources: SourceStats,
+  traceId: string,
+  slipId?: string
+): SlipStructureReport => {
+  const report = buildSlipStructureReport(extracted.map((leg) => ({
+    leg_id: leg.id,
+    game_id: leg.team,
+    team: leg.team,
+    player: leg.player,
+    market: leg.market ?? 'market',
+    line: leg.line ? Number(leg.line) : undefined,
+    odds: leg.odds,
+    notes: leg.selection
+  })), {
+    trace_id: traceId,
+    slip_id: slipId,
+    mode: sources.stats === 'live' || sources.injuries === 'live' || sources.odds === 'live' ? 'live' : 'cache',
+    confidence_band: toBand(analysis.confidencePct),
+    risk_band: analysis.riskLabel === 'Strong' ? 'low' : analysis.riskLabel === 'Caution' ? 'med' : 'high'
+  });
+
+  const legRiskById = new Map(enriched.map((leg) => [leg.extractedLegId, leg]));
+  report.legs = report.legs.map((leg) => {
+    const r = legRiskById.get(leg.leg_id);
+    return {
+      ...leg,
+      hit_rate_l10: r?.l10,
+      flags: [...(leg.flags ?? []), ...(r?.riskFactors ?? [])].slice(0, 5),
+      notes_short: r?.riskFactors?.[0] ?? leg.notes_short
+    };
+  });
+
+  report.reasons = [...report.reasons, ...analysis.reasons].slice(0, 8);
+  report.failure_forecast = {
+    breaker_leg_id: analysis.weakestLegId ?? report.weakest_leg_id,
+    breaker_probability_band: report.risk_band,
+    top_reasons: [...(report.failure_forecast.top_reasons ?? []), ...analysis.reasons].slice(0, 3)
+  };
+  report.weakest_leg_id = analysis.weakestLegId ?? report.weakest_leg_id;
+  return report;
+};
 export async function runSlip(slipText: string, options?: { coverageAgentEnabled?: boolean }): Promise<string> {
   const normalizedSlipText = normalizeSlipText(slipText);
   const initialTraceId = createClientRequestId();
@@ -246,6 +297,15 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
       reasons: ['Run started.'],
       riskLabel: 'Weak',
       computedAt: now
+    },
+    report: {
+      mode: 'demo',
+      trace_id: initialTraceId,
+      reasons: ['Run started.'],
+      legs: [],
+      correlation_edges: [],
+      script_clusters: [],
+      failure_forecast: { top_reasons: ['Run started.'] }
     },
     sources: { stats: 'fallback', injuries: 'fallback', odds: 'fallback' }
   };
@@ -315,12 +375,14 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
   }
 
   const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries, trustedContext.unverifiedItems ?? []);
+  const report = mapReportLegsFromRun(extracted, enrichedLegs, analysis, sources, canonicalTraceId, apiResult.slipId);
 
   await runStore.updateRun(canonicalTraceId, {
     status: 'complete',
     extractedLegs: extracted,
     enrichedLegs,
     analysis,
+    report,
     sources,
     trustedContext,
     metadata: {

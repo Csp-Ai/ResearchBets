@@ -1,4 +1,5 @@
 import type { ResearchReport } from '@/src/core/evidence/evidenceSchema';
+import type { SlipStructureReport } from '@/src/core/contracts/slipStructureReport';
 
 import type { Run } from './types';
 
@@ -39,6 +40,7 @@ export type ResearchRunDTO = {
     reasons: string[];
   };
   provenance: ResearchProvenance;
+  report?: SlipStructureReport;
   snapshotHighlights?: Array<{
     title: string;
     bullets: string[];
@@ -88,7 +90,8 @@ export function toResearchRunDTOFromRun(run: Run): ResearchRunDTO {
       weakest_leg_id: run.analysis.weakestLegId ?? undefined,
       reasons: run.analysis.reasons
     },
-    provenance: toProvenance(run.sources.stats === 'live' || run.sources.injuries === 'live' || run.sources.odds === 'live' ? 'live' : 'fallback')
+    provenance: toProvenance(run.sources.stats === 'live' || run.sources.injuries === 'live' || run.sources.odds === 'live' ? 'live' : 'fallback'),
+    report: run.report
   };
 }
 

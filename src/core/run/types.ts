@@ -1,4 +1,5 @@
 import type { TrustedContextBundle } from '@/src/core/context/types';
+import type { SlipStructureReport } from '@/src/core/contracts/slipStructureReport';
 
 export type ProviderMode = 'live' | 'fallback';
 
@@ -70,6 +71,7 @@ export interface Run {
   extractedLegs: ExtractedLeg[];
   enrichedLegs: EnrichedLeg[];
   analysis: VerdictAnalysis;
+  report?: SlipStructureReport;
   sources: SourceStats;
   trustedContext?: TrustedContextBundle;
   metadata?: {

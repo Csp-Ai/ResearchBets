@@ -44,6 +44,8 @@ describe('runSlip pipeline', () => {
     expect(run?.extractedLegs.length).toBe(1);
     expect(run?.enrichedLegs[0]?.l5).toBeGreaterThan(0);
     expect(run?.analysis.confidencePct).toBeGreaterThan(0);
+    expect(run?.report?.legs.length).toBeGreaterThan(0);
+    expect(run?.report?.weakest_leg_id).toBeTruthy();
     expect(run?.trustedContext?.fallbackReason).toBe('No verified update from trusted sources.');
   });
 
