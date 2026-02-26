@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
+  useCallback,
   forwardRef,
   useEffect,
   useImperativeHandle,
@@ -211,9 +212,13 @@ function OddsMovement() {
   const [tab, setTab] = useState<'ML' | 'PTS' | 'AST'>('ML');
   const ref = useRef<HTMLCanvasElement>(null);
   const drawn = useRef(false);
-  const draw = () => { const c=ref.current; if(!c)return; const ctx=c.getContext('2d'); if(!ctx)return; const w=c.clientWidth||1000,h=160; c.width=w*devicePixelRatio; c.height=h*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); ctx.clearRect(0,0,w,h); const pts=Array.from({length:48},(_,i)=>({x:(i/47)*w,y:80+Math.sin(i/6 + (tab==='ML'?0:tab==='PTS'?1.2:2))*24})); ctx.strokeStyle='rgba(255,255,255,.1)'; for(let y=20;y<h;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();} ctx.beginPath(); ctx.strokeStyle=CYAN; ctx.lineWidth=2; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); [{x:.25,c:YELLOW,t:'Sharp money'},{x:.6,c:RED,t:'Injury flag'},{x:.82,c:CYAN,t:'Current'}].forEach((e)=>{const x=w*e.x; const idx=Math.min(pts.length-1, Math.max(0, Math.floor(pts.length*e.x))); const y=pts[idx]?.y ?? h/2; ctx.fillStyle=e.c; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(203,213,225,.8)'; ctx.font='10px monospace'; ctx.fillText(e.t, x+6, y-8);}); };
-  useEffect(() => { const obs=new IntersectionObserver(([e])=>{ if(e?.isIntersecting && !drawn.current){drawn.current=true; draw();}}, {threshold:.2}); if(ref.current) obs.observe(ref.current); const onR=()=>drawn.current&&draw(); window.addEventListener('resize',onR); return ()=>{obs.disconnect();window.removeEventListener('resize',onR);}; }, [tab]);
-  useEffect(() => { if (drawn.current) draw(); }, [tab]);
+  const tabRef = useRef(tab);
+  const draw = useCallback((currentTab: 'ML' | 'PTS' | 'AST') => { const c=ref.current; if(!c)return; const ctx=c.getContext('2d'); if(!ctx)return; const w=c.clientWidth||1000,h=160; c.width=w*devicePixelRatio; c.height=h*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); ctx.clearRect(0,0,w,h); const pts=Array.from({length:48},(_,i)=>({x:(i/47)*w,y:80+Math.sin(i/6 + (currentTab==='ML'?0:currentTab==='PTS'?1.2:2))*24})); ctx.strokeStyle='rgba(255,255,255,.1)'; for(let y=20;y<h;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();} ctx.beginPath(); ctx.strokeStyle=CYAN; ctx.lineWidth=2; pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); [{x:.25,c:YELLOW,t:'Sharp money'},{x:.6,c:RED,t:'Injury flag'},{x:.82,c:CYAN,t:'Current'}].forEach((e)=>{const x=w*e.x; const idx=Math.min(pts.length-1, Math.max(0, Math.floor(pts.length*e.x))); const y=pts[idx]?.y ?? h/2; ctx.fillStyle=e.c; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(203,213,225,.8)'; ctx.font='10px monospace'; ctx.fillText(e.t, x+6, y-8);}); }, []);
+  useEffect(() => { tabRef.current = tab; if (drawn.current) draw(tab); }, [tab, draw]);
+  /* Keep the observer/resize effect stable so we do not resubscribe on tab flips.
+     draw() is stable via useCallback and receives tab explicitly to avoid stale closures.
+     If this logic changes, keep listeners in this effect and pass dynamic values as args/refs. */
+  useEffect(() => { const obs=new IntersectionObserver(([e])=>{ if(e?.isIntersecting && !drawn.current){drawn.current=true; draw(tabRef.current);}}, {threshold:.2}); if(ref.current) obs.observe(ref.current); const onR=()=>drawn.current&&draw(tabRef.current); window.addEventListener('resize',onR); return ()=>{obs.disconnect();window.removeEventListener('resize',onR);}; }, [draw]);
   return <section className="px-6 py-16 md:px-10"><div className="mx-auto max-w-5xl"><div className="mb-4 flex flex-wrap items-end justify-between gap-4"><div><div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#00e5c8]">Live odds traces</div><h2 className="text-5xl font-black uppercase leading-[0.9]">Lines move.<br />We watch them.</h2></div><div className="flex gap-2">{(['ML','PTS','AST'] as const).map((key)=><button key={key} onClick={()=>setTab(key)} className={`border px-3 py-1 text-xs ${tab===key?'border-[#00e5c8] text-[#00e5c8]':'border-white/10 text-slate-400'}`}>{key==='ML'?'Knicks ML':key==='PTS'?'Brunson PTS':'Haliburton AST'}</button>)}</div></div><canvas ref={ref} className="h-40 w-full border border-white/10 bg-[#0b0f15]"/><div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-400"><span>● Current line</span><span className="text-[#f5c542]">● Sharp money move</span><span className="text-[#ff4f5e]">● Injury flag</span></div></div></section>;
 }
 
@@ -224,9 +229,11 @@ const LandingTracker = forwardRef(function LandingTracker({ live }: { live: bool
   const [source, setSource] = useState('');
   const [trace, setTrace] = useState('trace_id: —');
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(running);
   useImperativeHandle(ref, () => ({ run: (s?: string) => { setSource(s ?? ''); setRun((v) => v + 1); } }));
+  useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => {
-    if (!run || running) return;
+    if (!run || runningRef.current) return;
     setRunning(true); setActive(-1); setFeed([]); setTrace(`trace_id: trace_${Math.random().toString(36).slice(2, 8)}`);
     const timers = trackerSteps.map((_, i) => setTimeout(() => { setActive(i); setFeed((f) => [`${trackerSteps[i]?.label.toLowerCase().replace(/\s+/g, '.') ?? 'step'}_complete · ${new Date().toTimeString().slice(0, 8)}`, ...f].slice(0, 5)); if (i === trackerSteps.length - 1) setTimeout(() => { setActive(999); setRunning(false); }, 550); }, 400 + i * 800));
     return () => timers.forEach(clearTimeout);
