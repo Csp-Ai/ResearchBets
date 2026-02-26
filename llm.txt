@@ -33,7 +33,9 @@ When adding new analysis features later, emit `SlipStructureReport` (future PR).
 - Keep demo/live language truthful and emotionally neutral.
   - Preferred: "demo fallback active", "copy unavailable in this browser", "default feed while additional books sync".
   - Avoid alarmed wording.
+- Never scrape prohibited sportsbooks/platforms (including FanDuel/PrizePicks); prefer official providers/APIs and deterministic demo fallbacks.
 - Performance rule: do not pull heavy dependencies into first render when avoidable; lazy-load OCR and larger diagnostics/widgets behind user intent.
+- Keep dynamic import boundaries around non-critical panels on critical routes (`/ingest`, `/stress-test`, `/control`) to protect first paint.
 - Do not add new alternate landing/today variants without a deprecation or archive plan.
 - If you modify routes or APIs, update README route mapping in the same change.
 

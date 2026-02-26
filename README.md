@@ -1,6 +1,6 @@
 # ResearchBets
 
-**ResearchBets is a bettor lifecycle OS** for turning game-day ideas into disciplined slips, stress-tested decisions, and repeatable postmortem learning.
+**Anonymous-first sports betting research app with a bettor loop: Board → Ingest → Stress Test → Settle/History. Deterministic agents parse slips and shared texts, explain weakest legs, track outcomes, and surface next-slate ideas with demo/live fallbacks and optional Supabase persistence.**
 
 ## Lifecycle OS (canonical flow)
 
@@ -97,9 +97,9 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 ### Key routes (BEFORE / DURING / AFTER)
 
-- **BEFORE placement**: `/`, `/today`, `/slip`, `/ingest`.
-- **DURING decisioning**: `/stress-test`, `/research` (alias redirect).
-- **AFTER placement**: `/control`, `/control?tab=review`, `/live` (alias redirect).
+- **BEFORE placement**: `/`, `/today`, `/login`, `/profile`, `/ingest`.
+- **DURING decisioning**: `/slip`, `/stress-test`, `/research` (alias redirect).
+- **AFTER placement**: `/history`, `/control`, `/control?tab=review`, `/live` (alias redirect).
 
 ### Demo vs live contract
 
@@ -114,6 +114,15 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+### Release checklist
+
+- `npm run verify:landing`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- Apply Supabase migrations when Supabase-backed persistence is enabled (`npm run supabase:push`).
+- Smoke flow: `/login` → `/profile` → `/ingest` → `/history` → `/today`.
 
 ### Sprint 6 focus
 
@@ -222,6 +231,12 @@ Use these as snapshots of architecture risk and drift; prefer summaries in docs 
 - `autoprefixer` and `postcss` remain because `postcss.config.js` and Tailwind CSS processing depend on them.
 - `knip` remains because `audit:unused` scripts execute `npx knip` for prune visibility.
 
+## Releases vs Packages
+
+- **Releases** are versioned app snapshots (for example, `v0.6.0` pre-release) that bundle product, docs, and migration state.
+- **Packages** are only needed if ResearchBets publishes a reusable SDK, CLI, or Docker image.
+- **Current deployment path**: GitHub repository → Vercel app deployment → Supabase migrations/runtime store.
+
 ## Quality checks
 
 ```bash
@@ -253,3 +268,12 @@ Use these exact variable names for live feeds:
 - Settlement: `/api/history-bets` now lists user slips and settles historical legs with deterministic demo-safe outcomes when live providers are unavailable.
 - Feedback: shared slips trigger concise stored `feedback_items` with KEEP/MODIFY/PASS verdict guidance.
 - History + board flow: `/history` provides settle actions and forwards users to `/today` for next-leg ideas.
+
+## How to try on phone
+
+1. Open `/login` and continue with the magic-link scaffold.
+2. Set username in `/profile`.
+3. Upload/paste a ticket in `/ingest` (`My slip` or `Shared slip/text`).
+4. Open `/history` and run settle on a recent upload.
+5. Continue to `/today` for next-slate ideas.
+6. Use `/stress-test` for deterministic weakest-leg analysis before placing.
