@@ -31,6 +31,20 @@ export function LandingPageClient() {
   const [activePhase, setActivePhase] = useState<LandingPhase>('before');
   const nervous = useNervousSystem();
 
+  // Build a safe href with an extra search param — avoids brittle string concat
+  const toHrefWithParam = (path: string, key: string, value: string) => {
+    const base = nervous.toHref(path);
+    try {
+      // nervous.toHref may return a relative URL; parse against a dummy base
+      const url = new URL(base, 'https://x');
+      url.searchParams.set(key, value);
+      return url.pathname + (url.search ? url.search : '');
+    } catch {
+      // Fallback: append safely
+      return base + (base.includes('?') ? '&' : '?') + `${key}=${value}`;
+    }
+  };
+
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const section = document.getElementById('tracker');
@@ -55,7 +69,9 @@ export function LandingPageClient() {
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        setStickyVisible(!(entry?.isIntersecting ?? true) && (entry?.boundingClientRect.top ?? 0) < 0);
+        setStickyVisible(
+          !(entry?.isIntersecting ?? true) && (entry?.boundingClientRect.top ?? 0) < 0
+        );
       },
       { threshold: 0.15 }
     );
@@ -75,14 +91,14 @@ export function LandingPageClient() {
 
   return (
     <div className={styles.landingRoot}>
+      {/* ── Nav ── */}
       <nav className={styles.nav}>
         <div className={styles.logo}>
           Research<span>Bets</span>
         </div>
+
+        {/* Desktop links */}
         <ul>
-          <li>
-            <Link href={nervous.toHref('/ingest')} className={styles.btnSecondary}>Analyze</Link>
-          </li>
           <li>
             <Link href={nervous.toHref('/stress-test')}>Research</Link>
           </li>
@@ -93,8 +109,14 @@ export function LandingPageClient() {
             <a href="#faq">FAQ</a>
           </li>
         </ul>
-        <Link href={nervous.toHref('/ingest')}>Analyze</Link>
+
+        {/* Single primary nav CTA */}
+        <Link href={nervous.toHref('/ingest')} className={styles.btnNav}>
+          Analyze slip
+        </Link>
       </nav>
+
+      {/* ── Hero ── */}
       <Hero
         mode={mode}
         modeReason={reasonLabel}
@@ -105,14 +127,19 @@ export function LandingPageClient() {
         providerHealth={providerHealth}
       />
 
+      {/* ── Tonight's Board — primary proof artifact, always visible ── */}
+      <TonightsBoardPreview />
+
+      {/* ── Lifecycle tabs + phase-specific content ── */}
       <section className={styles.proofStack}>
         <LifecycleTabs activePhase={activePhase} onPhaseChange={setActivePhase} />
-        {activePhase === 'before' ? (
+
+        {activePhase === 'before' && (
           <div className={styles.phaseStack}>
-            <TonightsBoardPreview />
+            {/* Board disclosure: risk gauge + tracker gated behind details */}
             <section className={styles.boardDisclosureSection}>
               <details className={styles.boardDisclosure}>
-                <summary>See slip risk example</summary>
+                <summary>See slip risk &amp; research steps</summary>
                 <RiskGauge />
                 <Tracker
                   mode={effectiveMode}
@@ -123,11 +150,17 @@ export function LandingPageClient() {
               </details>
             </section>
           </div>
-        ) : null}
+        )}
 
-        {activePhase === 'during' ? (
+        {activePhase === 'during' && (
           <div className={styles.phaseStack}>
-            <LiveSnapshot mode={mode} snapshot={today ?? null} loading={loading} onRun={onRunFromSnapshot} providerHealth={providerHealth} />
+            <LiveSnapshot
+              mode={mode}
+              snapshot={today ?? null}
+              loading={loading}
+              onRun={onRunFromSnapshot}
+              providerHealth={providerHealth}
+            />
             <OddsMovement
               mode={effectiveMode}
               reason={reasonLabel}
@@ -140,15 +173,18 @@ export function LandingPageClient() {
                 </div>
                 <h3>Need the live board?</h3>
                 <p>Open Control Room live view to monitor game state and market movement.</p>
-                <Link href={`${nervous.toHref('/control')}&tab=live`} className={styles.btnSecondary}>
+                <Link
+                  href={toHrefWithParam('/control', 'tab', 'live')}
+                  className={styles.btnSecondary}
+                >
                   Open live view
                 </Link>
               </div>
             </section>
           </div>
-        ) : null}
+        )}
 
-        {activePhase === 'after' ? (
+        {activePhase === 'after' && (
           <div className={styles.phaseStack}>
             <PostmortemPreviewCard />
             <Tracker
@@ -158,12 +194,18 @@ export function LandingPageClient() {
               updatedLabel={updatedLabel}
             />
           </div>
-        ) : null}
+        )}
       </section>
 
       <NotSection />
       <FAQ />
-      <BottomCTA stickyVisible={stickyVisible} mode={effectiveMode} reason={reasonLabel} activePhase={activePhase} />
+      <BottomCTA
+        stickyVisible={stickyVisible}
+        mode={effectiveMode}
+        reason={reasonLabel}
+        activePhase={activePhase}
+      />
       <Footer />
     </div>
   );
+}
