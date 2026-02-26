@@ -37,7 +37,6 @@ const FALLBACK_TODAY: TodayPayload = {
   }))
 };
 
-
 const toSlipMarketType = (market: string) => {
   const normalized = market.toLowerCase();
   if (normalized === 'total' || normalized === 'spread' || normalized === 'moneyline' || normalized === 'points' || normalized === 'threes' || normalized === 'rebounds' || normalized === 'assists' || normalized === 'ra' || normalized === 'pra') {
@@ -58,6 +57,12 @@ const normalizeTodayResult = (input: unknown): TodayPayload => {
     ...parsed.data,
     board: [...parsed.data.board, ...FALLBACK_TODAY.board].slice(0, 6)
   };
+};
+
+const modeLabel = (mode: TodayPayload['mode']) => {
+  if (mode === 'demo') return 'Demo mode (live feeds off)';
+  if (mode === 'cache') return 'Live mode (some feeds unavailable)';
+  return 'Live feeds on';
 };
 
 export function FrontdoorLandingClient() {
@@ -107,95 +112,111 @@ export function FrontdoorLandingClient() {
   const spineHref = (path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) });
   const board = today.board.slice(0, 6) as BoardProp[];
 
-  const openLatestHref = traceId ? spineHref('/traces') : spineHref('/slip');
-
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">ResearchBets</p>
-            <h1 className="text-2xl font-semibold">Tonight&apos;s Board</h1>
-          </div>
+    <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6" aria-label="frontdoor-terminal">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">ResearchBets <span className="ml-1 inline-block h-2 w-2 rounded-full bg-emerald-400 align-middle" /></p>
+          <p className="mt-1 text-xs text-slate-300">{nervous.sport} · {nervous.date} · {nervous.tz}</p>
+        </div>
+        <div className="flex items-center gap-2">
           <ModeBadge mode={today.mode} reason={today.reason} />
+          <span className="text-xs text-slate-300">{modeLabel(today.mode)}</span>
         </div>
-      </header>
+      </div>
 
-      <section className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 py-4 sm:px-6">
-        <Link href={appendQuery(spineHref('/slip'), { sample: '1' })} className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5">
-          Try sample slip
-        </Link>
-        <a href="#tonights-board" className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5">
-          Build from Board
-        </a>
-        <Link href={openLatestHref} className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5">
-          {traceId ? 'Open latest run' : 'Open latest run (start from slip)'}
-        </Link>
-      </section>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm text-slate-300">Build from live board context and move legs into your slip instantly.</p>
+            <Link href={spineHref('/today')} className="text-xs text-cyan-300 hover:text-cyan-200">Open full board</Link>
+          </div>
 
-      <section id="tonights-board" className="mx-auto max-w-6xl px-4 pb-10 sm:px-6" aria-label="tonights-board">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm text-slate-300">Preview up to 6 scout cards with direct game and research actions.</p>
-          <Link href={spineHref('/landing')} className="text-xs text-slate-400 underline-offset-4 hover:underline">Marketing page</Link>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {loading
-            ? Array.from({ length: 6 }, (_, i) => (
-                <div key={`sk-${i}`} className="animate-pulse rounded-xl border border-white/10 bg-slate-900/70 p-4">
-                  <div className="mb-2 h-4 w-2/3 rounded bg-white/10" />
-                  <div className="mb-4 h-3 w-1/2 rounded bg-white/10" />
-                  <div className="h-9 rounded bg-white/10" />
-                </div>
-              ))
-            : board.map((prop) => {
-                const game = today.games.find((item) => item.id === prop.gameId);
-                const inSlip = slipIds.has(prop.id);
-                return (
-                  <article key={prop.id} className="rounded-xl border border-white/10 bg-slate-900/70 p-4">
-                    <Link href={spineHref(`/game/${prop.gameId}`, { gameId: prop.gameId })} className="block">
-                      <p className="text-sm font-medium">{game?.matchup ?? 'Featured matchup'}</p>
-                      <p className="text-xs text-slate-400">{game?.startTime ?? 'Tonight'}</p>
-                    </Link>
-                    <div className="mt-3 space-y-1 text-sm">
-                      <p className="font-medium">{prop.player} · {prop.market} {prop.line}</p>
-                      <p className="text-slate-300">Odds {prop.odds} · L10 {prop.hitRateL10 ?? 58}% · {prop.riskTag ?? 'watch'}</p>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (inSlip) {
-                            removeLeg(prop.id);
-                            return;
-                          }
-                          addLeg({
-                            id: prop.id,
-                            player: prop.player,
-                            marketType: toSlipMarketType(prop.market),
-                            line: prop.line,
-                            odds: prop.odds,
-                            game: game?.matchup
-                          });
-                        }}
-                        className="rounded-md border border-white/20 px-3 py-2 text-xs hover:bg-white/10"
-                      >
-                        {inSlip ? 'Remove from slip' : 'Add to slip'}
-                      </button>
-                      <Link
-                        href={appendQuery(spineHref('/slip', { gameId: prop.gameId, propId: prop.id }), {
-                          focus: 'research'
-                        })}
-                        className="rounded-md bg-cyan-400 px-3 py-2 text-xs font-medium text-slate-900"
-                      >
-                        Run research
+          <div className="grid gap-3 md:grid-cols-2">
+            {loading
+              ? Array.from({ length: 6 }, (_, i) => (
+                  <div key={`sk-${i}`} className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
+                    <div className="mb-2 h-4 w-2/3 rounded bg-white/10" />
+                    <div className="mb-4 h-3 w-1/2 rounded bg-white/10" />
+                    <div className="mb-2 h-3 w-4/5 rounded bg-white/10" />
+                    <div className="h-8 rounded bg-white/10" />
+                  </div>
+                ))
+              : board.map((prop) => {
+                  const game = today.games.find((item) => item.id === prop.gameId);
+                  const inSlip = slipIds.has(prop.id);
+                  return (
+                    <article key={prop.id} className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
+                      <Link href={spineHref('/slip', { gameId: prop.gameId })} className="block">
+                        <p className="text-sm font-medium">{game?.matchup ?? 'Featured matchup'}</p>
+                        <p className="text-xs text-slate-400">{game?.startTime ?? 'Tonight'}</p>
                       </Link>
-                    </div>
-                  </article>
-                );
-              })}
+                      <div className="mt-3 space-y-1 text-sm">
+                        <p className="font-medium">{prop.player} · {prop.market} {prop.line}</p>
+                        <p className="text-slate-300">Odds {prop.odds} · L10 {prop.hitRateL10 ?? 58}% · {prop.riskTag ?? 'watch'}</p>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (inSlip) {
+                              removeLeg(prop.id);
+                              return;
+                            }
+                            addLeg({
+                              id: prop.id,
+                              player: prop.player,
+                              marketType: toSlipMarketType(prop.market),
+                              line: prop.line,
+                              odds: prop.odds,
+                              game: game?.matchup
+                            });
+                          }}
+                          className="rounded-md border border-white/20 px-3 py-2 text-xs hover:bg-white/10"
+                        >
+                          {inSlip ? 'Remove leg' : 'Add leg'}
+                        </button>
+                        <Link
+                          href={appendQuery(spineHref('/game/' + prop.gameId, { gameId: prop.gameId, propId: prop.id }), {
+                            focus: 'research'
+                          })}
+                          className="rounded-md border border-cyan-400/60 px-3 py-2 text-xs text-cyan-100 hover:bg-cyan-500/10"
+                        >
+                          Open game
+                        </Link>
+                      </div>
+                    </article>
+                  );
+                })}
+          </div>
         </div>
-      </section>
-    </main>
+
+        <aside className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
+          <h3 className="text-sm font-semibold">Slip rail</h3>
+          {slip.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-400">No legs yet. Add 2–3 legs from the board to run a quick stress test.</p>
+          ) : (
+            <ul className="mt-2 space-y-2 text-xs text-slate-200">
+              {slip.map((leg) => (
+                <li key={leg.id} className="rounded-md border border-white/10 px-2 py-2">
+                  {leg.player} · {leg.marketType} {leg.line}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-4 rounded-md border border-white/10 bg-slate-900/70 px-3 py-2 text-xs text-slate-300">
+            <p>Slip intel</p>
+            <p className="mt-1">Legs: {slip.length} · Correlation watch: {slip.length >= 2 ? 'On' : 'Low'} · Fragility: {slip.length >= 4 ? 'High' : 'Moderate'}</p>
+          </div>
+          <Link
+            href={appendQuery(spineHref('/stress-test'), { source: 'frontdoor' })}
+            className={`mt-4 block rounded-md px-3 py-2 text-center text-sm font-semibold transition ${slip.length > 0 ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'cursor-not-allowed border border-white/15 text-slate-500'}`}
+            aria-disabled={slip.length === 0}
+          >
+            Stress test this slip →
+          </Link>
+        </aside>
+      </div>
+    </section>
   );
 }
