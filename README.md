@@ -4,7 +4,7 @@
 
 ## Lifecycle OS (canonical flow)
 
-1. **Landing** (`/`) — temporary redirect to static marketing page at `/landing.html`.
+1. **Landing** (`/`) — rendered by App Router at `app/page.tsx` using `LandingPageClient`.
 2. **Slip** (`/slip`) — build a draft slip and see live fragility/correlation intelligence.
 3. **Stress Test** (`/stress-test`) — run deterministic extraction + risk analysis before placing.
 4. **Control** (`/control`) — monitor live risk and run review mode for settled slips.
@@ -90,17 +90,16 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 ## Landing page wiring
 
-- The marketing landing is served as a static file: `public/landing.html`.
-- Root path `/` is currently redirected to `/landing.html` via `next.config.mjs` (`permanent: false`).
-- To edit the landing, update only `public/landing.html` in this integration phase (no component split required).
-- To disable root redirect later, remove the redirect entry in `next.config.mjs` or change it to `permanent: true` when ready for a permanent move.
+- Canonical home route is `/`, served by App Router in `app/page.tsx` and rendered by `LandingPageClient`.
+- `public/landing.html` is optional legacy/reference content and is **not** the canonical home route.
+- Run `npm run verify:landing` to enforce this contract in local/CI checks.
 - No placeholder routes were added: `/ingest`, `/research?demo=1`, `/ingest?mode=screenshot`, and `/control` already exist in the app router.
 
 ## Key routes
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Temporary 307/308 redirect to static landing page `/landing.html` (configured in `next.config.mjs`). |
+| `/` | Canonical App Router home route rendered by `app/page.tsx` (`LandingPageClient`). |
 | `/today` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
 | `/slip` | Draft slip builder with `useDraftSlip`, `DraftSlipStore`, and `SlipIntelBar`. |
 | `/stress-test` | Suspense-wrapped stress-test workspace using `ResearchPageContent`. |
