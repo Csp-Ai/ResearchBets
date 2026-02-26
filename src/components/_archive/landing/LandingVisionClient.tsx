@@ -1,12 +1,13 @@
+// Archived in Sprint 6: legacy alternate landing variant kept for reference only.
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { ModeHealthStrip } from './ModeHealthStrip';
-import { ProofStrip } from './ProofStrip';
-import { appendQuery } from './navigation';
+import { ModeHealthStrip } from '../../landing/ModeHealthStrip';
+import { ProofStrip } from '../../landing/ProofStrip';
+import { appendQuery } from '../../landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { AnchorMetric } from '@/src/components/today/AnchorMetric';
 import { LiveOddsBadge } from '@/src/components/today/LiveOddsBadge';

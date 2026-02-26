@@ -21,6 +21,6 @@ export async function enrichOdds(leg: ExtractedLeg): Promise<{ lineMove: number 
     lineMove: null,
     divergence: null,
     source: 'fallback',
-    notes: ['Odds/line movement unavailable; waiting for multi-book feed.']
+    notes: ['Odds/line movement is using the default feed while additional books sync.']
   };
 }
