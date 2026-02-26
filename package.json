@@ -31,7 +31,8 @@
     "audit:unused": "node scripts/audit/unused-report.mjs",
     "audit:unused:ci": "node scripts/audit/unused-ci.mjs",
     "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs",
-    "dev:mirror:index": "tsx src/scripts/index-codebase.ts"
+    "dev:mirror:index": "tsx src/scripts/index-codebase.ts",
+    "verify:landing": "node scripts/verify-landing.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
