@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
-import { AgentNetworkBackground } from '@/features/landing/AgentNetworkBackground';
-import { HeroDepthLayer } from '@/features/landing/HeroDepthLayer';
-import { sectionRevealVariants, staggerGroup, staggerItem } from '@/features/landing/motionTokens';
+import { AgentNetworkBackground } from '@/src/legacy/landing/AgentNetworkBackground';
+import { HeroDepthLayer } from '@/src/legacy/landing/HeroDepthLayer';
+import { sectionRevealVariants, staggerGroup, staggerItem } from '@/src/legacy/landing/motionTokens';
 
 export function LandingHero() {
   return (

@@ -1,5 +1,11 @@
 import { redirect } from 'next/navigation';
 
-export default function ResearchAliasPage() {
-  redirect('/stress-test');
+import { buildRedirectWithQuery } from '@/src/core/routing/preserveQueryRedirect';
+
+export default function ResearchAliasPage({
+  searchParams
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  redirect(buildRedirectWithQuery('/stress-test', searchParams));
 }

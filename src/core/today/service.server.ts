@@ -88,33 +88,80 @@ async function fetchLiveToday(): Promise<TodayPayload> {
   };
 }
 
-export async function getTodayPayload(options?: { forceRefresh?: boolean }): Promise<TodayPayload> {
+const detectMissingProviderKeys = () => {
+  return !process.env.THEODDSAPI_KEY && !process.env.ODDS_API_KEY && !process.env.SPORTSDATA_API_KEY;
+};
+
+type LandingReason = NonNullable<TodayPayload['landing']>['reason'];
+
+const toLandingReason = (
+  mode: TodayPayload['mode'],
+  reason: string | undefined,
+  liveMode: boolean
+): LandingReason => {
+  if (!liveMode) return 'live_mode_disabled';
+  if (mode === 'live') return 'unknown';
+  if (reason === 'demo_requested') return 'demo_requested';
+  if (reason === 'missing_provider_keys' || detectMissingProviderKeys()) return 'missing_provider_keys';
+  if (reason && reason !== 'live_unavailable') return 'provider_error';
+  return 'unknown';
+};
+
+const withLandingSummary = (payload: TodayPayload, liveMode: boolean): TodayPayload => {
+  const lastUpdatedAt = payload.games[0]?.lastUpdated ?? payload.generatedAt;
+  return {
+    ...payload,
+    landing: {
+      mode: payload.mode === 'live' ? 'live' : 'demo',
+      reason: toLandingReason(payload.mode, payload.reason, liveMode),
+      gamesCount: payload.games.length,
+      lastUpdatedAt,
+      headlineMatchup: payload.games[0]?.matchup
+    }
+  };
+};
+
+export async function getTodayPayload(options?: { forceRefresh?: boolean; demoRequested?: boolean }): Promise<TodayPayload> {
   const liveMode = (process.env.LIVE_MODE ?? 'false').toLowerCase() === 'true';
-  const cacheKey = liveMode ? 'live' : 'demo';
+  const cacheKey = liveMode && !options?.demoRequested ? 'live' : 'demo';
 
   if (!options?.forceRefresh && cache && cache.key === cacheKey && cache.expiresAt > Date.now()) {
-    return {
+    return withLandingSummary({
       ...cache.payload,
       mode: 'cache'
-    };
+    }, liveMode);
   }
 
   let payload: TodayPayload;
 
-  if (!liveMode) {
+  if (options?.demoRequested) {
     payload = createDemoTodayPayload();
     payload.generatedAt = new Date().toISOString();
+    payload.reason = 'demo_requested';
+  } else if (!liveMode) {
+    payload = createDemoTodayPayload();
+    payload.generatedAt = new Date().toISOString();
+    payload.reason = 'live_mode_disabled';
   } else {
+    if (detectMissingProviderKeys()) {
+      payload = createDemoTodayPayload();
+      payload.generatedAt = new Date().toISOString();
+      payload.mode = 'demo';
+      payload.reason = 'missing_provider_keys';
+      cache = { key: cacheKey, expiresAt: Date.now() + TTL_MS, payload };
+      return withLandingSummary(payload, liveMode);
+    }
+
     try {
       payload = await fetchLiveToday();
     } catch (error) {
       payload = createDemoTodayPayload();
       payload.generatedAt = new Date().toISOString();
       payload.mode = 'demo';
-      payload.reason = error instanceof Error ? error.message : 'live_fetch_failed';
+      payload.reason = error instanceof Error ? 'provider_error' : 'unknown';
     }
   }
 
   cache = { key: cacheKey, expiresAt: Date.now() + TTL_MS, payload };
-  return payload;
+  return withLandingSummary(payload, liveMode);
 }

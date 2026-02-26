@@ -35,4 +35,11 @@ export type TodayPayload = {
   leagues: TodayLeague[];
   games: TodayGame[];
   reason?: string;
+  landing?: {
+    mode: 'live' | 'demo';
+    reason: 'demo_requested' | 'live_mode_disabled' | 'missing_provider_keys' | 'provider_error' | 'unknown';
+    gamesCount: number;
+    lastUpdatedAt: string;
+    headlineMatchup?: string;
+  };
 };

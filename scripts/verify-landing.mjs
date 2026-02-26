@@ -58,4 +58,9 @@ if (existsSync(landingPath)) {
   console.warn("Note: public/landing.html exists as legacy preview; '/' is owned by app/page.tsx.");
 }
 
+const legacyFeaturePath = resolve(root, 'features/landing');
+if (existsSync(legacyFeaturePath)) {
+  fail('features/landing must be archived under src/legacy/landing to avoid parallel landing drift.');
+}
+
 console.log('Landing verification passed: app/page.tsx is canonical and no root redirect to /landing.html exists.');

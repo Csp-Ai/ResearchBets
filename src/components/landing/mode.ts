@@ -1,7 +1,8 @@
 import type { ReadonlyURLSearchParams } from 'next/navigation';
 
-import type { LandingMode } from '@/src/core/landing/live';
+export type LandingMode = 'demo' | 'live';
 
 export function getModeFromSearchParams(searchParams: ReadonlyURLSearchParams | null): LandingMode {
+  if (searchParams?.get('demo') === '1') return 'demo';
   return searchParams?.get('live') === '1' ? 'live' : 'demo';
 }
