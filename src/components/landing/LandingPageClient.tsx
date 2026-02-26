@@ -9,13 +9,14 @@ import { FAQ } from './FAQ';
 import { Footer } from './Footer';
 import { Hero } from './Hero';
 import { HowItWorksInline } from './HowItWorksInline';
+import { LifecycleTabs, type LandingPhase } from './LifecycleTabs';
+import { LiveSnapshot } from './LiveSnapshot';
 import { NotSection } from './NotSection';
 import { OddsMovement } from './OddsMovement';
-import { Pillars } from './Pillars';
+import { PostmortemPreviewCard } from './PostmortemPreviewCard';
 import { ProofStrip } from './ProofStrip';
 import { RiskGauge } from './RiskGauge';
 import { Tracker } from './Tracker';
-import { VerdictMock } from './VerdictMock';
 import { getModeFromSearchParams } from './mode';
 import { useLandingTelemetry } from './useLandingTelemetry';
 import styles from './landing.module.css';
@@ -26,29 +27,36 @@ export function LandingPageClient() {
   const { summary, today, loading, freshnessMinutes } = useLandingTelemetry(mode);
   const [runToken, setRunToken] = useState(0);
   const [stickyVisible, setStickyVisible] = useState(false);
+  const [activePhase, setActivePhase] = useState<LandingPhase>('before');
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const section = document.getElementById('tracker');
     if (!section) return;
-    const obs = new IntersectionObserver((entries) => {
-      const entry = entries[0];
-      if (entry?.isIntersecting) {
-        setRunToken((v) => v + 1);
-        obs.disconnect();
-      }
-    }, { threshold: 0.3 });
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          setRunToken((v) => v + 1);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
     obs.observe(section);
     return () => obs.disconnect();
-  }, []);
+  }, [activePhase]);
 
   useEffect(() => {
     const hero = document.getElementById('hero');
     if (!hero) return;
-    const observer = new IntersectionObserver((entries) => {
-      const entry = entries[0];
-      setStickyVisible(!(entry?.isIntersecting ?? true));
-    }, { threshold: 0.1 });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setStickyVisible(!(entry?.isIntersecting ?? true));
+      },
+      { threshold: 0.1 }
+    );
     observer.observe(hero);
     return () => observer.disconnect();
   }, []);
@@ -60,24 +68,30 @@ export function LandingPageClient() {
 
   const effectiveMode = today?.mode ?? summary.mode;
   const modeReason = today?.reason ?? summary.reason;
-  const stats = {
-    slips: Math.max(0, Math.floor((summary.last_24h.slips || 0) / 10)),
-    riskRate: summary.risk?.count ? Math.min(99, summary.risk.count) : 0,
-    accuracy: summary.perf.p50_ms ? Math.max(1, Math.min(99, Math.round(100 - summary.perf.p50_ms / 40))) : 0,
-    correlationWarnings: summary.risk?.count ? Math.max(0, Math.floor(summary.risk.count / 2)) : 0
-  };
 
   return (
     <div className={styles.landingRoot}>
       <nav className={styles.nav}>
-        <div className={styles.logo}>Research<span>Bets</span></div>
+        <div className={styles.logo}>
+          Research<span>Bets</span>
+        </div>
         <ul>
-          <li><Link href="/ingest">Analyze</Link></li>
-          <li><Link href="/stress-test">Research</Link></li>
-          <li><Link href="/slip">Build Slip</Link></li>
-          <li><a href="#faq">FAQ</a></li>
+          <li>
+            <Link href="/ingest">Analyze</Link>
+          </li>
+          <li>
+            <Link href="/stress-test">Research</Link>
+          </li>
+          <li>
+            <Link href="/slip">Build Slip</Link>
+          </li>
+          <li>
+            <a href="#faq">FAQ</a>
+          </li>
         </ul>
-        <Link href="/ingest" className={styles.btnNav}>Analyze my slip</Link>
+        <Link href="/ingest" className={styles.btnNav}>
+          Analyze my slip
+        </Link>
       </nav>
       <Hero
         mode={mode}
@@ -85,21 +99,64 @@ export function LandingPageClient() {
         today={today ?? null}
         loading={loading}
         onRunFromSnapshot={onRunFromSnapshot}
-        stats={stats}
         freshnessMinutes={freshnessMinutes}
       />
+
       <section className={styles.proofStack}>
-        <ProofStrip />
-        <HowItWorksInline />
-        <RiskGauge />
-        <OddsMovement mode={effectiveMode} reason={modeReason} updatedLabel={`Updated ${freshnessMinutes}m ago`} />
-        <Tracker mode={effectiveMode} autoRunToken={runToken} reason={modeReason} updatedLabel={`Updated ${freshnessMinutes}m ago`} />
+        <LifecycleTabs activePhase={activePhase} onPhaseChange={setActivePhase} />
+        {activePhase === 'before' ? (
+          <div className={styles.phaseStack}>
+            <HowItWorksInline />
+            <RiskGauge />
+            <Tracker
+              mode={effectiveMode}
+              autoRunToken={runToken}
+              reason={modeReason}
+              updatedLabel={`Updated ${freshnessMinutes}m ago`}
+            />
+          </div>
+        ) : null}
+
+        {activePhase === 'during' ? (
+          <div className={styles.phaseStack}>
+            <LiveSnapshot mode={mode} snapshot={today ?? null} loading={loading} onRun={onRunFromSnapshot} />
+            <OddsMovement
+              mode={effectiveMode}
+              reason={modeReason}
+              updatedLabel={`Updated ${freshnessMinutes}m ago`}
+            />
+            <section className={styles.phaseLinkSection}>
+              <div className={styles.phaseLinkCard}>
+                <div className={styles.sectionLabel}>
+                  {effectiveMode === 'live' ? 'Live telemetry' : 'Demo telemetry'}
+                </div>
+                <h3>Need the live board?</h3>
+                <p>Open Control Room live view to monitor game state and market movement.</p>
+                <Link href="/control?tab=live" className={styles.btnSecondary}>
+                  Open live view
+                </Link>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {activePhase === 'after' ? (
+          <div className={styles.phaseStack}>
+            <PostmortemPreviewCard />
+            <Tracker
+              mode={effectiveMode}
+              autoRunToken={runToken}
+              reason={modeReason}
+              updatedLabel={`Updated ${freshnessMinutes}m ago`}
+            />
+          </div>
+        ) : null}
       </section>
-      <Pillars />
-      <VerdictMock />
+
+      <ProofStrip />
       <NotSection />
       <FAQ />
-      <BottomCTA stickyVisible={stickyVisible} mode={effectiveMode} reason={modeReason} />
+      <BottomCTA stickyVisible={stickyVisible} mode={effectiveMode} reason={modeReason} activePhase={activePhase} />
       <Footer />
     </div>
   );
