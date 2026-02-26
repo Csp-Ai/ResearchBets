@@ -117,3 +117,11 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 - Settlement: `/api/history-bets` now lists user slips and settles historical legs with deterministic demo-safe outcomes when live providers are unavailable.
 - Feedback: shared slips trigger concise stored `feedback_items` with KEEP/MODIFY/PASS verdict guidance.
 - History + board flow: `/history` provides settle actions and forwards users to `/today` for next-leg ideas.
+
+### Mobile E2E loop + persistence tables (high level)
+
+- Phone-first lifecycle path: `/login` → `/profile` → `/ingest` → `/history` → `/today` → `/stress-test`.
+- Supabase-backed persistence (optional) centers on `profiles`, `slips`, `legs`, `settlements`, `leg_results`, and `feedback_items` with RLS policies for per-user access.
+- Deterministic agent tier examples in this loop:
+  - free-text slip parser (confidence + needs-review signal),
+  - shared-slip feedback agent (KEEP/MODIFY/PASS + weakest-leg framing + safer alternative).
