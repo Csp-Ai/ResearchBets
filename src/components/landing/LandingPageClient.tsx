@@ -11,11 +11,12 @@ import { Hero } from './Hero';
 import { HowItWorksInline } from './HowItWorksInline';
 import { LifecycleTabs, type LandingPhase } from './LifecycleTabs';
 import { LiveSnapshot } from './LiveSnapshot';
+import { getModeReasonText, getTelemetryUpdatedLabel } from './LiveSnapshot';
 import { NotSection } from './NotSection';
 import { OddsMovement } from './OddsMovement';
 import { PostmortemPreviewCard } from './PostmortemPreviewCard';
-import { ProofStrip } from './ProofStrip';
 import { RiskGauge } from './RiskGauge';
+import { TonightsBoardPreview } from './TonightsBoardPreview';
 import { Tracker } from './Tracker';
 import { getModeFromSearchParams } from './mode';
 import { useLandingTelemetry } from './useLandingTelemetry';
@@ -48,16 +49,16 @@ export function LandingPageClient() {
   }, [activePhase]);
 
   useEffect(() => {
-    const hero = document.getElementById('hero');
-    if (!hero) return;
+    const board = document.getElementById('tonights-board');
+    if (!board) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        setStickyVisible(!(entry?.isIntersecting ?? true));
+        setStickyVisible(!(entry?.isIntersecting ?? true) && (entry?.boundingClientRect.top ?? 0) < 0);
       },
-      { threshold: 0.1 }
+      { threshold: 0.15 }
     );
-    observer.observe(hero);
+    observer.observe(board);
     return () => observer.disconnect();
   }, []);
 
@@ -68,6 +69,8 @@ export function LandingPageClient() {
 
   const effectiveMode = today?.mode ?? summary.mode;
   const modeReason = today?.reason ?? summary.reason;
+  const reasonLabel = getModeReasonText(modeReason);
+  const updatedLabel = getTelemetryUpdatedLabel(effectiveMode, freshnessMinutes);
 
   return (
     <div className={styles.landingRoot}>
@@ -95,7 +98,7 @@ export function LandingPageClient() {
       </nav>
       <Hero
         mode={mode}
-        modeReason={modeReason}
+        modeReason={reasonLabel}
         today={today ?? null}
         loading={loading}
         onRunFromSnapshot={onRunFromSnapshot}
@@ -106,13 +109,14 @@ export function LandingPageClient() {
         <LifecycleTabs activePhase={activePhase} onPhaseChange={setActivePhase} />
         {activePhase === 'before' ? (
           <div className={styles.phaseStack}>
+            <TonightsBoardPreview />
             <HowItWorksInline />
             <RiskGauge />
             <Tracker
               mode={effectiveMode}
               autoRunToken={runToken}
-              reason={modeReason}
-              updatedLabel={`Updated ${freshnessMinutes}m ago`}
+              reason={reasonLabel}
+              updatedLabel={updatedLabel}
             />
           </div>
         ) : null}
@@ -122,8 +126,8 @@ export function LandingPageClient() {
             <LiveSnapshot mode={mode} snapshot={today ?? null} loading={loading} onRun={onRunFromSnapshot} />
             <OddsMovement
               mode={effectiveMode}
-              reason={modeReason}
-              updatedLabel={`Updated ${freshnessMinutes}m ago`}
+              reason={reasonLabel}
+              updatedLabel={updatedLabel}
             />
             <section className={styles.phaseLinkSection}>
               <div className={styles.phaseLinkCard}>
@@ -146,17 +150,16 @@ export function LandingPageClient() {
             <Tracker
               mode={effectiveMode}
               autoRunToken={runToken}
-              reason={modeReason}
-              updatedLabel={`Updated ${freshnessMinutes}m ago`}
+              reason={reasonLabel}
+              updatedLabel={updatedLabel}
             />
           </div>
         ) : null}
       </section>
 
-      <ProofStrip />
       <NotSection />
       <FAQ />
-      <BottomCTA stickyVisible={stickyVisible} mode={effectiveMode} reason={modeReason} activePhase={activePhase} />
+      <BottomCTA stickyVisible={stickyVisible} mode={effectiveMode} reason={reasonLabel} activePhase={activePhase} />
       <Footer />
     </div>
   );

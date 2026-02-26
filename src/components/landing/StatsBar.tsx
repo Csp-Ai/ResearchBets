@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { getTelemetryUpdatedLabel } from './LiveSnapshot';
 import styles from './landing.module.css';
 
 const suffixes = ['k+', '%', '%', 'k+'];
@@ -13,7 +14,7 @@ const captions = [
   'Slips with concentrated same-game exposure.'
 ];
 const fills = [78, 73, 81, 63];
-const capabilityChips = ['Weakest-leg verdict', 'Volatility flags', 'Line movement'];
+const capabilityChips = ['Tonight\'s Board', 'Weakest-leg verdict', 'Line movement'];
 
 export function StatsBar({
   stats,
@@ -59,12 +60,12 @@ export function StatsBar({
     return () => window.clearInterval(id);
   }, [started, stats.accuracy, stats.correlationWarnings, stats.riskRate, stats.slips, variant]);
 
-  const freshness = Number.isFinite(freshnessMinutes) ? freshnessMinutes : 0;
+  const updatedLabel = getTelemetryUpdatedLabel(mode, freshnessMinutes);
 
   return (
     <section className={compact ? styles.statsCompact : styles.statsSection}>
       <div className={styles.sectionLabel}>
-        {mode === 'live' ? 'Live telemetry' : 'Demo telemetry'} · Updated {freshness}m ago
+        {mode === 'live' ? 'Live telemetry' : 'Demo telemetry'} · {updatedLabel}
         {reason ? ` · ${reason}` : ''}
       </div>
       {variant === 'landing' ? (

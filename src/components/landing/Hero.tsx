@@ -29,6 +29,7 @@ export function Hero({
   freshnessMinutes: number;
 }) {
   const effectiveMode = today?.mode ?? (mode === 'live' ? 'live' : 'demo');
+  const modeReasonLabel = modeReason ? ` · ${modeReason}` : '';
 
   return (
     <section className={styles.hero} id="hero">
@@ -40,8 +41,8 @@ export function Hero({
             <span className={styles.badgeDot} />Research workflow for bettors
           </div>
           <div className={`${styles.modeChip} ${effectiveMode === 'live' ? styles.live : styles.demo}`}>
-            {effectiveMode === 'live' ? 'Live telemetry' : 'Demo telemetry'}
-            {modeReason ? <span className={styles.modeChipReason}>· {modeReason}</span> : null}
+            {effectiveMode === 'live' ? 'Live telemetry' : 'Demo mode (live feeds off)'}
+            {modeReason ? <span className={styles.modeChipReason}>{modeReasonLabel}</span> : null}
           </div>
           <h1>Find the leg that breaks your parlay.</h1>
           <p className={styles.heroSub}>

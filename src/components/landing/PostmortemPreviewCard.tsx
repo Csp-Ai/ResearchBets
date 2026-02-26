@@ -20,7 +20,9 @@ export function PostmortemPreviewCard() {
             <Link href="/control?tab=review" className={styles.btnPrimary}>
               Review results
             </Link>
-            <span className={styles.postmortemHint}>In progress · available in Control Room</span>
+            <Link href="/control?tab=review&sample=1" className={styles.btnSecondary}>
+              Try a sample review
+            </Link>
           </div>
         </div>
       </div>

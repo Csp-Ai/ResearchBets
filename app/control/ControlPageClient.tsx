@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { runSlip } from '@/src/core/pipeline/runSlip';
@@ -52,6 +53,7 @@ export function ControlPageClient() {
   const [postmortem, setPostmortem] = useState<PostMortemResult | null>(null);
   const [retroDto, setRetroDto] = useState<ResearchRunDTO | null>(null);
   const [uploadName, setUploadName] = useState('');
+  const [latestTrace, setLatestTrace] = useState<string | null>(null);
 
   const riskDelta = useMemo(() => {
     if (slip.length === 0) return 0;
@@ -69,7 +71,7 @@ export function ControlPageClient() {
     team: leg.team
   })) ?? [];
 
-  const runReview = async (file?: File) => {
+  const runReview = useCallback(async (file?: File) => {
     const slipText = mockParseSlip(file?.name ?? 'upload.png');
     const traceId = await runSlip(slipText);
     const run = await runStore.getRun(traceId);
@@ -89,7 +91,17 @@ export function ControlPageClient() {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('rb:last-postmortem', JSON.stringify({ uploadName: file?.name, dto, payload }));
     }
-  };
+  }, [outcome]);
+
+  useEffect(() => {
+    void runStore.listRuns(1).then((runs) => setLatestTrace(runs[0]?.traceId ?? null));
+  }, []);
+
+  useEffect(() => {
+    if (search.get('sample') === '1' && tab === 'review' && !retroDto) {
+      void runReview();
+    }
+  }, [retroDto, runReview, search, tab]);
 
   return (
     <section className="mx-auto max-w-6xl space-y-3">
@@ -108,8 +120,15 @@ export function ControlPageClient() {
           <h2 className="text-lg font-semibold">Control Room: Live</h2>
           <SlipIntelBar legs={slip} />
           {slip.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-white/20 p-4 text-sm text-slate-300">
-              No active slip found. Build your slip from Board, then return here to monitor pace shifts, injury flags, and hedge opportunities.
+            <div className="rounded-lg border border-dashed border-white/20 p-4 text-sm text-slate-300 space-y-3">
+              <p>No active slip found yet. Pick a path below to get a live run in motion.</p>
+              <div className="flex flex-wrap gap-2">
+                {latestTrace ? (
+                  <Link href={`/stress-test?trace=${encodeURIComponent(latestTrace)}`} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link>
+                ) : null}
+                <Link href="/stress-test?demo=1" className="rounded border border-white/20 px-3 py-2 text-sm">Try sample slip</Link>
+                <Link href="/slip" className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
+              </div>
             </div>
           ) : (
             <>
