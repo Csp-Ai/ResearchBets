@@ -10,7 +10,8 @@ export function GamesSection({
   mode,
   onAdd,
   onAnalyze,
-  onOpenScout
+  onOpenScout,
+  dense = false
 }: {
   title: string;
   games: TodayGame[];
@@ -18,18 +19,22 @@ export function GamesSection({
   onAdd: (leg: SlipBuilderLeg) => void;
   onAnalyze: (leg: SlipBuilderLeg) => void;
   onOpenScout: () => void;
+  dense?: boolean;
 }) {
+  if (games.length === 0) return null;
+
   return (
-    <section className="space-y-3">
+    <section className={dense ? 'space-y-2' : 'space-y-3'}>
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold sm:text-lg">{title}</h2>
         <p className="text-xs text-slate-400">{games.length} games</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={dense ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-3 sm:grid-cols-2'}>
         {games.map((game) => (
-          <GameCard key={game.id} game={game} mode={mode} onAdd={onAdd} onAnalyze={onAnalyze} onOpenScout={onOpenScout} />
+          <div key={game.id} className={games.length === 1 ? 'sm:col-span-2' : ''}>
+            <GameCard game={game} mode={mode} onAdd={onAdd} onAnalyze={onAnalyze} onOpenScout={onOpenScout} />
+          </div>
         ))}
-        {games.length === 0 ? <p className="sm:col-span-2 rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-slate-400">No games for this filter.</p> : null}
       </div>
     </section>
   );

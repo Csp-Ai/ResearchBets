@@ -21,7 +21,8 @@ import {
   SlipActionsBar,
   VerdictHero,
   type AnalyzeLeg,
-  type RecentRun
+  type RecentRun,
+  type RecentRunDemo
 } from '@/src/components/bettor/BettorFirstBlocks';
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
@@ -95,6 +96,7 @@ export default function ResearchPageContent() {
   const [developerMode, setDeveloperMode] = useState(false);
   const [currentRun, setCurrentRun] = useState<Run | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
+  const [demoRecentRun, setDemoRecentRun] = useState<RecentRunDemo | null>(null);
   const [data, setData] = useState<BettorDataEnvelope | null>(null);
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
   const { slip } = useDraftSlip();
@@ -128,6 +130,40 @@ export default function ResearchPageContent() {
       return () => window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
     }
   }, [nervous.date, nervous.sport, nervous.tz, refreshRecent]);
+
+  useEffect(() => {
+    if (recentRuns.length > 0) {
+      setDemoRecentRun(null);
+      return;
+    }
+
+    let active = true;
+    fetch(`/api/research/demo-run?${new URLSearchParams({ sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }).toString()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload) => {
+        if (!active || !payload) return;
+        setDemoRecentRun(payload as RecentRunDemo);
+      })
+      .catch(() => {
+        if (!active) return;
+        const query = { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode };
+        setDemoRecentRun({
+          traceId: 'demo-trace',
+          steps: ['Scout', 'Risk', 'Notes'],
+          weakestLeg: "Tonight's board signal",
+          generatedAt: new Date().toISOString(),
+          ctas: [
+            { label: 'Run stress test', href: appendQuery(nervous.toHref('/stress-test'), query) },
+            { label: 'Use sample slip', href: appendQuery(nervous.toHref('/ingest'), { ...query, prefill: DEMO_SLIP }) },
+            { label: 'Open Board', href: appendQuery(nervous.toHref('/today'), query) }
+          ]
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [recentRuns.length, nervous.date, nervous.mode, nervous.sport, nervous.tz, nervous]);
 
   useEffect(() => {
     if (traceFromQuery) {
@@ -298,7 +334,11 @@ export default function ResearchPageContent() {
         </motion.div>
       ) : null}
 
-      <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(appendQuery(nervous.toHref('/stress-test'), { trace: recentTraceId }))} />
+      <RecentActivityPanel
+        runs={recentRuns}
+        demoRun={demoRecentRun}
+        onOpen={(recentTraceId) => router.push(appendQuery(nervous.toHref('/stress-test'), { trace: recentTraceId }))}
+      />
       <HowItWorksMini />
 
       <AdvancedDrawer developerMode={developerMode}>

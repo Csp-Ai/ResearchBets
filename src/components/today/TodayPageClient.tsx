@@ -12,6 +12,7 @@ import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
 
 import { GamesSection } from './GamesSection';
+import { TopSpotsPanel } from './TopSpotsPanel';
 import { TodayHeader } from './TodayHeader';
 import type { LeagueFilter } from './types';
 
@@ -50,6 +51,11 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const filteredGames = useMemo(() => payload.games.filter((game) => league === 'All' || game.league === league), [payload.games, league]);
   const liveGames = filteredGames.filter((game) => game.status === 'live');
   const upcomingGames = filteredGames.filter((game) => game.status === 'upcoming');
+  const topSpotScouts = (filteredGames.flatMap((game) => game.propsPreview).slice(0, 4).length > 0
+    ? filteredGames.flatMap((game) => game.propsPreview).slice(0, 4)
+    : payload.games.flatMap((game) => game.propsPreview).slice(0, 4));
+  const fallbackUpcomingScouts = topSpotScouts.slice(2, 4).length > 0 ? topSpotScouts.slice(2, 4) : topSpotScouts.slice(0, 2);
+  const denseLayout = filteredGames.length < 2;
 
   const onAddToDraft = (leg: SlipBuilderLeg) => {
     upsertDraftLeg(leg);
@@ -81,9 +87,13 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
           Demo mode: live providers unavailable. Showing deterministic slate.
         </p>
       ) : null}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <GamesSection title="Live now" games={liveGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
-        <GamesSection title="Upcoming" games={upcomingGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} />
+      <div className={denseLayout ? 'grid gap-2 lg:grid-cols-2' : 'grid gap-4 lg:grid-cols-2'}>
+        <GamesSection title="Live now" games={liveGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} dense={denseLayout} />
+        {upcomingGames.length > 0 ? (
+          <GamesSection title="Upcoming" games={upcomingGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} dense={denseLayout} />
+        ) : (
+          <TopSpotsPanel scouts={fallbackUpcomingScouts} />
+        )}
       </div>
     </section>
   );
