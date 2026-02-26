@@ -84,7 +84,7 @@ export function RecentActivityPanel({ runs, onOpen, demoRun }: { runs: RecentRun
             <p className="font-medium text-strong">Latest run (demo)</p>
             <p className="mt-1 text-xs text-muted">Deterministic sample run generated from tonight&apos;s board.</p>
           </div>
-          <p className="text-sm text-strong">Weakest leg: {demoRun?.weakestLeg ?? 'Board signal loading...'}</p>
+          <p className="text-sm text-strong">Weakest leg: {demoRun?.weakestLeg ?? 'LeBron James over 6.5 rebounds (-105)'}</p>
           <div className="flex flex-wrap gap-2 text-xs">
             {(demoRun?.steps.length ? demoRun.steps : ['Scout', 'Risk', 'Notes']).slice(0, 5).map((step) => (
               <span key={step} className="rounded-full border border-default px-2 py-1 text-muted">{step}</span>
