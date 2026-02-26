@@ -5,6 +5,13 @@ export type TodayLeague = (typeof TODAY_LEAGUES)[number];
 
 export type TodayMode = 'live' | 'cache' | 'demo';
 
+
+export type TodayProvenance = {
+  mode: TodayMode;
+  reason?: string;
+  generatedAt: string;
+};
+
 export type BoardRow = {
   id: string;
   gameId: string;
@@ -66,6 +73,7 @@ export type TodayGame = {
 export type TodayPayload = {
   mode: TodayMode;
   generatedAt: string;
+  provenance?: TodayProvenance;
   leagues: TodayLeague[];
   games: TodayGame[];
   reason?: string;

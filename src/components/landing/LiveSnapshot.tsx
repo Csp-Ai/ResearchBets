@@ -8,8 +8,8 @@ const reasonText: Record<string, string> = {
   live_ok: 'Live providers are connected for this environment.',
   demo_requested: 'Demo mode was requested for this view.',
   live_mode_disabled: 'Live feeds are off for this environment.',
-  missing_keys: 'Live provider keys are not configured.',
-  provider_unavailable: 'Live provider data is unavailable, so demo data is shown.'
+  missing_keys: 'Live feeds unavailable → showing demo slate.',
+  provider_unavailable: 'Live feeds unavailable → showing demo slate.'
 };
 
 export const getModeReasonText = (reason?: string) => reasonText[reason ?? 'provider_unavailable'] ?? reasonText.provider_unavailable;
@@ -44,7 +44,7 @@ export function LiveSnapshot({
   const effectiveMode = snapshot?.mode ?? (mode === 'live' ? 'live' : 'demo');
   const liveRequestedFallback = mode === 'live' && providerHealth?.ok === false;
   const isDemo = effectiveMode !== 'live' || liveRequestedFallback;
-  const label = liveRequestedFallback ? 'Live requested — fallback applied' : isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on';
+  const label = isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on';
   const reason = useMemo(() => getModeReasonText(snapshot?.reason), [snapshot?.reason]);
 
   const body = (
@@ -79,8 +79,8 @@ export function LiveSnapshot({
           <div className={styles.snapshotRow}>
             <span className={styles.oddsLabel}>Why?</span>
             <span className={styles.oddsValue}>
-              {liveRequestedFallback ? `Mode: Live requested — fallback applied (${providerHealth?.reason ?? 'provider_unavailable'})` : isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds on'}
-              <span className={styles.reasonHelp} title={reason}>ⓘ</span>
+              {isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds on'}
+              <span className={styles.reasonHelp} title={`${reason}${providerHealth?.reason ? ` (${providerHealth.reason})` : ''}`}>ⓘ</span>
             </span>
           </div>
         </div>

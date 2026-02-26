@@ -40,18 +40,18 @@ export async function GET(request: Request) {
         mode: 'demo',
         reason: 'fallback_due_to_missing_keys',
       }));
-      return NextResponse.json({ ok: true, data, degraded: true, source: 'fallback', trace_id: trace.trace_id, spine: withSpine(data) });
+      return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: trace.trace_id, spine: withSpine(data) });
     }
 
     const payload = await getTodayPayload({ forceRefresh, demoRequested, sport, tz, date });
     const data = TodayPayloadSchema.parse(normalizeTodayPayload(payload));
-    return NextResponse.json({ ok: true, data, degraded: data.mode !== 'live', source: payload.mode, trace_id: trace.trace_id, spine: withSpine(data), landing: payload.landing });
+    return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: trace.trace_id, spine: withSpine(data), landing: payload.landing });
   } catch {
     const data = TodayPayloadSchema.parse(normalizeTodayPayload({
       ...fallbackToday({ sport, tz, date, mode: 'demo' }),
       mode: 'demo',
       reason: 'fallback_due_to_provider_unavailable',
     }));
-    return NextResponse.json({ ok: true, data, degraded: true, source: 'fallback', error_code: 'today_provider_unavailable', trace_id: trace.trace_id, spine: withSpine(data) });
+    return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: trace.trace_id, spine: withSpine(data) });
   }
 }

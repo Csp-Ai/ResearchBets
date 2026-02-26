@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 import { appendQuery } from '@/src/components/landing/navigation';
+import { parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
 import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
 
@@ -44,10 +45,13 @@ export default function IngestionPage() {
         })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? 'Unable to submit slip.');
-      setSubmittedSlipId(payload.slip_id ?? null);
+      const parsed = parseSlipSubmitEnvelope(payload);
+      if (!response.ok || !parsed.success || !parsed.data.ok) {
+        throw new Error(parsed.success && !parsed.data.ok ? parsed.data.error.message : 'Unable to submit slip.');
+      }
+      setSubmittedSlipId(parsed.data.data.slip_id ?? null);
       setHasHistoricalDate(/\b(202[0-5]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(slipText));
-      setStatus(payload.parse?.needs_review ? 'Saved. Parsing confidence is low, confirm legs next.' : 'Saved and parsed. Next action is ready.');
+      setStatus(parsed.data.data.parse?.needs_review ? 'Saved. Parsing confidence is low, confirm legs next.' : 'Saved and parsed. Next action is ready.');
     } catch (submitError) {
       setStatus(submitError instanceof Error ? submitError.message : 'Unable to submit slip.');
     } finally {

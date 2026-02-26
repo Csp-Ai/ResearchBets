@@ -3,6 +3,7 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
 import type { QuerySpine } from '@/src/core/nervous/spine';
+import { parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
 
 type SubmitInput = {
   spine: QuerySpine;
@@ -41,7 +42,8 @@ export async function submitDraftSlip({ spine, slip }: SubmitInput): Promise<Sub
   });
 
   if (!response.ok) return { ok: false, reason: 'submit_failed' };
-  const payload = (await response.json()) as { slip_id?: string; trace_id?: string };
-  if (!payload.slip_id || !payload.trace_id) return { ok: false, reason: 'submit_failed' };
-  return { ok: true, slip_id: payload.slip_id, trace_id: payload.trace_id };
+  const payload = await response.json();
+  const parsed = parseSlipSubmitEnvelope(payload);
+  if (!parsed.success || !parsed.data.ok) return { ok: false, reason: 'submit_failed' };
+  return { ok: true, slip_id: parsed.data.data.slip_id, trace_id: parsed.data.data.trace_id };
 }

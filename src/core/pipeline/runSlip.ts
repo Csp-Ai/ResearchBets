@@ -1,4 +1,5 @@
 import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifiers/session';
+import { parseSlipExtractEnvelope, parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
 import { extractLegs } from '@/src/core/slips/extract';
 import { getRunContext } from '@/src/core/context/getRunContext';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
@@ -202,23 +203,26 @@ async function extractWithApi(slipText: string, initialTraceId: string): Promise
   try {
     const anonSessionId = ensureAnonSessionId();
     const requestId = createClientRequestId();
-    const submitRes = await fetch('/api/slips/submit', {
+    const submitPayload = await fetch('/api/slips/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source: 'paste', raw_text: slipText, anon_session_id: anonSessionId, request_id: requestId, trace_id: initialTraceId })
     }).then((res) => res.json());
+    const submitRes = parseSlipSubmitEnvelope(submitPayload);
+    if (!submitRes.success || !submitRes.data.ok) return { legs: [] };
 
-    const traceId = typeof submitRes.trace_id === 'string' && submitRes.trace_id ? submitRes.trace_id : initialTraceId;
-    const slipId = typeof submitRes.slip_id === 'string' ? submitRes.slip_id : undefined;
+    const traceId = submitRes.data.data.trace_id || initialTraceId;
+    const slipId = submitRes.data.data.slip_id;
 
-    const extractRes = await fetch('/api/slips/extract', {
+    const extractPayload = await fetch('/api/slips/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slip_id: submitRes.slip_id, request_id: createClientRequestId(), anon_session_id: anonSessionId })
+      body: JSON.stringify({ slip_id: slipId, request_id: createClientRequestId(), anon_session_id: anonSessionId })
     }).then((res) => res.json());
+    const extractRes = parseSlipExtractEnvelope(extractPayload);
 
     return {
-      legs: Array.isArray(extractRes.extracted_legs) ? extractRes.extracted_legs : [],
+      legs: extractRes.success && extractRes.data.ok ? (extractRes.data.data.extracted_legs as Array<{ selection: string; market?: string; line?: string; odds?: string }>) : [],
       slipId,
       traceId,
       anonSessionId,

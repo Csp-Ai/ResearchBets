@@ -17,6 +17,8 @@ export type NormalizedGame = {
 export type NormalizedToday = {
   mode: 'live' | 'cache' | 'demo';
   reason?: string;
+  generatedAt?: string;
+  provenance?: { mode: 'live' | 'cache' | 'demo'; reason?: string; generatedAt: string };
   games: NormalizedGame[];
   board: BoardRow[];
 };
@@ -81,6 +83,9 @@ export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
 
   const mode = normalizeMode(root.mode ?? wrapped.mode);
   const reason = typeof root.reason === 'string' ? root.reason : (typeof wrapped.reason === 'string' ? wrapped.reason : undefined);
+  const generatedAt = typeof wrapped.generatedAt === 'string' ? wrapped.generatedAt : undefined;
+  const provenanceRaw = wrapped.provenance && typeof wrapped.provenance === 'object' ? wrapped.provenance as Record<string, unknown> : null;
+  const provenance = provenanceRaw ? { mode: normalizeMode(provenanceRaw.mode), reason: typeof provenanceRaw.reason === 'string' ? provenanceRaw.reason : undefined, generatedAt: typeof provenanceRaw.generatedAt === 'string' ? provenanceRaw.generatedAt : (generatedAt ?? new Date().toISOString()) } : (generatedAt ? { mode, reason, generatedAt } : undefined);
 
   const gamesInput = Array.isArray(wrapped.games) ? wrapped.games : [];
   const games = gamesInput.map((item, index) => normalizeGame((item ?? {}) as Record<string, unknown>, index));
@@ -120,6 +125,8 @@ export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
     return {
       mode,
       reason,
+      generatedAt,
+      provenance,
       games,
       board: board.map((row) => ({ ...row, matchup: gamesById.get(row.gameId)?.matchup, startTime: gamesById.get(row.gameId)?.startTime, mode }))
     };
@@ -132,8 +139,8 @@ export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
       const game = games.find((entry) => entry.id === gameId);
       return { ...prop, gameId, matchup: game?.matchup, startTime: game?.startTime, mode };
     });
-    return { mode, reason: reason ?? 'empty_board_from_api', games, board: filledBoard };
+    return { mode, reason: reason ?? 'empty_board_from_api', generatedAt, provenance, games, board: filledBoard };
   }
 
-  return { ...fallback, mode, reason: reason ?? fallback.reason };
+  return { ...fallback, mode, reason: reason ?? fallback.reason, generatedAt, provenance: provenance ?? { mode, reason: reason ?? fallback.reason, generatedAt: generatedAt ?? new Date().toISOString() } };
 };

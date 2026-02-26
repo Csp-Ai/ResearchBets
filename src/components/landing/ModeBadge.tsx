@@ -1,31 +1,41 @@
-'use client';
-
-import styles from './landing.module.css';
+import type { TodayMode } from '@/src/core/today/types';
 
 type ModeBadgeProps = {
-  requestedMode: 'live' | 'demo';
-  effectiveMode: 'live' | 'demo' | 'cache';
+  mode: TodayMode;
   reason?: string;
+  generatedAt?: string;
+  className?: string;
 };
 
-export function ModeBadge({ requestedMode, effectiveMode, reason }: ModeBadgeProps) {
-  const fallback = requestedMode === 'live' && effectiveMode !== 'live';
-  const label = effectiveMode === 'live' ? 'Live (connected)' : requestedMode === 'live' ? 'Live requested' : 'Demo mode';
-  const detail = fallback
-    ? `Live requested — fallback applied${reason ? ` (${reason})` : ''}`
-    : effectiveMode === 'live'
-      ? 'Live (connected)'
-      : `Demo mode (live feeds off)${reason ? ` (${reason})` : ''}`;
+const toneByMode: Record<TodayMode, string> = {
+  live: 'border-emerald-300/40 bg-emerald-400/10 text-emerald-100',
+  cache: 'border-amber-300/40 bg-amber-400/10 text-amber-100',
+  demo: 'border-cyan-300/40 bg-cyan-400/10 text-cyan-100',
+};
 
+const labelByMode: Record<TodayMode, string> = {
+  live: 'LIVE',
+  cache: 'CACHED',
+  demo: 'DEMO',
+};
+
+const tooltipByMode = (mode: TodayMode, reason?: string, generatedAt?: string) => {
+  if (mode === 'demo') {
+    return 'Demo mode (live feeds off). Deterministic slate is shown so you can still browse and run research.';
+  }
+  if (mode === 'cache') {
+    return `Cached feed snapshot${reason ? ` (${reason})` : ''}${generatedAt ? ` · generated ${generatedAt}` : ''}.`;
+  }
+  return `Live feeds active${generatedAt ? ` · generated ${generatedAt}` : ''}.`;
+};
+
+export function ModeBadge({ mode, reason, generatedAt, className }: ModeBadgeProps) {
   return (
-    <div className={styles.modeBadgeQuiet} title={detail} aria-label={detail}>
-      <span>{label}</span>
-      {fallback ? (
-        <span className={styles.modeBadgeFallback}>
-          <span className={styles.modeBadgeFallbackDot} />
-          Fallback
-        </span>
-      ) : null}
-    </div>
+    <span
+      title={tooltipByMode(mode, reason, generatedAt)}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${toneByMode[mode]} ${className ?? ''}`}
+    >
+      {labelByMode[mode]}
+    </span>
   );
 }

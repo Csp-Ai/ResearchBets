@@ -78,7 +78,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
       return;
     }
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(`${nervous.toHref('/stress-test')}&tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
+    router.push(nervous.toHref('/stress-test', { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
   };
 
   const toStressTestFromDrawer = () => {
