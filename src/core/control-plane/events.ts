@@ -76,6 +76,11 @@ export const ControlPlaneEventSchema = z
     model_version: z.string().min(1),
     confidence: z.number().min(0).max(1).nullable().optional(),
     assumptions: z.array(z.string()).nullable().optional(),
+    mode: z.enum(['live', 'cache', 'demo']).optional(),
+    reason: z.string().min(1).optional(),
+    sport: z.string().min(1).optional(),
+    tz: z.string().min(1).optional(),
+    date: z.string().min(1).optional(),
     properties: z.record(z.unknown()).default({})
   })
   .superRefine((event, ctx) => {

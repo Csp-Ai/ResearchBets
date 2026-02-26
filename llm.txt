@@ -1,0 +1,29 @@
+# ResearchBets llm.txt (always read)
+
+## North Star
+Structural Risk Terminal for parlays (not picks).
+
+## Invariants to protect
+1. Non-empty front door: landing/today/research must always render useful deterministic content.
+2. Deterministic fallback: missing providers/keys never hard-fail core flows.
+3. Spine continuity: sport/tz/date/mode + trace/slip/session identity should survive route transitions.
+4. Truthful state: demo/live/cache mode and degrade reasons must be explicit and consistent.
+
+## Canonical contracts
+- `NormalizedToday`: `src/core/today/normalize.ts`
+- `ContextSpine`: `src/core/contracts/contextSpine.ts`
+- `TraceMeta`: `src/core/contracts/trace.ts`
+
+## Rules of engagement
+- Use canonical contracts at route boundaries (API input/output, telemetry emitters).
+- Keep shared contracts client-safe in `src/core/contracts/*`.
+- Avoid parallel spine/trace types; adapt existing shapes into canonical contracts.
+- Preserve existing business heuristics; only normalize envelopes unless explicitly scoped.
+
+## Daily ritual (Past / Present / Future)
+- Past: check recent regressions, failing tests, and known drift notes.
+- Present: implement smallest contract-first change, with deterministic fallback intact.
+- Future: leave clear extension points without changing current heuristics.
+
+## Forward note
+When adding new analysis features later, emit `SlipStructureReport` (future PR).
