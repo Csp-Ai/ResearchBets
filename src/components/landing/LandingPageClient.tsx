@@ -8,7 +8,6 @@ import { BottomCTA } from './BottomCTA';
 import { FAQ } from './FAQ';
 import { Footer } from './Footer';
 import { Hero } from './Hero';
-import { HowItWorksInline } from './HowItWorksInline';
 import { LifecycleTabs, type LandingPhase } from './LifecycleTabs';
 import { LiveSnapshot } from './LiveSnapshot';
 import { getModeReasonText, getTelemetryUpdatedLabel } from './LiveSnapshot';
@@ -80,7 +79,7 @@ export function LandingPageClient() {
         </div>
         <ul>
           <li>
-            <Link href="/ingest">Analyze</Link>
+            <Link href="/ingest" className={styles.btnSecondary}>Analyze</Link>
           </li>
           <li>
             <Link href="/stress-test">Research</Link>
@@ -92,9 +91,7 @@ export function LandingPageClient() {
             <a href="#faq">FAQ</a>
           </li>
         </ul>
-        <Link href="/ingest" className={styles.btnNav}>
-          Analyze my slip
-        </Link>
+        <Link href="/ingest">Analyze</Link>
       </nav>
       <Hero
         mode={mode}
@@ -110,14 +107,18 @@ export function LandingPageClient() {
         {activePhase === 'before' ? (
           <div className={styles.phaseStack}>
             <TonightsBoardPreview />
-            <HowItWorksInline />
-            <RiskGauge />
-            <Tracker
-              mode={effectiveMode}
-              autoRunToken={runToken}
-              reason={reasonLabel}
-              updatedLabel={updatedLabel}
-            />
+            <section className={styles.boardDisclosureSection}>
+              <details className={styles.boardDisclosure}>
+                <summary>See slip risk example</summary>
+                <RiskGauge />
+                <Tracker
+                  mode={effectiveMode}
+                  autoRunToken={runToken}
+                  reason={reasonLabel}
+                  updatedLabel={updatedLabel}
+                />
+              </details>
+            </section>
           </div>
         ) : null}
 
