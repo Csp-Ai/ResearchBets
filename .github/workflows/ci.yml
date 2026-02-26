@@ -112,6 +112,8 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
+      - name: Governor checks
+        run: npm run check:governor
       - name: Test
         run: npm run test
       - name: Unused code audit

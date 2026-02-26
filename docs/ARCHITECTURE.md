@@ -125,3 +125,9 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 - Deterministic agent tier examples in this loop:
   - free-text slip parser (confidence + needs-review signal),
   - shared-slip feedback agent (KEEP/MODIFY/PASS + weakest-leg framing + safer alternative).
+
+## Governor substrate (v1.0)
+
+- `src/core/governor/runGovernor.server.ts` runs lightweight alignment checks for contract parity, trace continuity, demo truthfulness, client/server boundaries, and event integrity.
+- `app/api/governor/report/route.ts` exposes a resilient `GovernorReport` for current trace context.
+- `app/dev/governor/page.tsx` renders the report in a terminal-style checklist for development diagnostics.
