@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { GamesToday, type TodayGame } from '@/features/dashboard/GamesToday';
+import { GamesToday, mapPropToLeg, type TodayGame } from '@/features/dashboard/GamesToday';
 import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -30,10 +30,26 @@ function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   }));
 }
 
+function getScoutDraftLegs(games: TodayGame[]): SlipBuilderLeg[] {
+  const seeded: SlipBuilderLeg[] = [];
+  for (const game of games) {
+    for (const team of game.teams) {
+      for (const player of team.players) {
+        for (const prop of player.props) {
+          seeded.push(mapPropToLeg(player.name, prop, game.matchup));
+          if (seeded.length === 2) return seeded;
+        }
+      }
+    }
+  }
+  return seeded;
+}
+
 export default function SlipPageClient() {
-  const { slip, addLeg, removeLeg, clearSlip } = useDraftSlip();
+  const { slip, addLeg, removeLeg, clearSlip, setSlip } = useDraftSlip();
   const [games, setGames] = useState<TodayGame[]>([]);
   const [boardMode, setBoardMode] = useState<'live' | 'cache' | 'demo'>('demo');
+  const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle');
   const router = useRouter();
   const searchParams = useSearchParams();
   const nervous = useNervousSystem();
@@ -61,10 +77,15 @@ export default function SlipPageClient() {
       .then((payload: TodayPayload | null) => {
         if (!payload) return;
         setBoardMode(payload.mode);
-        setGames(mapTodayPayload(payload));
+        const mappedGames = mapTodayPayload(payload);
+        setGames(mappedGames);
+        if (dedupedLegs.length === 0) {
+          const seeded = getScoutDraftLegs(mappedGames);
+          if (seeded.length > 0) setSlip(seeded);
+        }
       })
       .catch(() => undefined);
-  }, [nervous, nervous.sport, nervous.date, nervous.tz, nervous.mode]);
+  }, [dedupedLegs.length, nervous, nervous.sport, nervous.date, nervous.tz, nervous.mode, setSlip]);
 
   const onAnalyzeSlip = () => {
     if (dedupedLegs.length === 0 || typeof window === 'undefined') return;
@@ -74,25 +95,71 @@ export default function SlipPageClient() {
     router.push(appendQuery(nervous.toHref('/research'), { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
   };
 
+  const onCopyLegs = async () => {
+    if (typeof window === 'undefined' || dedupedLegs.length === 0) return;
+    const copyLines = dedupedLegs.map((leg, index) => `${index + 1}. ${leg.player} ${leg.marketType} ${leg.line}${leg.odds ? ` (${leg.odds})` : ''}`);
+    try {
+      await navigator.clipboard.writeText(copyLines.join('\n'));
+      setCopyState('done');
+      window.setTimeout(() => setCopyState('idle'), 1800);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 1800);
+    }
+  };
+
+  const moveLeg = (from: number, to: number) => {
+    if (to < 0 || to >= dedupedLegs.length) return;
+    const next = [...dedupedLegs];
+    const [moved] = next.splice(from, 1);
+    if (!moved) return;
+    next.splice(to, 0, moved);
+    setSlip(next);
+  };
+
   return (
     <section className="mx-auto max-w-7xl space-y-4">
       <header className="space-y-2">
         <h1 className="text-4xl font-semibold">Draft Slip</h1>
-        <p className="text-sm text-slate-300">Bar-ready flow: add legs from Tonight&apos;s Board, remove quickly, then analyze in Research.</p>
+        <p className="text-sm text-slate-300">Bar-ready flow: add legs from Tonight&apos;s Board, remove quickly, copy list into your book, then analyze weakest-leg risk.</p>
         <p className="text-xs text-slate-500">Board mode: {boardMode} • Context locked to {nervous.sport} / {nervous.date} / {nervous.tz}</p>
       </header>
       <SlipIntelBar legs={dedupedLegs} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
           <GamesToday games={games} onAddLeg={addLeg} />
         </div>
         <div className="xl:sticky xl:top-4 xl:h-fit space-y-3">
+          <section className="rounded-xl border border-cyan-500/30 bg-slate-900/90 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-cyan-100">Draft Slip</h2>
+              <span className="text-xs text-slate-400">{dedupedLegs.length} legs</span>
+            </div>
+            <p className="text-xs text-slate-400">No paste required: seeded with deterministic board scouts. Reorder/remove then copy into FanDuel manually.</p>
+            <ul className="space-y-2">
+              {dedupedLegs.map((leg, index) => (
+                <li key={leg.id} className="rounded-lg border border-slate-700 bg-slate-950/60 p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm">{index + 1}. {leg.player} {leg.marketType} {leg.line} {leg.odds ?? ''}</p>
+                    <button type="button" className="rounded border border-rose-500/50 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</button>
+                  </div>
+                  <div className="mt-2 flex gap-1">
+                    <button type="button" className="rounded border border-slate-600 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</button>
+                    <button type="button" className="rounded border border-slate-600 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="w-full rounded-lg border border-slate-500/70 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(clipboard blocked)' : ''}</button>
+          </section>
           <SlipBuilder legs={dedupedLegs} onLegsChange={(nextLegs) => {
-            const nextIds = new Set(nextLegs.map((leg) => leg.id));
-            if (nextLegs.length === 0) { clearSlip(); return; }
-            dedupedLegs.filter((leg) => !nextIds.has(leg.id)).forEach((leg) => removeLeg(leg.id));
+            if (nextLegs.length === 0) {
+              clearSlip();
+              return;
+            }
+            setSlip(nextLegs);
           }} />
-          <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze slip in Research ({dedupedLegs.length})</button>
+          <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze now ({dedupedLegs.length})</button>
         </div>
       </div>
     </section>

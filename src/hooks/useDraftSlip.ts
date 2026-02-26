@@ -19,6 +19,7 @@ export function useDraftSlip() {
     addLeg: DraftSlipStore.addLeg,
     removeLeg: DraftSlipStore.removeLeg,
     updateLeg: DraftSlipStore.updateLeg,
+    setSlip: DraftSlipStore.setSlip,
     clearSlip: DraftSlipStore.clearSlip
   };
 }

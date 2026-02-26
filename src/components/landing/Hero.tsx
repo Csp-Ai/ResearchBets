@@ -58,7 +58,7 @@ export function Hero({
               <Link href={nervous.toHref('/ingest')} className={styles.btnPrimary}>
                 Analyze slip
               </Link>
-              <Link href={appendQuery(nervous.toHref('/slip'), { from: 'board' })} className={styles.btnSecondary}>
+              <Link href={appendQuery(nervous.toHref('/slip'), { from: 'board' })} className={styles.btnPrimary}>
                 Build from Board
               </Link>
             </div>
