@@ -1,3 +1,5 @@
+import React from 'react';
+
 import type { TodayMode } from '@/src/core/today/types';
 
 type ModeBadgeProps = {

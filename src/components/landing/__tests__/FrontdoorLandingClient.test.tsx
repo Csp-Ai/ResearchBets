@@ -61,7 +61,7 @@ describe('FrontdoorLandingClient', () => {
       expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
     });
 
-    expect(screen.getAllByText('Add to slip').length).toBeGreaterThanOrEqual(6);
+    expect(screen.getAllByText('Add leg').length).toBeGreaterThanOrEqual(6);
     expect(screen.getByText('Player 1 · points 20.5')).toBeTruthy();
   });
 });

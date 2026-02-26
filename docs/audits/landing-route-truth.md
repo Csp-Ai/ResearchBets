@@ -3,26 +3,23 @@
 ## Canonical landing entry chain
 
 - `/` resolves to `app/page.tsx`.
-- `app/page.tsx` renders `app/HomeLandingClient.tsx` inside `Suspense`.
-- `app/HomeLandingClient.tsx` renders `FrontdoorLandingClient` from `src/components/landing/FrontdoorLandingClient.tsx`.
-- This frontdoor surface currently owns the "Tonight's Board" proof cards and primary betting CTAs.
+- `app/page.tsx` renders the proof-first SSR block (`BoardPreviewSSR`) first, then the interactive frontdoor (`FrontdoorLandingClient`), followed by compact BDA/credibility/trust modules.
+- `FrontdoorLandingClient` owns the interactive board + slip rail fed by `/api/today`.
 
 Related landing components present in repo:
+- `src/components/landing/BoardPreviewSSR.tsx`
 - `src/components/landing/FrontdoorLandingClient.tsx`
-- `src/components/landing/HomeLandingPage.tsx`
-- `src/components/landing/LandingPageClient.tsx`
-- `src/components/landing/TonightsBoardPreview.tsx`
-- `src/components/landing/LandingVisionClient.tsx` (if used by future route wiring)
+- `src/components/landing/LandingCompactModules.tsx`
 
-Additional marketing route chain:
-- `/landing` -> `app/landing/page.tsx` -> `app/landing/LandingMarketingClient.tsx` -> `HomeLandingPage`.
+Redirect behavior:
+- `/landing` hard redirects to `/` via `app/landing/page.tsx`.
 
 ## Scary/system-state copy inventory
 
 No exact "environment check failed" string is rendered on landing routes, but fallback/system phrasing appears in landing components:
 
-- `src/components/landing/ModeBadge.tsx`: "Live requested — fallback applied (...)"
-- `src/components/landing/LiveSnapshot.tsx`: "Live requested — fallback applied" and mode line variants.
+- `src/components/landing/ModeBadge.tsx`: demo tooltip copy.
+- `src/components/landing/LiveSnapshot.tsx`: mode line variants on legacy surfaces.
 - `src/components/landing/useLandingTelemetry.ts`: internal fallback reason `telemetry_fetch_failed`.
 
 These are the candidate sources to neutralize in later phases.

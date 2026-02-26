@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 
 import { fallbackToday } from '@/src/core/today/fallback';

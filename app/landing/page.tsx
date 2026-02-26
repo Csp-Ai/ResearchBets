@@ -1,11 +1,5 @@
-import { Suspense } from 'react';
-
-import LandingMarketingClient from './LandingMarketingClient';
+import { redirect } from 'next/navigation';
 
 export default function LandingPage() {
-  return (
-    <Suspense fallback={null}>
-      <LandingMarketingClient />
-    </Suspense>
-  );
+  redirect('/');
 }
