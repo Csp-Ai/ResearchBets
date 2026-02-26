@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getBoardData, type BoardSport } from '@/src/core/board/boardService.server';
 
+import { computeEdgeDelta, computeMarketImpliedProb, computeModelProb } from '@/src/core/markets/edgePrimitives';
 import { TODAY_LEAGUES, type TodayPayload } from './types';
 
 const TTL_MS = 120_000;
@@ -60,16 +61,28 @@ export async function getTodayPayload(options?: { forceRefresh?: boolean; demoRe
       bookContext: 'Unified board resolver',
       provenance: board.mode === 'live' ? 'provider registry' : 'deterministic demo fallback',
       lastUpdated: new Date().toISOString(),
-      propsPreview: board.scouts.filter((scout) => scout.gameId === game.gameId).map((scout, idx) => ({
-        id: `${game.gameId}:prop:${idx}`,
-        player: scout.headline.split(' points over ')[0] ?? 'Core Player',
-        market: 'points',
-        line: scout.headline.split(' points over ')[1] ?? '',
-        odds: scout.subline,
-        rationale: scout.reasons,
-        provenance: scout.sources.join(' + '),
-        lastUpdated: new Date().toISOString()
-      }))
+      propsPreview: board.scouts.filter((scout) => scout.gameId === game.gameId).map((scout, idx) => {
+        const odds = scout.subline;
+        const hitRateL10 = Math.max(47, Math.min(78, 54 + scout.reasons.length * 3 - idx));
+        const riskTag = hitRateL10 >= 60 ? 'stable' as const : 'watch' as const;
+        const marketImpliedProb = computeMarketImpliedProb({ odds });
+        const modelProb = computeModelProb({ deterministic: { idSeed: `${game.gameId}:${idx}:${scout.headline}`, hitRateL10, riskTag } });
+        return {
+          id: `${game.gameId}:prop:${idx}`,
+          player: scout.headline.split(' points over ')[0] ?? 'Core Player',
+          market: 'points',
+          line: scout.headline.split(' points over ')[1] ?? '',
+          odds,
+          hitRateL10,
+          marketImpliedProb,
+          modelProb,
+          edgeDelta: computeEdgeDelta(modelProb, marketImpliedProb),
+          riskTag,
+          rationale: scout.reasons,
+          provenance: scout.sources.join(' + '),
+          lastUpdated: new Date().toISOString()
+        };
+      })
     })),
     reason: board.reason,
     modeFallbackApplied: board.modeFallbackApplied,

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const date = requestSpine.date ?? searchParams.get('date') ?? searchParams.get('dateISO') ?? undefined;
   const headerLiveMode = request.headers.get('x-live-mode') === '1';
 
-  const withSpine = (payload: ReturnType<typeof normalizeTodayPayload>): Record<string, unknown> => {
+  const withSpine = (payload: ReturnType<typeof normalizeTodayPayload>) => {
     const spine: ContextSpine = coerceContextSpine(
       {
         sport,
@@ -43,26 +43,28 @@ export async function GET(request: Request) {
       }
     );
 
-    return { ...payload, spine };
+    return spine;
   };
 
   try {
     if (headerLiveMode && !process.env.SPORTSDATAIO_API_KEY && !process.env.THEODDS_API_KEY) {
-      return NextResponse.json(withSpine(normalizeTodayPayload({
+      const data = normalizeTodayPayload({
         ...fallbackToday({ sport, tz, date, mode: 'demo' }),
         mode: 'demo',
         reason: 'fallback_due_to_missing_keys'
-      })));
+      });
+      return NextResponse.json({ ok: true, data, degraded: true, source: 'fallback', trace_id: requestSpine.trace_id, spine: withSpine(data) });
     }
 
     const payload = await getTodayPayload({ forceRefresh, demoRequested, sport, tz, date });
-    const normalized = normalizeTodayPayload(payload);
-    return NextResponse.json(withSpine(normalized));
+    const data = normalizeTodayPayload(payload);
+    return NextResponse.json({ ok: true, data, degraded: data.mode !== 'live', source: payload.mode, trace_id: requestSpine.trace_id, spine: withSpine(data), landing: payload.landing });
   } catch {
-    return NextResponse.json(withSpine(normalizeTodayPayload({
+    const data = normalizeTodayPayload({
       ...fallbackToday({ sport, tz, date, mode: 'demo' }),
       mode: 'demo',
       reason: 'fallback_due_to_provider_unavailable'
-    })));
+    });
+    return NextResponse.json({ ok: true, data, degraded: true, source: 'fallback', error_code: 'today_provider_unavailable', trace_id: requestSpine.trace_id, spine: withSpine(data) });
   }
 }

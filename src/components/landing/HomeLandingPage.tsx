@@ -15,6 +15,7 @@ import {
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
+import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
 
 type TrackerHandle = { run: (source?: string) => void };
 const CYAN = '#00e5c8';
@@ -60,6 +61,7 @@ export function HomeLandingPage() {
       <Hero nervous={nervous} />
       <ProofStrip />
       <StatsBar />
+      <div className="px-6 md:px-10"><ThinkingTracker traceId={nervous.trace_id} mode={nervous.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} /></div>
       <LiveSnapshot
         live={live}
         onRun={() => {

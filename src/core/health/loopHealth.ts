@@ -10,12 +10,12 @@ export async function runLoopHealthCheck(spine: QuerySpine): Promise<HealthResul
 
   const todayRes = await fetch(`/api/today?sport=${encodeURIComponent(spine.sport)}&tz=${encodeURIComponent(spine.tz)}&date=${encodeURIComponent(spine.date)}&demo=1`, {
     headers: { 'x-live-mode': '0' },
-  }).then((res) => res.json()).catch(() => null) as { board?: unknown[] } | null;
+  }).then((res) => res.json()).catch(() => null) as { board?: unknown[]; data?: { board?: unknown[] } } | null;
 
   checks.push({
     name: 'today_demo_board',
-    ok: Array.isArray(todayRes?.board) && todayRes.board.length > 0,
-    detail: Array.isArray(todayRes?.board) ? `board=${todayRes.board.length}` : 'no payload'
+    ok: Array.isArray(todayRes?.data?.board ?? todayRes?.board) && (todayRes?.data?.board ?? todayRes?.board ?? []).length > 0,
+    detail: Array.isArray(todayRes?.data?.board ?? todayRes?.board) ? `board=${(todayRes?.data?.board ?? todayRes?.board ?? []).length}` : 'no payload'
   });
 
   const submitRes = await fetch('/api/slips/submit', {

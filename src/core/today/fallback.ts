@@ -1,6 +1,8 @@
 import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
+import { computeEdgeDelta, computeMarketImpliedProb, computeModelProb } from '@/src/core/markets/edgePrimitives';
 
 import type { NormalizedToday } from './normalize';
+import type { TodayMode } from './types';
 
 type SpineSeed = {
   sport?: string;
@@ -47,16 +49,28 @@ export const fallbackToday = (spine?: SpineSeed): NormalizedToday => {
     const line = `${(seed % 8) + 2}.5`;
     const hitRateL10 = 52 + (seed % 23);
     const game = games[index % games.length] || games[0] || { id: 'fallback-game', matchup: 'TBD @ TBD', startTime: 'TBD' };
+    const odds = pickOdds(seed);
+    const riskTag = hitRateL10 >= 60 ? 'stable' as const : 'watch' as const;
+    const marketImpliedProb = computeMarketImpliedProb({ odds });
+    const modelProb = computeModelProb({ deterministic: { idSeed: `${game.id}:p${index + 1}`, hitRateL10, riskTag } });
 
     return {
       id: `${game.id}-p${index + 1}`,
+      gameId: game.id,
       player,
       market: asMarketType(market, 'points'),
       line,
-      odds: pickOdds(seed),
+      odds,
+      startTime: game.startTime,
+      matchup: game.matchup,
       hitRateL10,
-      riskTag: hitRateL10 >= 60 ? 'stable' as const : 'watch' as const,
-      gameId: game.id
+      marketImpliedProb,
+      modelProb,
+      edgeDelta: computeEdgeDelta(modelProb, marketImpliedProb),
+      riskTag,
+      source: 'deterministic_fallback',
+      degraded: true,
+      mode: (spine?.mode === 'live' ? 'live' : 'demo') as TodayMode
     };
   });
 
