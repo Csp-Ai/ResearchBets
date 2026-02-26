@@ -1,7 +1,7 @@
 'use client';
 
-import { HomeLandingPage } from '@/src/components/landing/HomeLandingPage';
+import { FrontdoorLandingClient } from '@/src/components/landing/FrontdoorLandingClient';
 
 export default function HomeLandingClient() {
-  return <HomeLandingPage />;
+  return <FrontdoorLandingClient />;
 }
