@@ -25,7 +25,7 @@ import styles from './landing.module.css';
 export function LandingPageClient() {
   const searchParams = useSearchParams();
   const mode = getModeFromSearchParams(searchParams);
-  const { summary, today, loading, freshnessMinutes } = useLandingTelemetry(mode);
+  const { summary, today, loading, freshnessMinutes, providerHealth } = useLandingTelemetry(mode);
   const [runToken, setRunToken] = useState(0);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [activePhase, setActivePhase] = useState<LandingPhase>('before');
@@ -102,6 +102,7 @@ export function LandingPageClient() {
         loading={loading}
         onRunFromSnapshot={onRunFromSnapshot}
         freshnessMinutes={freshnessMinutes}
+        providerHealth={providerHealth}
       />
 
       <section className={styles.proofStack}>
@@ -126,7 +127,7 @@ export function LandingPageClient() {
 
         {activePhase === 'during' ? (
           <div className={styles.phaseStack}>
-            <LiveSnapshot mode={mode} snapshot={today ?? null} loading={loading} onRun={onRunFromSnapshot} />
+            <LiveSnapshot mode={mode} snapshot={today ?? null} loading={loading} onRun={onRunFromSnapshot} providerHealth={providerHealth} />
             <OddsMovement
               mode={effectiveMode}
               reason={reasonLabel}

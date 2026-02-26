@@ -2,43 +2,22 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-export type NervousSystemSpine = {
-  mode: 'live' | 'demo';
-  sport: string;
-  tz: string;
-  date: string;
-  selectedGameId?: string;
-  selectedPropId?: string;
-  slipId?: string;
-  traceId?: string;
-};
+import { toHref as buildHref } from '@/src/core/nervous/routes';
+import { DEFAULT_SPINE, parseSpineFromSearch, type QuerySpine } from '@/src/core/nervous/spine';
 
-type Ctx = NervousSystemSpine & {
-  toHref: (path: string, overrides?: Partial<NervousSystemSpine>) => string;
+type Ctx = QuerySpine & {
+  toHref: (path: string, overrides?: Partial<QuerySpine> & Record<string, string | number | undefined>) => string;
 };
 
 const NervousSystemContext = createContext<Ctx | null>(null);
 
-const readFromSearch = (): NervousSystemSpine => {
-  if (typeof window === 'undefined') {
-    return { mode: 'demo', sport: 'NBA', tz: 'America/Phoenix', date: new Date().toISOString().slice(0, 10) };
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  return {
-    mode: params.get('mode') === 'live' ? 'live' : 'demo',
-    sport: params.get('sport') ?? 'NBA',
-    tz: params.get('tz') ?? 'America/Phoenix',
-    date: params.get('date') ?? new Date().toISOString().slice(0, 10),
-    selectedGameId: params.get('gameId') ?? undefined,
-    selectedPropId: params.get('propId') ?? undefined,
-    slipId: params.get('slipId') ?? undefined,
-    traceId: params.get('trace') ?? params.get('traceId') ?? undefined
-  };
+const readFromSearch = (): QuerySpine => {
+  if (typeof window === 'undefined') return DEFAULT_SPINE;
+  return parseSpineFromSearch(window.location.search);
 };
 
 export function NervousSystemProvider({ children }: { children: React.ReactNode }) {
-  const [spine, setSpine] = useState<NervousSystemSpine>(() => readFromSearch());
+  const [spine, setSpine] = useState<QuerySpine>(() => readFromSearch());
 
   useEffect(() => {
     const sync = () => setSpine(readFromSearch());
@@ -51,23 +30,10 @@ export function NervousSystemProvider({ children }: { children: React.ReactNode 
     };
   }, []);
 
-  const value = useMemo<Ctx>(() => {
-    const toHref: Ctx['toHref'] = (path, overrides) => {
-      const merged = { ...spine, ...overrides };
-      const q = new URLSearchParams();
-      q.set('mode', merged.mode);
-      q.set('sport', merged.sport);
-      q.set('tz', merged.tz);
-      q.set('date', merged.date);
-      if (merged.selectedGameId) q.set('gameId', merged.selectedGameId);
-      if (merged.selectedPropId) q.set('propId', merged.selectedPropId);
-      if (merged.slipId) q.set('slipId', merged.slipId);
-      if (merged.traceId) q.set('trace', merged.traceId);
-      return `${path}${path.includes('?') ? '&' : '?'}${q.toString()}`;
-    };
-
-    return { ...spine, toHref };
-  }, [spine]);
+  const value = useMemo<Ctx>(() => ({
+    ...spine,
+    toHref: (path, overrides) => buildHref(path, spine, overrides)
+  }), [spine]);
 
   return <NervousSystemContext.Provider value={value}>{children}</NervousSystemContext.Provider>;
 }

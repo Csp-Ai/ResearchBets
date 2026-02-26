@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import type { LandingMode } from './mode';
 import { LiveSnapshot } from './LiveSnapshot';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { StatsBar } from './StatsBar';
 import styles from './landing.module.css';
 
@@ -13,7 +14,8 @@ export function Hero({
   today,
   loading,
   onRunFromSnapshot,
-  freshnessMinutes
+  freshnessMinutes,
+  providerHealth
 }: {
   mode: LandingMode;
   modeReason?: string;
@@ -27,7 +29,9 @@ export function Hero({
   loading: boolean;
   onRunFromSnapshot: () => void;
   freshnessMinutes: number;
+  providerHealth: { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: string; providerErrors?: string[] } | null;
 }) {
+  const nervous = useNervousSystem();
   const effectiveMode = today?.mode ?? (mode === 'live' ? 'live' : 'demo');
   const modeReasonLabel = modeReason ? ` · ${modeReason}` : '';
 
@@ -51,10 +55,10 @@ export function Hero({
           </p>
           <div className={styles.heroCtas}>
             <div className={styles.heroCtasRow}>
-              <Link href="/ingest" className={styles.btnPrimary}>
+              <Link href={nervous.toHref('/ingest')} className={styles.btnPrimary}>
                 Analyze my slip
               </Link>
-              <Link href="/stress-test?demo=1" className={styles.btnSecondary}>
+              <Link href={nervous.toHref('/stress-test', { tab: 'analyze' })} className={styles.btnSecondary}>
                 Run demo
               </Link>
             </div>
@@ -62,7 +66,7 @@ export function Hero({
           </div>
         </div>
         <div className={styles.heroProofColumn}>
-          <LiveSnapshot mode={mode} onRun={onRunFromSnapshot} snapshot={today} loading={loading} compact />
+          <LiveSnapshot mode={mode} onRun={onRunFromSnapshot} snapshot={today} loading={loading} compact providerHealth={providerHealth} />
           <StatsBar
             compact
             variant="landing"

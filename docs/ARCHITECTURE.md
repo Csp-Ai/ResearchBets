@@ -102,3 +102,8 @@ Current audit sources to reference (do not duplicate fully):
 - `docs/repository-systems-audit.md` — deeper architecture and schema audit notes.
 
 Key current truth from audits: audit manifests can lag route changes; treat route handlers in `app/` as source of truth when drift appears.
+
+
+### Canonical continuity spine
+- Query continuity now uses `src/core/nervous/spine.ts` and `src/core/nervous/routes.ts` for normalized keys (`sport,tz,date,mode,gameId,propId,slipId,trace_id`).
+- Navigation should use `nervous.toHref(...)` so context carries through board → slip → stress → control journeys.

@@ -10,6 +10,7 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 import { COPY_TOAST_EVENT } from './copyToast';
 import { ContextBadge } from '@/src/components/nervous/ContextBadge';
+import { ContextHeaderStrip } from '@/src/components/nervous/ContextHeaderStrip';
 import { NervousSystemProvider, useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 const BASE_NAV_ITEMS = [
@@ -94,7 +95,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
             {BASE_NAV_ITEMS.map((item) => {
               const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
               return (
-                <Link key={item.href} href={item.href} className={`rounded-md px-2.5 py-1 text-sm transition ${active ? 'border border-cyan-300/40 bg-cyan-400/20 text-cyan-100' : 'text-slate-300 hover:bg-white/10'}`}>
+                <Link key={item.href} href={nervous.toHref(item.href)} className={`rounded-md px-2.5 py-1 text-sm transition ${active ? 'border border-cyan-300/40 bg-cyan-400/20 text-cyan-100' : 'text-slate-300 hover:bg-white/10'}`}>
                   {item.label}
                 </Link>
               );
@@ -106,8 +107,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
-                <Link href="/settings" className="block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Settings</Link>
-                {developerMode ? <Link href="/dev/dashboard" className="mt-1 block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Dev dashboard</Link> : null}
+                <Link href={nervous.toHref('/settings')} className="block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Settings</Link>
+                {developerMode ? <Link href={nervous.toHref('/dev/dashboard')} className="mt-1 block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Dev dashboard</Link> : null}
                 {process.env.NODE_ENV !== 'production' ? (
                   <button
                     type="button"
@@ -122,6 +123,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      <ContextHeaderStrip />
       <div className={`grid gap-6 ${showRail ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
         <main className="min-w-0 space-y-6 pb-28 sm:pb-10">{children}</main>
         <aside className={`sticky top-20 hidden h-fit space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 ${showRail ? 'lg:block' : ''}`}>
@@ -150,7 +152,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
           {BASE_NAV_ITEMS.map((item) => {
             const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
             return (
-              <Link key={item.href} href={item.href} className={`rounded-lg px-2 py-2 text-center text-xs ${active ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>
+              <Link key={item.href} href={nervous.toHref(item.href)} className={`rounded-lg px-2 py-2 text-center text-xs ${active ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>
                 {item.label}
               </Link>
             );

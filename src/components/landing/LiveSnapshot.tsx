@@ -25,7 +25,8 @@ export function LiveSnapshot({
   onRun,
   snapshot,
   loading,
-  compact = false
+  compact = false,
+  providerHealth = null
 }: {
   mode: LandingMode;
   onRun: () => void;
@@ -38,10 +39,12 @@ export function LiveSnapshot({
   } | null;
   loading: boolean;
   compact?: boolean;
+  providerHealth?: { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: string; providerErrors?: string[] } | null;
 }) {
   const effectiveMode = snapshot?.mode ?? (mode === 'live' ? 'live' : 'demo');
-  const isDemo = effectiveMode !== 'live';
-  const label = isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on';
+  const liveRequestedFallback = mode === 'live' && providerHealth?.ok === false;
+  const isDemo = effectiveMode !== 'live' || liveRequestedFallback;
+  const label = liveRequestedFallback ? 'Live requested — fallback applied' : isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on';
   const reason = useMemo(() => getModeReasonText(snapshot?.reason), [snapshot?.reason]);
 
   const body = (
@@ -76,7 +79,7 @@ export function LiveSnapshot({
           <div className={styles.snapshotRow}>
             <span className={styles.oddsLabel}>Why?</span>
             <span className={styles.oddsValue}>
-              {isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds on'}
+              {liveRequestedFallback ? `Mode: Live requested — fallback applied (${providerHealth?.reason ?? 'provider_unavailable'})` : isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds on'}
               <span className={styles.reasonHelp} title={reason}>ⓘ</span>
             </span>
           </div>

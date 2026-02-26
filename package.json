@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint && node scripts/audit/tohref-guard.mjs && npm run audit:state",
     "typecheck": "tsc --noEmit",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -33,7 +33,8 @@
     "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs",
     "dev:mirror:index": "tsx src/scripts/index-codebase.ts",
     "verify:landing": "node scripts/verify-landing.mjs",
-    "audit:journey": "node scripts/audit-journey.mjs"
+    "audit:journey": "node scripts/audit-journey.mjs",
+    "audit:state": "node scripts/audit-repo-state.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

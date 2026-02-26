@@ -2,6 +2,7 @@
 
 import React, { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 import { runSlip } from '@/src/core/pipeline/runSlip';
 import { runOcr } from '@/src/features/ingest/ocr/ocrClient';
@@ -16,6 +17,7 @@ export default function IngestionPage() {
   const searchParams = useSearchParams();
   const prefill = useMemo(() => searchParams.get('prefill') ?? DEFAULT_SLIP, [searchParams]);
   const [slipText, setSlipText] = useState(prefill);
+  const nervous = useNervousSystem();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
@@ -30,7 +32,7 @@ export default function IngestionPage() {
     setError(null);
     try {
       const traceId = await runSlip(slipText, { coverageAgentEnabled: readCoverageAgentEnabled() });
-      router.push(`/research?trace=${encodeURIComponent(traceId)}`);
+      router.push(nervous.toHref('/research', { trace_id: traceId }));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to run analysis.');
     } finally {
