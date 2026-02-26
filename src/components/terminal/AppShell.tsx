@@ -11,14 +11,14 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { COPY_TOAST_EVENT } from './copyToast';
 
 const BASE_NAV_ITEMS = [
-  { label: 'Board', href: '/' },
+  { label: 'Board', href: '/today' },
   { label: 'Slip', href: '/slip' },
   { label: 'Stress Test', href: '/stress-test' },
   { label: 'Control Room', href: '/control' }
 ];
 
-const PRODUCT_PREFIXES = ['/', '/slip', '/stress-test', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
-const RAIL_ROUTES = ['/', '/slip', '/stress-test', '/control'];
+const PRODUCT_PREFIXES = ['/today', '/slip', '/stress-test', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
+const RAIL_ROUTES = ['/today', '/slip', '/stress-test', '/control'];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();

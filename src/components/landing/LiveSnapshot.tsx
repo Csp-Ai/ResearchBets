@@ -1,0 +1,10 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { fetchLandingSnapshot, type LandingMode, type LandingSnapshot } from '@/src/core/landing/live';
+import styles from './landing.module.css';
+
+export function LiveSnapshot({ mode, onRun }: { mode: LandingMode; onRun: () => void }) {
+  const [snapshot, setSnapshot] = useState<LandingSnapshot | null>(null);
+  useEffect(() => { fetchLandingSnapshot(mode).then(setSnapshot); }, [mode]);
+  return <section className={styles.snapshotSection}><div className={styles.snapshotInner}><div className={`${styles.snapshotToast} ${mode === 'live' ? styles.live : ''}`}><span className={styles.toastDot} />{snapshot?.statusText ?? 'Loading snapshot...'}</div><div className={styles.snapshotCard}><div className={styles.snapshotHeader}><span className={styles.stitle}>Live Snapshot</span><span className={`${styles.modeBadge} ${mode === 'live' ? styles.live : styles.demo}`}>{mode.toUpperCase()}</span></div><div className={styles.snapshotBody}><div className={styles.snapshotAsOf}>As of {new Date().toTimeString().slice(0, 8)}</div><div className={styles.providerChips}>{snapshot ? snapshot.providers.map((provider) => <span key={provider.name} className={`${styles.providerChip} ${styles[provider.status]}`}>{provider.icon} {provider.name}</span>) : <span className={styles.skeleton} style={{ width: 120, height: 22 }} />}</div><div className={styles.snapshotDivider} /><div className={styles.snapshotRow}><span className={styles.gameName}>{snapshot?.featuredGame.matchup ?? '—'} <span className={styles.gameLeague}>{snapshot?.featuredGame.league ?? ''}</span></span><span className={styles.gameTime}>{snapshot?.featuredGame.time ?? ''}</span></div><div className={styles.snapshotRow}><span className={styles.oddsLabel}>Odds headline</span><span className={styles.oddsValue}>{snapshot?.oddsHeadline ?? '—'}</span></div></div><div className={styles.snapshotFooter}><button type="button" className={styles.snapshotCta} onClick={onRun}><span>Run pipeline on this game</span><span>→</span></button></div></div></div></section>;
+}

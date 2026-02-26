@@ -4,7 +4,7 @@
 
 ## Lifecycle OS (canonical flow)
 
-1. **Board** (`/`) — scan today's slate, shortlist prop ideas, and queue legs.
+1. **Landing** (`/`) — marketing + live/demo landing experience.
 2. **Slip** (`/slip`) — build a draft slip and see live fragility/correlation intelligence.
 3. **Stress Test** (`/stress-test`) — run deterministic extraction + risk analysis before placing.
 4. **Control** (`/control`) — monitor live risk and run review mode for settled slips.
@@ -91,7 +91,8 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
+| `/` | Marketing landing with demo/live switch (`?live=1`) and animated intelligence previews. |
+| `/today` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
 | `/slip` | Draft slip builder with `useDraftSlip`, `DraftSlipStore`, and `SlipIntelBar`. |
 | `/stress-test` | Suspense-wrapped stress-test workspace using `ResearchPageContent`. |
 | `/control` | Control Room with live monitoring and review/postmortem tabs. |
