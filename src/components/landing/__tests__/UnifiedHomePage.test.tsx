@@ -10,11 +10,13 @@ vi.mock('@/src/components/landing/FrontdoorLandingClient', () => ({
 }));
 
 describe('Unified home landing', () => {
-  it('renders SSR proof and below-fold BDA module on /', () => {
+  it('renders SSR terminal board and below-fold modules on /', () => {
     render(<HomePage searchParams={{ mode: 'demo' }} />);
 
-    expect(screen.getByLabelText('board-preview-ssr')).toBeTruthy();
+    expect(screen.getByText("Tonight's Board")).toBeTruthy();
+    expect(screen.getByText('DEMO')).toBeTruthy();
+    expect(screen.getByText('Slip rail')).toBeTruthy();
+    expect(screen.getByLabelText('landing-how-it-works')).toBeTruthy();
     expect(screen.getByLabelText('bda-strip')).toBeTruthy();
-    expect(screen.getByText('Before · During · After')).toBeTruthy();
   });
 });
