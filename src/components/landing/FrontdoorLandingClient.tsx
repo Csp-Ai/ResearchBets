@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
@@ -108,9 +108,56 @@ export function FrontdoorLandingClient() {
   }, [nervous.date, nervous.mode, nervous.sport, nervous.tz, nervous.trace_id]);
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
+  const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
   const activeTraceId = traceId ?? nervous.trace_id;
-  const spineHref = (path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) });
+  const spineHref = useCallback(
+    (path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }),
+    [activeTraceId, nervous]
+  );
   const board = today.board.slice(0, 6) as BoardProp[];
+  const compactBoard = useMemo(() => {
+    const grouped = new Map<string, BoardProp[]>();
+    board.forEach((prop) => {
+      grouped.set(prop.gameId, [...(grouped.get(prop.gameId) ?? []), prop]);
+    });
+    return Array.from(grouped.entries())
+      .slice(0, 6)
+      .map(([gameId, props]) => ({ gameId, props: props.slice(0, 3), game: gameById.get(gameId) }));
+  }, [board, gameById]);
+
+  const toggleLeg = useCallback(
+    (prop: BoardProp, matchup?: string) => {
+      if (slipIds.has(prop.id)) {
+        removeLeg(prop.id);
+        return;
+      }
+      addLeg({
+        id: prop.id,
+        player: prop.player,
+        marketType: toSlipMarketType(prop.market),
+        line: prop.line,
+        odds: prop.odds,
+        game: matchup
+      });
+    },
+    [addLeg, removeLeg, slipIds]
+  );
+
+  const addSampleSlip = useCallback(() => {
+    const sample = (board.length > 0 ? board : FALLBACK_TODAY.board).slice(0, 3);
+    sample.forEach((prop) => {
+      if (slipIds.has(prop.id)) return;
+      const game = gameById.get(prop.gameId) ?? FALLBACK_TODAY.games.find((item) => item.id === prop.gameId);
+      addLeg({
+        id: prop.id,
+        player: prop.player,
+        marketType: toSlipMarketType(prop.market),
+        line: prop.line,
+        odds: prop.odds,
+        game: game?.matchup
+      });
+    });
+  }, [addLeg, board, gameById, slipIds]);
 
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6" aria-label="frontdoor-terminal">
@@ -142,45 +189,43 @@ export function FrontdoorLandingClient() {
                     <div className="h-8 rounded bg-white/10" />
                   </div>
                 ))
-              : board.map((prop) => {
-                  const game = today.games.find((item) => item.id === prop.gameId);
-                  const inSlip = slipIds.has(prop.id);
+              : compactBoard.map(({ gameId, props, game }) => {
                   return (
-                    <article key={prop.id} className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
-                      <Link href={spineHref('/slip', { gameId: prop.gameId })} className="block">
+                    <article
+                      key={gameId}
+                      className={`rounded-xl border bg-slate-950/70 p-4 transition focus-within:ring-2 focus-within:ring-cyan-300/70 hover:border-cyan-300/40 ${props.some((prop) => slipIds.has(prop.id)) ? 'border-cyan-400/60 shadow-[0_0_20px_rgba(34,211,238,0.08)]' : 'border-white/10'}`}
+                    >
+                      <Link href={spineHref('/slip', { gameId })} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">
                         <p className="text-sm font-medium">{game?.matchup ?? 'Featured matchup'}</p>
                         <p className="text-xs text-slate-400">{game?.startTime ?? 'Tonight'}</p>
                       </Link>
-                      <div className="mt-3 space-y-1 text-sm">
-                        <p className="font-medium">{prop.player} · {prop.market} {prop.line}</p>
-                        <p className="text-slate-300">Odds {prop.odds} · L10 {prop.hitRateL10 ?? 58}% · {prop.riskTag ?? 'watch'}</p>
+                      <div className="mt-3 grid gap-2">
+                        {props.map((prop) => {
+                          const inSlip = slipIds.has(prop.id);
+                          return (
+                            <div key={prop.id} className="grid min-h-10 grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border border-white/10 px-2 py-1.5 text-xs">
+                              <span className="truncate font-medium" title={prop.player}>{prop.player}</span>
+                              <span className="truncate text-slate-300">{prop.market} {prop.line}</span>
+                              <span className="rounded-full border border-cyan-300/30 px-2 py-0.5 text-[11px] text-cyan-100">L10 {prop.hitRateL10 ?? 58}%</span>
+                              <span className="text-slate-300">{prop.odds}</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleLeg(prop, game?.matchup)}
+                                aria-label={`${inSlip ? 'Remove' : 'Add'} ${prop.player} ${prop.market} ${prop.line} ${inSlip ? 'from' : 'to'} slip`}
+                                className="col-span-full rounded-md border border-white/20 px-2 py-1.5 text-left text-[11px] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                              >
+                                {inSlip ? 'Remove leg' : 'Add leg'}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (inSlip) {
-                              removeLeg(prop.id);
-                              return;
-                            }
-                            addLeg({
-                              id: prop.id,
-                              player: prop.player,
-                              marketType: toSlipMarketType(prop.market),
-                              line: prop.line,
-                              odds: prop.odds,
-                              game: game?.matchup
-                            });
-                          }}
-                          className="rounded-md border border-white/20 px-3 py-2 text-xs hover:bg-white/10"
-                        >
-                          {inSlip ? 'Remove leg' : 'Add leg'}
-                        </button>
                         <Link
-                          href={appendQuery(spineHref('/game/' + prop.gameId, { gameId: prop.gameId, propId: prop.id }), {
+                          href={appendQuery(spineHref('/game/' + gameId, { gameId }), {
                             focus: 'research'
                           })}
-                          className="rounded-md border border-cyan-400/60 px-3 py-2 text-xs text-cyan-100 hover:bg-cyan-500/10"
+                          className="rounded-md border border-cyan-400/60 px-3 py-2 text-xs text-cyan-100 transition hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
                         >
                           Open game
                         </Link>
@@ -194,7 +239,17 @@ export function FrontdoorLandingClient() {
         <aside className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
           <h3 className="text-sm font-semibold">Slip rail</h3>
           {slip.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-400">No legs yet. Add 2–3 legs from the board to run a quick stress test.</p>
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-slate-400">No legs yet. Add 2–3 legs from the board to run a quick stress test.</p>
+              <button
+                type="button"
+                onClick={addSampleSlip}
+                className="text-xs text-cyan-200 underline decoration-cyan-400/50 underline-offset-2 transition hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                aria-label="Try sample slip"
+              >
+                Try sample slip
+              </button>
+            </div>
           ) : (
             <ul className="mt-2 space-y-2 text-xs text-slate-200">
               {slip.map((leg) => (
@@ -210,10 +265,11 @@ export function FrontdoorLandingClient() {
           </div>
           <Link
             href={appendQuery(spineHref('/stress-test'), { source: 'frontdoor' })}
-            className={`mt-4 block rounded-md px-3 py-2 text-center text-sm font-semibold transition ${slip.length > 0 ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'cursor-not-allowed border border-white/15 text-slate-500'}`}
+            className={`mt-4 block rounded-md px-3 py-2 text-center text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 ${slip.length > 0 ? 'border border-cyan-300/60 bg-cyan-400 text-slate-950 shadow-[0_0_16px_rgba(34,211,238,0.35)] hover:bg-cyan-300' : 'cursor-not-allowed border border-white/15 text-slate-500'}`}
             aria-disabled={slip.length === 0}
+            aria-label={slip.length > 0 ? 'Stress test this slip' : 'Start by adding legs'}
           >
-            Stress test this slip →
+            {slip.length > 0 ? 'Stress test this slip →' : 'Start by adding legs →'}
           </Link>
         </aside>
       </div>

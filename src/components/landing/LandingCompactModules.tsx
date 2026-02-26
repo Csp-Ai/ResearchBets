@@ -9,38 +9,37 @@ type CompactModulesProps = {
   spine: QuerySpine;
 };
 
+const trustLine = 'Deterministic demo slate when live feeds are off.';
+
 export function BDAStrip({ spine }: CompactModulesProps) {
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-4" aria-label="bda-strip">
-      <h2 className="text-sm font-semibold">Before · During · After</h2>
-      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-        <Link href={toHref('/today', spine)} className="rounded-md border border-white/10 px-3 py-2 hover:bg-white/5">Before: Browse props</Link>
-        <Link href={toHref('/stress-test', spine)} className="rounded-md border border-white/10 px-3 py-2 hover:bg-white/5">During: Stress test</Link>
-        <Link href={appendQuery(toHref('/control', spine), { tab: 'live' })} className="rounded-md border border-white/10 px-3 py-2 hover:bg-white/5">After: Control room</Link>
-      </div>
+      <h2 className="text-sm font-semibold">Run your edge before, during, and after lock.</h2>
+      <p className="mt-1 text-sm text-slate-300">Move from board scan to stress test to post-slip review in one workflow.</p>
+      <p className="mt-1 text-xs text-slate-400">{trustLine}</p>
+      <Link href={toHref('/today', spine)} className="mt-3 inline-block rounded-md border border-white/10 px-3 py-2 text-sm transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">Open today&apos;s board</Link>
     </section>
   );
 }
 
-export function Credibility30s() {
+export function Credibility30s({ spine }: CompactModulesProps) {
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-4" aria-label="credibility-30s">
-      <h2 className="text-sm font-semibold">What you see in 30 seconds</h2>
-      <ul className="mt-2 space-y-1 text-sm text-slate-300">
-        <li>• Weakest leg surfaced first</li>
-        <li>• Correlation watch across your legs</li>
-        <li>• Injury flags folded into risk context</li>
-        <li>• Line movement snapshots when available</li>
-      </ul>
+      <h2 className="text-sm font-semibold">See fragility in under 30 seconds.</h2>
+      <p className="mt-1 text-sm text-slate-300">We surface weakest-leg risk, correlation pressure, and confidence context fast.</p>
+      <p className="mt-1 text-xs text-slate-400">{trustLine}</p>
+      <Link href={toHref('/stress-test', spine)} className="mt-3 inline-block rounded-md border border-white/10 px-3 py-2 text-sm transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">Stress test a slip</Link>
     </section>
   );
 }
 
-export function TrustNote() {
+export function TrustNote({ spine }: CompactModulesProps) {
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-4" aria-label="trust-note">
-      <p className="text-sm font-semibold">No picks. Just context.</p>
-      <p className="mt-1 text-xs text-slate-400">ResearchBets is for analysis support only. Bet responsibly and within your limits.</p>
+      <h2 className="text-sm font-semibold">No picks. Clear decision context.</h2>
+      <p className="mt-1 text-sm text-slate-300">ResearchBets helps you challenge assumptions before stake hits your bankroll.</p>
+      <p className="mt-1 text-xs text-slate-400">{trustLine}</p>
+      <Link href={appendQuery(toHref('/control', spine), { tab: 'live' })} className="mt-3 inline-block rounded-md border border-white/10 px-3 py-2 text-sm transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70">Open control room</Link>
     </section>
   );
 }
