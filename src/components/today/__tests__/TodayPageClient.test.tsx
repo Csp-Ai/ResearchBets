@@ -77,11 +77,11 @@ describe('TodayPageClient', () => {
   it('sorts rows by L10 when selected', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
 
-    const sort = screen.getAllByTestId('sort-select')[0];
+    const sort = screen.getAllByTestId('sort-select')[0]!;
     fireEvent.change(sort, { target: { value: 'l10' } });
 
     const playerCells = screen.getAllByText(/Luka Doncic|LeBron James/);
-    expect(playerCells[0].textContent).toContain('Luka Doncic');
+    expect(playerCells[0]!.textContent).toContain('Luka Doncic');
   });
 
   it('renders fallback edge values without NaN', () => {
@@ -89,10 +89,10 @@ describe('TodayPageClient', () => {
       ...payload,
       games: [
         {
-          ...payload.games[0],
+          ...payload.games[0]!,
           propsPreview: [
             {
-              ...payload.games[0].propsPreview[0],
+              ...payload.games[0]!.propsPreview[0]!,
               id: 'scout-no-edge',
               edgeDelta: undefined,
               marketImpliedProb: undefined,

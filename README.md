@@ -277,3 +277,11 @@ Use these exact variable names for live feeds:
 4. Open `/history` and run settle on a recent upload.
 5. Continue to `/today` for next-slate ideas.
 6. Use `/stress-test` for deterministic weakest-leg analysis before placing.
+
+## v1.0 substrate hardening additions
+
+- Canonical runtime environment flags now live in `src/core/env/runtime.server.ts` with client-safe derivations in `src/core/env/runtime.shared.ts`.
+- Canonical Zod envelopes for trace/today/slips/events/governor live in `src/core/contracts/envelopes.ts`.
+- Trace continuity is enforced through `src/core/trace/getTraceContext.server.ts`; target APIs now always include `trace_id`.
+- Governor agent endpoint: `/api/governor/report`.
+- Dev-only governor surface: `/dev/governor`.

@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { runtimeFlags } from '@/src/core/env/runtime.server';
+
 export type RuntimeMode = 'live' | 'demo';
 
 export type ModeReason =
@@ -17,16 +19,8 @@ export type ResolvedMode = {
   isProduction: boolean;
 };
 
-const LIVE_KEY_NAMES = ['THEODDSAPI_KEY', 'ODDS_API_KEY', 'SPORTSDATA_API_KEY'] as const;
-
-const hasAnyLiveKey = () => LIVE_KEY_NAMES.some((key) => Boolean(process.env[key]));
-
-const readLiveModeEnv = () => {
-  const raw = (process.env.LIVE_MODE ?? '').toLowerCase();
-  if (raw === 'true') return true;
-  if (raw === 'false') return false;
-  return isProductionRuntime() ? hasAnyLiveKey() : false;
-};
+const hasAnyLiveKey = () => runtimeFlags.providersConfigured;
+const readLiveModeEnv = () => runtimeFlags.liveModeEnabled;
 
 const isProductionRuntime = () => {
   const vercelEnv = process.env.VERCEL_ENV;
@@ -41,43 +35,16 @@ export function resolveRuntimeMode(options?: { demoRequested?: boolean; provider
   const liveEligible = liveModeEnabled && hasAnyLiveKey();
 
   if (demoRequested) {
-    return {
-      mode: 'demo',
-      reason: 'demo_requested',
-      publicLabel: 'Demo mode (live feeds off)',
-      dataFreshnessLabel: 'Demo dataset',
-      isProduction: production
-    };
+    return { mode: 'demo', reason: 'demo_requested', publicLabel: 'Demo mode (live feeds off)', dataFreshnessLabel: 'Demo dataset', isProduction: production };
   }
-
   if (!liveModeEnabled) {
-    return {
-      mode: 'demo',
-      reason: 'live_mode_disabled',
-      publicLabel: 'Demo mode (live feeds off)',
-      dataFreshnessLabel: 'Demo dataset',
-      isProduction: production
-    };
+    return { mode: 'demo', reason: 'live_mode_disabled', publicLabel: 'Demo mode (live feeds off)', dataFreshnessLabel: 'Demo dataset', isProduction: production };
   }
-
   if (!hasAnyLiveKey()) {
-    return {
-      mode: 'demo',
-      reason: 'missing_keys',
-      publicLabel: 'Demo mode (live feeds off)',
-      dataFreshnessLabel: 'Demo dataset',
-      isProduction: production
-    };
+    return { mode: 'demo', reason: 'missing_keys', publicLabel: 'Demo mode (live feeds off)', dataFreshnessLabel: 'Demo dataset', isProduction: production };
   }
-
   if (providerFailed) {
-    return {
-      mode: 'demo',
-      reason: 'provider_unavailable',
-      publicLabel: 'Demo mode (live feeds off)',
-      dataFreshnessLabel: 'Demo dataset',
-      isProduction: production
-    };
+    return { mode: 'demo', reason: 'provider_unavailable', publicLabel: 'Demo mode (live feeds off)', dataFreshnessLabel: 'Demo dataset', isProduction: production };
   }
 
   return {
@@ -85,7 +52,7 @@ export function resolveRuntimeMode(options?: { demoRequested?: boolean; provider
     reason: liveEligible ? 'live_ok' : 'missing_keys',
     publicLabel: liveEligible ? 'Live feeds on' : 'Demo mode (live feeds off)',
     dataFreshnessLabel: liveEligible ? 'Live updates' : 'Demo dataset',
-    isProduction: production
+    isProduction: production,
   };
 }
 
@@ -93,6 +60,6 @@ export function getLiveKeyStatus() {
   return {
     requiredKeysPresent: hasAnyLiveKey(),
     liveModeEnabled: readLiveModeEnv(),
-    isProduction: isProductionRuntime()
+    isProduction: isProductionRuntime(),
   };
 }
