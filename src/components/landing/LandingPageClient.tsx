@@ -108,19 +108,19 @@ export function LandingPageClient() {
         </Link>
       </nav>
 
-      {/* ── Hero ── */}
-      <Hero
-        mode={mode}
-        modeReason={reasonLabel}
-        today={today ?? null}
-        loading={loading}
-        onRunFromSnapshot={onRunFromSnapshot}
-        freshnessMinutes={freshnessMinutes}
-        providerHealth={providerHealth}
-      />
+      <section className={styles.heroBoardSplit}>
+        <Hero
+          mode={mode}
+          modeReason={reasonLabel}
+          today={today ?? null}
+          loading={loading}
+          onRunFromSnapshot={onRunFromSnapshot}
+          freshnessMinutes={freshnessMinutes}
+          providerHealth={providerHealth}
+        />
 
-      {/* ── Tonight's Board — primary proof artifact, always visible ── */}
-      <TonightsBoardPreview />
+        <TonightsBoardPreview />
+      </section>
 
       {/* ── Lifecycle tabs + phase-specific content ── */}
       <section className={styles.proofStack}>

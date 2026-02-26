@@ -30,6 +30,7 @@ import { ShareReply } from '@/src/components/bettor/ShareReply';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { appendQuery } from '@/src/components/landing/navigation';
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)
@@ -141,7 +142,7 @@ export default function ResearchPageContent() {
       setRawSlip(prefillFromQuery);
       void runSlip(prefillFromQuery, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
         await refreshRecent();
-        router.replace(`${nervous.toHref('/stress-test', { traceId })}&tab=analyze`);
+        router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
       });
       return;
     }
@@ -153,9 +154,9 @@ export default function ResearchPageContent() {
     setRawSlip(stored);
     void runSlip(stored, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
       await refreshRecent();
-      router.replace(`${nervous.toHref('/stress-test', { traceId })}&tab=analyze`);
+      router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
     });
-  }, [prefillFromQuery, prefillKeyFromQuery, refreshRecent, router]);
+  }, [prefillFromQuery, prefillKeyFromQuery, refreshRecent, router, nervous]);
 
 
   useEffect(() => {
@@ -196,12 +197,12 @@ export default function ResearchPageContent() {
     return sortedLegs.find((leg) => leg.id === currentRun.analysis.weakestLegId) ?? sortedLegs[0] ?? null;
   }, [sortedLegs, currentRun]);
 
-  const submitPaste = async () => {
+  const submitPaste = useCallback(async () => {
     const traceId = await runSlip(rawSlip, { coverageAgentEnabled: readCoverageAgentEnabled() });
     setPasteOpen(false);
     await refreshRecent();
-    router.push(`/stress-test?trace=${encodeURIComponent(traceId)}`);
-  };
+    router.push(appendQuery(nervous.toHref('/stress-test'), { trace: traceId }));
+  }, [rawSlip, refreshRecent, router, nervous]);
 
 
   const runDto = useMemo(() => {
@@ -234,7 +235,7 @@ export default function ResearchPageContent() {
         <p className="mt-1 text-sm text-slate-300">Run full slip stress tests, inspect weakest-leg risk drivers, and decide before placing.</p>
         <div className="mt-4 flex gap-2 rounded-xl bg-slate-950/60 p-1 w-fit">
           {tabs.map((candidate) => (
-            <button key={candidate} type="button" onClick={() => router.push(`${nervous.toHref('/stress-test')}&tab=${candidate}`)} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
+            <button key={candidate} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { tab: candidate }))} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
           ))}
         </div>
       </motion.header>
@@ -253,7 +254,7 @@ export default function ResearchPageContent() {
           <div className="flex flex-wrap gap-2">
             {prefillKeyFromQuery ? <Chip tone="strong">Draft from Scout</Chip> : null}
             <Button intent="primary" onClick={() => setPasteOpen(true)}>Paste slip</Button>
-            <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm" onClick={() => router.push(`${nervous.toHref('/ingest')}&prefill=${encodeURIComponent(DEMO_SLIP)}`)}>Try an example</button>
+            <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm" onClick={() => router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))}>Try an example</button>
           </div>
           {currentRun ? <ShareReply run={currentRun} /> : null}
         </motion.div>
@@ -297,7 +298,7 @@ export default function ResearchPageContent() {
         </motion.div>
       ) : null}
 
-      <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(`${nervous.toHref('/stress-test')}&trace=${encodeURIComponent(recentTraceId)}`)} />
+      <RecentActivityPanel runs={recentRuns} onOpen={(recentTraceId) => router.push(appendQuery(nervous.toHref('/stress-test'), { trace: recentTraceId }))} />
       <HowItWorksMini />
 
       <AdvancedDrawer developerMode={developerMode}>
