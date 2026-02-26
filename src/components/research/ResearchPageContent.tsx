@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { computeLegRisk, computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
+import { computeLegRisk, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchReport } from '@/src/core/evidence/evidenceSchema';
@@ -42,6 +42,37 @@ LeBron James over 6.5 rebounds (-105)`;
 const toRecentStatus = (run: Run): RecentRun['status'] => (run.status === 'complete' ? 'complete' : 'running');
 const tabs = ['analyze', 'scout', 'live'] as const;
 
+const toDeterministicDemoRun = ({
+  sport,
+  tz,
+  date,
+  mode,
+  stressTestHref,
+  ingestHref,
+  boardHref
+}: {
+  sport: string;
+  tz: string;
+  date: string;
+  mode: string;
+  stressTestHref: string;
+  ingestHref: string;
+  boardHref: string;
+}): RecentRunDemo => {
+  const deterministicLegs = DEMO_SLIP.split('\n').filter(Boolean);
+  return {
+    traceId: 'demo-trace',
+    steps: ['Scout', 'Risk', 'Notes'],
+    weakestLeg: deterministicLegs[2] ?? deterministicLegs[0] ?? 'LeBron James over 6.5 rebounds (-105)',
+    generatedAt: new Date().toISOString(),
+    ctas: [
+      { label: 'Run stress test', href: appendQuery(stressTestHref, { sport, tz, date, mode }) },
+      { label: 'Use sample slip', href: appendQuery(ingestHref, { sport, tz, date, mode, prefill: DEMO_SLIP }) },
+      { label: 'Open Board', href: appendQuery(boardHref, { sport, tz, date, mode }) }
+    ]
+  };
+};
+
 type HubTab = typeof tabs[number];
 
 const toAnalyzeLeg = (run: Run): AnalyzeLeg[] => run.extractedLegs.map((leg) => {
@@ -75,10 +106,19 @@ export default function ResearchPageContent() {
   const [developerMode, setDeveloperMode] = useState(false);
   const [currentRun, setCurrentRun] = useState<Run | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
-  const [demoRecentRun, setDemoRecentRun] = useState<RecentRunDemo | null>(null);
+  const [demoRecentRun, setDemoRecentRun] = useState<RecentRunDemo | null>(() => toDeterministicDemoRun({
+    sport: nervous.sport,
+    tz: nervous.tz,
+    date: nervous.date,
+    mode: nervous.mode,
+    stressTestHref: nervous.toHref('/stress-test'),
+    ingestHref: nervous.toHref('/ingest'),
+    boardHref: nervous.toHref('/today')
+  }));
   const [data, setData] = useState<BettorDataEnvelope | null>(null);
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'done' | 'error'>('idle');
+  const [copySlipStatus, setCopySlipStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const { slip } = useDraftSlip();
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
@@ -117,6 +157,16 @@ export default function ResearchPageContent() {
       return;
     }
 
+    setDemoRecentRun(toDeterministicDemoRun({
+      sport: nervous.sport,
+      tz: nervous.tz,
+      date: nervous.date,
+      mode: nervous.mode,
+      stressTestHref: nervous.toHref('/stress-test'),
+      ingestHref: nervous.toHref('/ingest'),
+      boardHref: nervous.toHref('/today')
+    }));
+
     let active = true;
     fetch(`/api/research/demo-run?${new URLSearchParams({ sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }).toString()}`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
@@ -126,18 +176,15 @@ export default function ResearchPageContent() {
       })
       .catch(() => {
         if (!active) return;
-        const query = { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode };
-        setDemoRecentRun({
-          traceId: 'demo-trace',
-          steps: ['Scout', 'Risk', 'Notes'],
-          weakestLeg: "Tonight's board signal",
-          generatedAt: new Date().toISOString(),
-          ctas: [
-            { label: 'Run stress test', href: appendQuery(nervous.toHref('/stress-test'), query) },
-            { label: 'Use sample slip', href: appendQuery(nervous.toHref('/ingest'), { ...query, prefill: DEMO_SLIP }) },
-            { label: 'Open Board', href: appendQuery(nervous.toHref('/today'), query) }
-          ]
-        });
+        setDemoRecentRun(toDeterministicDemoRun({
+          sport: nervous.sport,
+          tz: nervous.tz,
+          date: nervous.date,
+          mode: nervous.mode,
+          stressTestHref: nervous.toHref('/stress-test'),
+          ingestHref: nervous.toHref('/ingest'),
+          boardHref: nervous.toHref('/today')
+        }));
       });
 
     return () => {
@@ -226,18 +273,6 @@ export default function ResearchPageContent() {
     return validateResearchRunDTO(merged) ? merged : null;
   }, [currentRun, snapshotReport]);
 
-  const removeWeakest = async () => {
-    if (!currentRun?.analysis.weakestLegId) return;
-    const enrichedLegs = currentRun.enrichedLegs.filter((leg) => leg.extractedLegId !== currentRun.analysis.weakestLegId).map((leg) => {
-      const risk = computeLegRisk(leg);
-      return { ...leg, riskScore: risk.riskScore, riskBand: risk.riskBand, riskFactors: risk.factors };
-    });
-    const analysis = computeVerdict(enrichedLegs, currentRun.extractedLegs.filter((leg) => leg.id !== currentRun.analysis.weakestLegId), currentRun.sources, currentRun.trustedContext?.coverage.injuries ?? 'fallback');
-    const next: Run = { ...currentRun, enrichedLegs, extractedLegs: currentRun.extractedLegs.filter((leg) => leg.id !== currentRun.analysis.weakestLegId), analysis, status: 'complete', updatedAt: new Date().toISOString() };
-    await runStore.updateRun(next.traceId, next);
-    setCurrentRun(next);
-  };
-
   const intelLegs = useMemo(() => (runDto?.legs?.length
     ? runDto.legs.map((leg) => ({ id: leg.id, player: leg.player, selection: leg.selection, market: leg.market, line: leg.line, odds: leg.odds, team: leg.team }))
     : slip), [runDto, slip]);
@@ -248,13 +283,16 @@ export default function ResearchPageContent() {
   const copyReasons = useCallback(async () => {
     const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
     const weakestReasons = weakestLeg?.riskFactors?.slice(0, 2) ?? [];
-    const bullets = [...reasons, ...weakestReasons].filter(Boolean).slice(0, 4).map((entry) => `• ${entry}`);
-    if (bullets.length === 0 || typeof navigator === 'undefined' || !navigator.clipboard) {
+    const bullets = [...reasons, ...weakestReasons].filter(Boolean).slice(0, 4);
+    const weakestLine = weakestLeg?.selection ? `Weakest leg: ${weakestLeg.selection}` : '';
+    const uncertaintyLine = currentRun?.analysis.dataQuality?.confidenceCapReason ? `Uncertainty: ${currentRun.analysis.dataQuality.confidenceCapReason}` : '';
+    const payload = [weakestLine, ...bullets.map((entry) => `- ${entry}`), uncertaintyLine].filter(Boolean).join('\n');
+    if (!payload || typeof navigator === 'undefined' || !navigator.clipboard) {
       setCopyStatus('error');
       return;
     }
     try {
-      await navigator.clipboard.writeText(bullets.join('\n'));
+      await navigator.clipboard.writeText(payload);
       setCopyStatus('done');
       window.setTimeout(() => setCopyStatus('idle'), 1200);
     } catch {
@@ -262,13 +300,29 @@ export default function ResearchPageContent() {
     }
   }, [runDto, currentRun, weakestLeg]);
 
+  const copySlip = useCallback(async () => {
+    const legsToCopy = (runDto?.legs.map((leg) => leg.selection) ?? legs.map((leg) => leg.selection)).filter(Boolean);
+    const payload = legsToCopy.map((leg, index) => `${index + 1}. ${leg}`).join('\n');
+    if (!payload || typeof navigator === 'undefined' || !navigator.clipboard) {
+      setCopySlipStatus('error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopySlipStatus('done');
+      window.setTimeout(() => setCopySlipStatus('idle'), 1200);
+    } catch {
+      setCopySlipStatus('error');
+    }
+  }, [legs, runDto]);
+
   return (
     <section className="mx-auto max-w-6xl space-y-4">
       <header className="bettor-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold">Stress Test</h1>
-            <p className="mt-1 text-sm text-slate-300">Run full slip stress tests, inspect weakest-leg risk drivers, and decide before placing.</p>
+            <p className="mt-1 text-sm text-slate-300">Find the weakest leg before you place.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Back to Slip</a>
@@ -292,12 +346,15 @@ export default function ResearchPageContent() {
           currentRun={currentRun}
           prefillKeyFromQuery={prefillKeyFromQuery}
           copyStatus={copyStatus}
+          copySlipStatus={copySlipStatus}
           onPasteOpen={() => setPasteOpen(true)}
-          onRemoveWeakest={() => void removeWeakest()}
-          onRerun={() => router.push(nervous.toHref('/ingest'))}
           onTryExample={() => router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))}
           onCopyReasons={() => void copyReasons()}
+          onCopySlip={() => void copySlip()}
           slipHref={slipHref}
+          boardHref={boardHref}
+          uncertainty={currentRun?.analysis.dataQuality?.confidenceCapReason}
+          demoSlip={DEMO_SLIP}
         />
       ) : null}
 

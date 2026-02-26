@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   });
 
   const deterministicScouts = (boardData.scouts.length > 0 ? boardData.scouts : []).slice(0, 2);
-  const weakestLeg = deterministicScouts[1]?.headline ?? deterministicScouts[0]?.headline ?? 'Board signal pending';
+  const weakestLeg = deterministicScouts[1]?.headline ?? deterministicScouts[0]?.headline ?? 'LeBron James over 6.5 rebounds (-105)';
 
   return NextResponse.json({
     traceId: 'demo-trace',
