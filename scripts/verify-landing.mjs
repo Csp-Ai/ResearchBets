@@ -2,35 +2,60 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = process.cwd();
-const requiredFiles = [
-  'public/landing.html',
-  'next.config.mjs',
-];
 
-for (const file of requiredFiles) {
-  const filePath = resolve(root, file);
-  if (!existsSync(filePath)) {
-    console.error(`Missing required file: ${file}`);
-    process.exit(1);
+const fail = (message) => {
+  console.error(message);
+  process.exit(1);
+};
+
+const appPagePath = resolve(root, 'app/page.tsx');
+if (!existsSync(appPagePath)) {
+  fail('Missing required file: app/page.tsx');
+}
+
+const appPageContent = readFileSync(appPagePath, 'utf8');
+if (!appPageContent.includes('LandingPageClient')) {
+  fail('app/page.tsx must reference LandingPageClient.');
+}
+
+const nextConfigPath = resolve(root, 'next.config.mjs');
+if (!existsSync(nextConfigPath)) {
+  fail('Missing required file: next.config.mjs');
+}
+
+const hasRootToLandingRedirect = (content) => {
+  return (
+    /source\s*:\s*['"]\/(?:['"])/.test(content) &&
+    /destination\s*:\s*['"]\/landing\.html['"]/.test(content)
+  );
+};
+
+const nextConfig = readFileSync(nextConfigPath, 'utf8');
+if (hasRootToLandingRedirect(nextConfig)) {
+  fail('next.config.mjs must not redirect "/" to "/landing.html".');
+}
+
+const middlewareCandidates = ['middleware.ts', 'middleware.js'];
+for (const candidate of middlewareCandidates) {
+  const filePath = resolve(root, candidate);
+  if (!existsSync(filePath)) continue;
+  const content = readFileSync(filePath, 'utf8');
+  if (hasRootToLandingRedirect(content) || content.includes('/landing.html')) {
+    fail(`${candidate} must not redirect or rewrite "/" to "/landing.html".`);
   }
 }
 
-const nextConfig = readFileSync(resolve(root, 'next.config.mjs'), 'utf8');
-const hasRedirect =
-  /source:\s*["']\/["']/.test(nextConfig) &&
-  /destination:\s*["']\/landing\.html["']/.test(nextConfig);
-
-if (!hasRedirect) {
-  console.error('Expected redirect from "/" to "/landing.html" not found in next.config.mjs');
-  process.exit(1);
+const vercelPath = resolve(root, 'vercel.json');
+if (existsSync(vercelPath)) {
+  const vercelContent = readFileSync(vercelPath, 'utf8');
+  if (hasRootToLandingRedirect(vercelContent) || vercelContent.includes('/landing.html')) {
+    fail('vercel.json must not redirect or rewrite "/" to "/landing.html".');
+  }
 }
 
-const hasAppHome = existsSync(resolve(root, 'app/page.tsx'));
-const hasPagesHome = existsSync(resolve(root, 'pages/index.tsx')) || existsSync(resolve(root, 'pages/index.js'));
-
-if (!hasAppHome && !hasPagesHome) {
-  console.error('No home route file found (expected app/page.tsx or pages/index.*)');
-  process.exit(1);
+const landingPath = resolve(root, 'public/landing.html');
+if (existsSync(landingPath)) {
+  console.warn("Note: public/landing.html exists as legacy preview; '/' is owned by app/page.tsx.");
 }
 
-console.log('Landing integration checks passed.');
+console.log('Landing verification passed: app/page.tsx is canonical and no root redirect to /landing.html exists.');

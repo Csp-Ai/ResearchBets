@@ -8,15 +8,6 @@ const nextConfig = {
     // remotePatterns: [{ protocol: 'https', hostname: 'cdn.example.com', pathname: '/images/**' }]
   },
 
-  async redirects() {
-    return [
-      {
-        source: "/",
-        destination: "/landing.html",
-        permanent: false, // keep false while iterating
-      },
-    ];
-  },
 };
 
 export default nextConfig;
