@@ -77,6 +77,21 @@ Product contract: UI must display degraded/demo context explicitly instead of im
   - provider keys (`ODDS_API_KEY`, `SPORTSDATA_API_KEY`) as needed
 - `scripts/env-check.mjs` enforces strict checks in CI/production/live mode and relaxed checks for local demo mode.
 
+
+## Landing mode resolution
+
+- `src/core/live/modeResolver.server.ts` is the shared server-safe resolver for landing mode decisions.
+- It returns: `mode`, `reason`, `publicLabel`, and `dataFreshnessLabel`.
+- Production behavior is live-first when `LIVE_MODE=true` and at least one provider key exists.
+- If providers fail or keys are missing, APIs fall back to deterministic demo payloads with neutral copy (`Demo mode (live feeds off)`).
+
+## Journey audit artifacts
+
+- Static CTA graph: `scripts/audit-cta-graph.mjs` → `docs/CTA_GRAPH.json` + `docs/CTA_GRAPH.md`.
+- Runtime golden path replay: `tests/journey.spec.ts` (Playwright JSON reporter writes `docs/JOURNEY_REPORT.json`).
+- Markdown summary renderer: `scripts/render-journey-report.mjs` → `docs/JOURNEY_REPORT.md`.
+- Unified command: `npm run audit:journey`.
+
 ## Repo audits
 
 Current audit sources to reference (do not duplicate fully):

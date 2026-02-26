@@ -36,8 +36,9 @@ ResearchBets is deterministic-first and degrades safely.
   - `/api/today` serves deterministic slate data and can return `mode: demo` or cached payloads.
   - Live market APIs and outcome APIs use demo-first snapshots and deterministic fallbacks.
 - **Live mode:**
-  - Set `LIVE_MODE=true` and provide real provider + Supabase keys.
-  - `/api/today` attempts provider aggregation; if provider calls fail it falls back to deterministic demo payloads with a reason.
+  - Set `LIVE_MODE=true` and provide at least one live provider key (`THEODDSAPI_KEY`, `ODDS_API_KEY`, or `SPORTSDATA_API_KEY`).
+  - `src/core/live/modeResolver.server.ts` is the single resolver for `live | demo`, reason code, and public label.
+  - In production runtimes, landing routes stay live-first when keys exist; on provider failure they fall back to deterministic demo safely.
 
 ## Local development
 
@@ -148,6 +149,22 @@ Outputs include:
 5. API returns deterministic classification and intelligence-driven notes:
    - **what failed** (correlation/injury/line-value misses)
    - **what to change next** (derived in UI from returned exposure + volatility signals)
+
+
+
+## CTA and journey continuity audit
+
+Run the lightweight UX audit harness:
+
+```bash
+npm run audit:journey
+```
+
+This command runs:
+
+1. `node scripts/audit-cta-graph.mjs` → outputs `docs/CTA_GRAPH.json` + `docs/CTA_GRAPH.md`.
+2. `playwright test tests/journey.spec.ts` → writes `docs/JOURNEY_REPORT.json`.
+3. `node scripts/render-journey-report.mjs` → renders `docs/JOURNEY_REPORT.md`.
 
 ## Repo audits
 
