@@ -86,3 +86,24 @@
   .hero{padding-left:20px;padding-right:20px;padding-bottom:16px}
   .heroCopy h1{font-size:40px}
 }
+
+.lifecycleTabsSection{padding:8px 40px 12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2)}
+.lifecycleTabs{max-width:1120px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
+.lifecycleTab{font-family:var(--font-dm-mono),monospace;background:#0d1219;border:1px solid var(--border);color:var(--muted);padding:8px 14px;font-size:12px;cursor:pointer}
+.lifecycleTabActive{color:var(--cyan);border-color:rgba(0,229,200,.35);background:rgba(0,229,200,.08)}
+.phaseStack{display:grid;gap:0}
+.phaseLinkSection,.postmortemSection{padding:24px 40px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.phaseLinkCard,.postmortemCard{max-width:1040px;margin:0 auto;border:1px solid var(--border);background:var(--card);padding:18px}
+.phaseLinkCard h3,.postmortemCard h3{font-size:30px;margin:8px 0 10px}
+.phaseLinkCard p,.postmortemCard p{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+.postmortemInner{max-width:1040px;margin:0 auto}
+.postmortemHeader{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
+.previewBadge{font-family:var(--font-dm-mono),monospace;font-size:11px;padding:2px 8px;border:1px solid rgba(245,197,66,.45);color:var(--yellow)}
+.postmortemActions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.postmortemHint{font-size:11px;color:var(--muted);font-family:var(--font-dm-mono),monospace}
+.capabilityChips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.capabilityChip{font-family:var(--font-dm-mono),monospace;font-size:11px;border:1px solid var(--border);background:#0d1219;padding:5px 10px;color:var(--text)}
+
+@media(max-width:600px){
+  .lifecycleTabsSection,.phaseLinkSection,.postmortemSection{padding-left:20px;padding-right:20px}
+}

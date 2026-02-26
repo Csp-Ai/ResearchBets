@@ -13,7 +13,6 @@ export function Hero({
   today,
   loading,
   onRunFromSnapshot,
-  stats,
   freshnessMinutes
 }: {
   mode: LandingMode;
@@ -27,7 +26,6 @@ export function Hero({
   } | null;
   loading: boolean;
   onRunFromSnapshot: () => void;
-  stats: { slips: number; riskRate: number; accuracy: number; correlationWarnings: number };
   freshnessMinutes: number;
 }) {
   const effectiveMode = today?.mode ?? (mode === 'live' ? 'live' : 'demo');
@@ -38,26 +36,36 @@ export function Hero({
       <div className={styles.heroGlow} />
       <div className={styles.heroShell}>
         <div className={styles.heroCopy}>
-          <div className={styles.badge}><span className={styles.badgeDot} />Research workflow for bettors</div>
+          <div className={styles.badge}>
+            <span className={styles.badgeDot} />Research workflow for bettors
+          </div>
           <div className={`${styles.modeChip} ${effectiveMode === 'live' ? styles.live : styles.demo}`}>
             {effectiveMode === 'live' ? 'Live telemetry' : 'Demo telemetry'}
             {modeReason ? <span className={styles.modeChipReason}>· {modeReason}</span> : null}
           </div>
           <h1>Find the leg that breaks your parlay.</h1>
-          <p className={styles.heroSub}>Paste your slip, inspect weakest-leg risk, and decide whether to keep, modify, or pass before you lock in.</p>
+          <p className={styles.heroSub}>
+            Before: decide with weakest-leg risk. During: track line movement and game state. After:
+            learn what broke and improve.
+          </p>
           <div className={styles.heroCtas}>
             <div className={styles.heroCtasRow}>
-              <Link href="/ingest" className={styles.btnPrimary}>Analyze my slip</Link>
-              <Link href="/stress-test?demo=1" className={styles.btnSecondary}>Run demo</Link>
+              <Link href="/ingest" className={styles.btnPrimary}>
+                Analyze my slip
+              </Link>
+              <Link href="/stress-test?demo=1" className={styles.btnSecondary}>
+                Run demo
+              </Link>
             </div>
-            <p className={styles.heroMicro}>Anonymous-first. Demo mode when live feeds unavailable.</p>
+            <p className={styles.heroMicro}>Anonymous-first. Truthful live/demo labels on every proof card.</p>
           </div>
         </div>
         <div className={styles.heroProofColumn}>
           <LiveSnapshot mode={mode} onRun={onRunFromSnapshot} snapshot={today} loading={loading} compact />
           <StatsBar
             compact
-            stats={stats}
+            variant="landing"
+            stats={{ slips: 0, riskRate: 0, accuracy: 0, correlationWarnings: 0 }}
             mode={effectiveMode}
             freshnessMinutes={freshnessMinutes}
             reason={modeReason}
