@@ -109,3 +109,11 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 ### Canonical continuity spine
 - Query continuity now uses `src/core/nervous/spine.ts` and `src/core/nervous/routes.ts` for normalized keys (`sport,tz,date,mode,gameId,propId,slipId,trace_id`).
 - Navigation should use `nervous.toHref(...)` so context carries through board → slip → stress → control journeys.
+
+## Bettor account-to-settle loop (MVP)
+
+- Auth/profile: `/login`, `/profile`, and `/api/profile/upsert` support Supabase magic-link login and username persistence.
+- Ingestion: `/ingest` accepts “My slip” and “Shared slip/text”, saves raw text first, then attempts deterministic parsing.
+- Settlement: `/api/history-bets` now lists user slips and settles historical legs with deterministic demo-safe outcomes when live providers are unavailable.
+- Feedback: shared slips trigger concise stored `feedback_items` with KEEP/MODIFY/PASS verdict guidance.
+- History + board flow: `/history` provides settle actions and forwards users to `/today` for next-leg ideas.

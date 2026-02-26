@@ -245,3 +245,11 @@ Use these exact variable names for live feeds:
 - `SPORTSDATA_API_KEY`
 - `ODDS_API_KEY`
 - `THEODDSAPI_KEY` (legacy alias still supported)
+
+## Bettor account-to-settle loop (MVP)
+
+- Auth/profile: `/login`, `/profile`, and `/api/profile/upsert` support Supabase magic-link login and username persistence.
+- Ingestion: `/ingest` accepts “My slip” and “Shared slip/text”, saves raw text first, then attempts deterministic parsing.
+- Settlement: `/api/history-bets` now lists user slips and settles historical legs with deterministic demo-safe outcomes when live providers are unavailable.
+- Feedback: shared slips trigger concise stored `feedback_items` with KEEP/MODIFY/PASS verdict guidance.
+- History + board flow: `/history` provides settle actions and forwards users to `/today` for next-leg ideas.

@@ -8,6 +8,9 @@ import { ensureTraceMeta } from '@/src/core/contracts/trace';
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { applyRateLimit } from '@/src/core/http/rateLimit';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
+import { buildSharedSlipFeedback } from '@/src/agents/sharedSlipFeedback';
+import { parseSlipText } from '@/src/core/slips/freeTextParser';
+import { getSupabaseServerClient } from '@/src/core/supabase/server';
 
 const legacyPayloadSchema = z.object({
   anon_session_id: z.string().min(1),
@@ -20,6 +23,7 @@ const legacyPayloadSchema = z.object({
 
 const draftPayloadSchema = z.object({
   anon_id: z.string().optional(),
+  source_type: z.enum(['self', 'shared']).optional(),
   spine: z.object({
     sport: z.string().min(1),
     tz: z.string().min(1),
@@ -28,7 +32,7 @@ const draftPayloadSchema = z.object({
     anon_id: z.string().optional(),
     user_id: z.string().nullable().optional(),
   }),
-  legs: z.array(z.record(z.unknown())).min(1),
+  legs: z.array(z.record(z.unknown())).min(1).optional(),
   request_id: z.string().optional(),
   trace_id: z.string().optional(),
   anon_session_id: z.string().optional(),
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
 
   const rawText = 'raw_text' in body && typeof body.raw_text === 'string' && body.raw_text.trim().length > 0
     ? body.raw_text
-    : ('legs' in body
+    : ('legs' in body && body.legs
       ? body.legs.map((leg) => {
         const row = leg as Record<string, unknown>;
         return `${String(row.player ?? 'Player')} ${String(row.marketType ?? row.market ?? 'prop')} ${String(row.line ?? '')} ${String(row.odds ?? '')}`.trim();
@@ -98,11 +102,58 @@ export async function POST(request: Request) {
     source: ('source' in body && body.source) ? body.source : 'paste',
     rawText,
     parseStatus: 'received',
-    extractedLegs: ('legs' in body ? body.legs as Record<string, unknown>[] : null),
+    extractedLegs: ('legs' in body && body.legs ? body.legs : null) as Record<string, unknown>[] | null,
     traceId: trace.trace_id,
     requestId,
     checksum,
   });
+
+  const parsedSlip = parseSlipText(rawText);
+  const sourceType = 'source_type' in body && body.source_type ? body.source_type : 'self';
+
+  try {
+    const supabase = await getSupabaseServerClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const authUserId = userData.user?.id ?? userId ?? null;
+
+    if (authUserId) {
+      const { data: savedSlip } = await supabase
+        .from('slips')
+        .insert({
+          user_id: authUserId,
+          source_type: sourceType,
+          raw_text: rawText,
+          raw_json: { confidence: parsedSlip.confidence }
+        })
+        .select('id')
+        .single();
+
+      if (savedSlip?.id && parsedSlip.legs.length > 0) {
+        await supabase.from('legs').insert(parsedSlip.legs.map((leg) => ({
+          slip_id: savedSlip.id,
+          sport: leg.sport,
+          league: leg.league,
+          event_date: leg.eventDate,
+          team_or_player: leg.teamOrPlayer,
+          market_type: leg.marketType,
+          line: leg.line,
+          odds: leg.odds,
+          book: leg.book,
+        })));
+      }
+
+      if (savedSlip?.id && sourceType === 'shared') {
+        const feedback = buildSharedSlipFeedback(parsedSlip.legs);
+        await supabase.from('feedback_items').insert({
+          slip_id: savedSlip.id,
+          type: 'agent_feedback',
+          body: feedback.body,
+        });
+      }
+    }
+  } catch {
+    // Keep deterministic runtime flow alive when Supabase is not configured.
+  }
 
   await new DbEventEmitter(store).emit({
     event_name: 'slip_submitted',
@@ -122,10 +173,24 @@ export async function POST(request: Request) {
       tz: baseSpine.tz,
       date: baseSpine.date,
       anon_session_id: baseSpine.anon_session_id,
-      legs_count: 'legs' in body ? body.legs.length : undefined
+      legs_count: parsedSlip.legs.length,
+      parse_confidence: parsedSlip.confidence,
+      needs_review: parsedSlip.legs.length === 0,
+      source_type: sourceType,
     },
   }, baseSpine);
 
   const spine: ContextSpine = { ...baseSpine, trace_id: trace.trace_id, slip_id: id };
-  return NextResponse.json({ slip_id: id, trace_id: trace.trace_id, anon_id: anonSessionId, spine, trace });
+  return NextResponse.json({
+    slip_id: id,
+    trace_id: trace.trace_id,
+    anon_id: anonSessionId,
+    spine,
+    trace,
+    parse: {
+      confidence: parsedSlip.confidence,
+      legs_count: parsedSlip.legs.length,
+      needs_review: parsedSlip.legs.length === 0,
+    }
+  });
 }
