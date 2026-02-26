@@ -7,16 +7,16 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
-import { upsertDraftLeg } from '@/src/core/slips/draftStorage';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload, TodayPropKey } from '@/src/core/today/types';
 import type { NormalizedToday } from '@/src/core/today/normalize';
 
-import { GamesSection } from './GamesSection';
 import { TopSpotsPanel } from './TopSpotsPanel';
 import { TodayHeader } from './TodayHeader';
 import type { LeagueFilter } from './types';
 import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
+import { BoardTerminalTable, sortBoardRows, type SortKey, type TerminalBoardRow } from './BoardTerminalTable';
+import { SlipDrawer } from './SlipDrawer';
 
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
@@ -76,6 +76,12 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const router = useRouter();
   const [payload, setPayload] = useState<TodayPayload>(initialPayload ?? createDemoTodayPayload());
   const [league, setLeague] = useState<LeagueFilter>('All');
+  const [sortKey, setSortKey] = useState<SortKey>('edge');
+  const [marketFilter, setMarketFilter] = useState<string>('all');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'stable' | 'watch'>('all');
+  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [selectedLegs, setSelectedLegs] = useState<SlipBuilderLeg[]>([]);
+  const [highlightedRowId, setHighlightedRowId] = useState<string | undefined>(undefined);
   const nervous = useNervousSystem();
 
   const loadToday = useCallback(async (refresh = false) => {
@@ -97,31 +103,83 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   }, [initialPayload, loadToday]);
 
   const filteredGames = useMemo(() => payload.games.filter((game) => league === 'All' || game.league === league), [payload.games, league]);
-  const liveGames = filteredGames.filter((game) => game.status === 'live');
-  const upcomingGames = filteredGames.filter((game) => game.status === 'upcoming');
-  const topSpotScouts = (filteredGames.flatMap((game) => game.propsPreview).slice(0, 4).length > 0
-    ? filteredGames.flatMap((game) => game.propsPreview).slice(0, 4)
-    : payload.games.flatMap((game) => game.propsPreview).slice(0, 4));
-  const fallbackUpcomingScouts = topSpotScouts.slice(2, 4).length > 0 ? topSpotScouts.slice(2, 4) : topSpotScouts.slice(0, 2);
-  const denseLayout = filteredGames.length < 2;
+  const allRows = useMemo<TerminalBoardRow[]>(() => filteredGames.flatMap((game) => game.propsPreview.map((prop) => ({
+    id: prop.id,
+    gameId: game.id,
+    matchup: game.matchup,
+    startTime: game.startTime,
+    player: prop.player,
+    market: prop.market,
+    line: prop.line,
+    odds: prop.odds,
+    hitRateL10: prop.hitRateL10,
+    marketImpliedProb: prop.marketImpliedProb,
+    modelProb: prop.modelProb,
+    edgeDelta: prop.edgeDelta,
+    riskTag: prop.riskTag
+  }))), [filteredGames]);
 
-  const onAddToDraft = (leg: SlipBuilderLeg) => {
-    upsertDraftLeg(leg);
+  const availableMarkets = useMemo(() => ['all', ...Array.from(new Set(allRows.map((row) => row.market)))], [allRows]);
+  const availableTeams = useMemo(() => ['all', ...Array.from(new Set(filteredGames.flatMap((game) => game.teams)))], [filteredGames]);
+
+  const visibleRows = useMemo(() => {
+    const filtered = allRows.filter((row) => {
+      if (marketFilter !== 'all' && row.market !== marketFilter) return false;
+      if (riskFilter !== 'all' && row.riskTag !== riskFilter) return false;
+      if (teamFilter !== 'all' && !row.matchup.includes(teamFilter)) return false;
+      return true;
+    });
+    return sortBoardRows(filtered, sortKey);
+  }, [allRows, marketFilter, riskFilter, sortKey, teamFilter]);
+
+  const topSpotScouts = useMemo(
+    () => [...visibleRows].slice(0, 5).map((row) => filteredGames.flatMap((game) => game.propsPreview).find((prop) => prop.id === row.id)).filter((row): row is TodayPropKey => Boolean(row)),
+    [filteredGames, visibleRows]
+  );
+
+  const onToggleLeg = (row: TerminalBoardRow) => {
+    setSelectedLegs((prev) => {
+      const exists = prev.some((leg) => leg.id === row.id);
+      if (exists) return prev.filter((leg) => leg.id !== row.id);
+      if (prev.length >= 3) return [...prev.slice(1), {
+        id: row.id,
+        player: row.player,
+        marketType: row.market,
+        line: row.line ?? 'TBD',
+        odds: row.odds,
+        volatility: row.riskTag === 'stable' ? 'low' : 'high',
+        game: row.matchup
+      }];
+      return [...prev, {
+        id: row.id,
+        player: row.player,
+        marketType: row.market,
+        line: row.line ?? 'TBD',
+        odds: row.odds,
+        volatility: row.riskTag === 'stable' ? 'low' : 'high',
+        game: row.matchup
+      }];
+    });
   };
 
-  const onAnalyze = (leg: SlipBuilderLeg) => {
+  const runStress = () => {
     if (typeof window === 'undefined') return;
-    const legs = upsertDraftLeg(leg);
-    const prefillText = serializeDraftSlip(legs);
+    const prefillText = serializeDraftSlip(selectedLegs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
     router.push(nervous.toHref('/stress-test', { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
   };
 
-  const openScout = () => router.push(nervous.toHref('/slip'));
+  const onSelectSignal = (id: string) => {
+    setHighlightedRowId(id);
+    if (typeof window === 'undefined') return;
+    document.getElementById(`board-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const selectedLegIds = useMemo(() => new Set(selectedLegs.map((leg) => leg.id)), [selectedLegs]);
 
   return (
-    <section className="w-full space-y-4 pb-20 sm:space-y-5">
+    <section className="w-full space-y-3 pb-20">
       <TodayHeader
         leagues={FILTERS}
         activeLeague={league}
@@ -130,19 +188,47 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
         freshness={timeAgo(payload.generatedAt)}
         mode={payload.mode}
       />
-      <ThinkingTracker traceId={nervous.trace_id} mode={payload.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
+      <ThinkingTracker compact traceId={nervous.trace_id} mode={payload.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
       {payload.mode === 'demo' ? (
-        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-100">
           Demo mode (live feeds off). Showing deterministic slate.
         </p>
       ) : null}
-      <div className={denseLayout ? 'grid gap-2 lg:grid-cols-2' : 'grid gap-4 lg:grid-cols-2'}>
-        <GamesSection title="Live now" games={liveGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} dense={denseLayout} />
-        {upcomingGames.length > 0 ? (
-          <GamesSection title="Upcoming" games={upcomingGames} mode={payload.mode} onAdd={onAddToDraft} onAnalyze={onAnalyze} onOpenScout={openScout} dense={denseLayout} />
-        ) : (
-          <TopSpotsPanel scouts={fallbackUpcomingScouts} />
-        )}
+      <section className="rounded-xl border border-white/10 bg-slate-950/65 p-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <label className="text-slate-400">Sort</label>
+          <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded border border-white/20 bg-slate-900 px-2 py-1" data-testid="sort-select">
+            <option value="edge">EDGE</option>
+            <option value="l10">L10</option>
+            <option value="risk">Risk</option>
+            <option value="start">Start time</option>
+          </select>
+          <label className="text-slate-400">Market</label>
+          <select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="rounded border border-white/20 bg-slate-900 px-2 py-1">
+            {availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}
+          </select>
+          <label className="text-slate-400">Risk</label>
+          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="rounded border border-white/20 bg-slate-900 px-2 py-1">
+            <option value="all">all</option>
+            <option value="stable">stable</option>
+            <option value="watch">watch</option>
+          </select>
+          <label className="text-slate-400">Team</label>
+          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="rounded border border-white/20 bg-slate-900 px-2 py-1">
+            {availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}
+          </select>
+        </div>
+      </section>
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-3">
+          <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} />
+          <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} />
+        </div>
+        <SlipDrawer
+          legs={selectedLegs}
+          onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))}
+          onRunStressTest={runStress}
+        />
       </div>
     </section>
   );
