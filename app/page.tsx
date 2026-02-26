@@ -18,8 +18,8 @@ export default function HomePage({ searchParams }: HomePageProps) {
         <FrontdoorLandingClient />
         <section className="grid gap-4 pb-8">
           <BDAStrip spine={spine} />
-          <Credibility30s />
-          <TrustNote />
+          <Credibility30s spine={spine} />
+          <TrustNote spine={spine} />
         </section>
       </div>
     </main>
