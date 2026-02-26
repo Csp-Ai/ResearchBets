@@ -7,7 +7,7 @@ import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { applyRateLimit } from '@/src/core/http/rateLimit';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
-const payloadSchema = z.object({
+const legacyPayloadSchema = z.object({
   anon_session_id: z.string().min(1),
   user_id: z.string().optional().nullable(),
   source: z.enum(['paste', 'upload']),
@@ -15,6 +15,27 @@ const payloadSchema = z.object({
   request_id: z.string().min(1),
   trace_id: z.string().min(1).optional(),
 });
+
+const draftPayloadSchema = z.object({
+  anon_id: z.string().optional(),
+  spine: z.object({
+    sport: z.string().min(1),
+    tz: z.string().min(1),
+    date: z.string().min(1),
+    mode: z.enum(['live', 'demo', 'cache']),
+    anon_id: z.string().optional(),
+    user_id: z.string().nullable().optional(),
+  }),
+  legs: z.array(z.record(z.unknown())).min(1),
+  request_id: z.string().optional(),
+  trace_id: z.string().optional(),
+  anon_session_id: z.string().optional(),
+  user_id: z.string().nullable().optional(),
+  source: z.enum(['paste', 'upload']).optional(),
+  raw_text: z.string().optional(),
+});
+
+const payloadSchema = z.union([legacyPayloadSchema, draftPayloadSchema]);
 
 export async function POST(request: Request) {
   const limited = applyRateLimit(request, { route: 'slips:submit', limit: 10 });
@@ -25,35 +46,58 @@ export async function POST(request: Request) {
 
   const body = parsed.data;
   const store = getRuntimeStore();
-  const checksum = createHash('sha256').update(body.raw_text).digest('hex');
+
+  const anonSessionId = ('anon_session_id' in body && body.anon_session_id)
+    || ('anon_id' in body && body.anon_id)
+    || ('spine' in body && body.spine.anon_id)
+    || randomUUID();
+  const userId = ('user_id' in body ? body.user_id : null) ?? ('spine' in body ? body.spine.user_id : null) ?? null;
+  const requestId = ('request_id' in body && body.request_id) ? body.request_id : randomUUID();
+  const traceId = ('trace_id' in body && body.trace_id) ? body.trace_id : randomUUID();
+
+  const rawText = 'raw_text' in body && typeof body.raw_text === 'string' && body.raw_text.trim().length > 0
+    ? body.raw_text
+    : ('legs' in body
+      ? body.legs.map((leg) => {
+        const row = leg as Record<string, unknown>;
+        return `${String(row.player ?? 'Player')} ${String(row.marketType ?? row.market ?? 'prop')} ${String(row.line ?? '')} ${String(row.odds ?? '')}`.trim();
+      }).join('\n')
+      : 'Draft slip submitted');
+
+  const checksum = createHash('sha256').update(rawText).digest('hex');
   const id = randomUUID();
-  const traceId = body.trace_id ?? randomUUID();
 
   await store.createSlipSubmission({
     id,
-    anonSessionId: body.anon_session_id,
-    userId: body.user_id ?? null,
+    anonSessionId,
+    userId,
     createdAt: new Date().toISOString(),
-    source: body.source,
-    rawText: body.raw_text,
+    source: ('source' in body && body.source) ? body.source : 'paste',
+    rawText,
     parseStatus: 'received',
-    extractedLegs: null,
+    extractedLegs: ('legs' in body ? body.legs as Record<string, unknown>[] : null),
     traceId,
-    requestId: body.request_id,
+    requestId,
     checksum,
   });
 
   await new DbEventEmitter(store).emit({
     event_name: 'slip_submitted',
     timestamp: new Date().toISOString(),
-    request_id: body.request_id,
+    request_id: requestId,
     trace_id: traceId,
-    session_id: body.anon_session_id,
-    user_id: body.user_id ?? null,
+    session_id: anonSessionId,
+    user_id: userId,
     agent_id: 'slip_ingestion',
     model_version: 'runtime-deterministic-v1',
-    properties: { slip_id: id, source: body.source, checksum },
+    properties: {
+      slip_id: id,
+      checksum,
+      sport: 'spine' in body ? body.spine.sport : undefined,
+      mode: 'spine' in body ? body.spine.mode : undefined,
+      legs_count: 'legs' in body ? body.legs.length : undefined
+    },
   });
 
-  return NextResponse.json({ slip_id: id, trace_id: traceId });
+  return NextResponse.json({ slip_id: id, trace_id: traceId, anon_id: anonSessionId });
 }

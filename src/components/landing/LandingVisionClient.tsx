@@ -5,39 +5,22 @@ import { useRouter } from 'next/navigation';
 
 import { appendQuery } from './navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
-import type { TodayPayload } from '@/src/core/today/types';
+import { fallbackToday } from '@/src/core/today/fallback';
+import { normalizeTodayPayload, type NormalizedToday } from '@/src/core/today/normalize';
+import { submitDraftSlip } from '@/src/core/slips/submitDraftSlip';
+import { ensureAnonSessionId } from '@/src/core/identifiers/session';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
-type BoardProp = {
-  id: string;
-  player: string;
-  market: MarketType;
-  line: string;
-  odds: string;
-  hitRateL10: number;
-  riskTag: 'stable' | 'watch';
-  gameId: string;
-};
-
-type BoardGame = {
-  id: string;
-  matchup: string;
-  startTime: string;
-};
-
-type BoardView = {
-  mode: 'live' | 'cache' | 'demo';
-  reason?: string;
-  games: BoardGame[];
-  board: BoardProp[];
-};
+type BoardProp = NormalizedToday['board'][number];
 
 type RecentSlip = {
   id: string;
   title: string;
   note: string;
+  trace_id?: string;
 };
+
+const LAST_TRACE_STORAGE_KEY = 'rb-last-trace-id';
 
 const fallbackRecent: RecentSlip[] = [
   {
@@ -46,83 +29,6 @@ const fallbackRecent: RecentSlip[] = [
     note: 'Two scoring overs in the same pace-down spot reduced the edge.'
   }
 ];
-
-const pickRiskTag = (hitRateL10: number): 'stable' | 'watch' => (hitRateL10 >= 60 ? 'stable' : 'watch');
-
-const normalizeTodayPayload = (payload: unknown): BoardView => {
-  if (!payload || typeof payload !== 'object') {
-    return { mode: 'demo', reason: 'invalid_payload', games: [], board: [] };
-  }
-
-  const record = payload as Partial<TodayPayload> & {
-    board?: Array<Record<string, unknown>>;
-    games?: Array<Record<string, unknown>>;
-  };
-
-  if (Array.isArray(record.board) && Array.isArray(record.games)) {
-    return {
-      mode: (record.mode as BoardView['mode']) ?? 'demo',
-      reason: record.reason,
-      games: record.games.map((game, index) => {
-        const legacy = game as Record<string, unknown>;
-        return {
-          id: String(game.id ?? `game-${index}`),
-          matchup: String(game.matchup ?? 'TBD @ TBD'),
-          startTime: String(game.startTime ?? legacy.startISO ?? 'TBD')
-        };
-      }),
-      board: record.board.map((prop, index) => ({
-        id: String(prop.id ?? `prop-${index}`),
-        player: String(prop.player ?? 'Player'),
-        market: asMarketType(String(prop.market ?? 'points'), 'points'),
-        line: String(prop.line ?? ''),
-        odds: String(prop.consensusOdds ?? prop.odds ?? ''),
-        hitRateL10: Number(prop.hitRateL10 ?? 55),
-        riskTag: pickRiskTag(Number(prop.hitRateL10 ?? 55)),
-        gameId: String(prop.gameId ?? '')
-      }))
-    };
-  }
-
-  if (!Array.isArray(record.games)) {
-    return { mode: (record.mode as BoardView['mode']) ?? 'demo', reason: record.reason, games: [], board: [] };
-  }
-
-  const games: BoardGame[] = [];
-  const board: BoardProp[] = [];
-
-  record.games.forEach((game, gameIndex) => {
-    const gameId = String(game.id ?? `game-${gameIndex}`);
-    games.push({
-      id: gameId,
-      matchup: String(game.matchup ?? 'TBD @ TBD'),
-      startTime: String(game.startTime ?? 'TBD')
-    });
-
-    const propsPreview = Array.isArray(game.propsPreview) ? (game.propsPreview as Array<Record<string, unknown>>) : [];
-    propsPreview.forEach((prop, propIndex) => {
-      const rationaleCount = Array.isArray(prop.rationale) ? prop.rationale.length : 1;
-      const hitRateL10 = Math.max(45, 50 + rationaleCount * 6 - propIndex * 2);
-      board.push({
-        id: String(prop.id ?? `${gameId}-prop-${propIndex}`),
-        player: String(prop.player ?? 'Player'),
-        market: asMarketType(String(prop.market ?? 'points'), 'points'),
-        line: String(prop.line ?? ''),
-        odds: String(prop.odds ?? ''),
-        hitRateL10,
-        riskTag: pickRiskTag(hitRateL10),
-        gameId
-      });
-    });
-  });
-
-  return {
-    mode: (record.mode as BoardView['mode']) ?? 'demo',
-    reason: record.reason,
-    games,
-    board
-  };
-};
 
 const parseOdds = (odds: string): number => {
   const value = Number(odds);
@@ -133,8 +39,15 @@ export default function LandingVisionClient() {
   const router = useRouter();
   const nervous = useNervousSystem();
   const { slip, addLeg, removeLeg } = useDraftSlip();
-  const [today, setToday] = useState<BoardView>({ mode: 'demo', games: [], board: [] });
+  const [today, setToday] = useState<NormalizedToday>(() => fallbackToday(nervous));
   const [recent, setRecent] = useState<RecentSlip[]>(fallbackRecent);
+  const [hint, setHint] = useState<string | null>(null);
+  const [lastTraceId, setLastTraceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setLastTraceId(window.localStorage.getItem(LAST_TRACE_STORAGE_KEY));
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -155,23 +68,25 @@ export default function LandingVisionClient() {
         });
         if (!response.ok) return;
         const payload = normalizeTodayPayload(await response.json());
-        setToday(payload);
+        setToday((current) => (payload.board.length > 0 ? payload : { ...current, mode: payload.mode, reason: 'empty_board_from_api' }));
       } catch {
-        // Keep deterministic defaults.
+        // Keep deterministic fallback state.
       }
     };
 
     const loadRecent = async () => {
       try {
-        const response = await fetch('/api/slips/recent?limit=2', { cache: 'no-store', signal: controller.signal });
+        const anonId = ensureAnonSessionId();
+        const response = await fetch(appendQuery('/api/slips/recent', { limit: 2, anon_id: anonId }), { cache: 'no-store', signal: controller.signal });
         if (!response.ok) return;
-        const payload = (await response.json()) as { slips?: Array<{ id?: string; title?: string; note?: string }> };
+        const payload = (await response.json()) as { slips?: Array<{ id?: string; title?: string; note?: string; trace_id?: string }> };
         if (!Array.isArray(payload.slips) || payload.slips.length === 0) return;
         setRecent(
           payload.slips.slice(0, 2).map((item, index) => ({
             id: item.id ?? `recent-${index}`,
             title: item.title ?? 'Recent slip',
-            note: item.note ?? 'Open review for full postmortem context.'
+            note: item.note ?? 'Open review for full postmortem context.',
+            trace_id: item.trace_id
           }))
         );
       } catch {
@@ -227,6 +142,27 @@ export default function LandingVisionClient() {
     ideaLegs.forEach(onAddLeg);
   };
 
+  const submitAndOpen = async (path: '/stress-test' | '/research') => {
+    if (slip.length === 0) {
+      setHint('Add at least one leg first. We will keep your context and open your slip builder.');
+      router.push(nervous.toHref('/slip'));
+      return;
+    }
+
+    const submission = await submitDraftSlip({ spine: nervous, slip });
+    if (!submission.ok) {
+      setHint('We could not submit this slip yet. You can still continue from the slip builder.');
+      router.push(nervous.toHref('/slip'));
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LAST_TRACE_STORAGE_KEY, submission.trace_id);
+    }
+    setLastTraceId(submission.trace_id);
+    router.push(appendQuery(nervous.toHref(path), { trace_id: submission.trace_id }));
+  };
+
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-6 text-slate-100">
       <header className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
@@ -240,12 +176,14 @@ export default function LandingVisionClient() {
             {today.reason ? ` · ${today.reason}` : ''}
           </p>
         </div>
+        {hint ? <p className="mt-3 rounded border border-cyan-400/40 bg-cyan-950/30 px-2 py-1 text-xs text-cyan-100">{hint}</p> : null}
         <div className="mt-4 flex flex-wrap gap-2">
           <button type="button" onClick={() => router.push(nervous.toHref('/today'))} className="rounded bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Open board</button>
           <button type="button" onClick={() => router.push(nervous.toHref('/slip'))} className="rounded border border-slate-600 px-3 py-2 text-sm">Open slip ({slip.length})</button>
-          <button type="button" onClick={() => router.push(nervous.toHref('/stress-test'))} className="rounded border border-slate-600 px-3 py-2 text-sm">Run risk check</button>
+          <button type="button" onClick={() => void submitAndOpen('/stress-test')} className="rounded border border-slate-600 px-3 py-2 text-sm">Run risk check</button>
           <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/control'), { tab: 'review' }))} className="rounded border border-slate-600 px-3 py-2 text-sm">Open review</button>
-          <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/research'), { mode: 'demo' }))} className="rounded border border-amber-500/60 px-3 py-2 text-sm text-amber-200">Research demo</button>
+          <button type="button" onClick={() => void submitAndOpen('/research')} className="rounded border border-amber-500/60 px-3 py-2 text-sm text-amber-200">Research run</button>
+          {lastTraceId ? <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { trace_id: lastTraceId }))} className="rounded border border-emerald-500/60 px-3 py-2 text-sm text-emerald-200">Open latest run</button> : null}
         </div>
       </header>
 
@@ -292,13 +230,13 @@ export default function LandingVisionClient() {
         <h2 className="text-lg font-semibold">Review past parlays</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {recent.map((item) => (
-            <article key={item.id} className="rounded-lg border border-slate-700 bg-slate-950/40 p-3">
+            <button key={item.id} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/control'), { tab: 'review', trace_id: item.trace_id }))} className="rounded-lg border border-slate-700 bg-slate-950/40 p-3 text-left">
               <p className="font-semibold">{item.title}</p>
               <p className="mt-1 text-sm text-slate-300">{item.note}</p>
-            </article>
+            </button>
           ))}
         </div>
-        <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/control'), { tab: 'review' }))} className="mt-3 rounded bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Go to review tab</button>
+        <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/control'), { tab: 'review', trace_id: lastTraceId ?? undefined }))} className="mt-3 rounded bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Go to review tab</button>
       </section>
     </main>
   );
