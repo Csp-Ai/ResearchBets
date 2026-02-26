@@ -37,7 +37,7 @@ export type TodayPayload = {
   reason?: string;
   landing?: {
     mode: 'live' | 'demo';
-    reason: 'demo_requested' | 'live_mode_disabled' | 'missing_provider_keys' | 'provider_error' | 'unknown';
+    reason: 'live_ok' | 'demo_requested' | 'live_mode_disabled' | 'missing_keys' | 'provider_unavailable';
     gamesCount: number;
     lastUpdatedAt: string;
     headlineMatchup?: string;

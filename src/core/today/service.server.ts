@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 
+import { resolveRuntimeMode } from '@/src/core/live/modeResolver.server';
 import { getProviderRegistry } from '@/src/core/providers/registry.server';
 
 import { createDemoTodayPayload } from './demoToday';
@@ -88,32 +89,24 @@ async function fetchLiveToday(): Promise<TodayPayload> {
   };
 }
 
-const detectMissingProviderKeys = () => {
-  return !process.env.THEODDSAPI_KEY && !process.env.ODDS_API_KEY && !process.env.SPORTSDATA_API_KEY;
-};
-
 type LandingReason = NonNullable<TodayPayload['landing']>['reason'];
 
-const toLandingReason = (
-  mode: TodayPayload['mode'],
-  reason: string | undefined,
-  liveMode: boolean
-): LandingReason => {
-  if (!liveMode) return 'live_mode_disabled';
-  if (mode === 'live') return 'unknown';
+const toLandingReason = (reason: string | undefined): LandingReason => {
   if (reason === 'demo_requested') return 'demo_requested';
-  if (reason === 'missing_provider_keys' || detectMissingProviderKeys()) return 'missing_provider_keys';
-  if (reason && reason !== 'live_unavailable') return 'provider_error';
-  return 'unknown';
+  if (reason === 'live_mode_disabled') return 'live_mode_disabled';
+  if (reason === 'missing_keys') return 'missing_keys';
+  if (reason === 'provider_unavailable') return 'provider_unavailable';
+  if (reason === 'live_ok') return 'live_ok';
+  return 'provider_unavailable';
 };
 
-const withLandingSummary = (payload: TodayPayload, liveMode: boolean): TodayPayload => {
+const withLandingSummary = (payload: TodayPayload): TodayPayload => {
   const lastUpdatedAt = payload.games[0]?.lastUpdated ?? payload.generatedAt;
   return {
     ...payload,
     landing: {
       mode: payload.mode === 'live' ? 'live' : 'demo',
-      reason: toLandingReason(payload.mode, payload.reason, liveMode),
+      reason: toLandingReason(payload.reason),
       gamesCount: payload.games.length,
       lastUpdatedAt,
       headlineMatchup: payload.games[0]?.matchup
@@ -122,46 +115,43 @@ const withLandingSummary = (payload: TodayPayload, liveMode: boolean): TodayPayl
 };
 
 export async function getTodayPayload(options?: { forceRefresh?: boolean; demoRequested?: boolean }): Promise<TodayPayload> {
-  const liveMode = (process.env.LIVE_MODE ?? 'false').toLowerCase() === 'true';
-  const cacheKey = liveMode && !options?.demoRequested ? 'live' : 'demo';
+  const resolvedMode = resolveRuntimeMode({ demoRequested: options?.demoRequested });
+  const cacheKey = resolvedMode.mode === 'live' ? 'live' : 'demo';
 
   if (!options?.forceRefresh && cache && cache.key === cacheKey && cache.expiresAt > Date.now()) {
     return withLandingSummary({
       ...cache.payload,
       mode: 'cache'
-    }, liveMode);
+    });
   }
 
   let payload: TodayPayload;
 
-  if (options?.demoRequested) {
+  if (resolvedMode.reason === 'demo_requested') {
     payload = createDemoTodayPayload();
     payload.generatedAt = new Date().toISOString();
     payload.reason = 'demo_requested';
-  } else if (!liveMode) {
+  } else if (resolvedMode.reason === 'live_mode_disabled') {
     payload = createDemoTodayPayload();
     payload.generatedAt = new Date().toISOString();
     payload.reason = 'live_mode_disabled';
+  } else if (resolvedMode.reason === 'missing_keys') {
+    payload = createDemoTodayPayload();
+    payload.generatedAt = new Date().toISOString();
+    payload.mode = 'demo';
+    payload.reason = 'missing_keys';
   } else {
-    if (detectMissingProviderKeys()) {
-      payload = createDemoTodayPayload();
-      payload.generatedAt = new Date().toISOString();
-      payload.mode = 'demo';
-      payload.reason = 'missing_provider_keys';
-      cache = { key: cacheKey, expiresAt: Date.now() + TTL_MS, payload };
-      return withLandingSummary(payload, liveMode);
-    }
-
     try {
       payload = await fetchLiveToday();
+      payload.reason = 'live_ok';
     } catch (error) {
       payload = createDemoTodayPayload();
       payload.generatedAt = new Date().toISOString();
       payload.mode = 'demo';
-      payload.reason = error instanceof Error ? 'provider_error' : 'unknown';
+      payload.reason = error instanceof Error ? 'provider_unavailable' : 'provider_unavailable';
     }
   }
 
   cache = { key: cacheKey, expiresAt: Date.now() + TTL_MS, payload };
-  return withLandingSummary(payload, liveMode);
+  return withLandingSummary(payload);
 }

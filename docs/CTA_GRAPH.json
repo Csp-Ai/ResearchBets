@@ -1,0 +1,407 @@
+{
+  "generatedAt": "2026-02-26T03:22:38.556Z",
+  "entries": [
+    {
+      "type": "router.push",
+      "file": "app/ingest/IngestPageClient.tsx",
+      "href": "/research?trace=${encodeURIComponent(traceId",
+      "label": "programmatic navigation",
+      "routeCategory": "/research"
+    },
+    {
+      "type": "Link",
+      "file": "app/control/ControlPageClient.tsx",
+      "href": "/stress-test?demo=1",
+      "label": "Try sample slip",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "app/control/ControlPageClient.tsx",
+      "href": "/slip",
+      "label": "Build from Board",
+      "routeCategory": "/slip"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/terminal/AppShell.tsx",
+      "href": "/settings",
+      "label": "Settings",
+      "routeCategory": "/settings"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/terminal/AppShell.tsx",
+      "href": "/dev/dashboard",
+      "label": "Dev dashboard",
+      "routeCategory": "/dev/dashboard"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/terminal/AppShell.tsx",
+      "href": "/stress-test",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/terminal/AppShell.tsx",
+      "href": "/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/terminal/RunHeaderStrip.tsx",
+      "href": "/ingest",
+      "label": "Go to Ingest",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/terminal/TracesIndexContent.tsx",
+      "href": "/traces/${encodeURIComponent(id",
+      "label": "programmatic navigation",
+      "routeCategory": "/traces/${encodeURIComponent(id"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/MainNav.tsx",
+      "href": "href",
+      "label": "programmatic navigation",
+      "routeCategory": "href"
+    },
+    {
+      "type": "Link",
+      "file": "app/traces/[trace_id]/TraceDetailPageClient.tsx",
+      "href": "/traces",
+      "label": "Traces",
+      "routeCategory": "/traces"
+    },
+    {
+      "type": "router.push",
+      "file": "app/community/page.tsx",
+      "href": "/research?tab=analyze&prefill=${encodeURIComponent(prefill",
+      "label": "programmatic navigation",
+      "routeCategory": "/research"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/BottomCTA.tsx",
+      "href": "/ingest",
+      "label": "Analyze slip",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/BottomCTA.tsx",
+      "href": "/ingest",
+      "label": "Analyze my slip",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/PostmortemPreviewCard.tsx",
+      "href": "/control?tab=review",
+      "label": "Review results",
+      "routeCategory": "/control"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/PostmortemPreviewCard.tsx",
+      "href": "/control?tab=review&sample=1",
+      "label": "Try a sample review",
+      "routeCategory": "/control"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/VerdictMock.tsx",
+      "href": "/ingest",
+      "label": "Stress test now →",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/ingest",
+      "label": "Analyze",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/stress-test",
+      "label": "Research",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/slip",
+      "label": "Build Slip",
+      "routeCategory": "/slip"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/ingest",
+      "label": "Analyze",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/control?tab=live",
+      "label": "Open live view",
+      "routeCategory": "/control"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/ScoutCardCompact.tsx",
+      "href": "/stress-test?tab=scout",
+      "label": "Open Scout",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/Hero.tsx",
+      "href": "/ingest",
+      "label": "Analyze my slip",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/Hero.tsx",
+      "href": "/stress-test?demo=1",
+      "label": "Run demo",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/landing/TonightsBoardPreview.tsx",
+      "href": "/stress-test?tab=scout",
+      "label": "Open full Scout",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.push",
+      "file": "app/slip/page.tsx",
+      "href": "/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/bettor-os/LandingPageClient.tsx",
+      "href": "/ingest",
+      "label": "Analyze a slip",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/bettor-os/LandingPageClient.tsx",
+      "href": "/research?tab=scout",
+      "label": "Scout props",
+      "routeCategory": "/research"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/bettor-os/LandingPageClient.tsx",
+      "href": "/research",
+      "label": "Continue last analysis",
+      "routeCategory": "/research"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/TerminalLoopShell.tsx",
+      "href": "href",
+      "label": "programmatic navigation",
+      "routeCategory": "href"
+    },
+    {
+      "type": "Link",
+      "file": "app/dev/dashboard/DevDashboardPageClient.tsx",
+      "href": "/traces",
+      "label": "Open traces",
+      "routeCategory": "/traces"
+    },
+    {
+      "type": "router.replace",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/stress-test?tab=analyze&trace=${encodeURIComponent(traceId",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.replace",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/stress-test?tab=analyze&trace=${encodeURIComponent(traceId",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/stress-test?trace=${encodeURIComponent(traceId",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/stress-test?tab=${candidate}",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/ingest",
+      "label": "programmatic navigation",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/ingest?prefill=${encodeURIComponent(DEMO_SLIP",
+      "label": "programmatic navigation",
+      "routeCategory": "/ingest"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/stress-test?trace=${encodeURIComponent(recentTraceId",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/bettor/BettorFirstBlocks.tsx",
+      "href": "/traces",
+      "label": "Open run details",
+      "routeCategory": "/traces"
+    },
+    {
+      "type": "Link",
+      "file": "src/components/bettor/GuidedActionsCard.tsx",
+      "href": "/dashboard",
+      "label": "Go to Discover",
+      "routeCategory": "/dashboard"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/live/LiveGamesClient.tsx",
+      "href": "buildNavigationHref({\n            pathname: /live/${encodeURIComponent(game.gameId",
+      "label": "programmatic navigation",
+      "routeCategory": "buildNavigationHref({\n            pathname: /live/${encodeURIComponent(game.gameId"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/live/LiveGameDetailClient.tsx",
+      "href": "buildNavigationHref({\n            pathname: /research,\n            traceId: currentTraceId,\n            params: { gameId: payload.game.gameId }\n          }",
+      "label": "programmatic navigation",
+      "routeCategory": "buildNavigationHref({\n            pathname: /research,\n            traceId: currentTraceId,\n            params: { gameId: payload.game.gameId }\n          }"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/today/TodayPageClient.tsx",
+      "href": "/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY",
+      "label": "programmatic navigation",
+      "routeCategory": "/stress-test"
+    },
+    {
+      "type": "router.push",
+      "file": "src/components/today/TodayPageClient.tsx",
+      "href": "/slip",
+      "label": "programmatic navigation",
+      "routeCategory": "/slip"
+    },
+    {
+      "type": "Link",
+      "file": "app/settings/page.tsx",
+      "href": "/traces",
+      "label": "Open traces",
+      "routeCategory": "/traces"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "warn",
+      "type": "duplicate_label",
+      "label": "programmatic navigation",
+      "hrefs": [
+        "/research?trace=${encodeURIComponent(traceId",
+        "/stress-test",
+        "/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY",
+        "/traces/${encodeURIComponent(id",
+        "href",
+        "/research?tab=analyze&prefill=${encodeURIComponent(prefill",
+        "/stress-test?tab=analyze&trace=${encodeURIComponent(traceId",
+        "/stress-test?trace=${encodeURIComponent(traceId",
+        "/stress-test?tab=${candidate}",
+        "/ingest",
+        "/ingest?prefill=${encodeURIComponent(DEMO_SLIP",
+        "/stress-test?trace=${encodeURIComponent(recentTraceId",
+        "buildNavigationHref({\n            pathname: /live/${encodeURIComponent(game.gameId",
+        "buildNavigationHref({\n            pathname: /research,\n            traceId: currentTraceId,\n            params: { gameId: payload.game.gameId }\n          }",
+        "/slip"
+      ]
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/landing/BottomCTA.tsx",
+      "href": "/ingest",
+      "label": "Analyze slip"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/landing/BottomCTA.tsx",
+      "href": "/ingest",
+      "label": "Analyze my slip"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/landing/VerdictMock.tsx",
+      "href": "/ingest",
+      "label": "Stress test now →"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/ingest",
+      "label": "Analyze"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/landing/LandingPageClient.tsx",
+      "href": "/ingest",
+      "label": "Analyze"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/landing/Hero.tsx",
+      "href": "/ingest",
+      "label": "Analyze my slip"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/ingest",
+      "label": "programmatic navigation"
+    },
+    {
+      "severity": "warn",
+      "type": "missing_context_handoff",
+      "file": "src/components/research/ResearchPageContent.tsx",
+      "href": "/ingest?prefill=${encodeURIComponent(DEMO_SLIP",
+      "label": "programmatic navigation"
+    }
+  ]
+}

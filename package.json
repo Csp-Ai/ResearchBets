@@ -32,7 +32,8 @@
     "audit:unused:ci": "node scripts/audit/unused-ci.mjs",
     "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs",
     "dev:mirror:index": "tsx src/scripts/index-codebase.ts",
-    "verify:landing": "node scripts/verify-landing.mjs"
+    "verify:landing": "node scripts/verify-landing.mjs",
+    "audit:journey": "node scripts/audit-cta-graph.mjs && playwright test tests/journey.spec.ts && node scripts/render-journey-report.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -63,6 +64,7 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "^5.8.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "@playwright/test": "^1.54.2"
   }
 }

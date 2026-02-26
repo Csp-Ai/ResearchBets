@@ -5,14 +5,14 @@ import type { LandingMode } from './mode';
 import styles from './landing.module.css';
 
 const reasonText: Record<string, string> = {
-  demo_requested: 'Demo requested from the interface.',
-  live_mode_disabled: 'Live feeds are switched off in this environment.',
-  missing_provider_keys: 'Live provider credentials are not configured.',
-  provider_error: 'Live provider request failed, so demo data is shown.',
-  unknown: 'Telemetry status is currently unavailable.'
+  live_ok: 'Live providers are connected for this environment.',
+  demo_requested: 'Demo mode was requested for this view.',
+  live_mode_disabled: 'Live feeds are off for this environment.',
+  missing_keys: 'Live provider keys are not configured.',
+  provider_unavailable: 'Live provider data is unavailable, so demo data is shown.'
 };
 
-export const getModeReasonText = (reason?: string) => reasonText[reason ?? 'unknown'] ?? reasonText.unknown;
+export const getModeReasonText = (reason?: string) => reasonText[reason ?? 'provider_unavailable'] ?? reasonText.provider_unavailable;
 
 export function getTelemetryUpdatedLabel(mode: 'live' | 'demo', freshnessMinutes: number) {
   if (mode === 'demo') return 'Demo dataset';
@@ -41,7 +41,7 @@ export function LiveSnapshot({
 }) {
   const effectiveMode = snapshot?.mode ?? (mode === 'live' ? 'live' : 'demo');
   const isDemo = effectiveMode !== 'live';
-  const label = isDemo ? 'Demo mode (live feeds off)' : 'Live telemetry';
+  const label = isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on';
   const reason = useMemo(() => getModeReasonText(snapshot?.reason), [snapshot?.reason]);
 
   const body = (
@@ -64,7 +64,7 @@ export function LiveSnapshot({
               <span className={styles.skeleton} style={{ width: 160, height: 22 }} />
             ) : (
               <span className={`${styles.providerChip} ${styles.neutral}`}>
-                {isDemo ? 'Using demo telemetry' : 'Live feeds connected'}
+                {isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on'}
               </span>
             )}
           </div>
@@ -76,7 +76,7 @@ export function LiveSnapshot({
           <div className={styles.snapshotRow}>
             <span className={styles.oddsLabel}>Why?</span>
             <span className={styles.oddsValue}>
-              {isDemo ? 'Demo mode (live feeds off)' : 'Live mode'}
+              {isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds on'}
               <span className={styles.reasonHelp} title={reason}>ⓘ</span>
             </span>
           </div>
