@@ -18,11 +18,13 @@ import { StatsBar } from './StatsBar';
 import { Tracker } from './Tracker';
 import { VerdictMock } from './VerdictMock';
 import { getModeFromSearchParams } from './mode';
+import { useLandingTelemetry } from './useLandingTelemetry';
 import styles from './landing.module.css';
 
 export function LandingPageClient() {
   const searchParams = useSearchParams();
   const mode = getModeFromSearchParams(searchParams);
+  const { summary, today, loading, freshnessMinutes } = useLandingTelemetry(mode);
   const [runToken, setRunToken] = useState(0);
 
   useEffect(() => {
@@ -45,6 +47,14 @@ export function LandingPageClient() {
     window.setTimeout(() => setRunToken((v) => v + 1), 300);
   };
 
+  const effectiveMode = today?.mode ?? summary.mode;
+  const stats = {
+    slips: Math.max(0, Math.floor((summary.last_24h.slips || 0) / 10)),
+    riskRate: summary.risk?.count ? Math.min(99, summary.risk.count) : 0,
+    accuracy: summary.perf.p50_ms ? Math.max(1, Math.min(99, Math.round(100 - summary.perf.p50_ms / 40))) : 0,
+    correlationWarnings: summary.risk?.count ? Math.max(0, Math.floor(summary.risk.count / 2)) : 0
+  };
+
   return (
     <div className={styles.landingRoot}>
       <nav className={styles.nav}>
@@ -58,11 +68,11 @@ export function LandingPageClient() {
       </nav>
       <Hero />
       <ProofStrip />
-      <StatsBar />
-      <LiveSnapshot mode={mode} onRun={onRunFromSnapshot} />
+      <StatsBar stats={stats} mode={effectiveMode} freshnessMinutes={freshnessMinutes} />
+      <LiveSnapshot mode={mode} onRun={onRunFromSnapshot} snapshot={today ?? null} loading={loading} />
       <RiskGauge />
-      <OddsMovement />
-      <Tracker mode={mode} autoRunToken={runToken} />
+      <OddsMovement mode={effectiveMode} updatedLabel={`Updated ${freshnessMinutes}m ago`} />
+      <Tracker mode={effectiveMode} autoRunToken={runToken} updatedLabel={`Updated ${freshnessMinutes}m ago`} />
       <Pillars />
       <VerdictMock />
       <NotSection />

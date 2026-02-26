@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-import { sectionRevealVariants, staggerGroup, staggerItem } from '@/features/landing/motionTokens';
+import { sectionRevealVariants, staggerGroup, staggerItem } from '@/src/legacy/landing/motionTokens';
 
 const steps = [
   { title: 'Ingest', body: 'Paste your slip and verify extracted legs in one pass.', badge: 'Slip parsed' },

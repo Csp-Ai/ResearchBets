@@ -91,7 +91,7 @@ export function Hero() {
       <div className={styles.heroCtas}>
         <div className={styles.heroCtasRow}>
           <Link href="/ingest" className={styles.btnPrimary}>Stress test a slip →</Link>
-          <Link href="/research?demo=1" className={styles.btnSecondary}>Browse prop ideas</Link>
+          <Link href="/stress-test?demo=1" className={styles.btnSecondary}>Browse prop ideas</Link>
         </div>
         <Link href="/ingest?mode=screenshot" className={styles.btnGhost}>Upload a screenshot instead</Link>
       </div>

@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 
-import { landingEase, landingMotion, sectionRevealVariants, staggerGroup, staggerItem } from '@/features/landing/motionTokens';
+import { landingEase, landingMotion, sectionRevealVariants, staggerGroup, staggerItem } from '@/src/legacy/landing/motionTokens';
 
 export function StaticVerdictDemo() {
   const shouldReduceMotion = useReducedMotion();
