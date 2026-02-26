@@ -5,7 +5,7 @@ import styles from './landing.module.css';
 
 type Tab = keyof typeof ODDS_DATA;
 
-export function OddsMovement({ mode, updatedLabel }: { mode: 'live' | 'demo'; updatedLabel: string }) {
+export function OddsMovement({ mode, updatedLabel, reason }: { mode: 'live' | 'demo'; updatedLabel: string; reason?: string }) {
   const [tab, setTab] = useState<Tab>('ML');
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
@@ -26,5 +26,5 @@ export function OddsMovement({ mode, updatedLabel }: { mode: 'live' | 'demo'; up
     ctx.stroke();
   }, [tab]);
 
-  return <section className={styles.oddsSection}><div className={styles.oddsInner}><div className={styles.oddsHeader}><div><div className={styles.sectionLabel}>{mode === 'live' ? 'Live telemetry' : 'Demo telemetry'} · {updatedLabel}</div><h2>Lines move.<br />We watch them.</h2></div><div className={styles.oddsTabs} role="tablist">{(['ML', 'PTS', 'AST'] as Tab[]).map((name) => <button type="button" key={name} role="tab" aria-selected={tab === name} className={`${styles.oddsTab} ${tab === name ? styles.active : ''}`} onClick={() => setTab(name)}>{name === 'ML' ? 'Knicks ML' : name === 'PTS' ? 'Brunson PTS' : 'Haliburton AST'}</button>)}</div></div><div className={styles.oddsChartWrap}><canvas ref={ref} /></div><div className={styles.oddsAnnotations}><div className={styles.oddsAnn}><span className={styles.annDot} style={{ background: '#00e5c8' }} />Current line</div><div className={styles.oddsAnn}><span className={styles.annDot} style={{ background: '#f5c542' }} />Sharp money move</div><div className={styles.oddsAnn}><span className={styles.annDot} style={{ background: '#ff4f5e' }} />Injury flag</div></div></div></section>;
+  return <section className={styles.oddsSection}><div className={styles.oddsInner}><div className={styles.oddsHeader}><div><div className={styles.sectionLabel}>{mode === 'live' ? 'Live telemetry' : 'Demo telemetry'} · {updatedLabel}{reason ? ` · ${reason}` : ''}</div><h2>Lines move.<br />We watch them.</h2><p className={styles.sectionCaption}>Price shifts and context flags that can invalidate pregame edges.</p></div><div className={styles.oddsTabs} role="tablist">{(['ML', 'PTS', 'AST'] as Tab[]).map((name) => <button type="button" key={name} role="tab" aria-selected={tab === name} className={`${styles.oddsTab} ${tab === name ? styles.active : ''}`} onClick={() => setTab(name)}>{name === 'ML' ? 'Knicks ML' : name === 'PTS' ? 'Brunson PTS' : 'Haliburton AST'}</button>)}</div></div><div className={styles.oddsChartWrap}><canvas ref={ref} /></div><div className={styles.oddsAnnotations}><div className={styles.oddsAnn}><span className={styles.annDot} style={{ background: '#00e5c8' }} />Current line</div><div className={styles.oddsAnn}><span className={styles.annDot} style={{ background: '#f5c542' }} />Sharp money move</div><div className={styles.oddsAnn}><span className={styles.annDot} style={{ background: '#ff4f5e' }} />Injury flag</div></div></div></section>;
 }
