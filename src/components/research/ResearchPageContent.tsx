@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
 
 import { computeLegRisk, computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
 import { runStore } from '@/src/core/run/store';
@@ -10,16 +10,11 @@ import type { Run } from '@/src/core/run/types';
 import type { ResearchReport } from '@/src/core/evidence/evidenceSchema';
 import { mergeSnapshotHighlights, toResearchRunDTOFromRun, validateResearchRunDTO } from '@/src/core/run/researchRunDTO';
 import { LIVE_MODE_EVENT, readCoverageAgentEnabled, readDeveloperMode, readLiveModeEnabled } from '@/src/core/ui/preferences';
-import { useMotionVariants } from '@/src/components/bettor-os/motion';
 import type { BettorDataEnvelope } from '@/src/core/bettor/gateway.server';
 import {
   AdvancedDrawer,
-  EmptyStateBettor,
   HowItWorksMini,
-  LegRankList,
   RecentActivityPanel,
-  SlipActionsBar,
-  VerdictHero,
   type AnalyzeLeg,
   type RecentRun,
   type RecentRunDemo
@@ -27,11 +22,18 @@ import {
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
-import { ShareReply } from '@/src/components/bettor/ShareReply';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
-import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
+import AnalyzeTabPanel from '@/src/components/research/AnalyzeTabPanel';
+
+const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
+  loading: () => <Surface className="h-48 animate-pulse bg-slate-900/60" />
+});
+
+const LiveTabPanel = dynamic(() => import('@/src/components/research/LiveTabPanel'), {
+  loading: () => <Surface className="h-40 animate-pulse bg-slate-900/60" />
+});
 
 const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)
@@ -64,32 +66,9 @@ const toAnalyzeLeg = (run: Run): AnalyzeLeg[] => run.extractedLegs.map((leg) => 
   };
 });
 
-
-function SnapshotHighlights({ cards }: { cards: Array<{ title: string; bullets: string[]; severity?: 'info' | 'warn' | 'danger'; source?: string }> }) {
-  if (cards.length === 0) return null;
-  const toneClass = (severity?: 'info' | 'warn' | 'danger') => severity === 'danger' ? 'border-rose-700/70' : severity === 'warn' ? 'border-amber-700/70' : 'border-cyan-700/70';
-  return (
-    <Surface className="space-y-3">
-      <h2 className="text-xl font-semibold">Snapshot highlights</h2>
-      <div className="grid gap-3 md:grid-cols-2">
-        {cards.slice(0, 2).map((card) => (
-          <div key={card.title} className={`rounded-lg border bg-slate-950/40 p-3 ${toneClass(card.severity)}`}>
-            <p className="font-medium">{card.title}</p>
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-300">
-              {card.bullets.slice(0, 4).map((bullet) => <li key={bullet}>{bullet}</li>)}
-            </ul>
-            {card.source ? <p className="mt-2 text-xs text-slate-500">Source: {card.source}</p> : null}
-          </div>
-        ))}
-      </div>
-    </Surface>
-  );
-}
-
 export default function ResearchPageContent() {
   const search = useSearchParams();
   const router = useRouter();
-  const { fadeUp, stagger } = useMotionVariants();
   const [pasteOpen, setPasteOpen] = useState(false);
   const [rawSlip, setRawSlip] = useState('');
   const nervous = useNervousSystem();
@@ -99,6 +78,7 @@ export default function ResearchPageContent() {
   const [demoRecentRun, setDemoRecentRun] = useState<RecentRunDemo | null>(null);
   const [data, setData] = useState<BettorDataEnvelope | null>(null);
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const { slip } = useDraftSlip();
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
@@ -194,7 +174,6 @@ export default function ResearchPageContent() {
     });
   }, [prefillFromQuery, prefillKeyFromQuery, refreshRecent, router, nervous]);
 
-
   useEffect(() => {
     const snapshotId = currentRun?.snapshotId ?? snapshotIdFromQuery;
     if (!snapshotId) {
@@ -240,7 +219,6 @@ export default function ResearchPageContent() {
     router.push(appendQuery(nervous.toHref('/stress-test'), { trace: traceId }));
   }, [rawSlip, refreshRecent, router, nervous]);
 
-
   const runDto = useMemo(() => {
     if (!currentRun) return null;
     const base = toResearchRunDTOFromRun(currentRun);
@@ -264,75 +242,67 @@ export default function ResearchPageContent() {
     ? runDto.legs.map((leg) => ({ id: leg.id, player: leg.player, selection: leg.selection, market: leg.market, line: leg.line, odds: leg.odds, team: leg.team }))
     : slip), [runDto, slip]);
 
+  const slipHref = nervous.toHref('/slip');
+  const boardHref = appendQuery(nervous.toHref('/today'), { tab: 'board' });
+
+  const copyReasons = useCallback(async () => {
+    const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
+    const weakestReasons = weakestLeg?.riskFactors?.slice(0, 2) ?? [];
+    const bullets = [...reasons, ...weakestReasons].filter(Boolean).slice(0, 4).map((entry) => `• ${entry}`);
+    if (bullets.length === 0 || typeof navigator === 'undefined' || !navigator.clipboard) {
+      setCopyStatus('error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(bullets.join('\n'));
+      setCopyStatus('done');
+      window.setTimeout(() => setCopyStatus('idle'), 1200);
+    } catch {
+      setCopyStatus('error');
+    }
+  }, [runDto, currentRun, weakestLeg]);
+
   return (
-    <motion.section initial="hidden" animate="show" variants={stagger} className="mx-auto max-w-6xl space-y-4">
-      <motion.header variants={fadeUp} className="bettor-card p-5">
-        <h1 className="text-3xl font-semibold">Stress Test</h1>
-        <p className="mt-1 text-sm text-slate-300">Run full slip stress tests, inspect weakest-leg risk drivers, and decide before placing.</p>
-        <div className="mt-4 flex gap-2 rounded-xl bg-slate-950/60 p-1 w-fit">
+    <section className="mx-auto max-w-6xl space-y-4">
+      <header className="bettor-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold">Stress Test</h1>
+            <p className="mt-1 text-sm text-slate-300">Run full slip stress tests, inspect weakest-leg risk drivers, and decide before placing.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Back to Slip</a>
+            <a href={boardHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Back to Board</a>
+          </div>
+        </div>
+        <div className="mt-4 flex w-fit gap-2 rounded-xl bg-slate-950/60 p-1">
           {tabs.map((candidate) => (
             <button key={candidate} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { tab: candidate }))} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
           ))}
         </div>
-      </motion.header>
+      </header>
 
       {safeTab === 'analyze' ? (
-        <motion.div variants={fadeUp} className="space-y-4">
-          <SlipIntelBar legs={intelLegs} />
-          {legs.length === 0 ? <EmptyStateBettor onPaste={() => setPasteOpen(true)} /> : (
-            <>
-              <VerdictHero confidence={runDto?.verdict.confidence ?? currentRun?.analysis.confidencePct ?? 0} weakestLeg={weakestLeg} reasons={runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []} dataQuality="Partial live" />
-              {runDto?.snapshotHighlights?.length ? <SnapshotHighlights cards={runDto.snapshotHighlights} /> : null}
-              <SlipActionsBar onRemoveWeakest={() => void removeWeakest()} onRerun={() => router.push(nervous.toHref('/ingest'))} canTrack />
-              <Surface className="space-y-4"><h2 className="text-xl font-semibold">Ranked legs (weakest to strongest)</h2><LegRankList legs={sortedLegs} onRemove={() => void removeWeakest()} trustedContext={currentRun?.trustedContext} /></Surface>
-            </>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {prefillKeyFromQuery ? <Chip tone="strong">Draft from Scout</Chip> : null}
-            <Button intent="primary" onClick={() => setPasteOpen(true)}>Paste slip</Button>
-            <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm" onClick={() => router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))}>Try an example</button>
-          </div>
-          {currentRun ? <ShareReply run={currentRun} /> : null}
-        </motion.div>
+        <AnalyzeTabPanel
+          intelLegs={intelLegs}
+          legs={legs}
+          sortedLegs={sortedLegs}
+          weakestLeg={weakestLeg}
+          runDto={runDto}
+          currentRun={currentRun}
+          prefillKeyFromQuery={prefillKeyFromQuery}
+          copyStatus={copyStatus}
+          onPasteOpen={() => setPasteOpen(true)}
+          onRemoveWeakest={() => void removeWeakest()}
+          onRerun={() => router.push(nervous.toHref('/ingest'))}
+          onTryExample={() => router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))}
+          onCopyReasons={() => void copyReasons()}
+          slipHref={slipHref}
+        />
       ) : null}
 
-      {safeTab === 'scout' ? (
-        <motion.div variants={fadeUp} className="space-y-4">
-          <p className="text-sm text-slate-400">Active players only. Suggestions are research signals, not guarantees.</p>
-          {data?.games.map((game) => (
-            <div key={game.id} className="bettor-card p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold">{game.matchup}</h3>
-                <Chip>{game.status === 'live' ? 'Live now' : game.startTime}</Chip>
-              </div>
-              <p className="mt-2 text-sm text-slate-300">Active core: {game.activePlayers.map((player) => `${player.name} (${player.role})`).join(' • ')}</p>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {game.propSuggestions.map((prop) => (
-                  <div key={prop.id} className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                    <p className="font-medium">{prop.player} — {prop.market} {prop.line} ({prop.odds})</p>
-                    <p className="text-sm text-emerald-300">Hit {Math.round(prop.hitRateL5 * 5)}/5 recently ({Math.round(prop.hitRateL10 * 10)}/10 optional context)</p>
-                    <ul className="mt-2 list-disc pl-4 text-sm text-slate-300">{prop.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-                    <p className="mt-2 text-xs text-amber-300">Uncertainty: {prop.uncertainty}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </motion.div>
-      ) : null}
-
-      {safeTab === 'live' ? (
-        <motion.div variants={fadeUp} className="space-y-4">
-          {data?.games.map((game) => (
-            <div key={game.id} className="bettor-card p-4">
-              <h3 className="text-lg font-semibold">{game.matchup}</h3>
-              <p className="text-sm text-slate-300">{game.awayTeam} ({game.awayRecord}) @ {game.homeTeam} ({game.homeRecord})</p>
-              <p className="mt-2 text-sm">Win likelihood: {game.homeTeam} {Math.round(game.homeWinProbability * 100)}% • {game.awayTeam} {Math.round(game.awayWinProbability * 100)}%</p>
-              <ul className="mt-2 list-disc pl-4 text-sm text-slate-300">{game.matchupReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-            </div>
-          ))}
-        </motion.div>
-      ) : null}
+      {safeTab === 'scout' ? <ScoutTabPanel data={data} /> : null}
+      {safeTab === 'live' ? <LiveTabPanel data={data} /> : null}
 
       <RecentActivityPanel
         runs={recentRuns}
@@ -354,6 +324,6 @@ export default function ResearchPageContent() {
           </Surface>
         </div>
       ) : null}
-    </motion.section>
+    </section>
   );
 }
