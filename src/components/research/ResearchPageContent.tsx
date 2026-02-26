@@ -22,6 +22,7 @@ import { Surface } from '@/src/components/ui/surface';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
+import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
   loading: () => <Surface className="h-48 animate-pulse bg-slate-900/60" />
@@ -338,6 +339,7 @@ export default function ResearchPageContent() {
           <div>
             <h1 className="text-3xl font-semibold">Stress Test</h1>
             <p className="mt-1 text-sm text-slate-300">Find the weakest leg before you place.</p>
+            <div className="mt-3"><ThinkingTracker traceId={traceFromQuery || nervous.trace_id} mode={nervous.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} /></div>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Back to Slip</a>

@@ -56,7 +56,7 @@ export function GameCard({
       {expanded ? (
         <div className="mt-3 grid gap-2 border-t border-white/10 pt-3">
           {game.propsPreview.map((prop) => (
-            <PropKeyRow key={prop.id} prop={prop} onAdd={onAdd} onAnalyze={onAnalyze} />
+            <PropKeyRow key={prop.id} prop={prop} gameId={game.id} onAdd={onAdd} onAnalyze={onAnalyze} />
           ))}
         </div>
       ) : null}

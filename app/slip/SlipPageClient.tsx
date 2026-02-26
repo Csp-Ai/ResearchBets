@@ -74,10 +74,12 @@ export default function SlipPageClient() {
   useEffect(() => {
     fetch(nervous.toHref('/api/today'))
       .then((res) => (res.ok ? res.json() : null))
-      .then((payload: TodayPayload | null) => {
-        if (!payload) return;
-        setBoardMode(payload.mode);
-        const mappedGames = mapTodayPayload(payload);
+      .then((payload: { ok?: boolean; data?: { mode: 'live'|'cache'|'demo'; games: Array<{id:string;matchup:string;startTime:string}>; board: Array<{id:string;gameId:string;player:string;market:string;line:string;odds?:string}> } } | null) => {
+        if (!payload?.ok || !payload.data) return;
+        const data = payload.data;
+        setBoardMode(data.mode);
+        const asTodayPayload: TodayPayload = { mode: data.mode, generatedAt: new Date().toISOString(), leagues: ['NBA','NFL','MLB','Soccer','UFC','NHL'], games: data.games.map((g) => ({ id: g.id, league: 'NBA', status: 'upcoming', startTime: g.startTime, matchup: g.matchup, teams: g.matchup.split('@').map((v) => v.trim()), bookContext: 'Unified board resolver', provenance: 'normalized_board', lastUpdated: new Date().toISOString(), propsPreview: data.board.filter((b) => b.gameId === g.id).map((b) => ({ id: b.id, player: b.player, market: b.market as TodayPayload['games'][number]['propsPreview'][number]['market'], line: b.line, odds: b.odds, rationale: ['Board signal'], provenance: 'normalized_board', lastUpdated: new Date().toISOString() })) })) };
+        const mappedGames = mapTodayPayload(asTodayPayload);
         setGames(mappedGames);
         if (dedupedLegs.length === 0) {
           const seeded = getScoutDraftLegs(mappedGames);

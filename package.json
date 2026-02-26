@@ -34,7 +34,8 @@
     "dev:mirror:index": "tsx src/scripts/index-codebase.ts",
     "verify:landing": "node scripts/verify-landing.mjs",
     "audit:journey": "node scripts/audit-journey.mjs",
-    "audit:state": "node scripts/audit-repo-state.mjs"
+    "audit:state": "node scripts/audit-repo-state.mjs",
+    "check:landing-imports": "node scripts/check-landing-imports.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -1,5 +1,11 @@
-import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
+import { asMarketType } from '@/src/core/markets/marketType';
+import {
+  computeEdgeDelta,
+  computeMarketImpliedProb,
+  computeModelProb,
+} from '@/src/core/markets/edgePrimitives';
 
+import type { BoardRow } from './types';
 import { fallbackToday } from './fallback';
 
 export type NormalizedGame = {
@@ -8,22 +14,11 @@ export type NormalizedGame = {
   startTime: string;
 };
 
-export type NormalizedBoardProp = {
-  id: string;
-  player: string;
-  market: MarketType;
-  line: string;
-  odds: string;
-  hitRateL10: number;
-  riskTag: 'stable' | 'watch';
-  gameId: string;
-};
-
 export type NormalizedToday = {
   mode: 'live' | 'cache' | 'demo';
   reason?: string;
   games: NormalizedGame[];
-  board: NormalizedBoardProp[];
+  board: BoardRow[];
 };
 
 const normalizeMode = (value: unknown): NormalizedToday['mode'] => {
@@ -37,17 +32,40 @@ const normalizeGame = (entry: Record<string, unknown>, index: number): Normalize
   startTime: String(entry.startTime ?? entry.startISO ?? 'TBD')
 });
 
-const normalizeBoard = (entry: Record<string, unknown>, index: number): NormalizedBoardProp => {
-  const hitRate = Number(entry.hitRateL10 ?? 55);
+const buildBoardRow = (entry: Record<string, unknown>, index: number): BoardRow => {
+  const id = String(entry.id ?? `prop-${index}`);
+  const gameId = String(entry.gameId ?? '');
+  const hitRateL10 = Number(entry.hitRateL10 ?? 55);
+  const riskTag = (Number.isFinite(hitRateL10) ? hitRateL10 : 55) >= 60 ? 'stable' : 'watch';
+  const odds = String(entry.odds ?? entry.consensusOdds ?? '-110');
+  const marketImpliedProb = computeMarketImpliedProb({ odds });
+  const modelProb = computeModelProb({
+    modelProb: typeof entry.modelProb === 'number' ? entry.modelProb : null,
+    deterministic: {
+      idSeed: `${gameId}:${id}`,
+      hitRateL10,
+      hitRateL5: typeof entry.hitRateL5 === 'number' ? entry.hitRateL5 : undefined,
+      riskTag,
+    }
+  });
+
   return {
-    id: String(entry.id ?? `prop-${index}`),
+    id,
+    gameId,
     player: String(entry.player ?? 'Player'),
     market: asMarketType(String(entry.market ?? 'points'), 'points'),
     line: String(entry.line ?? ''),
-    odds: String(entry.odds ?? entry.consensusOdds ?? '-110'),
-    hitRateL10: Number.isFinite(hitRate) ? hitRate : 55,
-    riskTag: (Number.isFinite(hitRate) ? hitRate : 55) >= 60 ? 'stable' : 'watch',
-    gameId: String(entry.gameId ?? '')
+    odds,
+    hitRateL10: Number.isFinite(hitRateL10) ? hitRateL10 : 55,
+    hitRateL5: typeof entry.hitRateL5 === 'number' ? entry.hitRateL5 : undefined,
+    marketImpliedProb,
+    modelProb,
+    edgeDelta: computeEdgeDelta(modelProb, marketImpliedProb),
+    riskTag,
+    confidencePct: typeof entry.confidencePct === 'number' ? entry.confidencePct : undefined,
+    source: typeof entry.source === 'string' ? entry.source : undefined,
+    degraded: Boolean(entry.degraded),
+    mode: entry.mode === 'live' || entry.mode === 'cache' ? entry.mode : 'demo'
   };
 };
 
@@ -65,10 +83,10 @@ export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
   const games = gamesInput.map((item, index) => normalizeGame((item ?? {}) as Record<string, unknown>, index));
 
   const explicitBoard = Array.isArray(wrapped.board)
-    ? wrapped.board.map((item, index) => normalizeBoard((item ?? {}) as Record<string, unknown>, index))
+    ? wrapped.board.map((item, index) => buildBoardRow((item ?? {}) as Record<string, unknown>, index))
     : [];
 
-  const legacyBoard: NormalizedBoardProp[] = [];
+  const legacyBoard: BoardRow[] = [];
   if (explicitBoard.length === 0) {
     gamesInput.forEach((rawGame, gameIndex) => {
       const game = (rawGame ?? {}) as Record<string, unknown>;
@@ -78,28 +96,39 @@ export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
         const prop = (rawProp ?? {}) as Record<string, unknown>;
         const rationaleCount = Array.isArray(prop.rationale) ? prop.rationale.length : 1;
         const hitRateL10 = Math.max(46, Math.min(78, 51 + rationaleCount * 6 - propIndex));
-        legacyBoard.push({
+        legacyBoard.push(buildBoardRow({
           id: String(prop.id ?? `${gameId}-prop-${propIndex}`),
           player: String(prop.player ?? 'Player'),
-          market: asMarketType(String(prop.market ?? 'points'), 'points'),
+          market: String(prop.market ?? 'points'),
           line: String(prop.line ?? ''),
           odds: String(prop.odds ?? '-110'),
           hitRateL10,
-          riskTag: hitRateL10 >= 60 ? 'stable' : 'watch',
-          gameId
-        });
+          gameId,
+          mode,
+          source: String(prop.provenance ?? 'legacy_props_preview')
+        }, propIndex));
       });
     });
   }
 
   const board = explicitBoard.length > 0 ? explicitBoard : legacyBoard;
   if (board.length > 0 && games.length > 0) {
-    return { mode, reason, games, board };
+    const gamesById = new Map(games.map((g) => [g.id, g]));
+    return {
+      mode,
+      reason,
+      games,
+      board: board.map((row) => ({ ...row, matchup: gamesById.get(row.gameId)?.matchup, startTime: gamesById.get(row.gameId)?.startTime, mode }))
+    };
   }
 
   const fallback = fallbackToday({ mode, date: String(root.date ?? '') || undefined, sport: String(root.sport ?? '') || undefined, tz: String(root.tz ?? '') || undefined });
   if (games.length > 0 && board.length === 0) {
-    const filledBoard = fallback.board.map((prop, index) => ({ ...prop, gameId: games[index % games.length]?.id ?? prop.gameId }));
+    const filledBoard = fallback.board.map((prop, index) => {
+      const gameId = games[index % games.length]?.id ?? prop.gameId;
+      const game = games.find((entry) => entry.id === gameId);
+      return { ...prop, gameId, matchup: game?.matchup, startTime: game?.startTime, mode };
+    });
     return { mode, reason: reason ?? 'empty_board_from_api', games, board: filledBoard };
   }
 

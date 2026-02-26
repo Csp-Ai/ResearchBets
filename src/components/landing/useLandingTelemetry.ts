@@ -48,10 +48,10 @@ export function useLandingTelemetry({ mode, sport, tz, date }: { mode: 'demo' | 
         if (!active) return;
 
         const summaryBody = summaryRes.ok ? ((await summaryRes.json()) as TelemetrySummary) : DEMO_TELEMETRY;
-        const todayBody = todayRes.ok ? ((await todayRes.json()) as LandingSnapshotResponse) : {};
+        const todayBody = todayRes.ok ? ((await todayRes.json()) as (LandingSnapshotResponse & { data?: LandingSnapshotResponse })) : {};
 
         setSummary(summaryBody);
-        setToday(todayBody.landing ?? null);
+        setToday(todayBody.landing ?? todayBody.data?.landing ?? null);
         setProviderHealth(healthRes.ok ? (await healthRes.json()) as ProviderHealth : null);
       } catch {
         if (!active) return;

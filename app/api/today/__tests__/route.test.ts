@@ -6,7 +6,7 @@ beforeEach(() => {
 });
 
 describe('/api/today GET', () => {
-  it('returns normalized response shape with spine envelope', async () => {
+  it('returns normalized response shape in unified envelope with spine', async () => {
     vi.doMock('@/src/core/today/service.server', () => ({
       getTodayPayload: vi.fn(async () => ({
         mode: 'demo',
@@ -21,21 +21,24 @@ describe('/api/today GET', () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json() as {
-      mode: 'live' | 'cache' | 'demo';
-      reason?: string;
-      games: Array<{ id: string }>;
-      board: Array<{ id: string }>;
+      ok: boolean;
+      data: {
+        mode: 'live' | 'cache' | 'demo';
+        reason?: string;
+        games: Array<{ id: string }>;
+        board: Array<{ id: string }>;
+      };
       spine: { sport: string; tz: string; date: string; mode: 'live' | 'cache' | 'demo' };
     };
-    expect(payload.mode).toBe('demo');
-    expect(Array.isArray(payload.games)).toBe(true);
-    expect(payload.games[0]?.id).toBe('g1');
-    expect(payload.board[0]?.id).toBe('p1');
-    expect(payload.mode).toBeTruthy();
+    expect(payload.ok).toBe(true);
+    expect(payload.data.mode).toBe('demo');
+    expect(Array.isArray(payload.data.games)).toBe(true);
+    expect(payload.data.games[0]?.id).toBe('g1');
+    expect(payload.data.board[0]?.id).toBe('p1');
     expect(payload.spine.sport).toBeTruthy();
     expect(payload.spine.tz).toBeTruthy();
     expect(payload.spine.date).toBeTruthy();
-    expect(payload.spine.mode).toBe(payload.mode);
-    expect(payload.reason === undefined || typeof payload.reason === 'string').toBe(true);
+    expect(payload.spine.mode).toBe(payload.data.mode);
+    expect(payload.data.reason === undefined || typeof payload.data.reason === 'string').toBe(true);
   });
 });

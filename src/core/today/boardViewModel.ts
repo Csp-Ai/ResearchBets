@@ -1,3 +1,5 @@
+import { formatPct, formatSignedPct } from '@/src/core/markets/edgePrimitives';
+import type { BoardRow } from '@/src/core/today/types';
 import type { NormalizedToday } from '@/src/core/today/normalize';
 
 export type BoardLiveOdds = { book: string; odds: number | string; updated_at?: string };
@@ -25,9 +27,16 @@ export type BoardCardVM = {
   line?: number;
   hit_rate_l10?: number;
   consensus_odds?: number | string;
+  market_implied_prob: string;
+  model_prob: string;
+  edge_delta: string;
+  risk_tag: 'stable' | 'watch';
+  confidence_pct?: number;
+  source?: string;
   live_odds?: BoardLiveOdds[];
   best_odds?: { book: string; odds: number | string };
   is_live: boolean;
+  row: BoardRow;
 };
 
 const toNumeric = (value: number | string | undefined): number | null => {
@@ -78,16 +87,23 @@ export function buildBoardViewModel(today: NormalizedToday, live?: LiveOddsPaylo
     return {
       id: prop.id,
       league: undefined,
-      game: game?.matchup,
-      start: game?.startTime,
+      game: game?.matchup ?? prop.matchup,
+      start: game?.startTime ?? prop.startTime,
       marketLabel: prop.market,
       selectionLabel: `${prop.player} ${prop.market} ${prop.line}`,
       line: Number(prop.line),
       hit_rate_l10: prop.hitRateL10,
       consensus_odds: prop.odds,
+      market_implied_prob: formatPct(prop.marketImpliedProb),
+      model_prob: formatPct(prop.modelProb),
+      edge_delta: formatSignedPct(prop.edgeDelta),
+      risk_tag: prop.riskTag,
+      confidence_pct: prop.confidencePct,
+      source: prop.source,
       live_odds: liveOdds.length > 0 ? liveOdds : undefined,
       best_odds: bestOdds,
-      is_live: liveOdds.length > 0
+      is_live: liveOdds.length > 0,
+      row: prop,
     } satisfies BoardCardVM;
   });
 
@@ -97,7 +113,24 @@ export function buildBoardViewModel(today: NormalizedToday, live?: LiveOddsPaylo
       marketLabel: 'points',
       selectionLabel: 'Fallback board item',
       consensus_odds: '-110',
-      is_live: false
+      market_implied_prob: '50.0%',
+      model_prob: '50.0%',
+      edge_delta: '+0.0%',
+      risk_tag: 'watch',
+      is_live: false,
+      row: {
+        id: 'fallback-board-item',
+        gameId: 'fallback',
+        player: 'Fallback',
+        market: 'points',
+        line: '0.5',
+        odds: '-110',
+        hitRateL10: 50,
+        marketImpliedProb: 0.5,
+        modelProb: 0.5,
+        edgeDelta: 0,
+        riskTag: 'watch'
+      }
     }
   ];
 }
