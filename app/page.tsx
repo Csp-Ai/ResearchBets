@@ -1,5 +1,11 @@
-import LandingVisionClient from '@/src/components/landing/LandingVisionClient';
+import { Suspense } from 'react';
+
+import HomeLandingClient from '@/app/HomeLandingClient';
 
 export default function HomePage() {
-  return <LandingVisionClient />;
+  return (
+    <Suspense fallback={null}>
+      <HomeLandingClient />
+    </Suspense>
+  );
 }
