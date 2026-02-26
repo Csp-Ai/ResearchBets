@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { TelemetrySummary } from '@/src/core/telemetry/types';
+import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
 
 type ProviderHealth = { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: string; providerErrors?: string[] };
 
@@ -48,12 +49,16 @@ export function useLandingTelemetry({ mode, sport, tz, date }: { mode: 'demo' | 
         if (!active) return;
 
         const summaryBody = summaryRes.ok ? ((await summaryRes.json()) as TelemetrySummary) : DEMO_TELEMETRY;
-        const todayBody = todayRes.ok ? ((await todayRes.json()) as (LandingSnapshotResponse & { data?: LandingSnapshotResponse })) : {};
+        const todayBody = todayRes.ok ? await todayRes.json() : {};
+        const todayEnvelope = parseTodayEnvelope(todayBody);
 
         setSummary(summaryBody);
-        setToday(todayBody.landing ?? todayBody.data?.landing ?? null);
+        setToday(todayEnvelope.success && todayEnvelope.data.ok ? (todayEnvelope.data.landing as LandingSnapshotResponse['landing'] ?? null) : null);
         setProviderHealth(healthRes.ok ? (await healthRes.json()) as ProviderHealth : null);
-      } catch {
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[landing] live telemetry unavailable, showing demo slate.', error);
+        }
         if (!active) return;
         setSummary(DEMO_TELEMETRY);
         setToday(null);

@@ -7,19 +7,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { TodayPayloadSchema } from '@/src/core/contracts/envelopes';
-import { deriveRuntimeModeBadgeLabel } from '@/src/core/env/runtime.shared';
+import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
+import { ModeBadge } from '@/src/components/landing/ModeBadge';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 type TodayPayload = typeof TodayPayloadSchema._type;
 type BoardProp = TodayPayload['board'][number] & {
   hitRateL10?: number;
   riskTag?: string;
-};
-
-type TodayApiResult = {
-  ok?: boolean;
-  data?: unknown;
-  trace_id?: string;
 };
 
 const FALLBACK_TODAY: TodayPayload = {
@@ -53,8 +48,8 @@ const toSlipMarketType = (market: string) => {
 
 const normalizeTodayResult = (input: unknown): TodayPayload => {
   if (!input || typeof input !== 'object') return FALLBACK_TODAY;
-  const envelope = input as TodayApiResult;
-  const candidate = (envelope.data ?? input) as unknown;
+  const parsedEnvelope = parseTodayEnvelope(input);
+  const candidate = parsedEnvelope.success && parsedEnvelope.data.ok ? parsedEnvelope.data.data : input;
   const parsed = TodayPayloadSchema.safeParse(candidate);
   if (!parsed.success) return FALLBACK_TODAY;
   if (parsed.data.board.length >= 6) return parsed.data;
@@ -90,10 +85,11 @@ export function FrontdoorLandingClient() {
           signal: controller.signal
         });
 
-        const payload = response.ok ? ((await response.json()) as TodayApiResult) : null;
+        const payload = response.ok ? await response.json() : null;
         const normalized = normalizeTodayResult(payload);
         setToday(normalized);
-        if (payload?.trace_id) setTraceId(payload.trace_id);
+        const parsedEnvelope = parseTodayEnvelope(payload);
+        if (parsedEnvelope.success && parsedEnvelope.data.ok) setTraceId(parsedEnvelope.data.trace_id);
       } catch {
         setToday(FALLBACK_TODAY);
       } finally {
@@ -107,13 +103,11 @@ export function FrontdoorLandingClient() {
   }, [nervous.date, nervous.mode, nervous.sport, nervous.tz, nervous.trace_id]);
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
-  const hasPartialFeeds = today.mode === 'cache' || (today.mode === 'live' && (today.reason === 'missing_keys' || today.reason === 'provider_unavailable'));
-  const modeLabel = deriveRuntimeModeBadgeLabel({ mode: today.mode, hasPartialFeeds });
+  const activeTraceId = traceId ?? nervous.trace_id;
+  const spineHref = (path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) });
   const board = today.board.slice(0, 6) as BoardProp[];
 
-  const openLatestHref = traceId
-    ? appendQuery(nervous.toHref('/traces'), { trace_id: traceId })
-    : nervous.toHref('/slip');
+  const openLatestHref = traceId ? spineHref('/traces') : spineHref('/slip');
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -123,12 +117,12 @@ export function FrontdoorLandingClient() {
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">ResearchBets</p>
             <h1 className="text-2xl font-semibold">Tonight&apos;s Board</h1>
           </div>
-          <span className="rounded-full border border-cyan-300/40 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">{modeLabel}</span>
+          <ModeBadge mode={today.mode} reason={today.reason} />
         </div>
       </header>
 
       <section className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 py-4 sm:px-6">
-        <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5">
+        <Link href={appendQuery(spineHref('/slip'), { sample: '1' })} className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5">
           Try sample slip
         </Link>
         <a href="#tonights-board" className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5">
@@ -142,7 +136,7 @@ export function FrontdoorLandingClient() {
       <section id="tonights-board" className="mx-auto max-w-6xl px-4 pb-10 sm:px-6" aria-label="tonights-board">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-slate-300">Preview up to 6 scout cards with direct game and research actions.</p>
-          <Link href={nervous.toHref('/landing')} className="text-xs text-slate-400 underline-offset-4 hover:underline">Marketing page</Link>
+          <Link href={spineHref('/landing')} className="text-xs text-slate-400 underline-offset-4 hover:underline">Marketing page</Link>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -159,7 +153,7 @@ export function FrontdoorLandingClient() {
                 const inSlip = slipIds.has(prop.id);
                 return (
                   <article key={prop.id} className="rounded-xl border border-white/10 bg-slate-900/70 p-4">
-                    <Link href={nervous.toHref(`/game/${prop.gameId}`, { gameId: prop.gameId })} className="block">
+                    <Link href={spineHref(`/game/${prop.gameId}`, { gameId: prop.gameId })} className="block">
                       <p className="text-sm font-medium">{game?.matchup ?? 'Featured matchup'}</p>
                       <p className="text-xs text-slate-400">{game?.startTime ?? 'Tonight'}</p>
                     </Link>
@@ -189,7 +183,7 @@ export function FrontdoorLandingClient() {
                         {inSlip ? 'Remove from slip' : 'Add to slip'}
                       </button>
                       <Link
-                        href={appendQuery(nervous.toHref('/slip', { gameId: prop.gameId, propId: prop.id, trace_id: traceId }), {
+                        href={appendQuery(spineHref('/slip', { gameId: prop.gameId, propId: prop.id }), {
                           focus: 'research'
                         })}
                         className="rounded-md bg-cyan-400 px-3 py-2 text-xs font-medium text-slate-900"

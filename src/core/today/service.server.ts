@@ -47,9 +47,12 @@ export async function getTodayPayload(options?: { forceRefresh?: boolean; demoRe
 
   const board = await getBoardData({ sport, tz, date, demoRequested: options?.demoRequested });
 
+  const generatedAt = new Date().toISOString();
+
   const payload: TodayPayload = {
     mode: board.mode,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    provenance: { mode: board.mode, reason: board.reason, generatedAt },
     leagues: [...TODAY_LEAGUES],
     games: board.games.map((game) => ({
       id: game.gameId,

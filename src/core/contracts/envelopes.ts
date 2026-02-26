@@ -11,6 +11,12 @@ export const TraceContextSchema = z.object({
 export const TodayPayloadSchema = z.object({
   mode: z.enum(['live', 'cache', 'demo']),
   reason: z.string().optional(),
+  generatedAt: z.string().optional(),
+  provenance: z.object({
+    mode: z.enum(['live', 'cache', 'demo']),
+    reason: z.string().optional(),
+    generatedAt: z.string(),
+  }).optional(),
   games: z.array(z.object({
     id: z.string().min(1),
     matchup: z.string().min(1),

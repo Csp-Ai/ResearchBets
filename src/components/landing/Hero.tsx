@@ -46,7 +46,7 @@ export function Hero({
           <div className={styles.badge}>
             <span className={styles.badgeDot} />Research workflow for bettors
           </div>
-          <ModeBadge requestedMode={mode} effectiveMode={effectiveMode} reason={modeReason} />
+          <ModeBadge mode={effectiveMode === 'live' ? 'live' : 'demo'} reason={modeReason} />
           <p className={styles.statusStrip} title={statusText}>{statusText}</p>
           <h1>Find the leg that breaks your parlay.</h1>
           <p className={styles.heroSub}>
