@@ -2,10 +2,10 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 
-import { DEMO_GAMES, type BettorGame } from './demoData';
-import { getServerEnv } from '../env/server';
-import { getProviderRegistry } from '../providers/registry.server';
+import { getBoardData, type BoardSport } from '@/src/core/board/boardService.server';
 import { getSupabaseServiceClient } from '@/src/services/supabase';
+
+import { DEMO_GAMES, type BettorGame } from './demoData';
 
 export type BettorDataEnvelope = {
   mode: 'live' | 'demo';
@@ -19,47 +19,16 @@ export type BettorDataEnvelope = {
     source: 'provider' | 'fallback';
     reason?: string;
   };
+  modeFallbackApplied?: boolean;
+  providerErrors?: string[];
+  userSafeReason?: string;
 };
 
-const providerCircuit = {
-  openUntilMs: 0,
-  consecutiveFailures: 0
-};
-
-const readProviderStatus = () => {
-  const env = getServerEnv();
-  return {
-    stats: env.sportsDataApiKey ? 'connected' : 'missing',
-    odds: env.oddsApiKey ? 'connected' : 'missing',
-    injuries: env.sportsDataApiKey ? 'connected' : 'missing'
-  } as const;
-};
-
-const liveModeEnabled = (override?: boolean) => {
-  if (typeof override === 'boolean') return override;
-  return getServerEnv().liveMode;
-};
-
-const mapEventToGame = (event: { id: string; home_team?: string; away_team?: string; commence_time?: string }): BettorGame => {
-  const base = DEMO_GAMES[0] ?? DEMO_GAMES[1]!;
-  return {
-    ...base,
-    id: event.id,
-    status: 'upcoming',
-    startTime: event.commence_time ? new Date(event.commence_time).toLocaleTimeString() : (base?.startTime ?? 'TBD'),
-    matchup: `${event.away_team ?? base.awayTeam} @ ${event.home_team ?? base.homeTeam}`,
-    homeTeam: event.home_team ?? base.homeTeam,
-    awayTeam: event.away_team ?? base.awayTeam,
-    propSuggestions: []
-  };
-};
-
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('provider_timeout')), timeoutMs);
-  });
-  return Promise.race([promise, timeoutPromise]);
-};
+const readProviderStatus = () => ({
+  stats: process.env.SPORTSDATA_API_KEY ? 'connected' : 'missing',
+  odds: process.env.ODDS_API_KEY ? 'connected' : 'missing',
+  injuries: process.env.SPORTSDATA_API_KEY ? 'connected' : 'missing'
+} as const);
 
 const emitGatewayEvent = async (eventName: string, properties: Record<string, unknown>) => {
   try {
@@ -72,7 +41,7 @@ const emitGatewayEvent = async (eventName: string, properties: Record<string, un
       session_id: 'system:bettor_gateway',
       user_id: 'system',
       agent_id: 'bettor_gateway',
-      model_version: 'gateway-v2',
+      model_version: 'gateway-v3',
       properties,
       created_at: new Date().toISOString()
     });
@@ -81,61 +50,74 @@ const emitGatewayEvent = async (eventName: string, properties: Record<string, un
   }
 };
 
-const fallback = async (reason: string, providerStatus: BettorDataEnvelope['providerStatus']): Promise<BettorDataEnvelope> => {
-  await emitGatewayEvent('bettor_gateway_fallback', {
-    reason,
-    hasOddsKey: providerStatus.odds === 'connected',
-    hasStatsKey: providerStatus.stats === 'connected'
-  });
+const toBettorGame = (game: ReturnType<typeof DEMO_GAMES.at>): BettorGame => game ?? DEMO_GAMES[0]!;
 
-  return {
-    mode: 'demo',
-    games: DEMO_GAMES,
-    providerStatus,
-    provenance: { source: 'fallback', reason }
-  };
+const mapBoardToBettorGame = (board: Awaited<ReturnType<typeof getBoardData>>): BettorGame[] => {
+  const demo = DEMO_GAMES[0]!;
+  return board.games.map((game) => {
+    const scoutSet = board.scouts.filter((scout) => scout.gameId === game.gameId).slice(0, 4);
+    return {
+      id: game.gameId,
+      league: 'NBA' as const,
+      status: game.status,
+      startTime: game.startTimeLocal,
+      matchup: `${game.away} @ ${game.home}`,
+      homeTeam: game.home,
+      awayTeam: game.away,
+      homeRecord: demo.homeRecord,
+      awayRecord: demo.awayRecord,
+      homeWinProbability: 0.55,
+      awayWinProbability: 0.45,
+      matchupReasons: ['Recent pace and shot profile support this edge.', 'Core player availability currently stable.', 'Market line still near prior median.'],
+      activePlayers: [
+        { name: game.home, team: game.home, role: 'Core', status: 'active' as const },
+        { name: game.away, team: game.away, role: 'Core', status: 'active' as const }
+      ],
+      propSuggestions: scoutSet.map((scout, propIdx) => ({
+        id: `${game.gameId}:${propIdx}`,
+        player: scout.headline.split(' points over ')[0] ?? game.home,
+        team: propIdx % 2 === 0 ? game.home : game.away,
+        role: 'Core',
+        market: 'Points Over',
+        line: Number.parseFloat((scout.headline.split(' points over ')[1] ?? '18.5')),
+        odds: scout.subline,
+        hitRateL5: Math.max(0.1, Math.min(0.95, scout.hitRate)),
+        hitRateL10: Math.max(0.1, Math.min(0.95, scout.hitRate - 0.05)),
+        reasons: scout.reasons,
+        uncertainty: scout.uncertainty,
+        contributingAgents: scout.sources
+      }))
+    };
+  }).filter(Boolean);
 };
 
-export const getBettorData = async (options?: { liveModeOverride?: boolean }): Promise<BettorDataEnvelope> => {
+export const getBettorData = async (options?: { liveModeOverride?: boolean; sport?: BoardSport; tz?: string; date?: string; demoRequested?: boolean }): Promise<BettorDataEnvelope> => {
   const providerStatus = readProviderStatus();
-  const env = getServerEnv();
+  const board = await getBoardData({
+    sport: options?.sport ?? 'NBA',
+    tz: options?.tz ?? 'America/Phoenix',
+    date: options?.date,
+    demoRequested: options?.demoRequested || options?.liveModeOverride === false
+  });
 
-  if (!liveModeEnabled(options?.liveModeOverride)) {
-    return fallback('demo_mode', providerStatus);
+  if (board.mode !== 'live') {
+    await emitGatewayEvent('bettor_gateway_fallback', {
+      reason: board.reason,
+      providerErrors: board.providerErrors,
+      sport: board.sport,
+      tz: board.tz
+    });
   }
 
-  const missingLiveKeys: string[] = [];
-  if (!env.oddsApiKey) missingLiveKeys.push('ODDS_API_KEY');
-  if (!env.sportsDataApiKey) missingLiveKeys.push('SPORTSDATA_API_KEY');
+  const games = mapBoardToBettorGame(board);
 
-  if (missingLiveKeys.length > 0) {
-    console.warn('[bettor_gateway] Missing live provider keys, falling back to demo fixtures.', { missingKeys: missingLiveKeys });
-    return fallback('fallback_due_to_missing_keys', providerStatus);
-  }
-
-  if (providerCircuit.openUntilMs > Date.now()) {
-    return fallback('provider_circuit_open', providerStatus);
-  }
-
-  try {
-    const providerEvents = await withTimeout(getProviderRegistry().oddsProvider.fetchEvents({ sport: 'NBA' }), 6_000);
-    providerCircuit.consecutiveFailures = 0;
-
-    if (providerEvents.events.length > 0) {
-      return {
-        mode: 'live',
-        games: providerEvents.events.slice(0, 6).map(mapEventToGame),
-        providerStatus,
-        provenance: { source: 'provider' }
-      };
-    }
-
-    return fallback(providerEvents.fallbackReason ?? 'provider_no_events', providerStatus);
-  } catch {
-    providerCircuit.consecutiveFailures += 1;
-    if (providerCircuit.consecutiveFailures >= 2) {
-      providerCircuit.openUntilMs = Date.now() + 60_000;
-    }
-    return fallback('provider_error', providerStatus);
-  }
+  return {
+    mode: board.mode === 'live' ? 'live' : 'demo',
+    games: games.length > 0 ? games : DEMO_GAMES.map((g) => toBettorGame(g)),
+    providerStatus,
+    provenance: { source: board.mode === 'live' ? 'provider' : 'fallback', reason: board.reason },
+    modeFallbackApplied: board.modeFallbackApplied,
+    providerErrors: board.providerErrors,
+    userSafeReason: board.userSafeReason
+  };
 };

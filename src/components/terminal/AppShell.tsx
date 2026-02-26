@@ -9,6 +9,8 @@ import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/cor
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 import { COPY_TOAST_EVENT } from './copyToast';
+import { ContextBadge } from '@/src/components/nervous/ContextBadge';
+import { NervousSystemProvider, useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 const BASE_NAV_ITEMS = [
   { label: 'Board', href: '/today' },
@@ -20,7 +22,7 @@ const BASE_NAV_ITEMS = [
 const PRODUCT_PREFIXES = ['/today', '/slip', '/stress-test', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
 const RAIL_ROUTES = ['/today', '/slip', '/stress-test', '/control'];
 
-export function AppShell({ children }: { children: ReactNode }) {
+function AppShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [liveMode, setLiveMode] = useState(false);
   const [mobileSlipOpen, setMobileSlipOpen] = useState(false);
   const { slip, removeLeg, clearSlip } = useDraftSlip();
+  const nervous = useNervousSystem();
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
@@ -70,11 +73,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const toStressTest = () => {
     const prefillText = serializeDraftSlip(slip);
     if (!prefillText || typeof window === 'undefined') {
-      router.push('/stress-test');
+      router.push(nervous.toHref('/stress-test'));
       return;
     }
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
+    router.push(`${nervous.toHref('/stress-test')}&tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
   };
 
   const toStressTestFromDrawer = () => {
@@ -98,6 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </div>
           <div className="flex items-center gap-3">
+            <ContextBadge />
             <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
@@ -182,4 +186,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       {toast ? <div className="fixed bottom-5 right-5 rounded bg-slate-200 px-3 py-2 text-xs font-medium text-slate-900">{toast}</div> : null}
     </div>
   );
+}
+
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return <NervousSystemProvider><AppShellInner>{children}</AppShellInner></NervousSystemProvider>;
 }

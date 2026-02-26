@@ -9,6 +9,10 @@ const files = execSync("rg --files app src/components src/app 2>/dev/null | tr '
 
 const entries = [];
 
+const CONTEXT_KEYS = ['mode', 'sport', 'tz', 'date', 'gameId', 'propId', 'slipId', 'trace'];
+const hasKnownContext = (href) => CONTEXT_KEYS.some((key) => href.includes(`${key}=`));
+
+
 for (const file of files) {
   const content = readFileSync(file, 'utf8');
 
@@ -43,11 +47,13 @@ for (const [label, hrefs] of duplicateLabels.entries()) {
 }
 
 for (const row of entries) {
-  const isResearchSurface = row.file.includes('/landing/') || row.file.includes('/research/');
-  if (isResearchSurface && row.href.includes('/ingest') && !row.href.includes('trace=') && !row.href.includes('slip_id=')) {
-    findings.push({ severity: 'warn', type: 'missing_context_handoff', file: row.file, href: row.href, label: row.label });
+  const isResearchSurface = row.file.includes('/landing/') || row.file.includes('/research/') || row.file.includes('/today/');
+  const isInternal = row.href.startsWith('/') || row.href.startsWith('`/');
+  if (isResearchSurface && isInternal && !hasKnownContext(row.href) && !row.href.includes('#') && !row.href.includes('mailto:')) {
+    findings.push({ severity: 'warn', type: 'context_loss_risk', file: row.file, href: row.href, label: row.label });
   }
 }
+
 
 const output = { generatedAt: new Date().toISOString(), entries, findings };
 mkdirSync('docs', { recursive: true });

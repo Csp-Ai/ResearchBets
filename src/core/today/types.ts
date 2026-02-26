@@ -35,6 +35,9 @@ export type TodayPayload = {
   leagues: TodayLeague[];
   games: TodayGame[];
   reason?: string;
+  modeFallbackApplied?: boolean;
+  providerErrors?: string[];
+  userSafeReason?: string;
   landing?: {
     mode: 'live' | 'demo';
     reason: 'live_ok' | 'demo_requested' | 'live_mode_disabled' | 'missing_keys' | 'provider_unavailable';

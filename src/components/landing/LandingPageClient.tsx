@@ -19,6 +19,7 @@ import { TonightsBoardPreview } from './TonightsBoardPreview';
 import { Tracker } from './Tracker';
 import { getModeFromSearchParams } from './mode';
 import { useLandingTelemetry } from './useLandingTelemetry';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import styles from './landing.module.css';
 
 export function LandingPageClient() {
@@ -28,6 +29,7 @@ export function LandingPageClient() {
   const [runToken, setRunToken] = useState(0);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [activePhase, setActivePhase] = useState<LandingPhase>('before');
+  const nervous = useNervousSystem();
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -79,19 +81,19 @@ export function LandingPageClient() {
         </div>
         <ul>
           <li>
-            <Link href="/ingest" className={styles.btnSecondary}>Analyze</Link>
+            <Link href={nervous.toHref('/ingest')} className={styles.btnSecondary}>Analyze</Link>
           </li>
           <li>
-            <Link href="/stress-test">Research</Link>
+            <Link href={nervous.toHref('/stress-test')}>Research</Link>
           </li>
           <li>
-            <Link href="/slip">Build Slip</Link>
+            <Link href={nervous.toHref('/slip')}>Build Slip</Link>
           </li>
           <li>
             <a href="#faq">FAQ</a>
           </li>
         </ul>
-        <Link href="/ingest">Analyze</Link>
+        <Link href={nervous.toHref('/ingest')}>Analyze</Link>
       </nav>
       <Hero
         mode={mode}
@@ -137,7 +139,7 @@ export function LandingPageClient() {
                 </div>
                 <h3>Need the live board?</h3>
                 <p>Open Control Room live view to monitor game state and market movement.</p>
-                <Link href="/control?tab=live" className={styles.btnSecondary}>
+                <Link href={`${nervous.toHref('/control')}&tab=live`} className={styles.btnSecondary}>
                   Open live view
                 </Link>
               </div>

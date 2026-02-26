@@ -21,7 +21,12 @@ const LIVE_KEY_NAMES = ['THEODDSAPI_KEY', 'ODDS_API_KEY', 'SPORTSDATA_API_KEY'] 
 
 const hasAnyLiveKey = () => LIVE_KEY_NAMES.some((key) => Boolean(process.env[key]));
 
-const readLiveModeEnv = () => (process.env.LIVE_MODE ?? 'false').toLowerCase() === 'true';
+const readLiveModeEnv = () => {
+  const raw = (process.env.LIVE_MODE ?? '').toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return isProductionRuntime() ? hasAnyLiveKey() : false;
+};
 
 const isProductionRuntime = () => {
   const vercelEnv = process.env.VERCEL_ENV;

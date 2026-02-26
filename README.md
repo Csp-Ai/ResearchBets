@@ -36,7 +36,8 @@ ResearchBets is deterministic-first and degrades safely.
   - `/api/today` serves deterministic slate data and can return `mode: demo` or cached payloads.
   - Live market APIs and outcome APIs use demo-first snapshots and deterministic fallbacks.
 - **Live mode:**
-  - Set `LIVE_MODE=true` and provide at least one live provider key (`THEODDSAPI_KEY`, `ODDS_API_KEY`, or `SPORTSDATA_API_KEY`).
+  - In production, live mode now defaults on when any canonical live key exists (`SPORTSDATA_API_KEY`, `ODDS_API_KEY`, `THEODDSAPI_KEY`).
+  - `LIVE_MODE=true|false` still overrides explicitly.
   - `src/core/live/modeResolver.server.ts` is the single resolver for `live | demo`, reason code, and public label.
   - In production runtimes, landing routes stay live-first when keys exist; on provider failure they fall back to deterministic demo safely.
 
@@ -114,6 +115,7 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/today` | Board payload aggregator with live→demo fallback and cache mode. |
+| `GET /api/provider-health` | Fast provider configuration + reachability check for live mode diagnostics. |
 | `POST /api/slips/submit` | Store raw slip text + emit `slip_submitted` telemetry event. |
 | `POST /api/slips/extract` | Parse slip legs + leg insights and emit extraction events. |
 | `POST /api/postmortem` | Deterministic postmortem classification + slip intelligence summaries. |
@@ -198,3 +200,12 @@ Targeted deterministic tests worth running during lifecycle changes:
 ```bash
 npx vitest run app/api/today/__tests__/route.test.ts app/api/postmortem/__tests__/route.test.ts src/core/slips/__tests__/slipIntelligence.test.ts
 ```
+
+
+## Canonical provider envs
+
+Use these exact variable names for live feeds:
+
+- `SPORTSDATA_API_KEY`
+- `ODDS_API_KEY`
+- `THEODDSAPI_KEY` (legacy alias still supported)
