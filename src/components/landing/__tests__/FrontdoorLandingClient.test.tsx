@@ -61,14 +61,15 @@ describe('FrontdoorLandingClient', () => {
     );
   });
 
-  it('renders canonical demo mode label and board cards', async () => {
+  it('renders canonical demo mode label with compact board rows', async () => {
     renderWithNervousSystem(<FrontdoorLandingClient />);
 
     await waitFor(() => {
       expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
     });
 
-    expect(screen.getAllByText('Add leg').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Slip rail')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add Player 1 points 20.5 to slip' })).toBeTruthy();
     expect(screen.getByText('Player 1')).toBeTruthy();
   });
 
@@ -80,7 +81,6 @@ describe('FrontdoorLandingClient', () => {
     });
 
     const sampleAction = screen.getAllByRole('button', { name: 'Try sample slip' })[0];
-    expect(sampleAction).toBeTruthy();
     fireEvent.click(sampleAction as HTMLElement);
     view.rerender(<FrontdoorLandingClient />);
 
