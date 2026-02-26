@@ -44,6 +44,11 @@ export const DraftSlipStore = {
     writeToStorage(next);
     return next;
   },
+  setSlip(legs: SlipBuilderLeg[]): SlipBuilderLeg[] {
+    const next = dedupe(legs);
+    writeToStorage(next);
+    return next;
+  },
   clearSlip(): void {
     writeToStorage([]);
   },

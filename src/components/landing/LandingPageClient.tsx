@@ -150,17 +150,17 @@ export function LandingPageClient() {
             updatedLabel={updatedLabel}
           />
           <section className={styles.phaseLinkSection}>
-            <div className={styles.phaseLinkCard}>
-              <div className={styles.sectionLabel}>
-                {effectiveMode === 'live' ? 'Live telemetry' : 'Demo telemetry'}
-              </div>
-              <h3>Need the live board?</h3>
-              <p>Open Control Room live view to monitor game state and market movement.</p>
+            <div className={styles.telemetryStripSmall}>
+              <span className={styles.telemetryDot} />
+              <span>
+                {effectiveMode === 'live' ? 'Live telemetry active' : 'Demo telemetry active'}
+              </span>
+              <span className={styles.reasonHelp} title={`${reasonLabel} • Open Control Room live view for feed diagnostics.`}>ⓘ</span>
               <Link
                 href={appendQuery(nervous.toHref('/control'), { tab: 'live' })}
-                className={styles.btnSecondary}
+                className={styles.telemetryLink}
               >
-                Open live view
+                Live view
               </Link>
             </div>
           </section>

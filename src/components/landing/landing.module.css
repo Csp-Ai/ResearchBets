@@ -588,6 +588,34 @@
 
 /* ── Phase/Postmortem cards ────────────────────────────────── */
 .phaseStack { display: grid; gap: 0; }
+
+.telemetryStripSmall {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r1);
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-dm-mono), monospace;
+  background: rgba(255,255,255,.02);
+}
+
+.telemetryDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+}
+
+.telemetryLink {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  margin-left: 4px;
+}
+
 .phaseLinkSection, .postmortemSection {
   padding: var(--s5) var(--s7);
   border-bottom: 1px solid var(--border);
