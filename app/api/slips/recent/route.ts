@@ -10,20 +10,21 @@ const extractTitle = (rawText: string): string => {
 };
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const limit = Number(searchParams.get('limit') ?? 2);
-  const anonId = searchParams.get('anon_id') ?? searchParams.get('anon_session_id') ?? undefined;
-  const userId = searchParams.get('user_id') ?? undefined;
-  const requestSpine = spineFromRequest(request);
+  try {
+    const { searchParams } = new URL(request.url);
+    const limit = Number(searchParams.get('limit') ?? 2);
+    const anonId = searchParams.get('anon_id') ?? searchParams.get('anon_session_id') ?? undefined;
+    const userId = searchParams.get('user_id') ?? undefined;
+    const requestSpine = spineFromRequest(request);
 
-  const slips = await getRuntimeStore().listSlipSubmissions({
-    limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 10) : 2,
-    anonSessionId: userId ? undefined : anonId,
-    userId,
-  });
+    const slips = await getRuntimeStore().listSlipSubmissions({
+      limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 10) : 2,
+      anonSessionId: userId ? undefined : anonId,
+      userId,
+    });
 
-  return NextResponse.json({
-    slips: slips.map((slip) => {
+    return NextResponse.json({
+      slips: slips.map((slip) => {
       const spine: ContextSpine = coerceContextSpine(
         {
           sport: requestSpine.sport,
@@ -57,6 +58,9 @@ export async function GET(request: Request) {
         spine,
         trace,
       };
-    })
-  });
+      })
+    });
+  } catch {
+    return NextResponse.json({ slips: [] });
+  }
 }

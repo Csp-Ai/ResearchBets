@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 import { renderWithNervousSystem } from '@/src/test-utils/renderWithNervousSystem';
 
@@ -51,6 +51,13 @@ describe('LandingVisionClient', () => {
         } as Response;
       }
 
+      if (url.includes('/api/events')) {
+        return {
+          ok: true,
+          json: async () => ({ events: [] })
+        } as Response;
+      }
+
       return {
         ok: false,
         json: async () => ({})
@@ -58,15 +65,30 @@ describe('LandingVisionClient', () => {
     }));
   });
 
-  it('renders today loop panel and more than one board card on the front door', async () => {
+  it('renders front door primitives and board density', async () => {
     renderWithNervousSystem(<LandingVisionClient />);
 
     expect(screen.getByLabelText('today-loop-panel')).toBeTruthy();
+    expect(screen.getByLabelText('mode-health-strip')).toBeTruthy();
+    expect(screen.getByLabelText('proof-strip')).toBeTruthy();
 
     await waitFor(() => {
       expect(screen.getAllByText('Add to slip').length).toBeGreaterThan(1);
     });
 
-    expect(screen.getByText("Tonight's Board")).toBeTruthy();
+    expect(screen.getByLabelText('today-board')).toBeTruthy();
+  });
+
+  it('shows tracker with trace id after run risk', async () => {
+    renderWithNervousSystem(<LandingVisionClient />);
+
+    const runButtons = await screen.findAllByText('Run risk');
+    fireEvent.click(runButtons[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('tracker-lite')).toBeTruthy();
+      expect(screen.getByText(/trace_id:/)).toBeTruthy();
+      expect(screen.getByText('Parse')).toBeTruthy();
+    });
   });
 });
