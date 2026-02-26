@@ -285,3 +285,6 @@ Use these exact variable names for live feeds:
 - Trace continuity is enforced through `src/core/trace/getTraceContext.server.ts`; target APIs now always include `trace_id`.
 - Governor agent endpoint: `/api/governor/report`.
 - Dev-only governor surface: `/dev/governor`.
+
+- Prop scout agent (`src/core/agents/propScout.server.ts`) now ranks per-game recommendations deterministically by edge + L10, powering `/game/[gameId]` detail cards.
+- Outcome learning loop (`/api/outcomes/log`, `src/core/learning/updateWeights.server.ts`) logs settled picks and emits `learning_update` events tied to `run_id`.

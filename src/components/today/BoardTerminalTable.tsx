@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 
 import { formatPct, formatSignedPct } from '@/src/core/markets/edgePrimitives';
 import type { MarketType } from '@/src/core/markets/marketType';
@@ -89,7 +90,7 @@ export function BoardTerminalTable({
                   <td className="px-3 py-2.5">
                     <p className="font-medium text-white">{row.player}</p>
                     <p className="text-slate-400">{MARKET_LABEL[row.market]} · {row.line ?? 'TBD'} {row.odds ?? ''}</p>
-                    <p className="text-[11px] text-slate-500">{row.matchup} · {row.startTime}</p>
+                    <p className="text-[11px] text-slate-500"><Link className="underline decoration-dotted" href={`/game/${encodeURIComponent(row.gameId)}`}>{row.matchup}</Link> · {row.startTime}</p>
                   </td>
                   <td className="px-3 py-2.5 text-slate-200">{row.hitRateL10 ?? 0}%</td>
                   <td className="px-3 py-2.5 text-slate-200">{formatPct(row.marketImpliedProb ?? 0.5)} / {formatPct(row.modelProb ?? 0.5)}</td>
@@ -137,7 +138,7 @@ export function BoardTerminalTable({
                 </div>
               </div>
               <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-                <span>L10 {row.hitRateL10 ?? 0}% · {row.startTime}</span>
+                <span><Link className="underline decoration-dotted" href={`/game/${encodeURIComponent(row.gameId)}`}>{row.matchup}</Link> · L10 {row.hitRateL10 ?? 0}% · {row.startTime}</span>
                 <button
                   type="button"
                   onClick={() => onToggleLeg(row)}

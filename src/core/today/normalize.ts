@@ -63,6 +63,9 @@ const buildBoardRow = (entry: Record<string, unknown>, index: number): BoardRow 
     edgeDelta: computeEdgeDelta(modelProb, marketImpliedProb),
     riskTag,
     confidencePct: typeof entry.confidencePct === 'number' ? entry.confidencePct : undefined,
+    book_source: typeof entry.book_source === 'string' ? entry.book_source : undefined,
+    line_variance: typeof entry.line_variance === 'number' ? entry.line_variance : undefined,
+    book_count: typeof entry.book_count === 'number' ? entry.book_count : undefined,
     source: typeof entry.source === 'string' ? entry.source : undefined,
     degraded: Boolean(entry.degraded),
     mode: entry.mode === 'live' || entry.mode === 'cache' ? entry.mode : 'demo'
