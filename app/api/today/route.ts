@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { coerceContextSpine, spineFromRequest, type ContextSpine } from '@/src/core/contracts/contextSpine';
 import { fallbackToday } from '@/src/core/today/fallback';
 import { normalizeTodayPayload } from '@/src/core/today/normalize';
 import { getTodayPayload } from '@/src/core/today/service.server';
@@ -15,30 +16,53 @@ const readSport = (value: string | null): LiveSport => {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const requestSpine = spineFromRequest(request);
   const forceRefresh = searchParams.get('refresh') === '1';
   const demoRequested = searchParams.get('demo') === '1';
-  const sport = readSport(searchParams.get('sport'));
-  const tz = searchParams.get('tz') ?? 'America/Phoenix';
-  const date = searchParams.get('date') ?? searchParams.get('dateISO') ?? undefined;
+  const sport = readSport(requestSpine.sport ?? searchParams.get('sport'));
+  const tz = requestSpine.tz ?? 'America/Phoenix';
+  const date = requestSpine.date ?? searchParams.get('date') ?? searchParams.get('dateISO') ?? undefined;
   const headerLiveMode = request.headers.get('x-live-mode') === '1';
+
+  const withSpine = (payload: ReturnType<typeof normalizeTodayPayload>): Record<string, unknown> => {
+    const spine: ContextSpine = coerceContextSpine(
+      {
+        sport,
+        tz,
+        date,
+        mode: payload.mode,
+        reason: payload.reason,
+        trace_id: requestSpine.trace_id,
+        anon_session_id: requestSpine.anon_session_id,
+      },
+      {
+        sport,
+        tz,
+        date: date ?? new Date().toISOString().slice(0, 10),
+        mode: payload.mode,
+      }
+    );
+
+    return { ...payload, spine };
+  };
 
   try {
     if (headerLiveMode && !process.env.SPORTSDATAIO_API_KEY && !process.env.THEODDS_API_KEY) {
-      return NextResponse.json({
+      return NextResponse.json(withSpine(normalizeTodayPayload({
         ...fallbackToday({ sport, tz, date, mode: 'demo' }),
         mode: 'demo',
         reason: 'fallback_due_to_missing_keys'
-      });
+      })));
     }
 
     const payload = await getTodayPayload({ forceRefresh, demoRequested, sport, tz, date });
     const normalized = normalizeTodayPayload(payload);
-    return NextResponse.json(normalized);
+    return NextResponse.json(withSpine(normalized));
   } catch {
-    return NextResponse.json({
+    return NextResponse.json(withSpine(normalizeTodayPayload({
       ...fallbackToday({ sport, tz, date, mode: 'demo' }),
       mode: 'demo',
       reason: 'fallback_due_to_provider_unavailable'
-    });
+    })));
   }
 }

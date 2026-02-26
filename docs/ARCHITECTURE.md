@@ -94,6 +94,8 @@ Product contract: UI must display degraded/demo context explicitly instead of im
 
 ## Repo audits
 
+Always read `llm.txt` at repo root before implementing architecture-impacting changes; it is the short operational compass for North Star, invariants, and canonical contracts.
+
 Current audit sources to reference (do not duplicate fully):
 
 - `AUDIT_REPORT.md` — broad system-state snapshot and risk inventory.

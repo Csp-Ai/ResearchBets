@@ -3,6 +3,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { coerceContextSpine, spineFromRequest, type ContextSpine } from '@/src/core/contracts/contextSpine';
+import { ensureTraceMeta } from '@/src/core/contracts/trace';
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
 import { applyRateLimit } from '@/src/core/http/rateLimit';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
@@ -46,14 +48,35 @@ export async function POST(request: Request) {
 
   const body = parsed.data;
   const store = getRuntimeStore();
+  const requestSpine = spineFromRequest(request);
 
   const anonSessionId = ('anon_session_id' in body && body.anon_session_id)
     || ('anon_id' in body && body.anon_id)
     || ('spine' in body && body.spine.anon_id)
+    || requestSpine.anon_session_id
     || randomUUID();
   const userId = ('user_id' in body ? body.user_id : null) ?? ('spine' in body ? body.spine.user_id : null) ?? null;
   const requestId = ('request_id' in body && body.request_id) ? body.request_id : randomUUID();
-  const traceId = ('trace_id' in body && body.trace_id) ? body.trace_id : randomUUID();
+
+  const baseSpine: ContextSpine = coerceContextSpine(
+    {
+      sport: 'spine' in body ? body.spine.sport : requestSpine.sport,
+      tz: 'spine' in body ? body.spine.tz : requestSpine.tz,
+      date: 'spine' in body ? body.spine.date : requestSpine.date,
+      mode: 'spine' in body ? body.spine.mode : requestSpine.mode,
+      reason: requestSpine.reason,
+      anon_session_id: anonSessionId,
+    },
+    {
+      sport: 'NBA',
+      tz: 'America/Phoenix',
+      date: new Date().toISOString().slice(0, 10),
+      mode: 'demo',
+      anon_session_id: anonSessionId,
+    }
+  );
+
+  const trace = ensureTraceMeta(baseSpine, 'user', ('trace_id' in body && body.trace_id) ? body.trace_id : requestSpine.trace_id);
 
   const rawText = 'raw_text' in body && typeof body.raw_text === 'string' && body.raw_text.trim().length > 0
     ? body.raw_text
@@ -76,7 +99,7 @@ export async function POST(request: Request) {
     rawText,
     parseStatus: 'received',
     extractedLegs: ('legs' in body ? body.legs as Record<string, unknown>[] : null),
-    traceId,
+    traceId: trace.trace_id,
     requestId,
     checksum,
   });
@@ -85,7 +108,7 @@ export async function POST(request: Request) {
     event_name: 'slip_submitted',
     timestamp: new Date().toISOString(),
     request_id: requestId,
-    trace_id: traceId,
+    trace_id: trace.trace_id,
     session_id: anonSessionId,
     user_id: userId,
     agent_id: 'slip_ingestion',
@@ -93,11 +116,16 @@ export async function POST(request: Request) {
     properties: {
       slip_id: id,
       checksum,
-      sport: 'spine' in body ? body.spine.sport : undefined,
-      mode: 'spine' in body ? body.spine.mode : undefined,
+      sport: baseSpine.sport,
+      mode: baseSpine.mode,
+      reason: baseSpine.reason,
+      tz: baseSpine.tz,
+      date: baseSpine.date,
+      anon_session_id: baseSpine.anon_session_id,
       legs_count: 'legs' in body ? body.legs.length : undefined
     },
-  });
+  }, baseSpine);
 
-  return NextResponse.json({ slip_id: id, trace_id: traceId, anon_id: anonSessionId });
+  const spine: ContextSpine = { ...baseSpine, trace_id: trace.trace_id, slip_id: id };
+  return NextResponse.json({ slip_id: id, trace_id: trace.trace_id, anon_id: anonSessionId, spine, trace });
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { spineFromRequest } from '@/src/core/contracts/contextSpine';
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
-import { ControlPlaneEventSchema } from '@/src/core/control-plane/events';
+import type { ControlPlaneEvent } from '@/src/core/control-plane/events';
 import {
   isMissingAnalyticsSchemaError,
   logAnalyticsSchemaDegradationOnce
@@ -10,8 +11,7 @@ import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const event = ControlPlaneEventSchema.parse(payload);
-  await new DbEventEmitter(getRuntimeStore()).emit(event);
+  await new DbEventEmitter(getRuntimeStore()).emit(payload as ControlPlaneEvent, spineFromRequest(request));
   return NextResponse.json({ ok: true });
 }
 
