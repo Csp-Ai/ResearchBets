@@ -36,6 +36,14 @@ export type RecentRun = {
   status: 'running' | 'complete' | 'stale';
 };
 
+export type RecentRunDemo = {
+  traceId: string;
+  steps: string[];
+  weakestLeg: string;
+  generatedAt: string;
+  ctas: Array<{ label: string; href: string }>;
+};
+
 function shortTraceId(traceId: string): string {
   if (traceId.length <= 14) return traceId;
   return `${traceId.slice(0, 8)}…${traceId.slice(-4)}`;
@@ -63,7 +71,7 @@ LeBron James over 6.5 rebounds (-105)`}
   );
 }
 
-export function RecentActivityPanel({ runs, onOpen }: { runs: RecentRun[]; onOpen: (traceId: string) => void }) {
+export function RecentActivityPanel({ runs, onOpen, demoRun }: { runs: RecentRun[]; onOpen: (traceId: string) => void; demoRun?: RecentRunDemo | null }) {
   return (
     <Surface className="space-y-4" data-testid="recent-activity-panel">
       <div>
@@ -71,9 +79,24 @@ export function RecentActivityPanel({ runs, onOpen }: { runs: RecentRun[]; onOpe
         <p className="text-xs text-muted">Jump back into the latest runs without leaving Research.</p>
       </div>
       {runs.length === 0 ? (
-        <div className="ui-shell-soft p-4 text-sm text-subtle">
-          <p className="font-medium text-strong">No recent runs yet.</p>
-          <p className="mt-1 text-xs text-muted">Paste a slip to start your first run and it will appear here.</p>
+        <div className="ui-shell-soft space-y-3 p-4 text-sm text-subtle">
+          <div>
+            <p className="font-medium text-strong">Latest run (demo)</p>
+            <p className="mt-1 text-xs text-muted">Deterministic sample run generated from tonight&apos;s board.</p>
+          </div>
+          <p className="text-sm text-strong">Weakest leg: {demoRun?.weakestLeg ?? 'Board signal loading...'}</p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {(demoRun?.steps.length ? demoRun.steps : ['Scout', 'Risk', 'Notes']).slice(0, 5).map((step) => (
+              <span key={step} className="rounded-full border border-default px-2 py-1 text-muted">{step}</span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(demoRun?.ctas ?? []).map((cta) => (
+              <Link key={cta.label} href={cta.href} className="rounded-lg border border-default px-3 py-1.5 text-xs text-strong hover:bg-slate-900/40">
+                {cta.label}
+              </Link>
+            ))}
+          </div>
         </div>
       ) : (
         <ul className="space-y-2 text-sm">
