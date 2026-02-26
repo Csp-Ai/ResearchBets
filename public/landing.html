@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchBets — Build. Check. Improve.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #09090c;
+  --bg2:    #0c0f14;
+  --border: rgba(255,255,255,0.07);
+  --cyan:   #00e5c8;
+  --text:   #dde4ec;
+  --muted:  #64737f;
+  --dim:    #2e3840;
+  --red:    #ff4f5e;
+  --yellow: #f5c542;
+  --card:   #0b0f15;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:16px;line-height:1.6;overflow-x:hidden}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
+canvas{display:block}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:space-between;padding:13px 40px;background:rgba(9,9,12,0.94);backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:.5px}
+.logo span{color:var(--cyan)}
+nav ul{display:flex;gap:28px;list-style:none}
+nav ul a{color:var(--muted);font-size:13px;font-weight:500;transition:color .2s}
+nav ul a:hover{color:var(--text)}
+.btn-nav{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;background:var(--cyan);color:#000;border:none;padding:9px 18px;letter-spacing:.4px;transition:opacity .2s,transform .15s}
+.btn-nav:hover{opacity:.85;transform:translateY(-1px)}
+
+/* ── HERO ── */
+.hero{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 40px 60px;position:relative;text-align:center;overflow:hidden}
+.hero-grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(0,229,200,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,200,.022) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(ellipse 85% 80% at 50% 50%,black 15%,transparent 100%);animation:gridDrift 24s linear infinite}
+@keyframes gridDrift{from{background-position:0 0}to{background-position:0 64px}}
+.hero-glow{position:absolute;pointer-events:none;width:700px;height:300px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,229,200,.065) 0%,transparent 70%);top:44%;left:50%;transform:translate(-50%,-50%);animation:glowFloat 7s ease-in-out infinite}
+@keyframes glowFloat{0%,100%{opacity:.7;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-52%) scale(1.05)}}
+.badge{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(0,229,200,.28);background:rgba(0,229,200,.05);padding:5px 14px;margin-bottom:28px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1.5px;color:var(--cyan);text-transform:uppercase;animation:fadeUp .6s ease both}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:dotPulse 2.4s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,229,200,.5)}50%{opacity:.4;box-shadow:0 0 0 5px rgba(0,229,200,0)}}
+.hero h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(54px,9vw,108px);line-height:.88;letter-spacing:-1px;text-transform:uppercase;margin-bottom:20px;animation:fadeUp .7s .1s ease both}
+.hero h1 em{font-style:normal;color:var(--cyan);display:block}
+.hero-sub{font-size:clamp(15px,2vw,17px);color:var(--muted);max-width:500px;margin:0 auto 16px;line-height:1.75;animation:fadeUp .7s .2s ease both}
+
+/* personalized return line */
+.hero-return{font-family:'DM Mono',monospace;font-size:11px;color:var(--cyan);background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.2);padding:6px 14px;margin:0 auto 32px;display:none;animation:fadeUp .5s ease both;max-width:fit-content}
+.hero-return.visible{display:block}
+
+.hero-ctas{display:flex;flex-direction:column;align-items:center;gap:12px;animation:fadeUp .7s .3s ease both}
+.hero-ctas-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.btn-primary{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;letter-spacing:.5px;background:var(--cyan);color:#000;border:none;padding:15px 30px;transition:opacity .2s,transform .15s;display:inline-block}
+.btn-primary:hover{opacity:.85;transform:translateY(-2px)}
+.btn-secondary{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.5px;background:transparent;color:var(--muted);border:1px solid var(--border);padding:15px 30px;transition:color .2s,border-color .2s,transform .15s;display:inline-block}
+.btn-secondary:hover{color:var(--text);border-color:rgba(255,255,255,.2);transform:translateY(-2px)}
+.btn-ghost{font-family:'DM Mono',monospace;font-size:11px;color:var(--dim);background:none;border:none;letter-spacing:.5px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--dim);transition:color .2s}
+.btn-ghost:hover{color:var(--muted)}
+
+/* ── HERO SIMULATION STRIP ── */
+.hero-sim{width:100%;max-width:640px;margin:32px auto 0;animation:fadeUp .8s .45s ease both}
+.hero-sim-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.hero-sim-label span{color:var(--cyan)}
+.sim-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.sim-slider{flex:1;-webkit-appearance:none;appearance:none;height:2px;background:var(--border);outline:none}
+.sim-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 8px rgba(0,229,200,.4)}
+.sim-slider-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--cyan);min-width:28px;text-align:right}
+.sim-canvas-wrap{position:relative;height:72px;border:1px solid var(--border);background:var(--card)}
+#simCanvas{width:100%;height:72px}
+.sim-verdict{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;display:flex;justify-content:space-between}
+.sim-verdict .sv-hit{color:var(--cyan)}
+.sim-verdict .sv-risk{color:var(--yellow)}
+
+.scroll-hint{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--dim);animation:fadeUp 1s .9s ease both}
+.scroll-hint::after{content:'';width:1px;height:28px;background:linear-gradient(to bottom,var(--dim),transparent)}
+
+/* ── PROOF STRIP ── */
+.proof-strip{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(255,255,255,.012);overflow:hidden}
+.proof-track{display:flex;width:max-content;animation:marquee 22s linear infinite}
+.proof-track:hover{animation-play-state:paused}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.proof-chip{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-right:1px solid var(--border);white-space:nowrap}
+.proof-chip .dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);opacity:.6}
+
+/* ── STATS BAR ── */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border)}
+.stat-cell{padding:28px 32px;border-right:1px solid var(--border);position:relative;overflow:hidden}
+.stat-cell:last-child{border-right:none}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(32px,4vw,44px);line-height:1;color:var(--text);margin-bottom:6px}
+.stat-val span{color:var(--cyan)}
+.stat-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.stat-bar-fill{position:absolute;bottom:0;left:0;height:2px;background:var(--cyan);transition:width 1.4s cubic-bezier(.22,1,.36,1)}
+
+/* ── SNAPSHOT ── */
+.snapshot-section{padding:48px 40px;border-bottom:1px solid var(--border)}
+.snapshot-inner{max-width:760px;margin:0 auto}
+.snapshot-toast{display:flex;align-items:center;gap:10px;padding:10px 16px;margin-bottom:16px;border:1px solid var(--border);background:#0c1118;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--muted);animation:fadeUp .3s ease both}
+.snapshot-toast .toast-dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+.snapshot-toast.live .toast-dot{background:var(--cyan)}
+.snapshot-toast.hidden{display:none}
+.snapshot-card{background:var(--card);border:1px solid var(--border);font-family:'DM Mono',monospace}
+.snapshot-header{background:#0c1118;border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.snapshot-header .stitle{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.mode-badge{font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border:1px solid}
+.mode-badge.demo{border-color:rgba(245,197,66,.3);color:var(--yellow);background:rgba(245,197,66,.07)}
+.mode-badge.live{border-color:rgba(0,229,200,.3);color:var(--cyan);background:rgba(0,229,200,.07)}
+.snapshot-body{padding:16px}
+.snapshot-asof{font-size:10px;color:var(--dim);margin-bottom:12px;letter-spacing:.5px}
+.provider-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.provider-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid;font-size:10px;letter-spacing:.5px}
+.provider-chip.ok{border-color:rgba(0,229,200,.2);color:var(--cyan);background:rgba(0,229,200,.06)}
+.provider-chip.warn{border-color:rgba(245,197,66,.2);color:var(--yellow);background:rgba(245,197,66,.06)}
+.snapshot-divider{border-top:1px solid rgba(255,255,255,.04);margin-bottom:14px}
+.snapshot-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(255,255,255,.04);margin-bottom:8px;transition:border-color .2s,background .2s;cursor:default}
+.snapshot-row:hover{border-color:rgba(0,229,200,.15);background:rgba(0,229,200,.04)}
+.game-name{font-size:13px;color:var(--text);letter-spacing:.5px}
+.game-at{color:var(--dim);margin:0 6px}
+.game-league{font-size:10px;color:var(--dim);margin-left:8px}
+.game-time{font-size:11px;color:var(--muted)}
+.odds-label{font-size:11px;color:var(--muted)}
+.odds-value{font-size:12px;color:var(--text);letter-spacing:.5px}
+.snapshot-footer{border-top:1px solid var(--border);padding:12px 16px}
+.snapshot-cta{width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.5px;color:var(--cyan);background:rgba(0,229,200,.04);border:1px solid rgba(0,229,200,.25);cursor:pointer;transition:background .2s,border-color .2s}
+.snapshot-cta:hover{background:rgba(0,229,200,.09);border-color:rgba(0,229,200,.4)}
+.skeleton{background:rgba(255,255,255,.05);border-radius:2px;animation:shimmer 1.2s ease-in-out infinite}
+@keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* ── RISK GAUGE SECTION ── */
+.gauge-section{padding:80px 40px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.gauge-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.gauge-copy h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(32px,4vw,48px);text-transform:uppercase;line-height:.92;margin:12px 0 16px}
+.gauge-copy p{font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:24px}
+.gauge-widget{background:var(--card);border:1px solid var(--border);padding:32px;font-family:'DM Mono',monospace}
+.gauge-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:24px}
+.gauge-arc-wrap{position:relative;display:flex;justify-content:center;margin-bottom:20px}
+#gaugeCanvas{width:220px;height:120px}
+.gauge-pct{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:36px;color:var(--yellow);line-height:1}
+.gauge-legs{display:flex;flex-direction:column;gap:8px}
+.gauge-leg-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .15s;padding-left:4px;padding-right:4px}
+.gauge-leg-row:hover{background:rgba(255,255,255,.02)}
+.gauge-leg-row:last-child{border-bottom:none}
+.gauge-leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.gauge-leg-name{flex:1;font-size:11px;color:var(--text)}
+.gauge-leg-bar-wrap{width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.gauge-leg-bar{height:100%;border-radius:2px;transition:width .8s cubic-bezier(.22,1,.36,1)}
+.gauge-leg-risk{font-size:10px;color:var(--muted);width:28px;text-align:right}
+.gauge-tooltip{margin-top:16px;padding:10px 12px;background:rgba(0,229,200,.05);border:1px solid rgba(0,229,200,.15);font-size:10px;color:var(--muted);line-height:1.6;min-height:36px;transition:all .3s}
+.gauge-tooltip .hl{color:var(--cyan)}
+
+/* ── ODDS MOVEMENT SECTION ── */
+.odds-section{padding:80px 40px;border-bottom:1px solid var(--border)}
+.odds-inner{max-width:1040px;margin:0 auto}
+.odds-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:16px}
+.odds-header h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(28px,4vw,42px);text-transform:uppercase;line-height:.92;margin-top:12px}
+.odds-tabs{display:flex;gap:2px}
+.odds-tab{font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;letter-spacing:.5px;background:transparent;color:var(--muted);border:1px solid var(--border);transition:all .2s;cursor:pointer}
+.odds-tab.active{background:rgba(0,229,200,.08);color:var(--cyan);border-color:rgba(0,229,200,.3)}
+.odds-chart-wrap{background:var(--card);border:1px solid var(--border);padding:0;position:relative;height:160px}
+#oddsCanvas{width:100%;height:160px}
+.odds-annotations{display:flex;gap:24px;margin-top:16px;flex-wrap:wrap}
+.odds-ann{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.odds-ann .ann-dot{width:8px;height:3px;border-radius:1px}
+
+/* ── TRACKER ── */
+.tracker-section{padding:80px 40px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.tracker-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:start}
+.tracker-copy h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(30px,4vw,46px);text-transform:uppercase;line-height:.92;margin:12px 0 16px}
+.tracker-copy p{font-size:15px;color:var(--muted);line-height:1.7}
+.tracker-card{background:var(--card);border:1px solid var(--border);font-family:'DM Mono',monospace}
+.tracker-card-header{background:#0c1118;border-bottom:1px solid var(--border);padding:12px 18px;display:flex;align-items:center;justify-content:space-between}
+.tcol{display:flex;align-items:center;gap:10px}
+.tracker-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.tracker-source-tag{font-size:9px;letter-spacing:.5px;padding:2px 8px;border:1px solid rgba(0,229,200,.2);color:var(--cyan);background:rgba(0,229,200,.06);display:none;animation:fadeUp .3s ease both}
+.tracker-source-tag.visible{display:inline-block}
+.trace-id{font-size:10px;color:var(--dim);letter-spacing:.5px}
+.steps-list{padding:16px}
+.step-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;position:relative}
+.step-row:not(:last-child)::after{content:'';position:absolute;left:17px;top:36px;width:1px;height:calc(100% - 10px);background:var(--border)}
+.step-icon{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;border:1px solid var(--border);background:var(--bg);position:relative;z-index:1;transition:all .3s}
+.step-icon.queued{color:var(--dim);border-color:var(--dim)}
+.step-icon.running{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px rgba(0,229,200,.3);animation:spin .9s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.step-icon.done{color:var(--cyan);border-color:var(--cyan);background:rgba(0,229,200,.08)}
+.step-icon.warn{color:var(--yellow);border-color:var(--yellow);background:rgba(245,197,66,.08)}
+.step-content{flex:1;min-width:0;padding-top:2px}
+.step-label{font-size:12px;color:var(--text);transition:color .3s}
+.step-label.queued{color:var(--dim)}
+.step-label.running{color:var(--cyan)}
+.step-detail{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5;max-height:0;overflow:hidden;opacity:0;transition:max-height .4s ease,opacity .3s ease}
+.step-detail.visible{max-height:60px;opacity:1}
+.step-ts{font-size:10px;color:var(--dim);flex-shrink:0;padding-top:3px}
+.event-feed{border-top:1px solid var(--border);padding:12px 16px;max-height:108px;overflow:hidden;position:relative}
+.event-feed::after{content:'';position:absolute;bottom:0;left:0;right:0;height:32px;background:linear-gradient(to bottom,transparent,var(--card));pointer-events:none}
+.event-row{display:flex;align-items:flex-start;gap:10px;padding:4px 0;font-size:10px;line-height:1.5;animation:fadeUp .3s ease both}
+.event-name{color:var(--cyan);letter-spacing:.3px}
+.event-agent{color:var(--dim)}
+.event-ts{color:var(--dim);margin-left:auto;flex-shrink:0}
+.tracker-footer{border-top:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.tracker-status{font-size:10px;letter-spacing:.5px;color:var(--dim)}
+.tracker-status.running{color:var(--cyan);animation:textBlink 1.4s ease-in-out infinite}
+.tracker-status.done{color:var(--cyan)}
+@keyframes textBlink{0%,100%{opacity:1}50%{opacity:.4}}
+.tracker-right{display:flex;align-items:center;gap:10px}
+.tracker-verdict{font-size:16px;color:var(--yellow);display:none}
+.btn-run{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.5px;color:var(--cyan);background:transparent;border:1px solid rgba(0,229,200,.25);padding:6px 12px;transition:background .2s}
+.btn-run:hover{background:rgba(0,229,200,.08)}
+.btn-run:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── SECTION LABEL ── */
+.section-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);margin-bottom:12px}
+
+/* ── PILLARS ── */
+.pillars{padding:80px 40px;max-width:1200px;margin:0 auto}
+.pillars .section-heading{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(36px,5vw,48px);text-transform:uppercase;line-height:.95}
+.pillars-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-top:48px}
+.pillar{background:var(--card);padding:36px 28px;position:relative;transition:background .25s}
+.pillar:hover{background:#101720}
+.pillar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:transparent;transition:background .25s}
+.pillar:hover::before{background:var(--cyan)}
+.pillar-num{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--dim);margin-bottom:16px;text-transform:uppercase}
+.pillar-icon{font-size:24px;margin-bottom:12px;display:block}
+.pillar h3{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.pillar p{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:16px}
+.pillar-features{list-style:none;display:flex;flex-direction:column;gap:7px}
+.pillar-features li{font-family:'DM Mono',monospace;font-size:10px;color:var(--dim);display:flex;align-items:center;gap:7px}
+.pillar-features li::before{content:'→';color:var(--cyan);font-size:9px}
+.pillar-cta{display:inline-flex;align-items:center;gap:6px;margin-top:20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.5px;color:var(--cyan);background:none;border:none;border-bottom:1px solid transparent;padding:0;transition:border-color .2s}
+.pillar-cta:hover{border-bottom-color:var(--cyan)}
+
+/* ── VERDICT ── */
+.verdict-section{padding:80px 40px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.verdict-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.verdict-copy h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(28px,4vw,44px);text-transform:uppercase;line-height:.92;margin:12px 0 14px}
+.verdict-copy p{color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:22px}
+.verdict-demo-note{font-family:'DM Mono',monospace;font-size:10px;color:var(--dim);display:flex;align-items:center;gap:6px;margin-top:10px}
+.verdict-demo-note::before{content:'◆';color:var(--cyan);font-size:8px;opacity:.4}
+.verdict-card{background:var(--card);border:1px solid var(--border);font-family:'DM Mono',monospace}
+.verdict-card-header{background:#0c1118;border-bottom:1px solid var(--border);padding:11px 16px;display:flex;align-items:center;justify-content:space-between}
+.vtitle{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.risk-badge{font-size:10px;padding:3px 9px;letter-spacing:1px;text-transform:uppercase;background:rgba(245,197,66,.1);color:var(--yellow)}
+.leg-list{padding:12px 16px}
+.leg-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.leg-row:last-child{border-bottom:none}
+.leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.leg-dot.ok{background:var(--cyan);box-shadow:0 0 5px rgba(0,229,200,.4)}
+.leg-dot.warn{background:var(--yellow);box-shadow:0 0 5px rgba(245,197,66,.4)}
+.leg-dot.bad{background:var(--red);box-shadow:0 0 5px rgba(255,79,94,.4)}
+.leg-body{flex:1;min-width:0}
+.leg-name{font-size:11px;color:var(--text)}
+.leg-note{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5}
+.leg-odds{font-size:11px;color:var(--dim);flex-shrink:0;padding-top:1px}
+.verdict-card-footer{border-top:1px solid var(--border);padding:11px 16px;display:flex;align-items:center;justify-content:space-between}
+.verdict-rec{font-size:10px;color:var(--yellow);line-height:1.5;max-width:190px}
+.verdict-score{font-size:20px;color:var(--yellow)}
+
+/* ── NOT / FAQ / BOTTOM / FOOTER (compact) ── */
+.not-section{padding:80px 40px;max-width:900px;margin:0 auto;text-align:center}
+.not-section h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(36px,6vw,54px);text-transform:uppercase;margin-bottom:40px;line-height:.92}
+.not-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);text-align:left}
+.not-cell{padding:24px 26px;background:var(--card)}
+.not-cell .label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+.not-cell .label.r{color:var(--red)}
+.not-cell .label.g{color:var(--cyan)}
+.not-list{list-style:none;display:flex;flex-direction:column;gap:9px}
+.not-list li{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.not-list .x{color:var(--red);font-size:10px;flex-shrink:0}
+.not-list .ch{color:var(--cyan);font-size:10px;flex-shrink:0}
+.faq-section{padding:72px 40px 80px;background:var(--bg2);border-top:1px solid var(--border)}
+.faq-inner{max-width:780px;margin:0 auto}
+.faq-inner h2{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:clamp(28px,4vw,40px);text-transform:uppercase;margin-bottom:40px}
+.faq-item{border-bottom:1px solid var(--border);padding:22px 0;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+.faq-q{font-size:13px;color:var(--muted);font-style:italic}
+.faq-a{font-family:'DM Mono',monospace;font-size:11px;color:var(--text);line-height:1.75}
+.faq-a .hl{color:var(--cyan)}
+.bottom-cta{padding:100px 40px;text-align:center;position:relative;overflow:hidden}
+.bottom-glow{position:absolute;pointer-events:none;width:600px;height:280px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,229,200,.055) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation:glowFloat 7s ease-in-out infinite}
+.bottom-cta h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(42px,7vw,86px);text-transform:uppercase;line-height:.9;margin-bottom:20px}
+.bottom-cta h2 em{font-style:normal;color:var(--cyan)}
+.bottom-cta p{font-size:15px;color:var(--muted);margin-bottom:40px}
+.bottom-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+footer{border-top:1px solid var(--border);padding:22px 40px;display:flex;align-items:center;justify-content:space-between}
+.footer-logo{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;color:var(--dim)}
+.footer-note{font-family:'DM Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:.4px}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── RESPONSIVE ── */
+@media(max-width:960px){
+  .tracker-inner,.verdict-inner,.gauge-inner{grid-template-columns:1fr;gap:36px}
+  .pillars-grid{grid-template-columns:1fr}
+  .not-grid{grid-template-columns:1fr}
+  .faq-item{grid-template-columns:1fr;gap:8px}
+  .stats-bar{grid-template-columns:1fr 1fr}
+  .stat-cell:nth-child(2){border-right:none}
+  nav ul{display:none}
+}
+@media(max-width:600px){
+  nav{padding:12px 20px}
+  .hero{padding:96px 20px 64px}
+  .snapshot-section,.tracker-section,.pillars,.verdict-section,.gauge-section,.odds-section,.not-section,.faq-section,.bottom-cta,footer{padding-left:20px;padding-right:20px}
+  .odds-inner,.gauge-inner{padding:0}
+}
+@media(max-width:389px){
+  .hero h1{font-size:44px}
+  .hero-sub{font-size:14px}
+  .btn-primary,.btn-secondary{padding:12px 20px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Research<span>Bets</span></div>
+  <ul>
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#tracker">Stress test</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <a href="/ingest" class="btn-nav">Stress test a slip →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="badge"><div class="badge-dot"></div>Betting OS. Build. Check. Improve.</div>
+
+  <!-- personalized return message — shown if localStorage has session -->
+  <div class="hero-return" id="heroReturn"></div>
+
+  <h1>Before.<br><em>During.</em><br>After.</h1>
+  <p class="hero-sub">Get AI-backed prop ideas. Stress test your slip before you lock it. Learn what's costing you money.</p>
+
+  <div class="hero-ctas">
+    <div class="hero-ctas-row">
+      <a href="/ingest" class="btn-primary">Stress test a slip →</a>
+      <a href="/research?demo=1" class="btn-secondary">Browse prop ideas</a>
+    </div>
+    <a href="/ingest?mode=screenshot" class="btn-ghost">Upload a screenshot instead</a>
+  </div>
+
+  <!-- live mini simulation -->
+  <div class="hero-sim">
+    <div class="hero-sim-label">
+      Live simulation — drag to adjust leg count
+      <span id="simHitRate">—</span>
+    </div>
+    <div class="sim-slider-row">
+      <input type="range" class="sim-slider" id="simLegs" min="2" max="8" value="4">
+      <span class="sim-slider-val" id="simLegsVal">4</span>
+    </div>
+    <div class="sim-canvas-wrap">
+      <canvas id="simCanvas" width="600" height="72"></canvas>
+    </div>
+    <div class="sim-verdict">
+      <span>Hit rate: <span class="sv-hit" id="simHit">—</span></span>
+      <span>Expected value: <span class="sv-risk" id="simEV">—</span></span>
+      <span>Risk tier: <span class="sv-risk" id="simTier">—</span></span>
+    </div>
+  </div>
+
+  <div class="scroll-hint">scroll</div>
+</section>
+
+<!-- PROOF STRIP -->
+<div class="proof-strip">
+  <div class="proof-track">
+    <div class="proof-chip"><div class="dot"></div>Works with FanDuel</div>
+    <div class="proof-chip"><div class="dot"></div>PrizePicks</div>
+    <div class="proof-chip"><div class="dot"></div>Kalshi</div>
+    <div class="proof-chip"><div class="dot"></div>Anonymous-first</div>
+    <div class="proof-chip"><div class="dot"></div>Demo mode always available</div>
+    <div class="proof-chip"><div class="dot"></div>No picks. No locks.</div>
+    <div class="proof-chip"><div class="dot"></div>Works with FanDuel</div>
+    <div class="proof-chip"><div class="dot"></div>PrizePicks</div>
+    <div class="proof-chip"><div class="dot"></div>Kalshi</div>
+    <div class="proof-chip"><div class="dot"></div>Anonymous-first</div>
+    <div class="proof-chip"><div class="dot"></div>Demo mode always available</div>
+    <div class="proof-chip"><div class="dot"></div>No picks. No locks.</div>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-cell">
+    <div class="stat-val"><span id="statSlips">0</span>k+</div>
+    <div class="stat-label">Slips analyzed</div>
+    <div class="stat-bar-fill" id="sf1" style="width:0%"></div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-val"><span id="statFlag">0</span>%</div>
+    <div class="stat-label">Avg risk flag rate</div>
+    <div class="stat-bar-fill" id="sf2" style="width:0%"></div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-val"><span id="statWeak">0</span>%</div>
+    <div class="stat-label">Weakest leg accuracy</div>
+    <div class="stat-bar-fill" id="sf3" style="width:0%"></div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-val"><span id="statCorr">0</span>k+</div>
+    <div class="stat-label">Correlation warnings</div>
+    <div class="stat-bar-fill" id="sf4" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- LIVE SNAPSHOT -->
+<section class="snapshot-section">
+  <div class="snapshot-inner">
+    <div class="snapshot-toast" id="snapshotToast">
+      <div class="toast-dot"></div>
+      <span id="toastText">Demo Mode Active — connect providers to enable live snapshot</span>
+    </div>
+    <div class="snapshot-card">
+      <div class="snapshot-header">
+        <span class="stitle">Live Snapshot</span>
+        <span class="mode-badge demo" id="modeBadge">DEMO</span>
+      </div>
+      <div class="snapshot-body">
+        <div class="snapshot-asof" id="snapshotAsOf"><span class="skeleton" style="display:inline-block;width:120px;height:10px;"></span></div>
+        <div class="provider-chips" id="providerChips">
+          <span class="skeleton" style="display:inline-block;width:90px;height:22px;"></span>
+          <span class="skeleton" style="display:inline-block;width:72px;height:22px;"></span>
+        </div>
+        <div class="snapshot-divider"></div>
+        <div class="snapshot-row" id="gameRow"><span class="skeleton" style="display:inline-block;width:60%;height:13px;"></span></div>
+        <div class="snapshot-row" id="oddsRow"><span class="skeleton" style="display:inline-block;width:40%;height:11px;"></span></div>
+      </div>
+      <div class="snapshot-footer">
+        <button class="snapshot-cta" onclick="handleSnapshotRun()">
+          <span>Run pipeline on this game</span><span>→</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE RISK GAUGE -->
+<section class="gauge-section">
+  <div class="gauge-inner">
+    <div class="gauge-copy">
+      <div class="section-label">Animated risk. Phase 02.</div>
+      <h2>Your risk.<br>Live. Leg<br>by leg.</h2>
+      <p>Hover each leg to see how it's affecting total slip risk. The gauge animates in real time as risk shifts — not a static number, a live read.</p>
+      <a href="/ingest" class="btn-primary">Stress test your slip →</a>
+    </div>
+    <div class="gauge-widget">
+      <div class="gauge-title">Slip risk breakdown</div>
+      <div class="gauge-arc-wrap">
+        <canvas id="gaugeCanvas" width="220" height="120"></canvas>
+        <div class="gauge-pct" id="gaugePct">62%</div>
+      </div>
+      <div class="gauge-legs" id="gaugeLegs"></div>
+      <div class="gauge-tooltip" id="gaugeTooltip">Hover a leg for AI context.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ODDS MOVEMENT -->
+<section class="odds-section">
+  <div class="odds-inner">
+    <div class="odds-header">
+      <div>
+        <div class="section-label">Live odds traces</div>
+        <h2>Lines move.<br>We watch them.</h2>
+      </div>
+      <div class="odds-tabs">
+        <button class="odds-tab active" onclick="switchOddsTab('ML')">Knicks ML</button>
+        <button class="odds-tab" onclick="switchOddsTab('PTS')">Brunson PTS</button>
+        <button class="odds-tab" onclick="switchOddsTab('AST')">Haliburton AST</button>
+      </div>
+    </div>
+    <div class="odds-chart-wrap">
+      <canvas id="oddsCanvas" width="1000" height="160"></canvas>
+    </div>
+    <div class="odds-annotations">
+      <div class="odds-ann"><div class="ann-dot" style="background:var(--cyan)"></div>Current line</div>
+      <div class="odds-ann"><div class="ann-dot" style="background:var(--yellow)"></div>Sharp money move</div>
+      <div class="odds-ann"><div class="ann-dot" style="background:var(--red)"></div>Injury flag</div>
+    </div>
+  </div>
+</section>
+
+<!-- TRACKER -->
+<section class="tracker-section" id="tracker">
+  <div class="tracker-inner">
+    <div class="tracker-copy">
+      <div class="section-label">Live run. Phase 02.</div>
+      <h2>Watch a slip<br>get checked.</h2>
+      <p>Every slip runs a live agent pipeline. Parse. Research. Correlate. Verdict. Hit run to see it happen.</p>
+    </div>
+    <div id="trackerAnchor">
+      <div class="tracker-card">
+        <div class="tracker-card-header">
+          <div class="tcol">
+            <span class="tracker-title">Agent run</span>
+            <span class="tracker-source-tag" id="trackerSourceTag">↑ Featured Game</span>
+          </div>
+          <span class="trace-id" id="traceId">trace_id: —</span>
+        </div>
+        <div class="steps-list" id="stepsList"></div>
+        <div class="event-feed" id="eventFeed">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--dim)">No events yet.</div>
+        </div>
+        <div class="tracker-footer">
+          <span class="tracker-status" id="trackerStatus">Idle. Hit run to start.</span>
+          <div class="tracker-right">
+            <span class="tracker-verdict" id="trackerVerdict"></span>
+            <button class="btn-run" id="runBtn" onclick="runTracker()">▶ Run demo pipeline</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PILLARS -->
+<section class="pillars" id="how-it-works">
+  <div class="section-label">Three phases</div>
+  <div class="section-heading">One system.</div>
+  <div class="pillars-grid">
+    <div class="pillar">
+      <div class="pillar-num">Phase 01</div>
+      <span class="pillar-icon">💡</span>
+      <h3>Build It</h3>
+      <p>Don't stare at a blank slip. AI-researched prop ideas from matchup data, injury reports, and trends. No picks. Just context.</p>
+      <ul class="pillar-features">
+        <li>AI-curated prop highlights</li>
+        <li>Injury and matchup awareness</li>
+        <li>Add legs directly to your slip</li>
+      </ul>
+      <a href="/research?demo=1" class="pillar-cta">Browse prop ideas →</a>
+    </div>
+    <div class="pillar">
+      <div class="pillar-num">Phase 02</div>
+      <span class="pillar-icon">⚠️</span>
+      <h3>Check It</h3>
+      <p>Stress test your slip before you submit. We flag your weakest leg, catch legs that overlap, and give you a quick verdict.</p>
+      <ul class="pillar-features">
+        <li>Weakest leg detection</li>
+        <li>Legs that overlap flagged</li>
+        <li>How swingy it is. Quick verdict.</li>
+      </ul>
+      <a href="/ingest" class="pillar-cta">Stress test a slip →</a>
+    </div>
+    <div class="pillar">
+      <div class="pillar-num">Phase 03</div>
+      <span class="pillar-icon">📉</span>
+      <h3>Learn It</h3>
+      <p>After results come in, run a postmortem. See what happened leg by leg. Find out what you keep losing on and why.</p>
+      <ul class="pillar-features">
+        <li>Leg-by-leg postmortem</li>
+        <li>What you keep losing on</li>
+        <li>Full bet history breakdown</li>
+      </ul>
+      <a href="/control" class="pillar-cta">See what killed it →</a>
+    </div>
+  </div>
+</section>
+
+<!-- VERDICT MOCK -->
+<section class="verdict-section" id="stress-test">
+  <div class="verdict-inner">
+    <div class="verdict-copy">
+      <div class="section-label">Phase 02. Verdict output.</div>
+      <h2>What's the<br>trap in<br>your slip?</h2>
+      <p>Paste your legs or build a slip. We'll tell you what looks off before you lose on the leg you should've cut.</p>
+      <a href="/ingest" class="btn-primary">Stress test now →</a>
+      <div class="verdict-demo-note">Demo mode available. No account required.</div>
+    </div>
+    <div class="verdict-card">
+      <div class="verdict-card-header">
+        <span class="vtitle">Slip analysis. 4-leg parlay.</span>
+        <span class="risk-badge">Moderate risk</span>
+      </div>
+      <div class="leg-list">
+        <div class="leg-row"><div class="leg-dot ok"></div><div class="leg-body"><div class="leg-name">Jalen Brunson — 27+ PTS</div><div class="leg-note">Strong at home. Last 5 avg 29.2 pts.</div></div><div class="leg-odds">-115</div></div>
+        <div class="leg-row"><div class="leg-dot ok"></div><div class="leg-body"><div class="leg-name">Knicks ML</div><div class="leg-note">Overlaps with Brunson PTS. Correlated legs.</div></div><div class="leg-odds">-130</div></div>
+        <div class="leg-row"><div class="leg-dot warn"></div><div class="leg-body"><div class="leg-name">Tyrese Haliburton — 8+ AST</div><div class="leg-note">⚠ Questionable. Practice limited today.</div></div><div class="leg-odds">+105</div></div>
+        <div class="leg-row"><div class="leg-dot bad"></div><div class="leg-body"><div class="leg-name">PJ Tucker — 3+ REB</div><div class="leg-note">⛔ Weakest leg. Inconsistent. Low ceiling.</div></div><div class="leg-odds">-140</div></div>
+      </div>
+      <div class="verdict-card-footer">
+        <div class="verdict-rec">Cut leg 4. Drops from +480 but improves hit rate significantly.</div>
+        <div class="verdict-score">62%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NOT SECTION -->
+<section class="not-section">
+  <h2>No picks.<br>No locks.<br>No hype.</h2>
+  <div class="not-grid">
+    <div class="not-cell">
+      <div class="label r">What we're not</div>
+      <ul class="not-list">
+        <li><span class="x">✕</span> A pick service</li>
+        <li><span class="x">✕</span> An influencer tout</li>
+        <li><span class="x">✕</span> A "LOCK" account</li>
+        <li><span class="x">✕</span> A sportsbook</li>
+        <li><span class="x">✕</span> Going to tell you what to bet</li>
+      </ul>
+    </div>
+    <div class="not-cell">
+      <div class="label g">What we are</div>
+      <ul class="not-list">
+        <li><span class="ch">→</span> A betting OS</li>
+        <li><span class="ch">→</span> Research and risk analysis</li>
+        <li><span class="ch">→</span> The smart friend in the group chat</li>
+        <li><span class="ch">→</span> Built for bettors who think</li>
+        <li><span class="ch">→</span> You decide. We just check.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section" id="faq">
+  <div class="faq-inner">
+    <div class="section-label">Common questions</div>
+    <h2>Let's clear it up.</h2>
+    <div class="faq-item"><div class="faq-q">"Is this just another pick site?"</div><div class="faq-a">No picks. No locks. No influencers.<br><span class="hl">Just analysis.</span> You bring the slip. We show you what's risky.</div></div>
+    <div class="faq-item"><div class="faq-q">"Is this complicated to use?"</div><div class="faq-a">Paste. See verdict.<br>Browse. Add leg.<br><span class="hl">That's it.</span></div></div>
+    <div class="faq-item"><div class="faq-q">"Does it work with my sportsbook?"</div><div class="faq-a"><span class="hl">Yes.</span> FanDuel, PrizePicks, Kalshi, and more. Paste your legs or upload a screenshot.</div></div>
+    <div class="faq-item"><div class="faq-q">"Will it tell me what to bet?"</div><div class="faq-a">No. It shows risk and context.<br><span class="hl">You decide.</span> We make sure you're not walking in blind.</div></div>
+    <div class="faq-item"><div class="faq-q">"Do I need an account?"</div><div class="faq-a">No account for demo mode.<br><span class="hl">Sign in to save</span> history and postmortems.</div></div>
+  </div>
+</section>
+
+<!-- BOTTOM CTA -->
+<section class="bottom-cta">
+  <div class="bottom-glow"></div>
+  <h2>Run your slip<br>through<br><em>ResearchBets.</em></h2>
+  <p>Takes 30 seconds. Could save you a leg.</p>
+  <div class="bottom-ctas">
+    <a href="/ingest" class="btn-primary">Stress test a slip →</a>
+    <a href="/research?demo=1" class="btn-secondary">Browse prop ideas</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">ResearchBets</div>
+  <div class="footer-note">Built for bettors who think. Not affiliated with any sportsbook.</div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS & UTILS
+// ═══════════════════════════════════════════════════════════
+const params  = new URLSearchParams(window.location.search)
+const IS_LIVE = params.get('live') === '1'
+const CYAN    = '#00e5c8'
+const YELLOW  = '#f5c542'
+const RED     = '#ff4f5e'
+const DIM     = '#2e3840'
+const MUTED   = '#64737f'
+
+function ts() { return new Date().toTimeString().slice(0,8) }
+function genTraceId() { return 'trace_' + Math.random().toString(36).slice(2,8) }
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+// ═══════════════════════════════════════════════════════════
+// 1. PERSONALIZED HERO
+// ═══════════════════════════════════════════════════════════
+function initPersonalization() {
+  const el       = document.getElementById('heroReturn')
+  const lastLegs = localStorage.getItem('rb_last_legs')
+  const lastVisit = localStorage.getItem('rb_last_visit')
+
+  if (lastLegs && lastVisit) {
+    const ago = Math.floor((Date.now() - parseInt(lastVisit)) / 60000)
+    const agoStr = ago < 60 ? `${ago}m ago` : `${Math.floor(ago/60)}h ago`
+    el.textContent = `↩ Your last slip had ${lastLegs} legs · ${agoStr} — stress test again?`
+    el.classList.add('visible')
+  }
+
+  // store this visit
+  localStorage.setItem('rb_last_visit', Date.now())
+  localStorage.setItem('rb_last_legs', '4')
+}
+
+// ═══════════════════════════════════════════════════════════
+// 2. HERO SIMULATION (Monte Carlo mini)
+// ═══════════════════════════════════════════════════════════
+const simCanvas = document.getElementById('simCanvas')
+const simCtx    = simCanvas.getContext('2d')
+let simLegsVal  = 4
+
+function runMiniSim(legs) {
+  const W  = simCanvas.offsetWidth || 600
+  const H  = 72
+  simCanvas.width  = W * window.devicePixelRatio
+  simCanvas.height = H * window.devicePixelRatio
+  simCtx.scale(window.devicePixelRatio, window.devicePixelRatio)
+
+  const N       = 800
+  const legProb = 0.58
+  const hitProb = Math.pow(legProb, legs)
+  const hits    = []
+
+  for (let i = 0; i < N; i++) {
+    let won = true
+    for (let j = 0; j < legs; j++) { if (Math.random() > legProb) { won = false; break } }
+    hits.push(won ? 1 : 0)
+  }
+
+  // rolling hit rate
+  const window_size = 40
+  const rates = []
+  for (let i = window_size; i < N; i++) {
+    const slice = hits.slice(i - window_size, i)
+    rates.push(slice.reduce((a,b) => a+b, 0) / window_size)
+  }
+
+  const rateNorm = rates.map(r => (r - Math.min(...rates)) / (Math.max(...rates) - Math.min(...rates) + 0.001))
+
+  // clear
+  simCtx.clearRect(0, 0, W, H)
+
+  // grid lines
+  simCtx.strokeStyle = 'rgba(255,255,255,0.04)'
+  simCtx.lineWidth = 1
+  for (let y = 0; y < H; y += H/3) {
+    simCtx.beginPath(); simCtx.moveTo(0, y); simCtx.lineTo(W, y); simCtx.stroke()
+  }
+
+  // fill gradient
+  const grad = simCtx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, 'rgba(0,229,200,0.18)')
+  grad.addColorStop(1, 'rgba(0,229,200,0.0)')
+  simCtx.beginPath()
+  simCtx.moveTo(0, H)
+  rates.forEach((_, i) => {
+    const x = (i / rates.length) * W
+    const y = H - rateNorm[i] * (H - 8) - 4
+    simCtx.lineTo(x, y)
+  })
+  simCtx.lineTo(W, H)
+  simCtx.closePath()
+  simCtx.fillStyle = grad
+  simCtx.fill()
+
+  // line
+  simCtx.beginPath()
+  simCtx.lineWidth = 1.5
+  simCtx.strokeStyle = CYAN
+  rates.forEach((_, i) => {
+    const x = (i / rates.length) * W
+    const y = H - rateNorm[i] * (H - 8) - 4
+    i === 0 ? simCtx.moveTo(x, y) : simCtx.lineTo(x, y)
+  })
+  simCtx.stroke()
+
+  // risk events (vertical lines at losses)
+  for (let i = 0; i < 6; i++) {
+    const x = (Math.random() * 0.8 + 0.1) * W
+    simCtx.beginPath()
+    simCtx.strokeStyle = 'rgba(255,79,94,0.3)'
+    simCtx.lineWidth = 1
+    simCtx.setLineDash([2,3])
+    simCtx.moveTo(x, 0)
+    simCtx.lineTo(x, H)
+    simCtx.stroke()
+    simCtx.setLineDash([])
+  }
+
+  // verdicts
+  const pct = Math.round(hitProb * 100)
+  const ev  = ((hitProb * (Math.pow(1.9, legs) - 1) - (1 - hitProb)) * 100).toFixed(0)
+  const tier = pct > 25 ? 'LOW' : pct > 12 ? 'MED' : 'HIGH'
+
+  document.getElementById('simHit').textContent    = pct + '%'
+  document.getElementById('simEV').textContent     = (ev > 0 ? '+' : '') + ev + '%'
+  document.getElementById('simTier').textContent   = tier + ' RISK'
+  document.getElementById('simHitRate').textContent = `~${pct}% hit rate`
+  document.getElementById('simLegsVal').textContent = legs
+}
+
+document.getElementById('simLegs').addEventListener('input', e => {
+  simLegsVal = parseInt(e.target.value)
+  runMiniSim(simLegsVal)
+})
+
+// ═══════════════════════════════════════════════════════════
+// 3. STATS BAR COUNTER ANIMATION
+// ═══════════════════════════════════════════════════════════
+const STATS_TARGETS = [
+  { el: 'statSlips', target: 14, suffix: '',  fill: 'sf1', pct: 78 },
+  { el: 'statFlag',  target: 73, suffix: '',  fill: 'sf2', pct: 73 },
+  { el: 'statWeak',  target: 81, suffix: '',  fill: 'sf3', pct: 81 },
+  { el: 'statCorr',  target: 38, suffix: '',  fill: 'sf4', pct: 63 },
+]
+let statsAnimated = false
+
+function animateStats() {
+  if (statsAnimated) return
+  statsAnimated = true
+  STATS_TARGETS.forEach(({ el, target, fill, pct }) => {
+    const elNode  = document.getElementById(el)
+    const fillNode = document.getElementById(fill)
+    let current = 0
+    const step = target / 40
+    const timer = setInterval(() => {
+      current = Math.min(current + step, target)
+      elNode.textContent = Math.floor(current)
+      if (current >= target) clearInterval(timer)
+    }, 30)
+    setTimeout(() => { fillNode.style.width = pct + '%' }, 100)
+  })
+}
+
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting) animateStats()
+}, { threshold: 0.3 }).observe(document.getElementById('statsBar'))
+
+// ═══════════════════════════════════════════════════════════
+// 4. LIVE SNAPSHOT
+// ═══════════════════════════════════════════════════════════
+function initSnapshot() {
+  const badge = document.getElementById('modeBadge')
+  const toast = document.getElementById('snapshotToast')
+  const toastTx = document.getElementById('toastText')
+  if (IS_LIVE) {
+    badge.textContent = 'LIVE'; badge.className = 'mode-badge live'
+    toast.classList.add('live')
+    toastTx.textContent = 'Live Mode — awaiting provider data'
+  }
+  setTimeout(() => toast.classList.add('hidden'), 4000)
+  setTimeout(renderSnapshot, 380)
+  setInterval(() => {
+    const el = document.getElementById('snapshotAsOf')
+    if (el) el.textContent = 'As of  ' + ts()
+  }, 10000)
+}
+
+function renderSnapshot() {
+  document.getElementById('snapshotAsOf').textContent = 'As of  ' + ts()
+  const s = IS_LIVE ? 'ok' : 'warn', icon = IS_LIVE ? '✅' : '⚠️'
+  document.getElementById('providerChips').innerHTML = `<span class="provider-chip ${s}">${icon} SportsData</span><span class="provider-chip ${s}">${icon} Odds</span>`
+  document.getElementById('gameRow').innerHTML = `<div style="display:flex;align-items:center"><span class="game-name">NYK <span class="game-at">@</span> IND</span><span class="game-league">NBA</span></div><span class="game-time">7:30 PM</span>`
+  document.getElementById('oddsRow').innerHTML = `<span class="odds-label">Odds headline</span><span class="odds-value">Knicks ML  -130</span>`
+}
+
+// ═══════════════════════════════════════════════════════════
+// 5. ANIMATED RISK GAUGE
+// ═══════════════════════════════════════════════════════════
+const GAUGE_LEGS = [
+  { name: 'Brunson 27+ PTS',   risk: 22, color: CYAN,   status: 'ok',   tip: 'Solid matchup. Home, rested, last 5 avg 29.2. <span class="hl">Low risk.</span>' },
+  { name: 'Knicks ML',         risk: 31, color: YELLOW, status: 'warn', tip: 'Overlaps with Brunson PTS. Correlated — both win or both lose. <span class="hl">Counts once.</span>' },
+  { name: 'Haliburton 8+ AST', risk: 48, color: YELLOW, status: 'warn', tip: 'Limited practice today. Status questionable. <span class="hl">Injury watch.</span>' },
+  { name: 'Tucker 3+ REB',     risk: 72, color: RED,    status: 'bad',  tip: 'Weakest leg. Inconsistent minutes. Low floor. <span class="hl">Consider cutting.</span>' },
+]
+
+let currentGaugePct = 62
+let gaugeTargetPct  = 62
+let gaugeAnimFrame  = null
+
+function drawGauge(pct) {
+  const canvas = document.getElementById('gaugeCanvas')
+  const ctx    = canvas.getContext('2d')
+  const W = 220, H = 120
+  canvas.width  = W * window.devicePixelRatio
+  canvas.height = H * window.devicePixelRatio
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+  ctx.clearRect(0, 0, W, H)
+
+  const cx = W / 2, cy = H - 10
+  const r  = 90
+  const startAngle = Math.PI
+  const endAngle   = 2 * Math.PI
+
+  // background arc
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, startAngle, endAngle)
+  ctx.lineWidth = 12
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'
+  ctx.lineCap = 'round'
+  ctx.stroke()
+
+  // risk color
+  const col = pct < 35 ? CYAN : pct < 60 ? YELLOW : RED
+  const fill = startAngle + (pct / 100) * Math.PI
+
+  // colored arc
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, startAngle, fill)
+  ctx.lineWidth = 12
+  ctx.strokeStyle = col
+  ctx.lineCap = 'round'
+  ctx.shadowColor = col
+  ctx.shadowBlur = 10
+  ctx.stroke()
+  ctx.shadowBlur = 0
+
+  // tick marks
+  for (let i = 0; i <= 10; i++) {
+    const angle = Math.PI + (i / 10) * Math.PI
+    const x1 = cx + (r - 18) * Math.cos(angle)
+    const y1 = cy + (r - 18) * Math.sin(angle)
+    const x2 = cx + (r - 24) * Math.cos(angle)
+    const y2 = cy + (r - 24) * Math.sin(angle)
+    ctx.beginPath()
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2)
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+  }
+
+  document.getElementById('gaugePct').textContent = Math.round(pct) + '%'
+  document.getElementById('gaugePct').style.color = col
+}
+
+function animateGaugeTo(target) {
+  if (gaugeAnimFrame) cancelAnimationFrame(gaugeAnimFrame)
+  const start = currentGaugePct
+  const diff  = target - start
+  const dur   = 600
+  const t0    = performance.now()
+  function frame(now) {
+    const p = Math.min((now - t0) / dur, 1)
+    const ease = 1 - Math.pow(1 - p, 3)
+    currentGaugePct = start + diff * ease
+    drawGauge(currentGaugePct)
+    if (p < 1) gaugeAnimFrame = requestAnimationFrame(frame)
+  }
+  gaugeAnimFrame = requestAnimationFrame(frame)
+}
+
+function renderGaugeLegs() {
+  const container = document.getElementById('gaugeLegs')
+  container.innerHTML = GAUGE_LEGS.map((leg, i) => `
+    <div class="gauge-leg-row" onmouseenter="hoverGaugeLeg(${i})" onmouseleave="unhoverGaugeLeg()">
+      <div class="gauge-leg-dot" style="background:${leg.color};box-shadow:0 0 5px ${leg.color}44"></div>
+      <div class="gauge-leg-name">${leg.name}</div>
+      <div class="gauge-leg-bar-wrap">
+        <div class="gauge-leg-bar" id="glb${i}" style="width:0%;background:${leg.color}"></div>
+      </div>
+      <div class="gauge-leg-risk">${leg.risk}%</div>
+    </div>`).join('')
+  setTimeout(() => {
+    GAUGE_LEGS.forEach((leg, i) => {
+      const el = document.getElementById('glb' + i)
+      if (el) el.style.width = leg.risk + '%'
+    })
+  }, 300)
+}
+
+function hoverGaugeLeg(i) {
+  const leg = GAUGE_LEGS[i]
+  document.getElementById('gaugeTooltip').innerHTML = `<span class="hl">${leg.name}</span> — ${leg.tip}`
+  animateGaugeTo(leg.risk)
+}
+
+function unhoverGaugeLeg() {
+  document.getElementById('gaugeTooltip').innerHTML = 'Hover a leg for AI context.'
+  animateGaugeTo(62)
+}
+
+// ═══════════════════════════════════════════════════════════
+// 6. ANIMATED ODDS MOVEMENT TRACES
+// ═══════════════════════════════════════════════════════════
+const ODDS_DATA = {
+  ML:  { label: 'Knicks ML', base: -130, events: [
+    { idx: 12, type: 'sharp', label: '-140 sharp move' },
+    { idx: 28, type: 'injury', label: 'Injury report' },
+    { idx: 41, type: 'sharp', label: '-125 reverse line' },
+  ]},
+  PTS: { label: 'Brunson 27+ PTS', base: -115, events: [
+    { idx: 8,  type: 'sharp', label: 'Line moved -110→-115' },
+    { idx: 35, type: 'injury', label: 'Load mgmt concern' },
+  ]},
+  AST: { label: 'Haliburton 8+ AST', base: 105, events: [
+    { idx: 18, type: 'injury', label: 'Practice limited' },
+    { idx: 33, type: 'injury', label: 'Questionable tag' },
+    { idx: 45, type: 'sharp', label: 'Sharp fade' },
+  ]},
+}
+
+let activeOddsTab = 'ML'
+let oddsAnimId    = null
+
+function generateOddsLine(data) {
+  const N = 50
+  const pts = []
+  let val = data.base
+  for (let i = 0; i < N; i++) {
+    val += (Math.random() - 0.5) * 4
+    pts.push(val)
+  }
+  // apply event bumps
+  data.events.forEach(ev => {
+    const bump = ev.type === 'injury' ? -8 : 6
+    for (let i = ev.idx; i < N; i++) pts[i] += bump
+  })
+  return pts
+}
+
+function drawOddsChart(tabKey) {
+  const canvas = document.getElementById('oddsCanvas')
+  const ctx    = canvas.getContext('2d')
+  const W = canvas.offsetWidth || 1000
+  const H = 160
+  canvas.width  = W * window.devicePixelRatio
+  canvas.height = H * window.devicePixelRatio
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+
+  const data = ODDS_DATA[tabKey]
+  const pts  = generateOddsLine(data)
+  const minV = Math.min(...pts) - 5
+  const maxV = Math.max(...pts) + 5
+  const scaleY = v => H - ((v - minV) / (maxV - minV)) * (H - 24) - 12
+
+  ctx.clearRect(0, 0, W, H)
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'
+  ctx.lineWidth = 1
+  for (let y = 0; y <= 3; y++) {
+    const yp = (y / 3) * H
+    ctx.beginPath(); ctx.moveTo(0, yp); ctx.lineTo(W, yp); ctx.stroke()
+  }
+
+  // fill gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, 'rgba(0,229,200,0.10)')
+  grad.addColorStop(1, 'rgba(0,229,200,0.0)')
+
+  // animate drawing
+  let drawn = 0
+  if (oddsAnimId) cancelAnimationFrame(oddsAnimId)
+
+  function frame() {
+    drawn = Math.min(drawn + 2, pts.length)
+    ctx.clearRect(0, 0, W, H)
+
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'
+    ctx.lineWidth = 1
+    for (let y = 0; y <= 3; y++) {
+      const yp = (y / 3) * H
+      ctx.beginPath(); ctx.moveTo(0, yp); ctx.lineTo(W, yp); ctx.stroke()
+    }
+
+    const slice = pts.slice(0, drawn)
+
+    // fill
+    ctx.beginPath()
+    ctx.moveTo(0, H)
+    slice.forEach((v, i) => {
+      const x = (i / (pts.length - 1)) * W
+      const y = scaleY(v)
+      ctx.lineTo(x, y)
+    })
+    ctx.lineTo((drawn - 1) / (pts.length - 1) * W, H)
+    ctx.closePath()
+    ctx.fillStyle = grad
+    ctx.fill()
+
+    // line
+    ctx.beginPath()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = CYAN
+    ctx.shadowColor = CYAN
+    ctx.shadowBlur = 6
+    slice.forEach((v, i) => {
+      const x = (i / (pts.length - 1)) * W
+      const y = scaleY(v)
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+    ctx.shadowBlur = 0
+
+    // event markers
+    data.events.forEach(ev => {
+      if (ev.idx >= drawn) return
+      const x   = (ev.idx / (pts.length - 1)) * W
+      const y   = scaleY(pts[ev.idx])
+      const col = ev.type === 'injury' ? RED : YELLOW
+
+      ctx.beginPath()
+      ctx.arc(x, y, 4, 0, Math.PI * 2)
+      ctx.fillStyle = col
+      ctx.shadowColor = col
+      ctx.shadowBlur = 8
+      ctx.fill()
+      ctx.shadowBlur = 0
+
+      // label
+      ctx.fillStyle = col
+      ctx.font = `500 9px "DM Mono", monospace`
+      ctx.fillText(ev.label, Math.min(x + 6, W - 100), y - 8)
+    })
+
+    if (drawn < pts.length) oddsAnimId = requestAnimationFrame(frame)
+  }
+  oddsAnimId = requestAnimationFrame(frame)
+}
+
+function switchOddsTab(key) {
+  activeOddsTab = key
+  document.querySelectorAll('.odds-tab').forEach(t => t.classList.remove('active'))
+  event.target.classList.add('active')
+  drawOddsChart(key)
+}
+
+// ═══════════════════════════════════════════════════════════
+// 7. TRACKER
+// ═══════════════════════════════════════════════════════════
+const DEMO_RUN = {
+  steps: [
+    { id:'parse',   label:'Parse slip',          detail:'4 legs detected. Mapping player IDs to database.' },
+    { id:'injury',  label:'Check injuries',       detail:'Haliburton: limited practice. Tucker: full.' },
+    { id:'lines',   label:'Watch line movement',  detail:'Brunson 27+ moved from -110 to -115. Monitor.' },
+    { id:'overlap', label:'Detect overlap',       detail:'Brunson PTS + Knicks ML flagged as correlated legs.' },
+    { id:'verdict', label:'Generate verdict',     detail:'Risk 62%. Weakest leg: Tucker REB. Recommend cut.' },
+  ],
+  events: [
+    { event_name:'slip.parsed',        agent_id:'slip_parser',   properties:{ legs:4 } },
+    { event_name:'injury.flag',        agent_id:'injury_agent',  properties:{ player:'Haliburton', status:'questionable' } },
+    { event_name:'line.move.detected', agent_id:'line_watcher',  properties:{ leg:'Brunson 27+', delta:'+0.5' } },
+    { event_name:'correlation.warn',   agent_id:'overlap_agent', properties:{ legs:['Brunson PTS','Knicks ML'] } },
+    { event_name:'verdict.ready',      agent_id:'verdict_agent', properties:{ risk_pct:62, weakest:'Tucker REB' } },
+  ]
+}
+const STEP_DELAYS  = [200, 900, 800, 900, 1100]
+const STEP_RUNTIME = [700, 800, 900, 1000, 1100]
+let trackerRunning = false
+
+function renderSteps(activeIdx, doneUpTo) {
+  const icons = { queued:'○', running:'◌', done:'✓', warn:'!', error:'✕' }
+  document.getElementById('stepsList').innerHTML = DEMO_RUN.steps.map((s, i) => {
+    let st = 'queued'
+    if (i < doneUpTo) st = 'done'
+    else if (i === activeIdx) st = 'running'
+    const showDetail = st === 'running' || st === 'done'
+    return `<div class="step-row">
+      <div class="step-icon ${st}">${icons[st]}</div>
+      <div class="step-content">
+        <div class="step-label ${st}">${s.label}</div>
+        <div class="step-detail ${showDetail ? 'visible' : ''}">${s.detail}</div>
+      </div>
+      <div class="step-ts">${st !== 'queued' ? ts() : ''}</div>
+    </div>`
+  }).join('')
+}
+
+function appendEvent(evt) {
+  const feed = document.getElementById('eventFeed')
+  if (feed.querySelector('[style]')) feed.innerHTML = ''
+  const row = document.createElement('div')
+  row.className = 'event-row'
+  row.innerHTML = `<span class="event-name">${evt.event_name}</span><span class="event-agent">· ${evt.agent_id}</span><span class="event-ts">${ts()}</span>`
+  feed.insertBefore(row, feed.firstChild)
+}
+
+function setTrackerStatus(text, type) {
+  const el = document.getElementById('trackerStatus')
+  el.className = 'tracker-status' + (type ? ' ' + type : '')
+  el.textContent = text
+}
+
+async function runTracker(triggeredFrom) {
+  if (trackerRunning) return
+  trackerRunning = true
+
+  const btn = document.getElementById('runBtn')
+  const verdict = document.getElementById('trackerVerdict')
+  const tag = document.getElementById('trackerSourceTag')
+  const traceIdEl = document.getElementById('traceId')
+
+  tag.classList[triggeredFrom ? 'add' : 'remove']('visible')
+  if (triggeredFrom) tag.textContent = '↑ ' + triggeredFrom
+
+  btn.disabled = true
+  btn.textContent = '⟳ Running...'
+  verdict.style.display = 'none'
+  document.getElementById('eventFeed').innerHTML = '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--dim)">No events yet.</div>'
+  traceIdEl.textContent = 'trace_id: ' + genTraceId()
+  setTrackerStatus('Starting run...', 'running')
+  renderSteps(-1, -1)
+
+  for (let i = 0; i < DEMO_RUN.steps.length; i++) {
+    await sleep(STEP_DELAYS[i])
+    renderSteps(i, i)
+    setTrackerStatus('Running: ' + DEMO_RUN.steps[i].label, 'running')
+    await sleep(STEP_RUNTIME[i])
+    appendEvent(DEMO_RUN.events[i])
+    renderSteps(i + 1 < DEMO_RUN.steps.length ? i + 1 : -1, i + 1)
+  }
+
+  setTrackerStatus('Run complete.', 'done')
+  verdict.textContent = '62%'
+  verdict.style.display = 'block'
+  btn.textContent = IS_LIVE ? '↺ Run live pipeline' : '↺ Run demo pipeline'
+  btn.disabled = false
+  trackerRunning = false
+}
+
+function handleSnapshotRun() {
+  const anchor = document.getElementById('trackerAnchor')
+  const top = anchor.getBoundingClientRect().top + window.scrollY - 72
+  window.scrollTo({ top, behavior: 'smooth' })
+  setTimeout(() => runTracker('Featured Game'), 440)
+}
+
+let hasAutoPlayed = false
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && !hasAutoPlayed) {
+    hasAutoPlayed = true
+    setTimeout(() => runTracker(), 600)
+  }
+}, { threshold: 0.3 }).observe(document.getElementById('tracker'))
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+initPersonalization()
+initSnapshot()
+renderGaugeLegs()
+drawGauge(62)
+runMiniSim(4)
+
+// draw odds on scroll into view
+let oddsDrawn = false
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && !oddsDrawn) {
+    oddsDrawn = true
+    drawOddsChart('ML')
+  }
+}, { threshold: 0.2 }).observe(document.querySelector('.odds-section'))
+
+// resize handlers
+window.addEventListener('resize', () => {
+  runMiniSim(simLegsVal)
+  drawOddsChart(activeOddsTab)
+})
+</script>
+</body>
+</html>
