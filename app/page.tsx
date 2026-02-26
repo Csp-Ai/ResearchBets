@@ -1,7 +1,11 @@
-import { TodayPageClient } from '@/src/components/today/TodayPageClient';
-import { getTodayPayload } from '@/src/core/today/service.server';
+import { Suspense } from 'react';
 
-export default async function HomePage() {
-  const payload = await getTodayPayload();
-  return <TodayPageClient initialPayload={payload} />;
+import { LandingPageClient } from '@/src/components/landing/LandingPageClient';
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#09090c]" aria-hidden />}>
+      <LandingPageClient />
+    </Suspense>
+  );
 }
