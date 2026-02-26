@@ -82,6 +82,10 @@
   .stickyActions a{flex:1;text-align:center}
 }
 
+@media(min-width:961px){
+  .stickyBar{display:none}
+}
+
 @media(max-width:600px){
   .hero{padding-left:20px;padding-right:20px;padding-bottom:16px}
   .heroCopy h1{font-size:40px}
@@ -108,30 +112,39 @@
   .lifecycleTabsSection,.phaseLinkSection,.postmortemSection{padding-left:20px;padding-right:20px}
 }
 
-.boardSection{padding:18px 40px 26px;border-bottom:1px solid var(--border);background:var(--bg2)}
-.boardInner{max-width:1120px;margin:0 auto;display:grid;gap:12px}
+.boardSection{padding:20px 40px 30px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.boardInner{max-width:1120px;margin:0 auto;display:grid;gap:14px}
 .boardHeader{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .boardHeader h2{font-size:34px;margin:4px 0 8px}
-.boardGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.boardGameCard{border:1px solid var(--border);background:var(--card);padding:12px;display:grid;gap:10px}
-.boardGameHeader{display:flex;justify-content:space-between;gap:8px;align-items:center}
-.boardGameHeader h3{font-size:22px;margin:0}
-.boardGameTime{font-family:var(--font-dm-mono),monospace;font-size:11px;color:var(--muted)}
-.boardPropGrid{display:grid;gap:8px}
-.boardPropCard{border:1px solid var(--border);background:#0d1219;padding:10px;display:grid;gap:6px}
-.boardPropTitle{font-size:14px;margin:0}
-.boardPropHit{font-size:12px;color:var(--cyan);margin:0}
-.boardPropCard ul{margin:0;padding-left:18px;color:var(--muted);font-size:12px;display:grid;gap:3px}
-.boardMeta{margin:0;font-size:12px;color:var(--text)}
-.boardAnalyzeLink{font-family:var(--font-dm-mono),monospace;font-size:12px;color:var(--cyan);text-decoration:none;border-top:1px solid var(--border);padding-top:6px}
-.boardFooterCta{display:flex;justify-content:flex-start}
+.boardCardsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.boardArtifactCard{border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(16,23,33,.78),rgba(10,14,20,.94));padding:12px;display:grid;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.04);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.boardArtifactCard:hover{transform:translateY(-2px);border-color:rgba(0,229,200,.35);box-shadow:0 12px 28px rgba(0,0,0,.28),0 0 0 1px rgba(0,229,200,.1)}
+.boardArtifactHeader{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.boardMatchup{margin:0;font-size:11px;font-family:var(--font-dm-mono),monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.boardBadge{font-family:var(--font-dm-mono),monospace;font-size:10px;color:var(--text);border:1px solid var(--border);background:rgba(255,255,255,.03);padding:3px 7px}
+.boardPropHeadline{margin:0;font-size:19px;line-height:1.2;letter-spacing:.01em}
+.boardMonoSubline{margin:0;color:var(--muted);font-size:11px;font-family:var(--font-dm-mono),monospace}
+.boardSignalRow{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.boardHitPill{font-size:11px;padding:3px 8px;border:1px solid rgba(0,229,200,.35);color:var(--cyan);background:rgba(0,229,200,.08);font-family:var(--font-dm-mono),monospace}
+.boardRecency{font-size:11px;color:var(--muted);font-family:var(--font-dm-mono),monospace}
+.boardReasonList{margin:0;padding-left:17px;color:#c0ccd7;font-size:12px;line-height:1.35;display:grid;gap:3px}
+.boardUncertaintyBand{margin:0;padding:7px 8px;border:1px solid rgba(245,197,66,.24);background:rgba(245,197,66,.06);font-size:11px;color:#d5c58d}
+.boardSources{margin:0;font-size:11px;color:var(--muted);font-family:var(--font-dm-mono),monospace}
+.boardActionRow{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px;border-top:1px solid rgba(255,255,255,.08)}
+.boardActionRow .btnPrimary,.boardActionRow .btnSecondary{padding:8px 12px;font-size:11px}
 .boardSkeletonGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .boardSkeletonCard{border:1px solid var(--border);background:var(--card);padding:12px;display:grid;gap:8px}
+.boardDisclosureSection{padding:0 40px 20px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.boardDisclosure{max-width:1120px;margin:0 auto;border:1px solid var(--border);background:var(--card)}
+.boardDisclosure summary{cursor:pointer;list-style:none;padding:12px 14px;font-family:var(--font-dm-mono),monospace;font-size:12px;color:var(--text)}
+.boardDisclosure summary::-webkit-details-marker{display:none}
+.boardDisclosure[open] summary{border-bottom:1px solid var(--border)}
+.boardDisclosure .gaugeSection,.boardDisclosure .trackerSection{padding:20px;border-bottom:none}
 .neutral{color:var(--text)}
 .reasonHelp{margin-left:8px;color:var(--muted);font-size:12px;cursor:help}
 
 @media(max-width:960px){
-  .boardSection{padding-left:20px;padding-right:20px}
-  .boardGrid,.boardSkeletonGrid{grid-template-columns:1fr}
+  .boardSection,.boardDisclosureSection{padding-left:20px;padding-right:20px}
+  .boardCardsGrid,.boardSkeletonGrid{grid-template-columns:1fr}
   .boardHeader{flex-direction:column}
 }
