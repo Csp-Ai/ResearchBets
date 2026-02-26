@@ -25,7 +25,7 @@ const DEMO_TELEMETRY: TelemetrySummary = {
   perf: {}
 };
 
-export function useLandingTelemetry(mode: 'demo' | 'live') {
+export function useLandingTelemetry({ mode, sport, tz, date }: { mode: 'demo' | 'live'; sport: string; tz: string; date: string }) {
   const [summary, setSummary] = useState<TelemetrySummary>(DEMO_TELEMETRY);
   const [today, setToday] = useState<LandingSnapshotResponse['landing'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,9 +36,12 @@ export function useLandingTelemetry(mode: 'demo' | 'live') {
 
     const run = async () => {
       try {
+        const todayQuery = new URLSearchParams({ sport, tz, date });
+        if (mode === 'demo') todayQuery.set('demo', '1');
+
         const [summaryRes, todayRes, healthRes] = await Promise.all([
           fetch('/api/telemetry/summary'),
-          fetch(mode === 'demo' ? '/api/today?demo=1' : '/api/today'),
+          fetch(`/api/today?${todayQuery.toString()}`),
           fetch('/api/provider-health')
         ]);
 
@@ -67,7 +70,7 @@ export function useLandingTelemetry(mode: 'demo' | 'live') {
       active = false;
       window.clearInterval(id);
     };
-  }, [mode]);
+  }, [date, mode, sport, tz]);
 
   const freshnessMinutes = useMemo(() => {
     const updatedAt = today?.lastUpdatedAt ?? summary.updatedAt;
