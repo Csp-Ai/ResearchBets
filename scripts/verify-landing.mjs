@@ -14,8 +14,11 @@ if (!existsSync(appPagePath)) {
 }
 
 const appPageContent = readFileSync(appPagePath, 'utf8');
-if (!appPageContent.includes('LandingPageClient')) {
-  fail('app/page.tsx must reference LandingPageClient.');
+if (!appPageContent.includes('HomeLandingClient')) {
+  fail('app/page.tsx must reference HomeLandingClient wrapped in Suspense.');
+}
+if (appPageContent.includes('/landing.html')) {
+  fail('app/page.tsx must not redirect or route to /landing.html.');
 }
 
 const nextConfigPath = resolve(root, 'next.config.mjs');

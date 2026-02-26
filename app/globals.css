@@ -518,3 +518,44 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* PR5 landing animations */
+@keyframes landing-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 64px, 0 64px; }
+}
+
+@keyframes landing-glow-float {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -52%) scale(1.05); }
+}
+
+@keyframes landing-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.landing-grid-drift {
+  background-image:
+    linear-gradient(rgba(0, 229, 200, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 200, 0.03) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 85% 80% at 50% 50%, black 15%, transparent 100%);
+  animation: landing-grid-drift 24s linear infinite;
+}
+
+.landing-glow-orb {
+  top: 44%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(0, 229, 200, 0.08) 0%, transparent 70%);
+  animation: landing-glow-float 7s ease-in-out infinite;
+}
+
+.landing-marquee {
+  animation: landing-marquee 26s linear infinite;
+}
+
+.landing-bottom-glow {
+  background: radial-gradient(circle, rgba(0, 229, 200, 0.18) 0%, transparent 70%);
+}
