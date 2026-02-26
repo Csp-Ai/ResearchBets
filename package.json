@@ -33,7 +33,7 @@
     "supabase:schema:drift-check": "node scripts/check-schema-drift.mjs",
     "dev:mirror:index": "tsx src/scripts/index-codebase.ts",
     "verify:landing": "node scripts/verify-landing.mjs",
-    "audit:journey": "node scripts/audit-cta-graph.mjs && playwright test tests/journey.spec.ts && node scripts/render-journey-report.mjs"
+    "audit:journey": "node scripts/audit-journey.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

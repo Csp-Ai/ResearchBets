@@ -22,7 +22,7 @@
 
 ### A) Board → add props → DraftSlipStore → Stress Test
 
-1. Board UI loads today payload from `getTodayPayload` (`app/page.tsx`, `/api/today`).
+1. Board UI loads unified board payload through `src/core/board/boardService.server.ts` (`/api/today`, `/api/bettor-data`, stress scout consumers).
 2. User taps add/analyze, writing legs via draft storage/store.
 3. Slip page reads draft legs using `useDraftSlip`/`DraftSlipStore`.
 4. `SlipIntelBar` computes correlation + fragility in real time.
@@ -73,7 +73,7 @@ Product contract: UI must display degraded/demo context explicitly instead of im
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or publishable alias)
   - `SUPABASE_SERVICE_ROLE_KEY` (server only)
-  - `LIVE_MODE` (default false until provider keys are set)
+  - `LIVE_MODE` (optional override; production defaults to live when provider keys exist)
   - provider keys (`ODDS_API_KEY`, `SPORTSDATA_API_KEY`) as needed
 - `scripts/env-check.mjs` enforces strict checks in CI/production/live mode and relaxed checks for local demo mode.
 

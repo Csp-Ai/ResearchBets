@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { DEMO_GAMES, type BettorGame } from '@/src/core/bettor/demoData';
 import { readLiveModeEnabled, LIVE_MODE_EVENT } from '@/src/core/ui/preferences';
@@ -40,13 +41,17 @@ const demoFallback: BettorDataEnvelopeClient = {
 
 export function useTonightsBoard() {
   const [state, setState] = useState<TonightsBoardState>({ payload: null, loading: true });
+  const searchParams = useSearchParams();
+  const sport = (searchParams.get('sport') ?? 'NBA').toUpperCase();
+  const tz = searchParams.get('tz') ?? 'America/Phoenix';
+  const date = searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     let active = true;
 
     const load = async () => {
       try {
-        const response = await fetch('/api/bettor-data', {
+        const response = await fetch(`/api/bettor-data?sport=${encodeURIComponent(sport)}&tz=${encodeURIComponent(tz)}&date=${encodeURIComponent(date)}`, {
           headers: {
             'x-live-mode': readLiveModeEnabled() ? 'true' : 'false'
           }
@@ -74,7 +79,7 @@ export function useTonightsBoard() {
       active = false;
       window.removeEventListener(LIVE_MODE_EVENT, onLiveModeChange);
     };
-  }, []);
+  }, [date, sport, tz]);
 
   const previewGames = useMemo(() => state.payload?.games.slice(0, 2) ?? [], [state.payload]);
 
