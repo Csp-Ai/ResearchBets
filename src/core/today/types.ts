@@ -21,6 +21,9 @@ export type BoardRow = {
   edgeDelta: number;
   riskTag: 'stable' | 'watch';
   confidencePct?: number;
+  book_source?: string;
+  line_variance?: number;
+  book_count?: number;
   source?: string;
   degraded?: boolean;
   mode?: TodayMode;
@@ -39,6 +42,9 @@ export type TodayPropKey = {
   edgeDelta?: number;
   riskTag?: 'stable' | 'watch';
   confidencePct?: number;
+  book_source?: string;
+  line_variance?: number;
+  book_count?: number;
   rationale: string[];
   provenance: string;
   lastUpdated: string;

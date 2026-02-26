@@ -52,7 +52,8 @@ export const ControlPlaneEventNameSchema = z.enum([
   'prop_tracked',
   'prop_edge_snapshot_created',
   'live_poll_tick',
-  'live_poll_degraded'
+  'live_poll_degraded',
+  'learning_update'
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {

@@ -131,3 +131,6 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 - `src/core/governor/runGovernor.server.ts` runs lightweight alignment checks for contract parity, trace continuity, demo truthfulness, client/server boundaries, and event integrity.
 - `app/api/governor/report/route.ts` exposes a resilient `GovernorReport` for current trace context.
 - `app/dev/governor/page.tsx` renders the report in a terminal-style checklist for development diagnostics.
+
+- Prop scout agent (`src/core/agents/propScout.server.ts`) now ranks per-game recommendations deterministically by edge + L10, powering `/game/[gameId]` detail cards.
+- Outcome learning loop (`/api/outcomes/log`, `src/core/learning/updateWeights.server.ts`) logs settled picks and emits `learning_update` events tied to `run_id`.

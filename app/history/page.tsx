@@ -7,6 +7,15 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { Button } from '@/src/components/ui/button';
 
+
+const deriveComparison = (title: string) => {
+  const key = title.toLowerCase();
+  const weakest = key.includes('reb') ? 'Rebounds leg' : key.includes('assist') ? 'Assists leg' : 'Late leg variance';
+  const largest = key.includes('points') ? 'Points edge cluster' : 'Primary scorer prop';
+  const divergence = key.includes('under') ? 'RB leaned over while your slip played under.' : 'RB and your slip mostly aligned; one leg diverged in market type.';
+  return { weakest, largest, divergence };
+};
+
 type SlipRow = {
   id: string;
   source_type: 'self' | 'shared';
@@ -65,6 +74,7 @@ export default function HistoryPage() {
               <span className="rounded bg-white/10 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-200">{badge(slip.settlement?.status)}</span>
             </div>
             <p className="mt-1 text-xs text-slate-400">{slip.source_type === 'shared' ? 'Shared slip/text' : 'My slip'} • {new Date(slip.created_at).toLocaleString()}</p>
+            {(() => { const comparison = deriveComparison(slip.title); return (<div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-2 text-xs text-slate-300"><p className="font-medium text-slate-100">Your Slip vs RB Suggested</p><p className="mt-1"><span className="text-rose-200">Weakest leg:</span> {comparison.weakest}</p><p><span className="text-cyan-200">Largest edge:</span> {comparison.largest}</p><p><span className="text-amber-200">Divergence:</span> {comparison.divergence}</p></div>); })()}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button intent="secondary" onClick={() => void runSettle(slip.id)} disabled={workingSlipId === slip.id}>{workingSlipId === slip.id ? 'Settling…' : 'Run settle'}</Button>
               <Link className="rounded border border-white/15 px-3 py-2 text-xs" href={appendQuery(nervous.toHref('/slip'), { id: slip.id })}>Open slip</Link>

@@ -78,6 +78,9 @@ export async function getTodayPayload(options?: { forceRefresh?: boolean; demoRe
           modelProb,
           edgeDelta: computeEdgeDelta(modelProb, marketImpliedProb),
           riskTag,
+          book_source: 'consensus_demo_book',
+          line_variance: 0,
+          book_count: 1,
           rationale: scout.reasons,
           provenance: scout.sources.join(' + '),
           lastUpdated: new Date().toISOString()
