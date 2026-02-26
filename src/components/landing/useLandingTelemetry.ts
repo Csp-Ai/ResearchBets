@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { TelemetrySummary } from '@/src/core/telemetry/types';
 
+type ProviderHealth = { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: string; providerErrors?: string[] };
+
 type LandingSnapshotResponse = {
   landing?: {
     mode: 'live' | 'demo';
@@ -27,15 +29,17 @@ export function useLandingTelemetry(mode: 'demo' | 'live') {
   const [summary, setSummary] = useState<TelemetrySummary>(DEMO_TELEMETRY);
   const [today, setToday] = useState<LandingSnapshotResponse['landing'] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [providerHealth, setProviderHealth] = useState<ProviderHealth | null>(null);
 
   useEffect(() => {
     let active = true;
 
     const run = async () => {
       try {
-        const [summaryRes, todayRes] = await Promise.all([
+        const [summaryRes, todayRes, healthRes] = await Promise.all([
           fetch('/api/telemetry/summary'),
-          fetch(mode === 'demo' ? '/api/today?demo=1' : '/api/today')
+          fetch(mode === 'demo' ? '/api/today?demo=1' : '/api/today'),
+          fetch('/api/provider-health')
         ]);
 
         if (!active) return;
@@ -45,10 +49,12 @@ export function useLandingTelemetry(mode: 'demo' | 'live') {
 
         setSummary(summaryBody);
         setToday(todayBody.landing ?? null);
+        setProviderHealth(healthRes.ok ? (await healthRes.json()) as ProviderHealth : null);
       } catch {
         if (!active) return;
         setSummary(DEMO_TELEMETRY);
         setToday(null);
+        setProviderHealth(null);
       } finally {
         if (active) setLoading(false);
       }
@@ -70,5 +76,5 @@ export function useLandingTelemetry(mode: 'demo' | 'live') {
     return Math.floor(ms / 60000);
   }, [summary.updatedAt, today?.lastUpdatedAt]);
 
-  return { summary, today, loading, freshnessMinutes };
+  return { summary, today, loading, freshnessMinutes, providerHealth };
 }

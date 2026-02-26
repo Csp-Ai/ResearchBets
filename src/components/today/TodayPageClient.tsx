@@ -3,6 +3,7 @@
 import React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
@@ -27,17 +28,18 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const router = useRouter();
   const [payload, setPayload] = useState<TodayPayload>(initialPayload ?? createDemoTodayPayload());
   const [league, setLeague] = useState<LeagueFilter>('All');
+  const nervous = useNervousSystem();
 
   const loadToday = useCallback(async (refresh = false) => {
     try {
-      const response = await fetch(`/api/today${refresh ? '?refresh=1' : ''}`, { cache: 'no-store' });
+      const response = await fetch(`/api/today?${new URLSearchParams({ refresh: refresh ? '1' : '0', sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }).toString()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('fetch_failed');
       const next = await response.json() as TodayPayload;
       setPayload(next);
     } catch {
       setPayload(createDemoTodayPayload());
     }
-  }, []);
+  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz]);
 
   useEffect(() => {
     if (!initialPayload) {
@@ -59,10 +61,10 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     const prefillText = serializeDraftSlip(legs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(`/stress-test?tab=analyze&prefillKey=${encodeURIComponent(SCOUT_ANALYZE_PREFILL_STORAGE_KEY)}`);
+    router.push(nervous.toHref('/stress-test', { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
   };
 
-  const openScout = () => router.push('/slip');
+  const openScout = () => router.push(nervous.toHref('/slip'));
 
   return (
     <section className="w-full space-y-4 pb-20 sm:space-y-5">
