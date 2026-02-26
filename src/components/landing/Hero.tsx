@@ -3,10 +3,11 @@
 import Link from 'next/link';
 
 import type { LandingMode } from './mode';
-import { LiveSnapshot } from './LiveSnapshot';
+import { getModeReasonText } from './LiveSnapshot';
 import { ModeBadge } from './ModeBadge';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { StatsBar } from './StatsBar';
+import { appendQuery } from './navigation';
 import styles from './landing.module.css';
 
 export function Hero({
@@ -14,7 +15,6 @@ export function Hero({
   modeReason,
   today,
   loading,
-  onRunFromSnapshot,
   freshnessMinutes,
   providerHealth
 }: {
@@ -28,12 +28,14 @@ export function Hero({
     lastUpdatedAt: string;
   } | null;
   loading: boolean;
-  onRunFromSnapshot: () => void;
   freshnessMinutes: number;
   providerHealth: { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: string; providerErrors?: string[] } | null;
 }) {
   const nervous = useNervousSystem();
   const effectiveMode = today?.mode ?? (mode === 'live' ? 'live' : 'demo');
+  const statusText = loading
+    ? 'Loading board telemetry…'
+    : `${effectiveMode === 'live' ? 'Live feeds on' : 'Demo fallback active'} · ${today?.gamesCount ?? 0} games · ${getModeReasonText(today?.reason ?? providerHealth?.reason)}`;
 
   return (
     <section className={styles.hero} id="hero">
@@ -45,6 +47,7 @@ export function Hero({
             <span className={styles.badgeDot} />Research workflow for bettors
           </div>
           <ModeBadge requestedMode={mode} effectiveMode={effectiveMode} reason={modeReason} />
+          <p className={styles.statusStrip} title={statusText}>{statusText}</p>
           <h1>Find the leg that breaks your parlay.</h1>
           <p className={styles.heroSub}>
             Before: decide with weakest-leg risk. During: track line movement and game state. After:
@@ -53,17 +56,16 @@ export function Hero({
           <div className={styles.heroCtas}>
             <div className={styles.heroCtasRow}>
               <Link href={nervous.toHref('/ingest')} className={styles.btnPrimary}>
-                Analyze my slip
+                Analyze slip
               </Link>
-              <Link href={nervous.toHref('/stress-test', { tab: 'analyze' })} className={styles.btnSecondary}>
-                Run demo
+              <Link href={appendQuery(nervous.toHref('/slip'), { from: 'board' })} className={styles.btnSecondary}>
+                Build from Board
               </Link>
             </div>
             <p className={styles.heroMicro}>Anonymous-first. Truthful live/demo labels on every proof card.</p>
           </div>
         </div>
         <div className={styles.heroProofColumn}>
-          <LiveSnapshot mode={mode} onRun={onRunFromSnapshot} snapshot={today} loading={loading} compact providerHealth={providerHealth} />
           <StatsBar
             compact
             variant="landing"

@@ -39,8 +39,20 @@ const demoFallback: BettorDataEnvelopeClient = {
   }
 };
 
+const ensurePopulatedGames = (payload: BettorDataEnvelopeClient): BettorDataEnvelopeClient => {
+  const hasProps = payload.games.some((game) => game.propSuggestions.length > 0);
+  if (hasProps) return payload;
+  return {
+    ...demoFallback,
+    provenance: {
+      source: 'fallback',
+      reason: payload.provenance.reason ?? 'empty_board_fallback'
+    }
+  };
+};
+
 export function useTonightsBoard() {
-  const [state, setState] = useState<TonightsBoardState>({ payload: null, loading: true });
+  const [state, setState] = useState<TonightsBoardState>({ payload: demoFallback, loading: true });
   const { sport, tz, date, mode } = useNervousSystem();
 
   useEffect(() => {
@@ -56,7 +68,7 @@ export function useTonightsBoard() {
             'x-live-mode': mode === 'demo' ? 'false' : readLiveModeEnabled() ? 'true' : 'false'
           }
         });
-        const body = response.ok ? (await response.json()) as BettorDataEnvelopeClient : demoFallback;
+        const body = response.ok ? ensurePopulatedGames((await response.json()) as BettorDataEnvelopeClient) : demoFallback;
         if (active) {
           setState({ payload: body, loading: false });
         }
