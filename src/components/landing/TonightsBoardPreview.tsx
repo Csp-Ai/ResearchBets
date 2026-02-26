@@ -43,21 +43,10 @@ export function TonightsBoardPreview() {
           </Link>
         </div>
 
-        {loading ? (
-          <div className={styles.boardSkeletonGrid}>
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className={styles.boardSkeletonCard}>
-                <span className={styles.skeleton} style={{ width: '45%', height: 12 }} />
-                <span className={styles.skeleton} style={{ width: '92%', height: 18 }} />
-                <span className={styles.skeleton} style={{ width: '100%', height: 104 }} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className={styles.boardCardsGrid}>
-            {cards.map(({ game, prop }) => <ScoutCardCompact key={prop.id} game={game} prop={prop} />)}
-          </div>
-        )}
+        <div className={styles.boardCardsGrid}>
+          {cards.map(({ game, prop }) => <ScoutCardCompact key={prop.id} game={game} prop={prop} />)}
+        </div>
+        {loading ? <p className={styles.boardLoadingNote}>Refreshing live board… showing deterministic fallback cards.</p> : null}
       </div>
     </motion.section>
   );

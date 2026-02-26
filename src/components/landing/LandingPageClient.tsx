@@ -8,8 +8,8 @@ import { BottomCTA } from './BottomCTA';
 import { FAQ } from './FAQ';
 import { Footer } from './Footer';
 import { Hero } from './Hero';
-import { LifecycleTabs, type LandingPhase } from './LifecycleTabs';
 import { LiveSnapshot } from './LiveSnapshot';
+import { LoopRow } from './LoopRow';
 import { getModeReasonText, getTelemetryUpdatedLabel } from './LiveSnapshot';
 import { NotSection } from './NotSection';
 import { OddsMovement } from './OddsMovement';
@@ -35,7 +35,6 @@ export function LandingPageClient() {
   });
   const [runToken, setRunToken] = useState(0);
   const [stickyVisible, setStickyVisible] = useState(false);
-  const [activePhase, setActivePhase] = useState<LandingPhase>('before');
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -53,7 +52,7 @@ export function LandingPageClient() {
     );
     obs.observe(section);
     return () => obs.disconnect();
-  }, [activePhase]);
+  }, []);
 
   useEffect(() => {
     const board = document.getElementById('tonights-board');
@@ -114,7 +113,6 @@ export function LandingPageClient() {
           modeReason={reasonLabel}
           today={today ?? null}
           loading={loading}
-          onRunFromSnapshot={onRunFromSnapshot}
           freshnessMinutes={freshnessMinutes}
           providerHealth={providerHealth}
         />
@@ -122,71 +120,53 @@ export function LandingPageClient() {
         <TonightsBoardPreview />
       </section>
 
-      {/* ── Lifecycle tabs + phase-specific content ── */}
+      <LoopRow />
+
       <section className={styles.proofStack}>
-        <LifecycleTabs activePhase={activePhase} onPhaseChange={setActivePhase} />
+        <div className={styles.phaseStack}>
+          <section className={styles.boardDisclosureSection}>
+            <details className={styles.boardDisclosure}>
+              <summary>See slip risk &amp; research steps</summary>
+              <RiskGauge />
+              <Tracker
+                mode={effectiveMode}
+                autoRunToken={runToken}
+                reason={reasonLabel}
+                updatedLabel={updatedLabel}
+              />
+            </details>
+          </section>
 
-        {activePhase === 'before' && (
-          <div className={styles.phaseStack}>
-            {/* Board disclosure: risk gauge + tracker gated behind details */}
-            <section className={styles.boardDisclosureSection}>
-              <details className={styles.boardDisclosure}>
-                <summary>See slip risk &amp; research steps</summary>
-                <RiskGauge />
-                <Tracker
-                  mode={effectiveMode}
-                  autoRunToken={runToken}
-                  reason={reasonLabel}
-                  updatedLabel={updatedLabel}
-                />
-              </details>
-            </section>
-          </div>
-        )}
-
-        {activePhase === 'during' && (
-          <div className={styles.phaseStack}>
-            <LiveSnapshot
-              mode={mode}
-              snapshot={today ?? null}
-              loading={loading}
-              onRun={onRunFromSnapshot}
-              providerHealth={providerHealth}
-            />
-            <OddsMovement
-              mode={effectiveMode}
-              reason={reasonLabel}
-              updatedLabel={updatedLabel}
-            />
-            <section className={styles.phaseLinkSection}>
-              <div className={styles.phaseLinkCard}>
-                <div className={styles.sectionLabel}>
-                  {effectiveMode === 'live' ? 'Live telemetry' : 'Demo telemetry'}
-                </div>
-                <h3>Need the live board?</h3>
-                <p>Open Control Room live view to monitor game state and market movement.</p>
-                <Link
-                  href={appendQuery(nervous.toHref('/control'), { tab: 'live' })}
-                  className={styles.btnSecondary}
-                >
-                  Open live view
-                </Link>
+          <LiveSnapshot
+            mode={mode}
+            snapshot={today ?? null}
+            loading={loading}
+            onRun={onRunFromSnapshot}
+            providerHealth={providerHealth}
+          />
+          <OddsMovement
+            mode={effectiveMode}
+            reason={reasonLabel}
+            updatedLabel={updatedLabel}
+          />
+          <section className={styles.phaseLinkSection}>
+            <div className={styles.phaseLinkCard}>
+              <div className={styles.sectionLabel}>
+                {effectiveMode === 'live' ? 'Live telemetry' : 'Demo telemetry'}
               </div>
-            </section>
-          </div>
-        )}
+              <h3>Need the live board?</h3>
+              <p>Open Control Room live view to monitor game state and market movement.</p>
+              <Link
+                href={appendQuery(nervous.toHref('/control'), { tab: 'live' })}
+                className={styles.btnSecondary}
+              >
+                Open live view
+              </Link>
+            </div>
+          </section>
 
-        {activePhase === 'after' && (
-          <div className={styles.phaseStack}>
-            <PostmortemPreviewCard />
-            <Tracker
-              mode={effectiveMode}
-              autoRunToken={runToken}
-              reason={reasonLabel}
-              updatedLabel={updatedLabel}
-            />
-          </div>
-        )}
+          <PostmortemPreviewCard />
+        </div>
       </section>
 
       <NotSection />
@@ -195,7 +175,6 @@ export function LandingPageClient() {
         stickyVisible={stickyVisible}
         mode={effectiveMode}
         reason={reasonLabel}
-        activePhase={activePhase}
       />
       <Footer />
     </div>
