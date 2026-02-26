@@ -3,7 +3,9 @@
 import Link from 'next/link';
 
 import type { BettorGame, PropSuggestion } from '@/src/core/bettor/demoData';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
+import { appendQuery } from './navigation';
 import styles from './landing.module.css';
 
 type ScoutCardCompactProps = {
@@ -11,18 +13,21 @@ type ScoutCardCompactProps = {
   prop: PropSuggestion;
 };
 
-const toScoutLink = (game: BettorGame, prop: PropSuggestion) => {
-  const params = new URLSearchParams({
+export function ScoutCardCompact({ game, prop }: ScoutCardCompactProps) {
+  const nervous = useNervousSystem();
+  const hitL5 = Math.round(prop.hitRateL5 * 5);
+  const scoutHref = appendQuery(nervous.toHref('/stress-test'), {
     tab: 'scout',
     scoutGame: game.id,
     scoutProp: prop.id,
     scoutLeg: `${prop.player} ${prop.market} ${prop.line}${prop.odds ? ` (${prop.odds})` : ''}`
   });
-  return `/stress-test?${params.toString()}`;
-};
-
-export function ScoutCardCompact({ game, prop }: ScoutCardCompactProps) {
-  const hitL5 = Math.round(prop.hitRateL5 * 5);
+  const slipHref = appendQuery(nervous.toHref('/slip', { gameId: game.id, propId: prop.id }), {
+    seedPlayer: prop.player,
+    seedMarket: prop.market,
+    seedLine: prop.line,
+    seedOdds: prop.odds
+  });
 
   return (
     <article className={styles.boardArtifactCard}>
@@ -47,8 +52,8 @@ export function ScoutCardCompact({ game, prop }: ScoutCardCompactProps) {
       <p className={styles.boardSources}>Sources: {prop.contributingAgents.join(', ') || 'Deterministic demo signals'}</p>
 
       <div className={styles.boardActionRow}>
-        <Link href={toScoutLink(game, prop)} className={styles.btnPrimary}>Analyze</Link>
-        <Link href="/stress-test?tab=scout" className={styles.btnSecondary}>Open Scout</Link>
+        <Link href={slipHref} className={styles.btnPrimary}>Build slip from this</Link>
+        <Link href={scoutHref} className={styles.btnSecondary}>Open Scout</Link>
       </div>
     </article>
   );

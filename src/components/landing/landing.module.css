@@ -105,7 +105,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background .18s, border-color .18s, color .18s, box-shadow .18s, transform .15s;
+  transition: background .18s, border-color .18s, color .18s, box-shadow .18s, transform .15s, filter .2s;
   line-height: 1;
   white-space: nowrap;
 }
@@ -123,8 +123,9 @@
 .btnNav:hover,
 .btnPrimary:hover {
   background: #00f5d8;
-  box-shadow: 0 0 0 3px rgba(0,229,200,.18);
+  box-shadow: 0 0 0 3px rgba(0,229,200,.18), 0 0 24px rgba(0,229,200,.24);
   transform: translateY(-1px);
+  filter: saturate(1.05);
 }
 .btnPrimary:focus-visible,
 .btnNav:focus-visible {
@@ -194,10 +195,19 @@
 
 /* ── Hero ──────────────────────────────────────────────────── */
 /* vNext canonical */
+
+.heroBoardSplit {
+  display: grid;
+  grid-template-columns: 1.08fr .92fr;
+  gap: var(--s3);
+  padding: 76px var(--s7) var(--s5);
+  align-items: start;
+}
+
 .hero {
   min-height: unset;
   display: block;
-  padding: 86px var(--s7) 28px;
+  padding: 18px 0 0;
   text-align: left;
   position: relative;
   overflow: hidden;
@@ -220,6 +230,12 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .heroGrid { animation: gridDrift 28s linear infinite; }
+  .sectionLabelPulse { animation: subtlePulse 2.4s ease-in-out infinite; }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,200,.18); opacity: .7; }
+  50% { box-shadow: 0 0 0 5px rgba(0,229,200,.04); opacity: 1; }
 }
 
 .heroGlow {
@@ -234,8 +250,8 @@
 .heroShell {
   position: relative;
   z-index: 2;
-  max-width: 1120px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   display: grid;
   grid-template-columns: 1.1fr .9fr;
   gap: var(--s4);
@@ -305,17 +321,32 @@
   font-family: var(--font-dm-mono), monospace;
 }
 
-.modeChip {
+.modeBadgeQuiet {
   display: inline-flex;
-  gap: 6px;
   align-items: center;
-  padding: 4px 10px;
+  gap: var(--s1);
   border: 1px solid var(--border);
-  font-size: 11px;
-  font-family: var(--font-dm-mono), monospace;
+  color: var(--muted);
+  padding: 4px 9px;
   border-radius: var(--r1);
+  font-size: 10px;
+  font-family: var(--font-dm-mono), monospace;
+  margin-bottom: var(--s2);
 }
-.modeChipReason { opacity: .7; }
+
+.modeBadgeFallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #c9d2dc;
+}
+
+.modeBadgeFallbackDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(245,197,66,.9);
+}
 
 .heroProofColumn {
   display: grid;
@@ -462,7 +493,7 @@
   border-radius: 50%;
   background: var(--cyan);
 }
-.proofStack { display: grid; gap: 0; }
+.proofStack { display: grid; gap: 0; border-top: 1px solid var(--border); margin-top: var(--s4); }
 
 /* ── How It Works inline ───────────────────────────────────── */
 .howItWorksInline {
@@ -612,13 +643,12 @@
 
 /* ── Tonight's Board (primary artifact) ────────────────────── */
 .boardSection {
-  padding: var(--s5) var(--s7) var(--s6);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg2);
+  padding: var(--s2) 0 0;
+  background: transparent;
 }
 .boardInner {
-  max-width: 1120px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   display: grid;
   gap: var(--s4);
 }
@@ -632,6 +662,20 @@
   font-size: 32px;
   margin: 4px 0 var(--s1);
   letter-spacing: .02em;
+}
+
+.sectionLabelRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionLabelPulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(0,229,200,.8);
+  box-shadow: 0 0 0 0 rgba(0,229,200,.5);
 }
 
 .sectionLabel {
@@ -1169,11 +1213,12 @@
   .pillarsGrid, .statsBar, .faqItem {
     grid-template-columns: 1fr;
   }
-  .hero { padding-top: 78px; }
+  .heroBoardSplit { grid-template-columns: 1fr; padding: 72px 20px var(--s3); gap: var(--s2); }
+  .hero { padding-top: 0; }
   .heroShell { grid-template-columns: 1fr; gap: var(--s3); }
   .heroCopy h1 { font-size: 44px; }
   .howItWorksInline { grid-template-columns: 1fr; padding-left: 20px; padding-right: 20px; }
-  .boardSection, .boardDisclosureSection { padding-left: 20px; padding-right: 20px; }
+  .boardDisclosureSection { padding-left: 20px; padding-right: 20px; }
   .boardCardsGrid, .boardSkeletonGrid { grid-template-columns: 1fr; }
   .boardHeader { flex-direction: column; }
   .stickyBar { left: var(--s1); right: var(--s1); bottom: var(--s1); flex-direction: column; align-items: stretch; }
@@ -1194,8 +1239,9 @@
     padding-left: 20px;
     padding-right: 20px;
   }
-  .hero { padding-left: 20px; padding-right: 20px; padding-bottom: var(--s3); }
+  .hero { padding-left: 0; padding-right: 0; padding-bottom: var(--s3); }
   .heroCopy h1 { font-size: 38px; }
+  .heroBoardSplit { padding-left: 20px; padding-right: 20px; }
   .lifecycleTabsSection, .phaseLinkSection, .postmortemSection {
     padding-left: 20px;
     padding-right: 20px;

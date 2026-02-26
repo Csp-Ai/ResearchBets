@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import type { LandingMode } from './mode';
 import { LiveSnapshot } from './LiveSnapshot';
+import { ModeBadge } from './ModeBadge';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { StatsBar } from './StatsBar';
 import styles from './landing.module.css';
@@ -33,7 +34,6 @@ export function Hero({
 }) {
   const nervous = useNervousSystem();
   const effectiveMode = today?.mode ?? (mode === 'live' ? 'live' : 'demo');
-  const modeReasonLabel = modeReason ? ` · ${modeReason}` : '';
 
   return (
     <section className={styles.hero} id="hero">
@@ -44,10 +44,7 @@ export function Hero({
           <div className={styles.badge}>
             <span className={styles.badgeDot} />Research workflow for bettors
           </div>
-          <div className={`${styles.modeChip} ${effectiveMode === 'live' ? styles.live : styles.demo}`}>
-            {effectiveMode === 'live' ? 'Live telemetry' : 'Demo mode (live feeds off)'}
-            {modeReason ? <span className={styles.modeChipReason}>{modeReasonLabel}</span> : null}
-          </div>
+          <ModeBadge requestedMode={mode} effectiveMode={effectiveMode} reason={modeReason} />
           <h1>Find the leg that breaks your parlay.</h1>
           <p className={styles.heroSub}>
             Before: decide with weakest-leg risk. During: track line movement and game state. After:

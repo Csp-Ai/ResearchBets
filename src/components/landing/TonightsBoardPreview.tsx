@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 
+import { motion, useReducedMotion } from 'framer-motion';
+
 import { ScoutCardCompact } from './ScoutCardCompact';
 import styles from './landing.module.css';
 import { useTonightsBoard } from './useTonightsBoard';
@@ -12,13 +14,24 @@ export function TonightsBoardPreview() {
   const { games, loading, mode } = useTonightsBoard();
   const nervous = useNervousSystem();
   const cards = games.flatMap((game) => game.propSuggestions.slice(0, 2).map((prop) => ({ game, prop }))).slice(0, 4);
+  const reduceMotion = useReducedMotion();
 
   return (
-    <section id="tonights-board" className={styles.boardSection}>
+    <motion.section
+      id="tonights-board"
+      className={styles.boardSection}
+      initial={reduceMotion ? undefined : { opacity: 0, y: 20 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={reduceMotion ? undefined : { duration: 0.4, ease: 'easeOut' }}
+    >
       <div className={styles.boardInner}>
         <div className={styles.boardHeader}>
           <div>
-            <div className={styles.sectionLabel}>Tonight&apos;s Board · {mode === 'live' ? 'Live slate' : 'Demo dataset'}</div>
+            <div className={styles.sectionLabelRow}>
+              <div className={styles.sectionLabelPulse} aria-hidden />
+              <div className={styles.sectionLabel}>Tonight&apos;s Board · {mode === 'live' ? 'Live slate' : 'Demo dataset'}</div>
+            </div>
             <h2>2 quick spots to scout before you lock.</h2>
             <p className={styles.sectionCaption}>Actionable props with reasons, uncertainty, and direct handoff into Stress Test.</p>
           </div>
@@ -46,6 +59,6 @@ export function TonightsBoardPreview() {
           </div>
         )}
       </div>
-    </section>
+    </motion.section>
   );
 }
