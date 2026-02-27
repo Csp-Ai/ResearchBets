@@ -61,7 +61,7 @@ export function HomeLandingPage() {
       <Hero nervous={nervous} />
       <ProofStrip />
       <StatsBar />
-      <div className="px-6 md:px-10"><ThinkingTracker traceId={nervous.trace_id} mode={nervous.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} /></div>
+      <div className="px-6 md:px-10"><ThinkingTracker traceId={nervous.trace_id} mode={nervous.mode} /></div>
       <LiveSnapshot
         live={live}
         onRun={() => {

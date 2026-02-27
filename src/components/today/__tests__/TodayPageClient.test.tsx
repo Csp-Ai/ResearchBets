@@ -61,7 +61,48 @@ describe('TodayPageClient', () => {
           }
         ]
       }
+    ],
+    board: [
+      {
+        id: 'scout-1',
+        gameId: 'nba-live-1',
+        player: 'Luka Doncic',
+        market: 'points',
+        line: '31.5',
+        odds: '-112',
+        hitRateL10: 72,
+        marketImpliedProb: 0.55,
+        modelProb: 0.63,
+        edgeDelta: 0.08,
+        riskTag: 'stable',
+        rationale: ['Last-5 role stable', 'Opponent coverage profile supports shot volume'],
+        provenance: 'odds + stats',
+        lastUpdated: '2026-02-26T18:00:00.000Z',
+        matchup: 'LAL @ DAL',
+        startTime: '19:00 ET',
+        mode: 'demo'
+      },
+      {
+        id: 'scout-2',
+        gameId: 'nba-live-1',
+        player: 'LeBron James',
+        market: 'rebounds',
+        line: '7.5',
+        odds: '-108',
+        hitRateL10: 50,
+        marketImpliedProb: 0.52,
+        modelProb: 0.56,
+        edgeDelta: 0.04,
+        riskTag: 'watch',
+        rationale: ['Paint touch volume stable', 'Line still near median outcome'],
+        provenance: 'odds + stats',
+        lastUpdated: '2026-02-26T18:00:00.000Z',
+        matchup: 'LAL @ DAL',
+        startTime: '19:00 ET',
+        mode: 'demo'
+      }
     ]
+
   };
 
   it('renders edge signals and terminal board controls', () => {
@@ -87,6 +128,7 @@ describe('TodayPageClient', () => {
   it('renders fallback edge values without NaN', () => {
     const noEdgePayload: TodayPayload = {
       ...payload,
+      board: [{ ...(payload.board ?? [])[0]!, id: 'scout-no-edge', edgeDelta: undefined, marketImpliedProb: undefined, modelProb: undefined }],
       games: [
         {
           ...payload.games[0]!,
