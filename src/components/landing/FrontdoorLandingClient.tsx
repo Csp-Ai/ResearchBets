@@ -15,6 +15,7 @@ import { FeedStatusChip } from '@/src/components/landing/FeedStatusChip';
 import { ExpandableGamePanel } from '@/src/components/landing/ExpandableGamePanel';
 import { computeInlineSlipWarnings, getLatestTraceId } from '@/src/core/run/store';
 import { withTraceId } from '@/src/core/trace/queryTrace';
+import { Chip, Divider, MicroBar, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
 
 type TodayPayload = typeof TodayPayloadSchema._type;
 type BoardProp = TodayPayload['board'][number] & {
@@ -107,9 +108,9 @@ export function FrontdoorLandingClient() {
         const payload = response.ok ? await response.json() : null;
         const items = Array.isArray(payload?.events)
           ? payload.events
-              .map((event: unknown) => EventEnvelopeSchema.safeParse(event))
-              .filter((parsed: ReturnType<typeof EventEnvelopeSchema.safeParse>): parsed is { success: true; data: typeof EventEnvelopeSchema._type } => parsed.success)
-              .map((parsed: { success: true; data: typeof EventEnvelopeSchema._type }) => parsed.data)
+            .map((event: unknown) => EventEnvelopeSchema.safeParse(event))
+            .filter((parsed: ReturnType<typeof EventEnvelopeSchema.safeParse>): parsed is { success: true; data: typeof EventEnvelopeSchema._type } => parsed.success)
+            .map((parsed: { success: true; data: typeof EventEnvelopeSchema._type }) => parsed.data)
           : [];
         const hasAfter = items.some((event: typeof EventEnvelopeSchema._type) => event.phase === 'AFTER');
         if (!cancelled && hasAfter) {
@@ -148,10 +149,10 @@ export function FrontdoorLandingClient() {
   }, [board, gameById]);
 
   const marketClosed = today.status === 'market_closed';
-  const modeChip = today.mode === 'demo' ? 'Demo mode (live feeds off)' : 'Live feeds on';
+  const modeChip = today.mode === 'demo' ? 'Demo mode' : 'Live feeds';
 
-  const sampleSlipHref = appendQuery(withTraceId(nervous.toHref('/stress-test'), activeTraceId), { source: 'landing_sample_slip', prefill: slipText });
-  const latestRunHref = latestTraceId ? withTraceId(nervous.toHref('/research'), latestTraceId) : null;
+  const sampleSlipHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { source: 'landing_sample_slip', prefill: slipText });
+  const latestRunHref = latestTraceId ? withTraceId(spineHref('/research'), latestTraceId) : null;
 
   const onAnalyze = useCallback(() => {
     setRunStage('during');
@@ -165,6 +166,12 @@ export function FrontdoorLandingClient() {
   }, [slip]);
   const fastAddState = slip.length >= 4 ? 'SGP cluster mode' : slip.length >= 2 ? '2-leg parlay ready' : 'Tap props for 1-click add';
 
+  const trackerSteps = [
+    { id: 'before', label: 'BEFORE', detail: 'Slip ready', done: runStage !== 'before' },
+    { id: 'during', label: 'DURING', detail: 'Analyzing', done: runStage === 'after' },
+    { id: 'after', label: 'AFTER', detail: 'Verdict ready', done: runStage === 'after' }
+  ] as const;
+
   return (
     <section className="mx-auto w-full max-w-6xl px-4 pb-8" style={{ minHeight: 760 }}>
       <LandingTerminalShell
@@ -174,66 +181,107 @@ export function FrontdoorLandingClient() {
         subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Fast scan tonight. Stack props. Check your edge.'}
         statusSlot={<FeedStatusChip health={(today.providerHealth as Array<{ provider: string; ok: boolean; message?: string; missingKey?: boolean }> | undefined)} />}
       >
-        <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
-          <span className="rounded-full border border-white/15 px-2.5 py-1 text-xs text-slate-100">{modeChip}</span>
-          <span className="rounded-full border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-100">Fast add mode · {fastAddState}</span>
+        <div className="mb-3 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
+          <Chip>{modeChip}</Chip>
+          <Chip className="text-cyan-100">Fast add mode · {fastAddState}</Chip>
         </div>
 
-        {marketClosed ? (
-          <div className="mt-2 rounded-lg border border-white/10 bg-slate-950/70 p-2" data-testid="market-closed-compact">
-            <p className="text-sm font-semibold text-slate-100">Markets closed.</p>
-            <p className="text-xs text-slate-400">{today.status === 'next' && today.nextAvailableStartTime ? `Next start: ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'No upcoming slates posted.'}</p>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+          <div>
+            <SectionTitle className="mb-2">Tonight&apos;s slate</SectionTitle>
+            {marketClosed ? (
+              <Panel className="mb-2 p-3" data-testid="market-closed-compact">
+                <p className="text-xs text-white/70">Markets are currently quiet. {today.status === 'next' && today.nextAvailableStartTime ? `Next start: ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'No upcoming slates posted yet.'}</p>
+              </Panel>
+            ) : null}
+            <div className="space-y-2" data-testid="board-section">
+              {loading ? <p className="text-xs text-slate-400">Loading live board…</p> : null}
+              {grouped.length === 0 && !marketClosed ? <p className="text-xs text-slate-400">Live feeds returned no active props for this spine.</p> : null}
+              {grouped.map(({ gameId, props, game }) => (
+                <ExpandableGamePanel
+                  key={gameId}
+                  gameId={gameId}
+                  matchup={game?.matchup ?? gameId}
+                  startTime={game?.startTime ?? 'Upcoming'}
+                  props={props}
+                  inSlip={(propId) => slipIds.has(propId)}
+                  onToggleLeg={(prop) => toggleLeg(prop, game?.matchup)}
+                />
+              ))}
+            </div>
           </div>
-        ) : null}
 
-        <div className="mt-2 space-y-2" data-testid="board-section">
-          {loading ? <p className="text-xs text-slate-400">Loading live board…</p> : null}
-          {grouped.length === 0 && !marketClosed ? <p className="text-xs text-slate-400">Live feeds returned no active props for this spine.</p> : null}
-          {grouped.map(({ gameId, props, game }) => (
-            <ExpandableGamePanel
-              key={gameId}
-              gameId={gameId}
-              matchup={game?.matchup ?? gameId}
-              startTime={game?.startTime ?? 'Upcoming'}
-              props={props}
-              inSlip={(propId) => slipIds.has(propId)}
-              onToggleLeg={(prop) => toggleLeg(prop, game?.matchup)}
-            />
-          ))}
+          <div className="space-y-3">
+            <Panel className={`transition ${slipPulse ? 'scale-[1.01] border-cyan-300/60' : ''}`} data-testid="landing-slip-mini">
+              <PanelHeader
+                title="Slip"
+                action={<p className="text-xs text-cyan-100">x{payoutX.toFixed(2)} payout</p>}
+                subtitle={fastAddState}
+              />
+              <div className="mb-2 flex items-center gap-2"><Chip variant={today.mode === 'demo' ? 'warn' : 'good'}>{today.mode === 'demo' ? 'Demo' : 'Live'}</Chip></div>
+              <div className="space-y-2">
+                {slip.length === 0 ? <p className="text-xs text-white/60">Add 2–3 props to shape a quick parlay card.</p> : null}
+                {slip.map((leg) => {
+                  const confidence = leg.odds?.startsWith('-') ? 62 : 54;
+                  return (
+                    <SlipRow
+                      key={leg.id}
+                      leftPrimary={`${leg.player} — ${leg.line} ${leg.marketType.toUpperCase()}`}
+                      leftSecondary={leg.game ?? 'Game not specified'}
+                      right={<MicroBar value={confidence} />}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {warnings.weakestLeg ? <Chip variant="warn">Most fragile leg: {warnings.weakestLeg}</Chip> : null}
+                {warnings.highCorrelation ? <Chip variant="warn">High correlation cluster</Chip> : null}
+                {warnings.overstacked ? <Chip variant="warn">Overstack warning</Chip> : null}
+              </div>
+
+              <Divider className="my-3" />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={onAnalyze} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Check my edge</button>
+                <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-2 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Send it anyway</Link>
+                <Link href={sampleSlipHref} className="rounded-xl border border-white/15 px-3 py-2 text-sm text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Try sample slip</Link>
+                {latestRunHref ? <Link href={latestRunHref} className="self-center text-xs text-cyan-100 underline underline-offset-2">Open latest run</Link> : null}
+              </div>
+            </Panel>
+
+            <Panel data-testid="landing-run-tracker">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Run tracker · trace_id {activeTraceId.slice(0, 12)}</p>
+              <div className="mt-3 flex items-center gap-2">
+                {trackerSteps.map((step, index) => {
+                  const isActive = runStage === step.id;
+                  return (
+                    <React.Fragment key={step.id}>
+                      <div
+                        data-testid={`run-stage-${step.id}`}
+                        className={`rounded-xl border px-2 py-1 text-[11px] ${isActive ? 'border-cyan-300/50 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.2)]' : 'border-white/10 text-white/65'}`}
+                      >
+                        <span className="mr-1">{step.done ? '✓' : '•'}</span>{step.label} · {step.detail}
+                      </div>
+                      {index < trackerSteps.length - 1 ? <div className="h-px flex-1 bg-white/10" aria-hidden="true" /> : null}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </Panel>
+          </div>
         </div>
 
-        <div className={`mt-3 grid gap-2 rounded-lg border border-white/10 bg-slate-950/70 p-3 transition ${slipPulse ? 'scale-[1.01] border-cyan-300/60' : ''}`} data-testid="landing-slip-mini">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-slate-100">Slip mini</p>
-            <p className="text-xs text-cyan-100">Projected payout x{payoutX.toFixed(2)}</p>
+        <Panel className="mt-3" data-testid="landing-edu-strip">
+          <p className="text-xs text-slate-300">Educational strip: Correlation can quietly reduce parlay hit-rate. Use warning pills in your slip to rebalance before you run analysis.</p>
+          <details className="mt-3 rounded-xl border border-white/10 bg-slate-900/50 p-3">
+            <summary className="cursor-pointer text-sm text-slate-100">More tools</summary>
+            <p className="mt-2 text-xs text-white/60">Prefill text is optional but helpful when you want to run a manual slip variant.</p>
+            <textarea value={slipText} onChange={(event) => setSlipText(event.target.value)} className="mt-2 h-20 w-full rounded-xl border border-white/15 bg-slate-950/80 p-2 text-xs text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40" aria-label="Slip text" />
+          </details>
+          <div className="mt-3 flex flex-wrap gap-2" data-testid="continuity-ctas-row">
+            <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Try sample slip</Link>
           </div>
-          <p className="text-[11px] text-slate-400">{fastAddState}</p>
-          {warnings.weakestLeg ? <p className="text-xs text-amber-100">⚠️ Most fragile leg: {warnings.weakestLeg}</p> : null}
-          {warnings.highCorrelation ? <p className="text-xs text-amber-100">⚠️ High correlation cluster</p> : null}
-          {warnings.overstacked ? <p className="text-xs text-amber-100">⚠️ Overstack warning: too many same-game heavy legs</p> : null}
-          <textarea value={slipText} onChange={(event) => setSlipText(event.target.value)} className="h-20 w-full rounded-md border border-white/15 bg-slate-950/80 p-2 text-xs text-slate-100" aria-label="Slip text" />
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={onAnalyze} className="rounded-md border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Check my edge</button>
-            <Link href={sampleSlipHref} className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-slate-100">Send it anyway</Link>
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/70 p-3" data-testid="landing-run-tracker" data-trace-id={activeTraceId}>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Run tracker · trace_id {activeTraceId.slice(0, 12)}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span data-testid="run-stage-before" className={`rounded-full border px-2 py-1 ${runStage === 'before' ? 'border-cyan-300/50 text-cyan-100' : 'border-white/15 text-slate-300'}`}>BEFORE · Slip ready / Board loaded</span>
-            <span data-testid="run-stage-during" className={`rounded-full border px-2 py-1 ${runStage === 'during' ? 'border-amber-300/50 text-amber-100' : 'border-white/15 text-slate-300'}`}>DURING · Analyzing...</span>
-            <span data-testid="run-stage-after" className={`rounded-full border px-2 py-1 ${runStage === 'after' ? 'border-emerald-300/50 text-emerald-100' : 'border-white/15 text-slate-300'}`}>AFTER · Verdict ready</span>
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/70 p-3" data-testid="landing-edu-strip">
-          <p className="text-xs text-slate-300">Educational strip: Correlation can quietly reduce parlay hit-rate. Use warnings above to rebalance before you run analysis.</p>
-          <div className="mt-2 flex flex-wrap gap-2" data-testid="continuity-ctas-row">
-            <Link href={sampleSlipHref} className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-slate-100">Try sample slip</Link>
-            {latestRunHref ? <Link href={latestRunHref} className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-slate-100">Open latest run</Link> : null}
-          </div>
-        </div>
+        </Panel>
       </LandingTerminalShell>
     </section>
   );
