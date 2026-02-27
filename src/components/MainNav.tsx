@@ -33,6 +33,10 @@ export function MainNav() {
     void navigateWithAction('open_research', buildNavigationHref({ pathname: '/research', traceId: navigationTraceId }));
   };
 
+  const openTonight = () => {
+    void navigateWithAction('open_tonight', buildNavigationHref({ pathname: '/tonight', traceId: navigationTraceId }));
+  };
+
   const openLive = () => {
     void navigateWithAction(
       'see_live_games',
@@ -55,6 +59,9 @@ export function MainNav() {
         className="rounded border border-slate-700 px-3 py-1.5"
       >
         Research
+      </button>
+      <button type="button" onClick={openTonight} className="rounded border border-slate-700 px-3 py-1.5">
+        Tonight
       </button>
       <button type="button" onClick={openLive} className="rounded bg-cyan-600 px-3 py-1.5">
         See Live Games

@@ -134,3 +134,25 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 
 - Prop scout agent (`src/core/agents/propScout.server.ts`) now ranks per-game recommendations deterministically by edge + L10, powering `/game/[gameId]` detail cards.
 - Outcome learning loop (`/api/outcomes/log`, `src/core/learning/updateWeights.server.ts`) logs settled picks and emits `learning_update` events tied to `run_id`.
+
+## Tonight decision surface intelligence (`/tonight`)
+
+- Route split: `app/tonight/page.tsx` (server wrapper) + `app/tonight/TonightPageClient.tsx` (client decision surface).
+- Data contract reuse: `/tonight` reads the same `getTodayPayload` contract used by `/today`; no separate provider logic was added.
+- Slate intelligence engine: `src/core/slate/slateEngine.ts`
+  - Computes deterministic `SlateSummary` from `TodayPayload`.
+  - Produces a bettor-facing 2–4 sentence narrative with pace/scoring/market shape language.
+  - Emits bias fields (`pace`, `scoring`, `assistTrend`), volatility flags, and a 0–100 prep confidence score.
+- Suggested slip engine: `src/core/slate/suggestedSlipEngine.ts`
+  - Generates 3 deterministic build profiles: `stable` (3 legs), `balanced` (4 legs), `ceiling` (5 legs).
+  - Uses hit-rate + market volatility + risk-tag heuristics for per-leg risk scoring.
+  - Enforces profile constraints (variance caps, stable-leg minimums, player/game diversity guards).
+  - Returns survival probability, weakest leg, conviction score, and bettor-language reasoning.
+- Reactive window detection: `src/core/slate/reactiveWindow.ts`
+  - Detects live/near-tip-off windows from payload game status/start-time hints.
+  - When reactive, `/tonight` shows a volatility warning banner and biases balanced/ceiling builds safer.
+- Conviction gate:
+  - `/tonight` includes “Show only high conviction” filtering (`convictionScore >= 70`).
+  - Empty-state copy guides users back to stable builds when no high-conviction tickets survive.
+
+Deterministic-first note: all `/tonight` engines run without network calls and remain usable in `LIVE_MODE=false` demo mode by deriving behavior from `TodayPayload` fields and stable fallback defaults.
