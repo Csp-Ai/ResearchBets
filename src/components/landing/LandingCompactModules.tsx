@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 
 import { appendQuery } from '@/src/components/landing/navigation';
+import { PostmortemUploadWedge } from '@/src/components/landing/PostmortemUploadWedge';
 import { toHref } from '@/src/core/nervous/routes';
 import type { QuerySpine } from '@/src/core/nervous/spine';
 
@@ -43,3 +44,5 @@ export function TrustNote({ spine }: CompactModulesProps) {
     </section>
   );
 }
+
+export { PostmortemUploadWedge };

@@ -17,7 +17,25 @@ export function BoardPreviewSSR({ spine }: BoardPreviewSSRProps) {
 
   return (
     <div data-landing-ssr>
-      <LandingTerminalShell mode={today.mode} reason={today.reason} className="border-cyan-300/15">
+      <LandingTerminalShell
+        mode={today.mode}
+        reason={today.reason}
+        className="border-cyan-300/15"
+        hooksSlot={(
+          <div className="mb-3 rounded-lg border border-cyan-300/20 bg-slate-950/70 p-2.5" data-testid="landing-hooks-ssr">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-200/90">Signal hooks</p>
+            <div className="mt-2 space-y-2">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={`hook-placeholder-${index}`} className="rounded-md border border-white/10 bg-slate-900/60 p-2">
+                  <div className="h-3 w-1/3 rounded bg-white/10" />
+                  <div className="mt-1 h-3 w-5/6 rounded bg-white/10" />
+                  <div className="mt-2 h-6 w-20 rounded border border-white/10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      >
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
@@ -33,11 +51,12 @@ export function BoardPreviewSSR({ spine }: BoardPreviewSSRProps) {
                     <p className="text-xs text-slate-400">{game.startTime}</p>
                     <div className="mt-1.5 divide-y divide-white/10 rounded-md border border-white/10 bg-slate-950/60" data-testid="terminal-prop-rows">
                       {props.map((prop) => (
-                        <div key={prop.id} className="grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-2 text-[11px] text-slate-200">
+                        <div key={prop.id} className="grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 px-2 text-[11px] text-slate-200">
                           <span className="truncate font-medium" title={prop.player}>{prop.player}</span>
                           <span className="truncate font-mono text-slate-300">{prop.market} {prop.line}</span>
                           <span className="rounded-full border border-cyan-300/30 px-1.5 py-0.5 text-[10px] text-cyan-100">L10 58%</span>
                           <span className="font-mono text-slate-300">{prop.odds}</span>
+                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/20 px-1 text-[10px] leading-none text-slate-300">i</span>
                           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/20 px-1 text-[10px] leading-none text-cyan-200">＋</span>
                         </div>
                       ))}

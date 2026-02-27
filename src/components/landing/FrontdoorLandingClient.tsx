@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { appendQuery } from '@/src/components/landing/navigation';
+import { deriveLandingHooks } from '@/src/components/landing/deriveHooks';
+import { LandingHooks } from '@/src/components/landing/LandingHooks';
 import { LandingTerminalShell } from '@/src/components/landing/LandingTerminalShell';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { TodayPayloadSchema } from '@/src/core/contracts/envelopes';
@@ -64,6 +66,7 @@ export function FrontdoorLandingClient() {
   const [loading, setLoading] = useState(true);
   const [traceId, setTraceId] = useState<string | undefined>(nervous.trace_id);
   const [hydrated, setHydrated] = useState(false);
+  const [openInsightRow, setOpenInsightRow] = useState<string | null>(null);
 
   useEffect(() => {
     setHydrated(true);
@@ -115,6 +118,7 @@ export function FrontdoorLandingClient() {
     [activeTraceId, nervous]
   );
   const board = today.board.slice(0, 6) as BoardProp[];
+  const hooks = useMemo(() => deriveLandingHooks(today, slip.map((leg) => leg.id)), [slip, today]);
   const compactBoard = useMemo(() => {
     const grouped = new Map<string, BoardProp[]>();
     board.forEach((prop) => {
@@ -161,7 +165,7 @@ export function FrontdoorLandingClient() {
 
   return (
     <section aria-label="frontdoor-client-board" data-landing-client hidden={!hydrated} className={hydrated ? 'contents' : 'hidden'}>
-      <LandingTerminalShell mode={today.mode} reason={today.reason}>
+      <LandingTerminalShell mode={today.mode} reason={today.reason} hooksSlot={<LandingHooks hooks={hooks} loading={loading} />}>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" data-testid="landing-terminal-grid">
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs text-slate-400">
@@ -176,11 +180,12 @@ export function FrontdoorLandingClient() {
                       <div className="mb-2 h-3 w-1/2 rounded bg-white/10" />
                       <div className="divide-y divide-white/10 rounded-md border border-white/10 bg-slate-950/60">
                         {Array.from({ length: 3 }, (_, row) => (
-                          <div key={`sk-row-${row}`} className="grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-2">
+                          <div key={`sk-row-${row}`} className="grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 px-2">
                             <div className="h-3 w-4/5 rounded bg-white/10" />
                             <div className="h-3 w-3/4 rounded bg-white/10" />
                             <div className="h-5 w-12 rounded-full bg-white/10" />
                             <div className="h-3 w-8 rounded bg-white/10" />
+                            <div className="h-5 w-5 rounded border border-white/10" />
                             <div className="h-5 w-5 rounded border border-white/10" />
                           </div>
                         ))}
@@ -197,11 +202,19 @@ export function FrontdoorLandingClient() {
                         {props.map((prop) => {
                           const inSlip = slipIds.has(prop.id);
                           return (
-                            <div key={prop.id} className="compact-prop-row grid h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-2 text-[11px]">
+                            <div key={prop.id} className="compact-prop-row grid min-h-9 grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 px-2 py-1 text-[11px]">
                               <span className="truncate font-medium text-slate-100" title={prop.player}>{prop.player}</span>
                               <span className="truncate font-mono text-slate-300">{prop.market} {prop.line}</span>
                               <span className="rounded-full border border-cyan-300/30 px-1.5 py-0.5 text-[10px] text-cyan-100">L10 {prop.hitRateL10 ?? 58}%</span>
                               <span className="font-mono text-slate-300">{prop.odds}</span>
+                              <button
+                                type="button"
+                                onClick={() => setOpenInsightRow((current) => (current === prop.id ? null : prop.id))}
+                                aria-label={`Why ${prop.player} ${prop.market} ${prop.line}`}
+                                className="h-5 min-w-5 rounded border border-white/20 px-1 text-[10px] leading-none text-slate-200 hover:border-cyan-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                              >
+                                i
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => toggleLeg(prop, game?.matchup)}
@@ -210,6 +223,11 @@ export function FrontdoorLandingClient() {
                               >
                                 {inSlip ? '−' : '+'}
                               </button>
+                              {openInsightRow === prop.id ? (
+                                <div className="col-span-full rounded border border-cyan-300/20 bg-slate-900/80 px-2 py-1 text-[10px] text-slate-200">
+                                  Why: L10 {prop.hitRateL10 ?? 58}% · {String(prop.riskTag ?? 'watch').toUpperCase()} tag · {prop.odds} at line {prop.line}.
+                                </div>
+                              ) : null}
                             </div>
                           );
                         })}
@@ -256,6 +274,7 @@ export function FrontdoorLandingClient() {
                 >
                   {slip.length > 0 ? 'Stress test this slip →' : 'Start by adding legs →'}
                 </Link>
+                <p className="mt-2 text-center text-xs text-slate-400">Get weakest leg + flags in ~30s.</p>
               </div>
             </div>
           </aside>
