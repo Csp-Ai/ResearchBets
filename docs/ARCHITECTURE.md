@@ -158,3 +158,19 @@ Positioning statement: **ResearchBets outputs leads, not payouts.**
   - Uses neutral mode labels (`Live`, `Cached`, `Demo mode (live feeds off)`) and preserves continuity-spine params on CTAs.
 
 Determinism guarantee: all `/tonight` and landing lead computations are pure against `TodayPayload`, avoid randomization, and remain demo-safe when providers are unavailable.
+
+
+## DURING: Slip tracking module
+
+- Route split: `app/track/page.tsx` + `app/track/TrackPageClient.tsx` for the DURING command center.
+- Core contracts: `src/core/slips/trackingTypes.ts` + `src/core/slips/slipStatusEngine.ts`.
+- Deterministic update path: `src/core/slips/demoSlipTracker.ts` advances leg progress/outcomes using stable slip/leg hashes so demo mode remains believable without live providers.
+- Persistence: `src/core/slips/storage.ts` stores tracked slips in localStorage and enables Draft/Tonight “Track this slip” continuity.
+- Product rule: when a parlay is eliminated by one miss, ResearchBets **continues tracking remaining legs for learning** instead of stopping the timeline.
+
+## AFTER: Journal module (v1)
+
+- Journal contract: `src/core/journal/journalTypes.ts`.
+- Entry builder: `src/core/journal/buildJournalEntry.ts` maps tracked slip state into compact review notes (hits, misses, runback candidates, bias-resistant notes).
+- Persistence + UI: localStorage-backed `src/core/journal/storage.ts`, list view at `/journal`, detail view at `/journal/[entryId]`.
+- Scope: local-first persistence for fast iteration; no backend dependency required for demo or degraded environments.

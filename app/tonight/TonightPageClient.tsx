@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { BoardTerminalTable, sortBoardRows, type TerminalBoardRow } from '@/src/components/today/BoardTerminalTable';
@@ -12,6 +13,7 @@ import { buildSlateSummary } from '@/src/core/slate/slateEngine';
 import type { BoardProp } from '@/src/core/slate/leadEngine';
 import { generateRankedLeads } from '@/src/core/slate/leadEngine';
 import type { TodayPayload } from '@/src/core/today/types';
+import { createTrackingFromDraft, saveSlip } from '@/src/core/slips/storage';
 
 function asBoardProps(payload: TodayPayload): BoardProp[] {
   return payload.games.flatMap((game, gameIndex) => game.propsPreview.map((prop, propIndex) => ({
@@ -57,6 +59,7 @@ const modeTone: Record<TodayPayload['mode'], string> = {
 };
 
 export function TonightPageClient({ payload }: { payload: TodayPayload }) {
+  const router = useRouter();
   const draft = useDraftSlip();
   const [highConvictionOnly, setHighConvictionOnly] = useState(false);
   const slateSummary = useMemo(() => buildSlateSummary(payload), [payload]);
@@ -83,6 +86,13 @@ export function TonightPageClient({ payload }: { payload: TodayPayload }) {
     draft.addLeg(mapped);
   };
 
+  const onTrackDraft = () => {
+    if (draft.slip.length === 0) return;
+    const tracking = createTrackingFromDraft(draft.slip, payload.mode);
+    saveSlip(tracking);
+    router.push(`/track?slipId=${tracking.slipId}`);
+  };
+
   return (
     <section className="space-y-4 pb-20">
       <header className="rounded-xl border border-white/10 bg-slate-950/65 p-4">
@@ -94,6 +104,9 @@ export function TonightPageClient({ payload }: { payload: TodayPayload }) {
           </div>
           <span className={`rounded-full border px-3 py-1 text-xs uppercase ${modeTone[payload.mode]}`}>{payload.mode} mode</span>
         </div>
+        <button type="button" className="mt-3 rounded border border-cyan-400/60 bg-cyan-500/10 px-3 py-1.5 text-xs" onClick={onTrackDraft}>
+          Track slip ({draft.slip.length})
+        </button>
       </header>
 
       {reactiveWindow.isReactive ? (

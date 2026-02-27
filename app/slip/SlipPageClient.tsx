@@ -8,6 +8,7 @@ import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
+import { createTrackingFromDraft, saveSlip } from '@/src/core/slips/storage';
 import type { TodayPayload } from '@/src/core/today/types';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
@@ -97,6 +98,14 @@ export default function SlipPageClient() {
     router.push(appendQuery(nervous.toHref('/research'), { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
   };
 
+
+  const onTrackSlip = () => {
+    if (dedupedLegs.length === 0) return;
+    const tracking = createTrackingFromDraft(dedupedLegs, boardMode);
+    saveSlip(tracking);
+    router.push(`/track?slipId=${tracking.slipId}`);
+  };
+
   const onCopyLegs = async () => {
     if (typeof window === 'undefined' || dedupedLegs.length === 0) return;
     const copyLines = dedupedLegs.map((leg, index) => `${index + 1}. ${leg.player} ${leg.marketType} ${leg.line}${leg.odds ? ` (${leg.odds})` : ''}`);
@@ -161,7 +170,10 @@ export default function SlipPageClient() {
             }
             setSlip(nextLegs);
           }} />
-          <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze now ({dedupedLegs.length})</button>
+          <div className="grid grid-cols-1 gap-2">
+            <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze now ({dedupedLegs.length})</button>
+            <button type="button" className="w-full rounded-xl border border-emerald-400/60 bg-emerald-500/10 px-4 py-3 text-base font-semibold text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track this slip</button>
+          </div>
         </div>
       </div>
     </section>
