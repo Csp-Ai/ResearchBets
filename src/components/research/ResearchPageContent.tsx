@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { computeLegRisk, runSlip } from '@/src/core/pipeline/runSlip';
-import { runStore } from '@/src/core/run/store';
+import { getLatestTraceId, runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchReport } from '@/src/core/evidence/evidenceSchema';
 import { mergeSnapshotHighlights, toResearchRunDTOFromRun, validateResearchRunDTO } from '@/src/core/run/researchRunDTO';
@@ -296,6 +296,10 @@ export default function ResearchPageContent() {
 
   const slipHref = nervous.toHref('/slip');
   const boardHref = appendQuery(nervous.toHref('/today'), { tab: 'board' });
+  const latestRunHref = useMemo(() => {
+    const latest = getLatestTraceId();
+    return latest ? withTraceId(nervous.toHref('/research'), latest) : null;
+  }, [nervous]);
 
   const copyReasons = useCallback(async () => {
     const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
@@ -373,6 +377,7 @@ export default function ResearchPageContent() {
           boardHref={boardHref}
           uncertainty={currentRun?.analysis.dataQuality?.confidenceCapReason}
           demoSlip={DEMO_SLIP}
+          latestRunHref={latestRunHref}
         />
       ) : null}
 

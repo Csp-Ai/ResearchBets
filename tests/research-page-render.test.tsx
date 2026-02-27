@@ -40,6 +40,27 @@ describe('/research render polish', () => {
     expect(globalsCss).toContain('.dark {');
   });
 
+
+  it('shows Open latest run CTA in empty analyze state using trace_id param', async () => {
+    window.localStorage.setItem('rb:runs:v1', JSON.stringify([
+      {
+        trace_id: 'latest-research-trace',
+        updatedAt: '2026-02-27T10:00:00.000Z',
+        status: 'complete',
+        slipText: '',
+        extractedLegs: [],
+        enrichedLegs: [],
+        analysis: { confidencePct: 51, weakestLegId: null, reasons: ['stable'], riskLabel: 'Caution', computedAt: '2026-02-27T10:00:00.000Z' }
+      }
+    ]));
+
+    renderWithProviders(<ResearchPageContent />);
+    const link = await screen.findByRole('link', { name: 'Open latest run' });
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('trace_id=latest-research-trace');
+    expect(href).not.toContain('trace=latest-research-trace');
+  });
+
   it('keeps structural smoke expectations stable', () => {
     renderWithProviders(<ResearchPageContent />);
     expect(screen.getAllByText('Stress Test').length).toBeGreaterThan(0);

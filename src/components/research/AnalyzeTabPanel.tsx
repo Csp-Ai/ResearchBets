@@ -34,6 +34,7 @@ type AnalyzeTabPanelProps = {
   boardHref: string;
   uncertainty?: string;
   demoSlip: string;
+  latestRunHref?: string | null;
 };
 
 export default function AnalyzeTabPanel({
@@ -53,7 +54,8 @@ export default function AnalyzeTabPanel({
   slipHref,
   boardHref,
   uncertainty,
-  demoSlip
+  demoSlip,
+  latestRunHref
 }: AnalyzeTabPanelProps) {
   const reasons = (runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []).slice(0, 4);
   const weakestReasons = (weakestLeg?.riskFactors ?? []).filter(Boolean);
@@ -113,6 +115,7 @@ export default function AnalyzeTabPanel({
             <div className="flex items-center gap-3">
               <Button intent="primary" onClick={onPasteOpen}>Paste slip</Button>
               <button type="button" className="text-xs text-link underline" onClick={onTryExample}>Try an example</button>
+              {latestRunHref ? <a href={latestRunHref} className="text-xs text-link underline">Open latest run</a> : null}
             </div>
           </div>
         )}
