@@ -62,6 +62,7 @@ export function FrontdoorLandingClient() {
   const [runStage, setRunStage] = useState<'before' | 'during' | 'after'>('before');
   const [slipPulse, setSlipPulse] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [traceDetailsOpen, setTraceDetailsOpen] = useState(false);
   const [traceFeed, setTraceFeed] = useState<TraceStep[]>([]);
   const [demoTraceIndex, setDemoTraceIndex] = useState(0);
   const [calibrationRuns, setCalibrationRuns] = useState(0);
@@ -115,7 +116,7 @@ export function FrontdoorLandingClient() {
 
   useEffect(() => {
     if (today.mode === 'demo') {
-      const next = DEMO_TRACE_STEPS.map((step, index) => ({
+      const next: TraceStep[] = DEMO_TRACE_STEPS.map((step, index) => ({
         ...step,
         status: index <= demoTraceIndex ? 'complete' : 'running'
       }));
@@ -279,54 +280,6 @@ export function FrontdoorLandingClient() {
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)] lg:items-start">
-          <Panel className="lg:col-span-2" data-testid="pipeline-hero-panel">
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div>
-                <SectionTitle className="mb-2">Pipeline visualizer</SectionTitle>
-                <p className="text-xs text-slate-300">Trace creation, agent execution order, signal weighting, and weakest-leg propagation are rendered in-line.</p>
-                <div className="mt-3 space-y-1.5">
-                  {traceFeed.map((step) => (
-                    <SlipRow
-                      key={`${step.agent}-${step.output}`}
-                      leftPrimary={step.agent}
-                      leftSecondary={step.output}
-                      right={<Chip variant={step.status === 'complete' ? 'good' : 'neutral'}>{step.status === 'complete' ? '✓' : '…'}</Chip>}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Panel className="bg-slate-950/60">
-                  <PanelHeader title="Trace feed" subtitle={today.mode === 'demo' ? 'Timed demo execution reveal' : 'Subscribed to live trace events'} />
-                  <p className="text-xs text-slate-300">{today.mode === 'demo' ? `Step ${Math.min(demoTraceIndex + 1, DEMO_TRACE_STEPS.length)} of ${DEMO_TRACE_STEPS.length}` : `trace_id ${activeTraceId}`}</p>
-                </Panel>
-
-                <Panel className="bg-slate-950/60">
-                  <PanelHeader title="Weakest-leg delta impact" subtitle={weakestLegDelta ? weakestLegDelta.weakestLabel : 'Add 2+ legs to quantify contribution'} />
-                  {weakestLegDelta ? (
-                    <div className="space-y-1 text-xs text-slate-200">
-                      <p>With leg: {weakestLegDelta.withConfidence}% confidence</p>
-                      <p>Without leg: {weakestLegDelta.withoutConfidence}% confidence</p>
-                      <p className="text-cyan-100">Delta: +{weakestLegDelta.delta}%</p>
-                    </div>
-                  ) : <p className="text-xs text-slate-400">Need relative comparison data from current slip.</p>}
-                </Panel>
-
-                <Panel className="bg-slate-950/60">
-                  <PanelHeader title="Model confidence calibration" subtitle="Accountability strip" />
-                  {calibrationCard.ready ? (
-                    <div className="space-y-1 text-xs text-slate-200">
-                      <p>Predicted range: {calibrationCard.predictedBand}</p>
-                      <p>Actual outcome hit: {calibrationCard.actualHit}</p>
-                      <p className="text-cyan-100">Calibration drift: {calibrationCard.drift}</p>
-                    </div>
-                  ) : <p className="text-xs text-slate-400">{calibrationCard.runs} runs analyzed. Calibration accountability unlocks at 10.</p>}
-                </Panel>
-              </div>
-            </div>
-          </Panel>
-
           <div>
             <SectionTitle className="mb-2">Tonight&apos;s Board</SectionTitle>
             <div className="space-y-2" data-testid="board-section">
@@ -365,6 +318,65 @@ export function FrontdoorLandingClient() {
               ) : null}
             </details>
           </div>
+
+          <Panel className="lg:col-span-2" data-testid="pipeline-hero-panel">
+            <div className="flex items-center justify-between gap-2">
+              <SectionTitle>Pipeline visualizer</SectionTitle>
+              <button
+                type="button"
+                onClick={() => setTraceDetailsOpen((open) => !open)}
+                className="rounded-lg border border-white/20 px-2 py-1 text-xs text-slate-200"
+                aria-expanded={traceDetailsOpen}
+                aria-controls="pipeline-trace-details"
+              >
+                {traceDetailsOpen ? 'Hide trace details' : 'Show trace details'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-300">Trace creation, agent execution order, signal weighting, and weakest-leg propagation are rendered in-line.</p>
+            {traceDetailsOpen ? (
+              <div id="pipeline-trace-details" className="mt-3 grid gap-3 lg:grid-cols-2">
+                <div className="space-y-1.5">
+                  {traceFeed.map((step) => (
+                    <SlipRow
+                      key={`${step.agent}-${step.output}`}
+                      leftPrimary={step.agent}
+                      leftSecondary={step.output}
+                      right={<Chip variant={step.status === 'complete' ? 'good' : 'neutral'}>{step.status === 'complete' ? '✓' : '…'}</Chip>}
+                    />
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <Panel className="bg-slate-950/60">
+                    <PanelHeader title="Trace feed" subtitle={today.mode === 'demo' ? 'Timed demo execution reveal' : 'Subscribed to live trace events'} />
+                    <p className="text-xs text-slate-300">{today.mode === 'demo' ? `Step ${Math.min(demoTraceIndex + 1, DEMO_TRACE_STEPS.length)} of ${DEMO_TRACE_STEPS.length}` : `trace_id ${activeTraceId}`}</p>
+                  </Panel>
+
+                  <Panel className="bg-slate-950/60">
+                    <PanelHeader title="Weakest-leg delta impact" subtitle={weakestLegDelta ? weakestLegDelta.weakestLabel : 'Add 2+ legs to quantify contribution'} />
+                    {weakestLegDelta ? (
+                      <div className="space-y-1 text-xs text-slate-200">
+                        <p>With leg: {weakestLegDelta.withConfidence}% confidence</p>
+                        <p>Without leg: {weakestLegDelta.withoutConfidence}% confidence</p>
+                        <p className="text-cyan-100">Delta: +{weakestLegDelta.delta}%</p>
+                      </div>
+                    ) : <p className="text-xs text-slate-400">Need relative comparison data from current slip.</p>}
+                  </Panel>
+
+                  <Panel className="bg-slate-950/60">
+                    <PanelHeader title="Model confidence calibration" subtitle="Accountability strip" />
+                    {calibrationCard.ready ? (
+                      <div className="space-y-1 text-xs text-slate-200">
+                        <p>Predicted range: {calibrationCard.predictedBand}</p>
+                        <p>Actual outcome hit: {calibrationCard.actualHit}</p>
+                        <p className="text-cyan-100">Calibration drift: {calibrationCard.drift}</p>
+                      </div>
+                    ) : <p className="text-xs text-slate-400">{calibrationCard.runs} runs analyzed. Calibration accountability unlocks at 10.</p>}
+                  </Panel>
+                </div>
+              </div>
+            ) : null}
+          </Panel>
 
           <aside className="space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
             <Panel className={`transition ${slipPulse ? 'scale-[1.01] border-cyan-300/60' : ''}`} data-testid="landing-slip-mini">
