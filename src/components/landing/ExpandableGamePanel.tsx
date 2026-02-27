@@ -34,14 +34,6 @@ const confidenceFromProp = (prop: BoardProp): number => {
   return 50;
 };
 
-const moneylineUnderdog = (props: BoardProp[]): BoardProp | null => {
-  const candidates = props.filter((prop) => prop.market.toLowerCase().includes('moneyline'));
-  const plusMoney = candidates
-    .filter((prop) => prop.odds.trim().startsWith('+'))
-    .sort((left, right) => Number.parseInt(right.odds, 10) - Number.parseInt(left.odds, 10));
-  return plusMoney[0] ?? candidates[0] ?? null;
-};
-
 const riskCopy = (riskTag?: string) => {
   if (!riskTag) return 'Balanced';
   return riskTag[0]?.toUpperCase() + riskTag.slice(1);
@@ -51,7 +43,6 @@ export function ExpandableGamePanel({ gameId, matchup, startTime, props, inSlip,
   const [expanded, setExpanded] = React.useState(false);
   const [pulsePropId, setPulsePropId] = React.useState<string | null>(null);
 
-  const underdog = moneylineUnderdog(props);
   const spread = props.find((prop) => prop.market.toLowerCase().includes('spread'));
   const total = props.find((prop) => prop.market.toLowerCase().includes('total'));
   const sorted = [...props].sort((left, right) => confidenceFromProp(right) - confidenceFromProp(left));
@@ -65,7 +56,6 @@ export function ExpandableGamePanel({ gameId, matchup, startTime, props, inSlip,
           <p className="text-xs text-white/60">{startTime}</p>
         </div>
         <div className="flex flex-wrap justify-end gap-1">
-          {underdog ? <Chip variant="good">Dog {underdog.odds}</Chip> : null}
           {spread ? <Chip>Spread {spread.line}</Chip> : null}
           {total ? <Chip>Total {total.line}</Chip> : null}
         </div>
@@ -84,7 +74,6 @@ export function ExpandableGamePanel({ gameId, matchup, startTime, props, inSlip,
               leftSecondary={`Line ${prop.line} • Hit ${l10} • ${riskCopy(prop.riskTag)}`}
               right={(
                 <div className="flex items-center gap-1.5">
-                  {prop.odds ? <span className="text-xs text-white/70">{prop.odds}</span> : null}
                   <Chip className="px-2 py-0.5 text-[10px]">{confidence}%</Chip>
                   <IconButton
                     type="button"

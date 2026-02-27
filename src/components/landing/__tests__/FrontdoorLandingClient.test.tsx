@@ -34,7 +34,7 @@ describe('FrontdoorLandingClient live modes', () => {
     renderWithNervousSystem(<FrontdoorLandingClient />);
 
     await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
-    expect(screen.getByText('Value-Oriented Board')).toBeTruthy();
+    expect(screen.getByText('Know where to look tonight.')).toBeTruthy();
     expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
     expect(screen.getByText(/Fast add/)).toBeTruthy();
   });
