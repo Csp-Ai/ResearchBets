@@ -3,7 +3,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { appendQuery } from '@/src/components/landing/navigation';
 import { LandingTerminalShell } from '@/src/components/landing/LandingTerminalShell';
@@ -14,16 +13,19 @@ import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { ExpandableGamePanel } from '@/src/components/landing/ExpandableGamePanel';
+import { AliveStrip } from '@/src/components/landing/AliveStrip';
+import { QuickSlipRail } from '@/src/components/landing/QuickSlipRail';
 import { computeInlineSlipWarnings, getLatestTraceId } from '@/src/core/run/store';
 import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { buildCanonicalBoard, type BoardProp } from '@/src/core/today/boardModel';
 import { withTraceId } from '@/src/core/trace/queryTrace';
 import { computeSlipIntelligence } from '@/src/core/slips/slipIntelligence';
-import { Chip, Divider, MicroBar, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
+import { Chip, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
 
 type TodayPayload = typeof TodayPayloadSchema._type;
 type SlipToggleProp = { id: string; player: string; market: string; line: string; odds: string };
 type TraceStep = { agent: string; status: 'running' | 'complete'; output: string };
+type AlivePhase = { label: string; status: 'complete' | 'active' | 'queued' };
 
 const DEMO_TRACE_STEPS: Array<Omit<TraceStep, 'status'>> = [
   { agent: 'Slip Submitted', output: '3-leg draft queued for analysis' },
@@ -33,6 +35,8 @@ const DEMO_TRACE_STEPS: Array<Omit<TraceStep, 'status'>> = [
   { agent: 'Risk Engine', output: 'confidence staged at 63%' },
   { agent: 'Weakest Leg', output: 'K. Murray O2.5 TDs is drag point' }
 ];
+
+const DEMO_ALIVE_PHASES = ['Board loaded', 'Odds checked', 'Injuries scanned', 'Model scored'];
 
 const EMPTY_TODAY: TodayPayload = { mode: 'live', reason: 'provider_unavailable', games: [], board: [], status: 'market_closed' };
 
@@ -51,20 +55,18 @@ const normalizeTodayResult = (input: unknown): TodayPayload => {
 };
 
 export function FrontdoorLandingClient() {
-  const router = useRouter();
   const nervous = useNervousSystem();
-  const { slip, addLeg, removeLeg } = useDraftSlip();
+  const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
   const [today, setToday] = useState<TodayPayload>(EMPTY_TODAY);
   const [loading, setLoading] = useState(true);
   const [activeTraceId, setActiveTraceId] = useState<string>(() => nervous.trace_id ?? crypto.randomUUID());
   const [latestTraceId, setLatestTraceId] = useState<string | null>(null);
   const [slipText, setSlipText] = useState('Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)\nLeBron James over 6.5 rebounds (-105)');
-  const [runStage, setRunStage] = useState<'before' | 'during' | 'after'>('before');
-  const [slipPulse, setSlipPulse] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [traceDetailsOpen, setTraceDetailsOpen] = useState(false);
   const [traceFeed, setTraceFeed] = useState<TraceStep[]>([]);
   const [demoTraceIndex, setDemoTraceIndex] = useState(0);
+  const [demoAliveIndex, setDemoAliveIndex] = useState(0);
   const [calibrationRuns, setCalibrationRuns] = useState(0);
 
   const initialTraceIdRef = useRef<string>(nervous.trace_id ?? crypto.randomUUID());
@@ -106,8 +108,10 @@ export function FrontdoorLandingClient() {
   useEffect(() => {
     if (today.mode !== 'demo') return;
     setDemoTraceIndex(0);
+    setDemoAliveIndex(0);
     const timer = window.setInterval(() => {
       setDemoTraceIndex((current) => (current + 1) % DEMO_TRACE_STEPS.length);
+      setDemoAliveIndex((current) => Math.min(current + 1, DEMO_ALIVE_PHASES.length - 1));
     }, 900);
     return () => {
       window.clearInterval(timer);
@@ -158,43 +162,6 @@ export function FrontdoorLandingClient() {
     };
   }, [activeTraceId, demoTraceIndex, today.mode]);
 
-  useEffect(() => {
-    if (runStage !== 'during') return;
-    if (today.mode === 'demo') {
-      const toAfter = window.setTimeout(() => setRunStage('after'), 1400);
-      return () => {
-        window.clearTimeout(toAfter);
-      };
-    }
-
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const href = appendQuery('/api/events', { trace_id: activeTraceId, limit: 8 });
-        const response = await fetch(href, { cache: 'no-store' });
-        const payload = response.ok ? await response.json() : null;
-        const items = Array.isArray(payload?.events)
-          ? payload.events
-            .map((event: unknown) => EventEnvelopeSchema.safeParse(event))
-            .filter((parsed: ReturnType<typeof EventEnvelopeSchema.safeParse>): parsed is { success: true; data: typeof EventEnvelopeSchema._type } => parsed.success)
-            .map((parsed: { success: true; data: typeof EventEnvelopeSchema._type }) => parsed.data)
-          : [];
-        const hasAfter = items.some((event: typeof EventEnvelopeSchema._type) => event.phase === 'AFTER');
-        if (!cancelled && hasAfter) {
-          setRunStage('after');
-          return;
-        }
-      } catch {
-        if (!cancelled) setRunStage('after');
-      }
-      if (!cancelled) window.setTimeout(() => void poll(), 1200);
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [runStage, today.mode, activeTraceId]);
-
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
   const spineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
@@ -206,9 +173,6 @@ export function FrontdoorLandingClient() {
   const toggleLeg = useCallback((prop: SlipToggleProp, matchup?: string) => {
     if (slipIds.has(prop.id)) return removeLeg(prop.id);
     addLeg({ id: prop.id, player: prop.player, marketType: toSlipMarketType(prop.market), line: prop.line, odds: prop.odds, game: matchup });
-    setRunStage('before');
-    setSlipPulse(true);
-    window.setTimeout(() => setSlipPulse(false), 260);
   }, [addLeg, removeLeg, slipIds]);
 
   const grouped = useMemo(() => {
@@ -219,12 +183,8 @@ export function FrontdoorLandingClient() {
   }, [advancedOpen, board, gameById]);
 
   const sampleSlipHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { source: 'landing_sample_slip', prefill: slipText });
+  const runAnalysisHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { tab: 'analyze' });
   const latestRunHref = latestTraceId ? withTraceId(spineHref('/research'), latestTraceId) : null;
-
-  const onAnalyze = useCallback(() => {
-    setRunStage('during');
-    router.push(sampleSlipHref);
-  }, [router, sampleSlipHref]);
 
   const warnings = useMemo(() => computeInlineSlipWarnings(slip), [slip]);
   const fastAddState = slip.length >= 4 ? 'High-conviction cluster active' : slip.length >= 2 ? 'Lead set building' : 'Tap leads for quick add';
@@ -257,6 +217,27 @@ export function FrontdoorLandingClient() {
     };
   }, [calibrationRuns]);
 
+  const alivePhases = useMemo<AlivePhase[]>(() => {
+    if (today.mode === 'demo') {
+      return DEMO_ALIVE_PHASES.map((label, index) => ({
+        label,
+        status: index < demoAliveIndex ? 'complete' : index === demoAliveIndex ? 'active' : 'queued'
+      }));
+    }
+
+    if (traceFeed.length === 0) {
+      return [
+        { label: 'Board loaded', status: 'complete' },
+        { label: today.mode === 'cache' ? 'Using cached slate' : 'Awaiting feed updates', status: 'active' }
+      ];
+    }
+
+    return traceFeed.slice(0, 4).map((step, index) => ({
+      label: step.agent,
+      status: step.status === 'complete' ? 'complete' : index === traceFeed.length - 1 ? 'active' : 'queued'
+    }));
+  }, [today.mode, traceFeed, demoAliveIndex]);
+
 
   const modeDecision = deriveModePolicy({ requestedMode: nervous.mode ?? readPersistedMode(), envelopeMode: today.mode });
   const modePresentation = getModePresentation(modeDecision.mode);
@@ -282,7 +263,7 @@ export function FrontdoorLandingClient() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)] lg:items-start">
           <div>
             <SectionTitle className="mb-2">Tonight&apos;s Board</SectionTitle>
-            <div className="space-y-2" data-testid="board-section">
+            <div className="space-y-2" data-testid="board-section" id="board-section">
               {loading ? <p className="text-xs text-slate-400">Loading board…</p> : null}
 
               {board.slice(0, 6).map((prop) => (
@@ -319,6 +300,18 @@ export function FrontdoorLandingClient() {
             </details>
           </div>
 
+          <aside className="space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+            <QuickSlipRail
+              slip={slip}
+              runAnalysisHref={runAnalysisHref}
+              sampleSlipHref={sampleSlipHref}
+              latestRunHref={latestRunHref}
+              onRemoveLeg={removeLeg}
+              onEditLeg={updateLeg}
+            />
+            <AliveStrip mode={today.mode} reason={today.reason} phases={alivePhases} />
+          </aside>
+
           <Panel className="lg:col-span-2" data-testid="pipeline-hero-panel">
             <div className="flex items-center justify-between gap-2">
               <SectionTitle>Pipeline visualizer</SectionTitle>
@@ -349,7 +342,8 @@ export function FrontdoorLandingClient() {
                 <div className="space-y-2">
                   <Panel className="bg-slate-950/60">
                     <PanelHeader title="Trace feed" subtitle={today.mode === 'demo' ? 'Timed demo execution reveal' : 'Subscribed to live trace events'} />
-                    <p className="text-xs text-slate-300">{today.mode === 'demo' ? `Step ${Math.min(demoTraceIndex + 1, DEMO_TRACE_STEPS.length)} of ${DEMO_TRACE_STEPS.length}` : `trace_id ${activeTraceId}`}</p>
+                    <p className="text-xs text-slate-300">Trace id: {activeTraceId}</p>
+                    <p className="text-xs text-slate-400">{today.mode === 'demo' ? `Step ${Math.min(demoTraceIndex + 1, DEMO_TRACE_STEPS.length)} of ${DEMO_TRACE_STEPS.length}` : 'Live event pulse mapped to compact phases'}</p>
                   </Panel>
 
                   <Panel className="bg-slate-950/60">
@@ -377,49 +371,12 @@ export function FrontdoorLandingClient() {
               </div>
             ) : null}
           </Panel>
-
-          <aside className="space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-            <Panel className={`transition ${slipPulse ? 'scale-[1.01] border-cyan-300/60' : ''}`} data-testid="landing-slip-mini">
-              <PanelHeader
-                title="Slip / Decision"
-                action={<p className="text-xs text-cyan-100">Lead-first board</p>}
-                subtitle={fastAddState}
-              />
-              <div className="space-y-1.5">
-                {slip.length === 0 ? <p className="text-xs text-white/60">Add 2–3 leads to build a research-first draft.</p> : null}
-                {slip.map((leg) => {
-                  const confidence = leg.odds?.startsWith('-') ? 62 : 54;
-                  return (
-                    <SlipRow
-                      key={leg.id}
-                      leftPrimary={`${leg.player} • ${leg.line} ${leg.marketType.toUpperCase()}`}
-                      leftSecondary={leg.game ?? 'Game not specified'}
-                      right={<MicroBar value={confidence} />}
-                    />
-                  );
-                })}
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {warnings.weakestLeg ? <Chip variant="warn">Fragile: {warnings.weakestLeg} (miss risk)</Chip> : null}
-                {warnings.highCorrelation ? <Chip variant="warn">Correlation cluster: 3 legs</Chip> : null}
-                {warnings.overstacked ? <Chip variant="warn">Overstack: 2 ceiling legs</Chip> : null}
-              </div>
-
-              <Divider className="my-2" />
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={onAnalyze} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Build from Board</button>
-                <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Try sample slip</Link>
-                {latestRunHref ? <Link href={latestRunHref} className="self-center text-xs text-cyan-100 underline underline-offset-2">Open latest run</Link> : null}
-              </div>
-            </Panel>
-          </aside>
         </div>
 
         <div className="lg:hidden sticky bottom-2 z-20 mt-3">
-          <button type="button" onClick={onAnalyze} className="w-full rounded-xl border border-cyan-300/50 bg-slate-900/95 px-4 py-2 text-sm font-semibold text-cyan-100 shadow-[0_8px_28px_rgba(2,6,23,0.5)]">
-            Slip ({slip.length}) • Build from Board
-          </button>
+          <Link href={runAnalysisHref} className="block w-full rounded-xl border border-cyan-300/50 bg-slate-900/95 px-4 py-2 text-center text-sm font-semibold text-cyan-100 shadow-[0_8px_28px_rgba(2,6,23,0.5)]">
+            Slip ({slip.length}) • Run analysis
+          </Link>
         </div>
 
         <Panel className="mt-3" data-testid="landing-edu-strip">
