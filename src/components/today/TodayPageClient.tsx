@@ -12,11 +12,12 @@ import type { TodayPayload, TodayPropKey } from '@/src/core/today/types';
 import type { NormalizedToday } from '@/src/core/today/normalize';
 
 import { TopSpotsPanel } from './TopSpotsPanel';
-import { TodayHeader } from './TodayHeader';
 import type { LeagueFilter } from './types';
 import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
 import { BoardTerminalTable, sortBoardRows, type SortKey, type TerminalBoardRow } from './BoardTerminalTable';
 import { SlipDrawer } from './SlipDrawer';
+import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { appendQuery } from '@/src/components/landing/navigation';
 
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
@@ -180,21 +181,39 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
 
   return (
     <section className="w-full space-y-3 pb-20">
-      <TodayHeader
-        leagues={FILTERS}
-        activeLeague={league}
-        onLeagueChange={setLeague}
-        onRefresh={() => void loadToday(true)}
+      <TruthSpineHeader
+        title="Board"
+        subtitle="Before loop: scout leads, check risk, and stage a slip."
         freshness={timeAgo(payload.generatedAt)}
-        mode={payload.mode}
+        actions={[
+          { label: 'Build from Board', href: nervous.toHref('/slip'), tone: 'primary' },
+          { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) },
+          { label: 'Track', href: nervous.toHref('/track') }
+        ]}
       />
-      <ThinkingTracker compact traceId={nervous.trace_id} mode={payload.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
-      {payload.mode === 'demo' ? (
-        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-100">
-          Demo mode (live feeds off). Showing deterministic slate.
-        </p>
-      ) : null}
       <section className="rounded-xl border border-white/10 bg-slate-950/65 p-3">
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setLeague(item)}
+              className={`rounded-full border px-3 py-1 text-xs ${league === item ? 'border-cyan-300 bg-cyan-300/20 text-cyan-100' : 'border-white/20 text-slate-300'}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="rounded-lg border border-white/10 bg-slate-950/70 p-3 text-xs text-slate-300">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-white/15 px-2 py-1">Providers: {payload.mode === 'live' ? 'partial' : 'offline'}</span>
+          <span className="rounded-full border border-white/15 px-2 py-1">Last refresh attempt: {timeAgo(payload.generatedAt)}</span>
+          {payload.mode !== 'live' ? <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1">Demo fallback active</span> : null}
+        </div>
+      </section>
+      <ThinkingTracker compact traceId={nervous.trace_id} mode={payload.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
+      <section id="board-terminal" className="rounded-xl border border-white/10 bg-slate-950/65 p-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <label className="text-slate-400">Sort</label>
           <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded border border-white/20 bg-slate-900 px-2 py-1" data-testid="sort-select">
