@@ -13,7 +13,7 @@ describe('run status copy', () => {
 
   it('cache mode uses cache label not live mode', () => {
     render(<RunStatusPill mode="cache" generatedAt={new Date().toISOString()} traceId="trace-1" />);
-    expect(screen.getByText(/Cache/)).toBeTruthy();
+    expect(screen.getAllByText(/Cache/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Live mode/i)).toBeNull();
   });
 });

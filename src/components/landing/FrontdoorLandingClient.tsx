@@ -164,7 +164,7 @@ export function FrontdoorLandingClient() {
       <LandingTerminalShell
         mode={modeDecision.mode}
         reason={today.reason}
-        title="Decision-first board + slip rail"
+        title="Detect fragile parlays before they burn you."
         subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
         statusSlot={<RunStatusPill traceId={activeTraceId} mode={modeDecision.mode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
       >

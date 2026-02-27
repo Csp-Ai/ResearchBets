@@ -37,6 +37,9 @@ export type ResearchRunDTO = {
     confidence: number;
     risk: 'LOW' | 'MED' | 'HIGH';
     weakest_leg_id?: string;
+    fragility_score: number;
+    correlation_flag: boolean;
+    volatility_summary: string;
     reasons: string[];
   };
   provenance: ResearchProvenance;
@@ -88,6 +91,9 @@ export function toResearchRunDTOFromRun(run: Run): ResearchRunDTO {
       confidence,
       risk: confidence >= 70 ? 'LOW' : confidence >= 55 ? 'MED' : 'HIGH',
       weakest_leg_id: run.analysis.weakestLegId ?? undefined,
+      fragility_score: Math.round((run.report?.legs ?? []).reduce((sum, leg) => sum + (leg.fragility_score ?? 0), 0) / Math.max(1, run.report?.legs.length ?? 0)),
+      correlation_flag: Boolean((run.report?.correlation_edges.length ?? 0) > 0),
+      volatility_summary: `${(run.report?.legs ?? []).filter((leg) => leg.volatility === 'high').length}/${run.report?.legs.length ?? 0} high-vol legs`,
       reasons: run.analysis.reasons
     },
     provenance: toProvenance(run.sources.stats === 'live' || run.sources.injuries === 'live' || run.sources.odds === 'live' ? 'live' : 'fallback'),

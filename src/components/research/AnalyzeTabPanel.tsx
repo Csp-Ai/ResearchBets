@@ -6,6 +6,7 @@ import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
+import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import {
   EmptyStateBettor,
   LegRankList,
@@ -55,9 +56,10 @@ export default function AnalyzeTabPanel({
   demoSlip,
   latestRunHref
 }: AnalyzeTabPanelProps) {
-  const reasons = (runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []).slice(0, 4);
+  const reasons = (runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []).slice(0, 3);
   const weakestReasons = (weakestLeg?.riskFactors ?? []).filter(Boolean);
-  const combinedReasons = [...reasons, ...weakestReasons].filter(Boolean).slice(0, 4);
+  const riskSummary = deriveSlipRiskSummary(intelLegs);
+  const combinedReasons = [...riskSummary.reasonBullets, ...reasons, ...weakestReasons].filter(Boolean).slice(0, 3);
   const hasSlip = legs.length > 0;
   const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip)
     .split('\n')
@@ -72,8 +74,11 @@ export default function AnalyzeTabPanel({
 
       <Surface kind="hero" className="space-y-3 p-4" data-testid="decision-terminal-verdict">
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted">Weakest leg</p>
-          <p className="text-lg font-semibold text-strong">{weakestLeg?.selection ?? 'LeBron James over 6.5 rebounds (-105)'}</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
+          <p className="text-2xl font-bold text-strong">{riskSummary.recommendation}</p>
+          <p className="text-sm text-subtle">Confidence {riskSummary.confidencePct}% · Risk {riskSummary.riskLabel}</p>
+          <p className="text-sm font-semibold text-amber-200">Weakest leg: {riskSummary.weakestLeg}</p>
+          <p className="text-xs text-rose-200">Dominant risk factor: {riskSummary.dominantRiskFactor}</p>
         </div>
         <ul className="space-y-1 text-sm text-subtle">
           {combinedReasons.length > 0 ? combinedReasons.map((reason) => <li key={reason}>• {reason}</li>) : <li>• Review line movement and recent hit rate before placement.</li>}
