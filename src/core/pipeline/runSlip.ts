@@ -2,6 +2,7 @@ import { createClientRequestId, ensureAnonSessionId } from '@/src/core/identifie
 import { parseSlipExtractEnvelope, parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
 import { extractLegs } from '@/src/core/slips/extract';
 import { getRunContext } from '@/src/core/context/getRunContext';
+import { canonicalTraceId } from '@/src/core/trace/canonicalTraceId';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 
 import { enrichInjuries } from '@/src/core/providers/injuriesProvider';
@@ -282,9 +283,16 @@ const mapReportLegsFromRun = (
   report.weakest_leg_id = analysis.weakestLegId ?? report.weakest_leg_id;
   return report;
 };
-export async function runSlip(slipText: string, options?: { coverageAgentEnabled?: boolean }): Promise<string> {
+export async function runSlip(
+  slipText: string,
+  options?: { coverageAgentEnabled?: boolean; trace_id?: string; traceId?: string; requestTraceId?: string; existingTraceId?: string }
+): Promise<string> {
   const normalizedSlipText = normalizeSlipText(slipText);
-  const initialTraceId = createClientRequestId();
+  const initialTraceId = canonicalTraceId({
+    explicitTraceId: options?.trace_id ?? options?.traceId,
+    existingEntityTraceId: options?.existingTraceId,
+    requestTraceId: options?.requestTraceId
+  });
   const now = new Date().toISOString();
   const initial: Run = {
     traceId: initialTraceId,
@@ -317,12 +325,16 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
   await runStore.saveRun(initial);
 
   const apiResult = await extractWithApi(normalizedSlipText, initialTraceId);
-  const canonicalTraceId = apiResult.traceId ?? initialTraceId;
-  const traceChanged = canonicalTraceId !== initialTraceId;
+  const resolvedTraceId = canonicalTraceId({
+    explicitTraceId: options?.trace_id ?? options?.traceId,
+    existingEntityTraceId: options?.existingTraceId,
+    requestTraceId: apiResult.traceId ?? options?.requestTraceId
+  });
+  const traceChanged = resolvedTraceId !== initialTraceId;
   if (traceChanged) {
-    await runStore.saveRun({ ...initial, traceId: canonicalTraceId, slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
+    await runStore.saveRun({ ...initial, traceId: resolvedTraceId, slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
   } else if (apiResult.slipId || apiResult.anonSessionId || apiResult.requestId) {
-    await runStore.updateRun(canonicalTraceId, { slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
+    await runStore.updateRun(resolvedTraceId, { slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
   }
 
   const extracted = normalizeLegs(apiResult.legs.length > 0 ? apiResult.legs : extractLegs(normalizedSlipText));
@@ -379,9 +391,9 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
   }
 
   const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries, trustedContext.unverifiedItems ?? []);
-  const report = mapReportLegsFromRun(extracted, enrichedLegs, analysis, sources, canonicalTraceId, apiResult.slipId);
+  const report = mapReportLegsFromRun(extracted, enrichedLegs, analysis, sources, resolvedTraceId, apiResult.slipId);
 
-  await runStore.updateRun(canonicalTraceId, {
+  await runStore.updateRun(resolvedTraceId, {
     status: 'complete',
     extractedLegs: extracted,
     enrichedLegs,
@@ -396,5 +408,5 @@ export async function runSlip(slipText: string, options?: { coverageAgentEnabled
     updatedAt: new Date().toISOString()
   });
 
-  return canonicalTraceId;
+  return resolvedTraceId;
 }

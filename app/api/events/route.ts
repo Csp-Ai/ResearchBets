@@ -20,7 +20,7 @@ const inferPhase = (eventName: string): 'BEFORE' | 'DURING' | 'AFTER' => {
 };
 
 const asEnvelope = (event: Record<string, unknown>) => EventEnvelopeSchema.parse({
-  trace_id: String(event.trace_id ?? ''),
+  trace_id: String(event.trace_id ?? event.traceId ?? ''),
   phase: inferPhase(String(event.event_name ?? 'unknown')),
   type: String(event.event_name ?? 'unknown'),
   payload: event,
@@ -56,9 +56,12 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ ok: true, trace_id: trace.trace_id });
+    const responseTraceId = 'trace_id' in payload && typeof payload.trace_id === 'string' && payload.trace_id.length > 0
+      ? payload.trace_id
+      : trace.trace_id;
+    return NextResponse.json({ ok: true, trace_id: responseTraceId, traceId: responseTraceId });
   } catch {
-    return NextResponse.json({ ok: false, error: 'Failed to process event', trace_id: trace.trace_id }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Failed to process event', trace_id: trace.trace_id, traceId: trace.trace_id }, { status: 500 });
   }
 }
 
@@ -71,12 +74,12 @@ export async function GET(request: Request) {
   try {
     const events = await getRuntimeStore().listEvents({ traceId, limit: Number.isFinite(limit) ? limit : 25 });
     const envelopes = z.array(EventEnvelopeSchema).parse(events.map((event) => asEnvelope(event as Record<string, unknown>)));
-    return NextResponse.json({ ok: true, trace_id: traceId, events: envelopes });
+    return NextResponse.json({ ok: true, trace_id: traceId, traceId: traceId, events: envelopes });
   } catch (error) {
     if (isMissingAnalyticsSchemaError(error)) {
       logAnalyticsSchemaDegradationOnce('/api/events GET', error);
-      return NextResponse.json({ ok: true, trace_id: traceId, events: [] });
+      return NextResponse.json({ ok: true, trace_id: traceId, traceId: traceId, events: [] });
     }
-    return NextResponse.json({ ok: false, trace_id: traceId, events: [], error: 'Failed to list events' }, { status: 500 });
+    return NextResponse.json({ ok: false, trace_id: traceId, traceId: traceId, events: [], error: 'Failed to list events' }, { status: 500 });
   }
 }

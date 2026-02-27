@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import IngestionPage from '@/app/ingest/page';
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 
 const push = vi.fn();
 
@@ -33,13 +34,13 @@ describe('ingest upload screenshot flow', () => {
   });
 
   it('renders upload screenshot action', () => {
-    render(<IngestionPage />);
+    renderWithProviders(<IngestionPage />);
 
     expect(screen.getByRole('button', { name: 'Upload screenshot' })).toBeTruthy();
   });
 
   it('populates slip text from OCR and enables analyze', async () => {
-    render(<IngestionPage />);
+    renderWithProviders(<IngestionPage />);
 
     const analyzeButton = screen.getAllByRole('button', { name: 'Analyze now' })[0] as HTMLButtonElement;
     expect(analyzeButton.disabled).toBe(true);

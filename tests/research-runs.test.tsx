@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ResearchPageContent from '@/src/components/research/ResearchPageContent';
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 import { runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
 
@@ -39,7 +40,7 @@ describe('research run rendering and reload', () => {
 
   it('renders verdict for a stored run by trace', async () => {
     queryTrace = 'trace-a';
-    render(<ResearchPageContent />);
+    renderWithProviders(<ResearchPageContent />);
 
     await waitFor(() => {
       expect(screen.getByTestId('verdict-hero')).toBeTruthy();
@@ -48,7 +49,7 @@ describe('research run rendering and reload', () => {
   });
 
   it('recent activity open loads selected trace', async () => {
-    render(<ResearchPageContent />);
+    renderWithProviders(<ResearchPageContent />);
 
     await waitFor(() => expect(screen.getAllByTestId('recent-activity-panel').length).toBeGreaterThan(0));
     const openButtons = screen.getAllByText('Open');
@@ -59,7 +60,7 @@ describe('research run rendering and reload', () => {
 
 
   it('recent activity reflects persisted complete status', async () => {
-    render(<ResearchPageContent />);
+    renderWithProviders(<ResearchPageContent />);
 
     await waitFor(() => expect(screen.getAllByText(/complete/).length).toBeGreaterThan(0));
   });

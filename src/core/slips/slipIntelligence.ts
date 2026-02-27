@@ -243,10 +243,17 @@ export function buildSlipStructureReport(
 
 export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence {
   const report = buildSlipStructureReport(legs);
-  const topGames = report.script_clusters
-    .map((cluster) => ({ game: cluster.reason.replace(/^\d+ legs are exposed to /, '').replace(/\.$/, ''), count: cluster.leg_ids.length }))
-    .sort((left, right) => right.count - left.count)
-    .slice(0, 3);
+
+  const gameCounts = new Map<string, number>();
+  report.legs.forEach((leg) => {
+    const gameKey = leg.game_id ?? 'Unlabeled game';
+    gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
+  });
+
+  const topGames = [...gameCounts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([game, count]) => ({ game, count }));
 
   const playerCounts = new Map<string, number>();
   report.legs.forEach((leg) => {
@@ -259,8 +266,20 @@ export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence 
     .slice(0, 3)
     .map(([player, count]) => ({ player, count }));
 
+  if (report.legs.length === 0) {
+    return {
+      correlationScore: 0,
+      fragilityScore: 0,
+      volatilityTier: 'Low',
+      sameGameStack: false,
+      exposureSummary: { topGames: [], topPlayers: [] },
+      weakestLegHints: report.failure_forecast.top_reasons.length > 0 ? report.failure_forecast.top_reasons : ['No legs yet — add props to see structure risk.']
+    };
+  }
+
   const fragilityScore = clampScore(report.legs.reduce((sum, leg) => sum + (leg.fragility_score ?? 0), 0) / report.legs.length);
-  const correlationScore = clampScore((report.correlation_edges.length / Math.max(1, report.legs.length - 1)) * 100);
+  const possibleEdges = (report.legs.length * (report.legs.length - 1)) / 2;
+  const correlationScore = clampScore((report.correlation_edges.length / Math.max(1, possibleEdges)) * 160);
   const volatilityTier: VolatilityTier = fragilityScore >= 85 ? 'Extreme' : fragilityScore >= 65 ? 'High' : fragilityScore >= 40 ? 'Med' : 'Low';
 
   return {

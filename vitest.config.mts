@@ -9,6 +9,9 @@ export default defineConfig({
       'server-only': path.resolve(__dirname, 'tests/setup/serverOnlyMock.ts')
     }
   },
+  esbuild: {
+    jsx: 'automatic'
+  },
   test: {
     setupFiles: ['tests/setup/serverOnlyShim.ts']
   }

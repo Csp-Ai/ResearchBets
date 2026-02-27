@@ -12,6 +12,8 @@ export const TodayPayloadSchema = z.object({
   mode: z.enum(['live', 'cache', 'demo']),
   reason: z.string().optional(),
   generatedAt: z.string().optional(),
+  trace_id: z.string().min(1).optional(),
+  traceId: z.string().min(1).optional(),
   provenance: z.object({
     mode: z.enum(['live', 'cache', 'demo']),
     reason: z.string().optional(),

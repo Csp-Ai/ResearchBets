@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   try {
     const payload = await getTodayPayload({ forceRefresh, sport, tz, date });
     const data = TodayPayloadSchema.parse(normalizeTodayPayload(payload));
-    return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: trace.trace_id, spine: withSpine(data), landing: payload.landing });
+    return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, traceId: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
   } catch (error) {
     const generatedAt = new Date().toISOString();
     const data = TodayPayloadSchema.parse(normalizeTodayPayload({
@@ -46,6 +46,6 @@ export async function GET(request: Request) {
       status: 'market_closed',
       providerHealth: [{ provider: 'api', ok: false, message: error instanceof Error ? error.message : 'provider_unavailable' }]
     }));
-    return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: trace.trace_id, spine: withSpine(data) });
+    return NextResponse.json({ ok: true, data, provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, traceId: data.trace_id ?? trace.trace_id, spine: withSpine(data) });
   }
 }

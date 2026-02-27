@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import IngestionPage from '@/app/ingest/page';
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 import ResearchPageContent from '@/src/components/research/ResearchPageContent';
 import { runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
@@ -33,7 +34,7 @@ describe('smoke: ingest to research workflow', () => {
   });
 
   it('routes analyze from ingest to research and renders verdict + share reply', async () => {
-    render(<IngestionPage />);
+    renderWithProviders(<IngestionPage />);
 
     fireEvent.change(screen.getByPlaceholderText('Paste each leg on a new line'), {
       target: { value: 'Jayson Tatum over 29.5 points (-110)' }
@@ -64,7 +65,7 @@ describe('smoke: ingest to research workflow', () => {
     await runStore.saveRun(run);
 
     queryTrace = 'trace-smoke-ivan';
-    render(<ResearchPageContent />);
+    renderWithProviders(<ResearchPageContent />);
 
     await waitFor(() => {
       expect(screen.getByTestId('verdict-hero')).toBeTruthy();
