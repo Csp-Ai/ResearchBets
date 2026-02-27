@@ -14,6 +14,7 @@ import { generateRankedLeads, type BoardProp } from '@/src/core/slate/leadEngine
 import { advanceDemoTracking } from '@/src/core/slips/demoSlipTracker';
 import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
 import { createTrackingFromDraft, loadSlip, saveSlip } from '@/src/core/slips/storage';
+import { deriveRunHeader, deriveSlipLearningHighlights } from '@/src/core/ui/deriveTruth';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
 import type { TodayPayload } from '@/src/core/today/types';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
@@ -51,11 +52,10 @@ export function TrackPageClient() {
   }, [state]);
 
   const analysis = useMemo(() => {
-    if (!state) return { failureLeg: null as SlipTrackingState['legs'][number] | null, wouldHaveHit: [], runbacks: [] as SlipTrackingState['legs'] };
-    const failureLeg = state.legs.find((leg) => leg.legId === state.eliminatedByLegId) ?? null;
+    if (!state) return { failureLeg: null as SlipTrackingState['legs'][number] | null, wouldHaveHit: [], runbacks: [] as SlipTrackingState['legs'], grudgeGuard: undefined as string | undefined };
+    const derived = deriveSlipLearningHighlights(state);
     const wouldHaveHit = state.legs.filter((leg) => leg.outcome === 'hit' && leg.legId !== state.eliminatedByLegId);
-    const runbacks = state.legs.filter((leg) => leg.outcome === 'hit' && (leg.volatility === 'low' || leg.volatility === 'medium') && (leg.convictionAtBuild ?? 0) >= 70);
-    return { failureLeg, wouldHaveHit, runbacks };
+    return { failureLeg: derived.weakestLeg, wouldHaveHit, runbacks: derived.runbackCandidates, grudgeGuard: derived.grudgeGuard };
   }, [state]);
 
   const onSaveJournal = () => {
@@ -127,6 +127,8 @@ export function TrackPageClient() {
     }
   };
 
+  const runHeader = deriveRunHeader({ trace_id: nervous.trace_id, mode: state?.mode });
+
   if (!state) {
     const hasDraft = DraftSlipStore.getSlip().length > 0;
 
@@ -160,7 +162,7 @@ export function TrackPageClient() {
   return (
     <section className="mx-auto max-w-6xl space-y-4 pb-20">
       <header className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
-        <p className="text-xs text-slate-400">Slip ID: {state.slipId}</p>
+        <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel}</p>
         <div className="flex items-center gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}>{state.status}</span>
           {state.eliminatedByLegId ? <span className="text-sm text-rose-100">Eliminated by: {state.legs.find((leg) => leg.legId === state.eliminatedByLegId)?.player}</span> : null}
@@ -205,9 +207,7 @@ export function TrackPageClient() {
           <ul className="list-disc pl-5 text-sm text-slate-300">
             {analysis.runbacks.map((leg) => <li key={`runback-${leg.legId}`}>{leg.player} {leg.market} {leg.line}</li>)}
           </ul>
-          {analysis.failureLeg && (analysis.failureLeg.missType === 'variance' || analysis.failureLeg.missType === 'unknown') ? (
-            <p className="rounded border border-amber-300/40 bg-amber-500/10 p-2 text-sm text-amber-100">Do not auto-blacklist. Need sample size.</p>
-          ) : null}
+          <p className="rounded border border-amber-300/40 bg-amber-500/10 p-2 text-sm text-amber-100">{analysis.grudgeGuard ?? 'Do not auto-blacklist. Need sample size.'}</p>
         </section>
       ) : null}
 
