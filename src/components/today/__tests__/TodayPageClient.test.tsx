@@ -125,6 +125,18 @@ describe('TodayPageClient', () => {
     expect(playerCells[0]!.textContent).toContain('Luka Doncic');
   });
 
+  it('shows weakest preview and fragile warning after adding two legs', () => {
+    renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
+
+    const addButtons = screen.getAllByRole('button', { name: /\+ Add/i });
+    fireEvent.click(addButtons[0]!);
+    fireEvent.click(addButtons[1]!);
+
+    expect(screen.getByText(/Weakest preview:/i)).toBeTruthy();
+    expect(screen.getByText(/2 legs/i)).toBeTruthy();
+  });
+
+
   it('renders fallback edge values without NaN', () => {
     const noEdgePayload: TodayPayload = {
       ...payload,

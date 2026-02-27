@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
+import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 
 const riskLevelScore: Record<'stable' | 'watch', number> = {
   stable: 1,
@@ -30,6 +31,15 @@ export function SlipDrawer({
   onRunStressTest: () => void;
 }) {
   const nervous = useNervousSystem();
+  const risk = deriveSlipRiskSummary(legs.map((leg) => ({
+    id: leg.id,
+    player: leg.player,
+    selection: `${leg.player} ${leg.marketType} ${leg.line} ${leg.odds ?? ''}`.trim(),
+    market: leg.marketType,
+    line: leg.line,
+    odds: leg.odds,
+    game: leg.game
+  })));
 
   return (
     <aside className="rounded-xl border border-white/10 bg-slate-950/80 p-3 lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
@@ -38,6 +48,8 @@ export function SlipDrawer({
         <span className="text-xs text-slate-400">{legs.length} legs</span>
       </div>
       <p className="mt-1 text-xs text-slate-400">Expected risk: <span className="font-medium text-slate-200">{aggregateRisk(legs)}</span></p>
+      {legs.length >= 2 ? <p className="mt-1 text-xs text-amber-200">Weakest preview: {risk.weakestLeg}</p> : null}
+      {legs.length >= 2 && (risk.recommendation === 'PASS' || risk.fragilityScore > 62) ? <p className="mt-1 text-xs font-semibold text-rose-200">This slip is fragile.</p> : null}
       {legs.length === 0 ? (
         <div className="mt-3 space-y-2 rounded-lg border border-dashed border-white/20 bg-slate-900/60 p-3 text-xs text-slate-300">
           <p>Add 2–3 leads to start a process-valid slip.</p>
