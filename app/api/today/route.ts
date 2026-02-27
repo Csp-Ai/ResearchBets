@@ -4,7 +4,7 @@ import { TodayPayloadSchema } from '@/src/core/contracts/envelopes';
 import { coerceContextSpine, type ContextSpine } from '@/src/core/contracts/contextSpine';
 import { normalizeTodayPayload } from '@/src/core/today/normalize';
 import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
-import { resolveTodayTruth } from '@/src/core/today/service.server';
+import { resolveToday } from '@/src/core/today/resolveToday.server';
 
 type Source = 'live' | 'cache' | 'demo';
 
@@ -35,13 +35,13 @@ export async function GET(request: Request) {
   };
 
   try {
-    const payload = await resolveTodayTruth({ forceRefresh, sport, tz, date, mode: requestedMode, strictLive });
+    const payload = await resolveToday({ forceRefresh, sport, tz, date, mode: requestedMode, strictLive });
     const data = TodayPayloadSchema.parse(normalizeTodayPayload(payload));
     const source: Source = data.mode;
     const degraded = requestedMode === 'live' && source !== 'live';
     return NextResponse.json({ ok: true, data, source, degraded, provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, traceId: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
   } catch {
-    const payload = await resolveTodayTruth({ sport, tz, date, mode: 'demo' });
+    const payload = await resolveToday({ sport, tz, date, mode: 'demo' });
     const data = TodayPayloadSchema.parse(normalizeTodayPayload(payload));
     return NextResponse.json({ ok: true, data, source: 'demo', degraded: requestedMode === 'live', provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, traceId: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
   }

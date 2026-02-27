@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 
 import HomePage from '@/app/page';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
@@ -13,23 +13,20 @@ vi.mock('@/src/components/landing/FrontdoorLandingClient', () => ({
 describe('Unified home landing', () => {
   const renderHome = () => renderWithProviders(<HomePage searchParams={{ mode: 'demo' }} />);
 
-  it('renders SSR terminal board and below-fold modules on /', () => {
+  it('renders frontdoor client and first-fold truth spine on /', () => {
     renderHome();
 
-    expect(screen.getByText("Tonight's Board")).toBeTruthy();
-    expect(screen.getByText('Live feeds on')).toBeTruthy();
-    expect(screen.getByText('Slip rail')).toBeTruthy();
+    expect(screen.getByTestId('frontdoor-client')).toBeTruthy();
+    expect(screen.getByText('Home')).toBeTruthy();
+    expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
     expect(screen.getByLabelText('landing-how-it-works')).toBeTruthy();
-    expect(screen.getByLabelText('bda-strip')).toBeTruthy();
   });
 
-  it('accepts pasted slip text and detects supported books in postmortem wedge', () => {
+  it('renders below-fold guidance modules', () => {
     renderHome();
 
-    const [textarea] = screen.getAllByLabelText('Paste slip text');
-    expect(textarea).toBeTruthy();
-    fireEvent.change(textarea as HTMLElement, { target: { value: 'FanDuel SGP\nJalen Brunson - over 24.5 pts +105' } });
-
-    expect(screen.getByText('Detected: FanDuel')).toBeTruthy();
+    expect(screen.getAllByText('More').length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('bda-strip').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Latest run').length).toBeGreaterThan(0);
   });
 });

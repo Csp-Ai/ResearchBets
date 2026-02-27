@@ -7,8 +7,8 @@ beforeEach(() => {
 
 describe('/api/today GET', () => {
   it('returns normalized response shape with live status fields', async () => {
-    vi.doMock('@/src/core/today/service.server', () => ({
-      getTodayPayload: vi.fn(async () => ({
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
         mode: 'live',
         generatedAt: '2026-01-15T19:30:00.000Z',
         leagues: ['NBA', 'NFL'],
