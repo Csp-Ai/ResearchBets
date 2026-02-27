@@ -2,13 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { appendQuery } from '@/src/components/landing/navigation';
 import { LandingTerminalShell } from '@/src/components/landing/LandingTerminalShell';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { EventEnvelopeSchema, TodayPayloadSchema } from '@/src/core/contracts/envelopes';
+import { deriveModePolicy, getModePresentation, persistMode, readPersistedMode } from '@/src/core/mode';
 import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { FeedStatusChip } from '@/src/components/landing/FeedStatusChip';
@@ -50,24 +51,27 @@ export function FrontdoorLandingClient() {
   const { slip, addLeg, removeLeg } = useDraftSlip();
   const [today, setToday] = useState<TodayPayload>(EMPTY_TODAY);
   const [loading, setLoading] = useState(true);
-  const [traceId, setTraceId] = useState<string>(() => nervous.trace_id ?? crypto.randomUUID());
+  const [activeTraceId, setActiveTraceId] = useState<string>(() => nervous.trace_id ?? crypto.randomUUID());
   const [latestTraceId, setLatestTraceId] = useState<string | null>(null);
   const [slipText, setSlipText] = useState('Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)');
   const [runStage, setRunStage] = useState<'before' | 'during' | 'after'>('before');
   const [slipPulse, setSlipPulse] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const initialTraceIdRef = useRef<string>(nervous.trace_id ?? crypto.randomUUID());
 
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
     const load = async () => {
-      const activeTraceId = traceId;
-      const href = appendQuery('/api/today', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, trace_id: activeTraceId });
+      const href = appendQuery('/api/today', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: initialTraceIdRef.current });
       try {
         const response = await fetch(href, { cache: 'no-store', signal: controller.signal });
         const payload = response.ok ? await response.json() : null;
         const normalized = normalizeTodayResult(payload);
         setToday(normalized);
         const parsedEnvelope = parseTodayEnvelope(payload);
-        if (parsedEnvelope.success && parsedEnvelope.data.ok) setTraceId(parsedEnvelope.data.trace_id);
+        if (parsedEnvelope.success && parsedEnvelope.data.ok) setActiveTraceId(parsedEnvelope.data.trace_id);
       } catch {
         setToday(EMPTY_TODAY);
       } finally {
@@ -76,7 +80,7 @@ export function FrontdoorLandingClient() {
     };
     void load();
     return () => controller.abort();
-  }, [nervous.date, nervous.sport, nervous.tz, traceId]);
+  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz]);
 
   useEffect(() => {
     setLatestTraceId(getLatestTraceId());
@@ -84,7 +88,6 @@ export function FrontdoorLandingClient() {
 
   useEffect(() => {
     if (runStage !== 'during') return;
-    const activeTraceId = traceId;
     if (today.mode === 'demo') {
       const toAfter = window.setTimeout(() => setRunStage('after'), 1400);
       return () => {
@@ -118,13 +121,12 @@ export function FrontdoorLandingClient() {
     return () => {
       cancelled = true;
     };
-  }, [runStage, today.mode, traceId]);
+  }, [runStage, today.mode, activeTraceId]);
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
-  const activeTraceId = traceId;
   const spineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
-  const board = today.board.slice(0, 10) as BoardProp[];
+  const board = useMemo(() => (today.board.slice(0, 10) as BoardProp[]), [today.board]);
 
   const toggleLeg = useCallback((prop: SlipToggleProp, matchup?: string) => {
     if (slipIds.has(prop.id)) return removeLeg(prop.id);
@@ -135,10 +137,11 @@ export function FrontdoorLandingClient() {
   }, [addLeg, removeLeg, slipIds]);
 
   const grouped = useMemo(() => {
+    if (!advancedOpen) return [];
     const map = new Map<string, BoardProp[]>();
     board.forEach((prop) => map.set(prop.gameId, [...(map.get(prop.gameId) ?? []), prop]));
     return Array.from(map.entries()).map(([gameId, props]) => ({ gameId, props, game: gameById.get(gameId) }));
-  }, [board, gameById]);
+  }, [advancedOpen, board, gameById]);
 
   const marketClosed = today.status === 'market_closed';
   const sampleSlipHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { source: 'landing_sample_slip', prefill: slipText });
@@ -158,30 +161,30 @@ export function FrontdoorLandingClient() {
     { id: 'after', label: 'AFTER', done: runStage === 'after' }
   ] as const;
 
-  const statusChip = today.mode === 'demo'
-    ? <Chip variant="neutral" title="Live feeds are unavailable, deterministic demo slate loaded.">Demo mode (live feeds off)</Chip>
-    : today.mode === 'cache'
-      ? <Chip variant="neutral" title="Live request partially degraded, using cache where available.">Using cached slate</Chip>
-      : <Chip variant="good">Live feeds online</Chip>;
+  const modeDecision = deriveModePolicy({ requestedMode: nervous.mode ?? readPersistedMode(), envelopeMode: today.mode });
+  const modePresentation = getModePresentation(modeDecision.mode);
+
+  useEffect(() => {
+    persistMode(modeDecision.mode);
+  }, [modeDecision.mode]);
 
   return (
     <section className="mx-auto w-full max-w-6xl px-2 pb-6" style={{ minHeight: 720 }}>
       <LandingTerminalShell
-        mode={today.mode}
+        mode={modeDecision.mode}
         reason={today.reason}
-        title="Know where to look tonight."
-        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'We surface high-probability leads; you confirm price on your book.'}
+        title="Decision-first board + slip rail"
+        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
         statusSlot={<FeedStatusChip health={(today.providerHealth as Array<{ provider: string; ok: boolean; message?: string; missingKey?: boolean }> | undefined)} />}
       >
         <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
-          {statusChip}
+          <Chip variant="neutral" title={modePresentation.tooltip}>{modePresentation.label}</Chip>
           <Chip className="text-cyan-100">Fast add · {fastAddState}</Chip>
-          {today.mode === 'cache' ? <p className="text-xs text-white/60">Using cached slate.</p> : null}
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,1fr)] lg:items-start">
           <div>
-            <SectionTitle className="mb-2">Tonight&apos;s slate</SectionTitle>
+            <SectionTitle className="mb-2">Tonight&apos;s Board</SectionTitle>
             {marketClosed ? (
               <Panel className="mb-2 p-2.5" data-testid="market-closed-compact">
                 <p className="text-xs text-white/70">Markets are currently quiet. {today.status === 'next' && today.nextAvailableStartTime ? `Next start: ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'No upcoming slates posted yet.'}</p>
@@ -189,29 +192,48 @@ export function FrontdoorLandingClient() {
             ) : null}
             <div className="space-y-2" data-testid="board-section">
               {loading ? <p className="text-xs text-slate-400">Loading board…</p> : null}
-              {grouped.length === 0 && !marketClosed ? <p className="text-xs text-slate-400">No active props in this window.</p> : null}
-              {grouped.map(({ gameId, props, game }) => (
-                <ExpandableGamePanel
-                  key={gameId}
-                  gameId={gameId}
-                  matchup={game?.matchup ?? gameId}
-                  startTime={game?.startTime ?? 'Upcoming'}
-                  props={props}
-                  inSlip={(propId) => slipIds.has(propId)}
-                  onToggleLeg={(prop) => toggleLeg(prop, game?.matchup)}
+              {!loading && board.length === 0 && !marketClosed ? <p className="text-xs text-slate-400">No active props in this window.</p> : null}
+              {board.slice(0, 4).map((prop) => (
+                <SlipRow
+                  key={prop.id}
+                  leftPrimary={`${prop.player} • ${prop.market.toUpperCase()} ${prop.line}`}
+                  leftSecondary={`${gameById.get(prop.gameId)?.matchup ?? prop.gameId} · ${prop.odds}`}
+                  right={(
+                    <button type="button" onClick={() => toggleLeg(prop, gameById.get(prop.gameId)?.matchup)} className="rounded-lg border border-cyan-300/50 px-2 py-1 text-xs text-cyan-100">
+                      {slipIds.has(prop.id) ? 'Added' : 'Add'}
+                    </button>
+                  )}
                 />
               ))}
             </div>
+
+            <details className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-2.5" open={advancedOpen} onToggle={(event) => setAdvancedOpen((event.currentTarget as HTMLDetailsElement).open)}>
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Advanced board view</summary>
+              {advancedOpen ? (
+                <div className="mt-2 space-y-2">
+                  {grouped.map(({ gameId, props, game }) => (
+                    <ExpandableGamePanel
+                      key={gameId}
+                      gameId={gameId}
+                      matchup={game?.matchup ?? gameId}
+                      startTime={game?.startTime ?? 'Upcoming'}
+                      props={props}
+                      inSlip={(propId) => slipIds.has(propId)}
+                      onToggleLeg={(prop) => toggleLeg(prop, game?.matchup)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </details>
           </div>
 
           <aside className="space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
             <Panel className={`transition ${slipPulse ? 'scale-[1.01] border-cyan-300/60' : ''}`} data-testid="landing-slip-mini">
               <PanelHeader
-                title="Betslip"
+                title="Slip / Decision"
                 action={<p className="text-xs text-cyan-100">Lead-first board</p>}
                 subtitle={fastAddState}
               />
-              <div className="mb-2 flex items-center gap-2"><Chip variant={today.mode === 'demo' ? 'warn' : 'good'}>{today.mode === 'demo' ? 'Demo' : 'Live'}</Chip></div>
               <div className="space-y-1.5">
                 {slip.length === 0 ? <p className="text-xs text-white/60">Add 2–3 leads to build a research-first draft.</p> : null}
                 {slip.map((leg) => {
@@ -235,8 +257,8 @@ export function FrontdoorLandingClient() {
 
               <Divider className="my-2" />
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={onAnalyze} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Check my edge</button>
-                <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Send it anyway</Link>
+                <button type="button" onClick={onAnalyze} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Build from Board</button>
+                <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Try sample slip</Link>
                 {latestRunHref ? <Link href={latestRunHref} className="self-center text-xs text-cyan-100 underline underline-offset-2">Open latest run</Link> : null}
               </div>
             </Panel>
@@ -265,7 +287,7 @@ export function FrontdoorLandingClient() {
 
         <div className="lg:hidden sticky bottom-2 z-20 mt-3">
           <button type="button" onClick={onAnalyze} className="w-full rounded-xl border border-cyan-300/50 bg-slate-900/95 px-4 py-2 text-sm font-semibold text-cyan-100 shadow-[0_8px_28px_rgba(2,6,23,0.5)]">
-            Slip ({slip.length}) • Check my edge
+            Slip ({slip.length}) • Build from Board
           </button>
         </div>
 

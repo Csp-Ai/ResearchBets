@@ -24,13 +24,16 @@ export function BoardPreviewSSR({ spine }: BoardPreviewSSRProps) {
         hooksSlot={(
           <div className="mb-3 rounded-lg border border-cyan-300/20 bg-slate-950/70 p-2.5" data-testid="landing-hooks-ssr">
             <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-200/90">Signal hooks</p>
-            <div className="mt-2 space-y-2">
-              {Array.from({ length: 3 }, (_, index) => (
-                <div key={`hook-placeholder-${index}`} className="rounded-md border border-white/10 bg-slate-900/60 p-2">
-                  <div className="h-3 w-1/3 rounded bg-white/10" />
-                  <div className="mt-1 h-3 w-5/6 rounded bg-white/10" />
-                  <div className="mt-2 h-6 w-20 rounded border border-white/10" />
-                </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[
+                'Injuries · monitored',
+                'Line moves · stable',
+                'Volatility · guarded',
+                'Model confidence · calibrated'
+              ].map((label) => (
+                <span key={label} className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[10px] text-slate-200">
+                  {label}
+                </span>
               ))}
             </div>
           </div>
