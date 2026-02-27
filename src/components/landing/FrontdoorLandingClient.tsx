@@ -44,14 +44,6 @@ const normalizeTodayResult = (input: unknown): TodayPayload => {
   return parsed.success ? parsed.data : EMPTY_TODAY;
 };
 
-const americanToDecimal = (odds?: string): number => {
-  if (!odds) return 2;
-  const value = Number.parseInt(odds, 10);
-  if (!Number.isFinite(value) || value === 0) return 2;
-  if (value > 0) return 1 + (value / 100);
-  return 1 + (100 / Math.abs(value));
-};
-
 export function FrontdoorLandingClient() {
   const router = useRouter();
   const nervous = useNervousSystem();
@@ -158,11 +150,7 @@ export function FrontdoorLandingClient() {
   }, [router, sampleSlipHref]);
 
   const warnings = useMemo(() => computeInlineSlipWarnings(slip), [slip]);
-  const payoutX = useMemo(() => {
-    if (slip.length === 0) return 1;
-    return slip.reduce((acc, leg) => acc * americanToDecimal(leg.odds), 1);
-  }, [slip]);
-  const fastAddState = slip.length >= 4 ? 'SGP cluster mode' : slip.length >= 2 ? '2-leg parlay ready' : 'Tap props for 1-click add';
+  const fastAddState = slip.length >= 4 ? 'High-conviction cluster active' : slip.length >= 2 ? 'Lead set building' : 'Tap leads for quick add';
 
   const trackerSteps = [
     { id: 'before', label: 'BEFORE', done: runStage !== 'before' },
@@ -181,8 +169,8 @@ export function FrontdoorLandingClient() {
       <LandingTerminalShell
         mode={today.mode}
         reason={today.reason}
-        title="Value-Oriented Board"
-        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Fast scan tonight. Stack props. Check your edge.'}
+        title="Know where to look tonight."
+        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'We surface high-probability leads; you confirm price on your book.'}
         statusSlot={<FeedStatusChip health={(today.providerHealth as Array<{ provider: string; ok: boolean; message?: string; missingKey?: boolean }> | undefined)} />}
       >
         <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
@@ -220,12 +208,12 @@ export function FrontdoorLandingClient() {
             <Panel className={`transition ${slipPulse ? 'scale-[1.01] border-cyan-300/60' : ''}`} data-testid="landing-slip-mini">
               <PanelHeader
                 title="Betslip"
-                action={<p className="text-xs text-cyan-100">x{payoutX.toFixed(2)}</p>}
+                action={<p className="text-xs text-cyan-100">Lead-first board</p>}
                 subtitle={fastAddState}
               />
               <div className="mb-2 flex items-center gap-2"><Chip variant={today.mode === 'demo' ? 'warn' : 'good'}>{today.mode === 'demo' ? 'Demo' : 'Live'}</Chip></div>
               <div className="space-y-1.5">
-                {slip.length === 0 ? <p className="text-xs text-white/60">Add 2–3 props to shape a quick parlay card.</p> : null}
+                {slip.length === 0 ? <p className="text-xs text-white/60">Add 2–3 leads to build a research-first draft.</p> : null}
                 {slip.map((leg) => {
                   const confidence = leg.odds?.startsWith('-') ? 62 : 54;
                   return (
@@ -282,7 +270,7 @@ export function FrontdoorLandingClient() {
         </div>
 
         <Panel className="mt-3" data-testid="landing-edu-strip">
-          <p className="text-xs text-slate-300">Correlation can quietly reduce parlay hit-rate. Rebalance with warning chips.</p>
+          <p className="text-xs text-slate-300">Correlation can quietly reduce hit-rate. Rebalance with warning chips.</p>
           <details className="mt-2 rounded-xl border border-white/10 bg-slate-900/50 p-2.5">
             <summary className="cursor-pointer text-xs font-medium text-slate-100">More</summary>
             <p className="mt-2 text-xs text-white/60">Prefill text is optional when you want to run a manual slip variant.</p>

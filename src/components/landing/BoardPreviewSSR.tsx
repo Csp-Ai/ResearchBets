@@ -55,7 +55,6 @@ export function BoardPreviewSSR({ spine }: BoardPreviewSSRProps) {
                           <span className="truncate font-medium" title={prop.player}>{prop.player}</span>
                           <span className="truncate font-mono text-slate-300">{prop.market} {prop.line}</span>
                           <span className="rounded-full border border-cyan-300/30 px-1.5 py-0.5 text-[10px] text-cyan-100">L10 58%</span>
-                          <span className="font-mono text-slate-300">{prop.odds}</span>
                           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/20 px-1 text-[10px] leading-none text-slate-300">i</span>
                           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/20 px-1 text-[10px] leading-none text-cyan-200">＋</span>
                         </div>

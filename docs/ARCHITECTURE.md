@@ -137,22 +137,24 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 
 ## Tonight decision surface intelligence (`/tonight`)
 
+Positioning statement: **ResearchBets outputs leads, not payouts.**
+
 - Route split: `app/tonight/page.tsx` (server wrapper) + `app/tonight/TonightPageClient.tsx` (client decision surface).
-- Data contract reuse: `/tonight` reads the same `getTodayPayload` contract used by `/today`; no separate provider logic was added.
+- Data contract reuse: `/tonight` and landing preview modules read the same `getTodayPayload` contract used by `/today`; provider fallback semantics are unchanged.
 - Slate intelligence engine: `src/core/slate/slateEngine.ts`
   - Computes deterministic `SlateSummary` from `TodayPayload`.
-  - Produces a bettor-facing 2–4 sentence narrative with pace/scoring/market shape language.
-  - Emits bias fields (`pace`, `scoring`, `assistTrend`), volatility flags, and a 0–100 prep confidence score.
-- Suggested slip engine: `src/core/slate/suggestedSlipEngine.ts`
-  - Generates 3 deterministic build profiles: `stable` (3 legs), `balanced` (4 legs), `ceiling` (5 legs).
-  - Uses hit-rate + market volatility + risk-tag heuristics for per-leg risk scoring.
-  - Enforces profile constraints (variance caps, stable-leg minimums, player/game diversity guards).
-  - Returns survival probability, weakest leg, conviction score, and bettor-language reasoning.
+  - Produces a bettor-facing narrative with pace/scoring/market-shape language.
+  - Emits bias fields (`pace`, `scoring`, `assistTrend`), volatility flags, and prep confidence.
+- Lead engine: `src/core/slate/leadEngine.ts`
+  - Deterministically ranks board props into diversified high-probability leads.
+  - Scores each lead with conviction (0–100), volatility class, script fit, and bettor-language reasoning + tags.
+  - Applies deterministic diversification caps (`maxPerGame`) with a predictable relaxation pass (`maxPerGame=3`) to fill remaining slots.
+  - Supports reactive windows by penalizing high-volatility legs and tightening first-pass per-game caps.
 - Reactive window detection: `src/core/slate/reactiveWindow.ts`
   - Detects live/near-tip-off windows from payload game status/start-time hints.
-  - When reactive, `/tonight` shows a volatility warning banner and biases balanced/ceiling builds safer.
-- Conviction gate:
-  - `/tonight` includes “Show only high conviction” filtering (`convictionScore >= 70`).
-  - Empty-state copy guides users back to stable builds when no high-conviction tickets survive.
+  - When reactive, `/tonight` shows a volatility warning banner and the lead engine reduces fragile/high-volatility exposure.
+- Landing tonight preview panel: `src/components/landing/TonightPreviewPanel.tsx`
+  - Renders above the fold to show “Tonight’s Slate Read” + 3–5 ranked leads in under one fetch cycle.
+  - Uses neutral mode labels (`Live`, `Cached`, `Demo mode (live feeds off)`) and preserves continuity-spine params on CTAs.
 
-Deterministic-first note: all `/tonight` engines run without network calls and remain usable in `LIVE_MODE=false` demo mode by deriving behavior from `TodayPayload` fields and stable fallback defaults.
+Determinism guarantee: all `/tonight` and landing lead computations are pure against `TodayPayload`, avoid randomization, and remain demo-safe when providers are unavailable.
