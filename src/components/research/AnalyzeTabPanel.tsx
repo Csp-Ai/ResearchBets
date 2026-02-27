@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
@@ -14,6 +14,7 @@ import {
   LegRankList,
   type AnalyzeLeg
 } from '@/src/components/bettor/BettorFirstBlocks';
+import { SystemCalibrationStrip } from '@/src/components/research/SystemCalibrationStrip';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 
@@ -62,6 +63,32 @@ export default function AnalyzeTabPanel({
   demoSlip,
   latestRunHref
 }: AnalyzeTabPanelProps) {
+  const [calibration, setCalibration] = useState({
+    take_accuracy: 0,
+    weakest_leg_accuracy: 0,
+    runs_analyzed: 0,
+    last_updated: null as string | null
+  });
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/metrics/calibration', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload) => {
+        if (!active || !payload?.data) return;
+        setCalibration({
+          take_accuracy: Number(payload.data.take_accuracy ?? 0),
+          weakest_leg_accuracy: Number(payload.data.weakest_leg_accuracy ?? 0),
+          runs_analyzed: Number(payload.data.runs_analyzed ?? 0),
+          last_updated: (payload.data.last_updated as string | null) ?? null
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
   const weakestReasons = (weakestLeg?.riskFactors ?? []).filter(Boolean);
   const riskSummary = deriveSlipRiskSummary(intelLegs);
@@ -79,6 +106,13 @@ export default function AnalyzeTabPanel({
 
   return (
     <div className="space-y-3">
+      <SystemCalibrationStrip
+        takeAccuracy={calibration.take_accuracy}
+        weakestLegAccuracy={calibration.weakest_leg_accuracy}
+        runsAnalyzed={calibration.runs_analyzed}
+        lastUpdated={calibration.last_updated}
+      />
+
       <section className="bettor-card space-y-2 p-4">
         <SlipIntelBar legs={intelLegs} />
       </section>
