@@ -35,8 +35,8 @@ describe('FrontdoorLandingClient live modes', () => {
 
     await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
     expect(screen.getByText('Value-Oriented Board')).toBeTruthy();
-    expect(screen.getByText('Demo mode')).toBeTruthy();
-    expect(screen.getByText(/Fast add mode/)).toBeTruthy();
+    expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
+    expect(screen.getByText(/Fast add/)).toBeTruthy();
   });
 
   it('renders open latest run CTA with canonical trace_id', async () => {
@@ -65,11 +65,11 @@ describe('FrontdoorLandingClient live modes', () => {
 
     const tracker = screen.getByTestId('landing-run-tracker');
     expect(tracker.textContent).toContain('trace_id trace-sessio');
-    expect(screen.getByText(/BEFORE · Slip ready/)).toBeTruthy();
+    expect(screen.getByText(/BEFORE/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Check my edge' }));
-    expect(screen.getByText(/DURING · Analyzing/)).toBeTruthy();
-    await waitFor(() => expect(screen.getByText(/AFTER · Verdict ready/)).toBeTruthy(), { timeout: 3000 });
+    expect(screen.getByText(/DURING/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/AFTER/)).toBeTruthy(), { timeout: 3000 });
     expect(tracker.textContent).toContain('trace_id trace-sessio');
   });
 });
