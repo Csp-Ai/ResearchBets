@@ -1,6 +1,6 @@
 # Repo State Audit
 
-Generated: 2026-02-27T01:57:30.881Z
+Generated: 2026-02-27T05:27:58.258Z
 
 ## Phase Classification
 - Current Phase: 4 / 7 (Connected workflow foundation)
@@ -58,26 +58,4 @@ Generated: 2026-02-27T01:57:30.881Z
 - Week 4: ship continuity e2e + investor-facing evidence pass.
 
 ## Repository Size Snapshot
-- App route files: 86
-
-## Post-stabilization drift map
-
-- **A) Query param drift (`trace` vs `trace_id`)**
-  - Failing tests: `tests/e2e-smoke-ingest-to-research.test.tsx`, `tests/research-runs.test.tsx`.
-  - Canonical contract: UI writes `trace_id` and reads via `trace_id` first with legacy `trace` fallback.
-  - Minimal fix: add shared query helper (`getQueryTraceId`, `withTraceId`), adopt it in ingest/research and test expectations.
-
-- **B) Persistence drift (`Run.traceId` vs `trace_id`)**
-  - Failing tests: research run hydration/load selectors relying on mixed run identity.
-  - Canonical contract: `Run.trace_id` is primary, `traceId` remains optional alias.
-  - Minimal fix: add `normalizeRun`, migrate local storage reads/writes to canonical key, preserve legacy read compatibility.
-
-- **C) Route envelope drift (`traceId` alias presence)**
-  - Failing tests: `app/api/slips/submit/__tests__/route.test.ts`.
-  - Canonical contract: payloads include `trace_id` canonical plus `traceId` alias.
-  - Minimal fix: include `traceId` at submit route envelope root and nested data trace object; assert both in test.
-
-- **D) UI render drift (mode/provider semantics)**
-  - Failing tests observed in last run were not provider badge regressions; this cluster is currently stable.
-  - Canonical contract: existing stabilized mode/provider semantics remain unchanged.
-  - Minimal fix: no product copy/semantic changes in this sweep.
+- App route files: 97

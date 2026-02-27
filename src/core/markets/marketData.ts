@@ -1,4 +1,5 @@
 import { getGamesByLeague } from '../games/registry';
+import { getProviderRegistry } from '../providers/registry.server';
 
 import { impliedProbabilitiesFromLines } from './impliedProbabilities';
 
@@ -90,6 +91,11 @@ export interface MarketSnapshot {
   age_ms: number;
   cache_status: 'hit' | 'miss' | 'stale';
   games: MarketGame[];
+  provenance?: {
+    source: 'live_web' | 'cache' | 'demo';
+    reason?: string;
+    fetchedAt: string;
+  };
 }
 
 const withFreshness = (
@@ -116,9 +122,85 @@ const isWebProviderEnabled = (): boolean =>
   (process.env.LIVE_MARKETS_WEB_PROVIDER_ENABLED ?? 'false').toLowerCase() === 'true';
 
 async function loadWebSnapshot(sport: string): Promise<MarketSnapshot | null> {
-  void sport;
   if (!isWebProviderEnabled()) return null;
-  return null;
+  if (!process.env.ODDS_API_KEY) {
+    return withFreshness(
+      {
+        ...loadDemoSnapshot(sport),
+        provenance: {
+          source: 'demo',
+          reason: 'odds_api_key_missing',
+          fetchedAt: new Date().toISOString()
+        }
+      },
+      'miss'
+    );
+  }
+
+  try {
+    const events = await getProviderRegistry().oddsProvider.fetchEvents({ sport });
+    const rows = events.events ?? [];
+    if (!rows.length) return null;
+    const games: MarketGame[] = rows.slice(0, 10).map((event, idx) => {
+      const awayTeam = `Away ${idx + 1}`;
+      const homeTeam = `Home ${idx + 1}`;
+      const impliedPair = impliedProbabilitiesFromLines({
+        homeMoneyline: undefined,
+        awayMoneyline: undefined,
+        removeVig: true
+      });
+
+      return {
+        gameId: event.id || `${sport}_${idx + 1}`,
+        sport,
+        label: `${awayTeam} @ ${homeTeam}`,
+        startsAt: new Date().toISOString(),
+        source: 'scraped',
+        degraded: impliedPair.source === 'fallback',
+        homeTeam,
+        awayTeam,
+        lines: {
+          homeMoneyline: undefined,
+          awayMoneyline: undefined,
+          spread: undefined,
+          total: undefined
+        },
+        implied: {
+          home: impliedPair.home.implied,
+          away: impliedPair.away.implied,
+          source: impliedPair.source
+        }
+      };
+    });
+
+    return withFreshness(
+      {
+        sport,
+        loadedAt: new Date().toISOString(),
+        source: 'scraped',
+        degraded: games.some((game) => game.degraded),
+        games,
+        provenance: {
+          source: 'live_web',
+          reason: events.fallbackReason,
+          fetchedAt: new Date().toISOString()
+        }
+      },
+      'miss'
+    );
+  } catch {
+    return withFreshness(
+      {
+        ...loadDemoSnapshot(sport),
+        provenance: {
+          source: 'demo',
+          reason: 'provider_unavailable',
+          fetchedAt: new Date().toISOString()
+        }
+      },
+      'miss'
+    );
+  }
 }
 
 function loadDemoSnapshot(sport: string): MarketSnapshot {
@@ -175,7 +257,12 @@ export async function getMarketSnapshot(input: {
     return withFreshness(
       {
         ...cached.value,
-        source: cached.value.source === 'DEMO' ? 'DEMO' : 'derived'
+        source: cached.value.source === 'DEMO' ? 'DEMO' : 'derived',
+        provenance: {
+          source: 'cache',
+          reason: cached.value.provenance?.reason,
+          fetchedAt: cached.value.provenance?.fetchedAt ?? cached.value.loadedAt
+        }
       },
       'hit',
       cached.value.as_of_iso
