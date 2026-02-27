@@ -219,6 +219,10 @@ Audit artifacts live in `docs/audits/` and root reports. Start with:
 
 Use these as snapshots of architecture risk and drift; prefer summaries in docs over duplicating report content.
 
+Current execution plan for the shareable-terminal gate and v1 path:
+
+- `docs/roadmaps/v0.6.1-shareable-terminal-plan.md`
+
 ## Docs index
 
 - `docs/ARCHITECTURE.md` — system/data flow and deployment model.
