@@ -179,6 +179,14 @@ export class SupabaseRunStore implements RunStore {
   }
 }
 
+
+export function getLatestTraceId(): string | null {
+  const runs = readRuns()
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const latest = runs[0];
+  return latest ? runIdOf(latest) : null;
+}
+
 export const createRunStore = (): RunStore => {
   const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   return hasSupabase ? new SupabaseRunStore() : new LocalRunStore();
