@@ -35,7 +35,7 @@ describe('FrontdoorLandingClient live modes', () => {
 
     await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
     expect(screen.getByText('Value-Oriented Board')).toBeTruthy();
-    expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
+    expect(screen.getByText('Demo mode')).toBeTruthy();
     expect(screen.getByText(/Fast add mode/)).toBeTruthy();
   });
 
