@@ -59,7 +59,8 @@ export interface SourceStats {
 }
 
 export interface Run {
-  traceId: string;
+  trace_id: string;
+  traceId?: string;
   slipId?: string;
   snapshotId?: string;
   anonSessionId?: string;

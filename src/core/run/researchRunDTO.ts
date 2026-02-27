@@ -58,9 +58,9 @@ const toProvenance = (source: 'live' | 'fallback' | undefined): ResearchProvenan
 export function toResearchRunDTOFromRun(run: Run): ResearchRunDTO {
   const confidence = run.analysis.confidencePct;
   return {
-    run_id: run.traceId,
+    run_id: run.trace_id,
     slip_id: run.slipId,
-    trace_id: run.traceId,
+    trace_id: run.trace_id,
     snapshot_id: run.snapshotId,
     anon_session_id: run.anonSessionId,
     request_id: run.requestId,

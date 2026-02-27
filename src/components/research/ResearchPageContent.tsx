@@ -22,6 +22,7 @@ import { Surface } from '@/src/components/ui/surface';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
+import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
 import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
@@ -139,14 +140,14 @@ export default function ResearchPageContent() {
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
   const safeTab: HubTab = tabs.includes(tab) ? tab : 'analyze';
-  const traceFromQuery = search.get('trace') ?? search.get('trace_id') ?? '';
+  const traceFromQuery = getQueryTraceId(search) ?? '';
   const prefillFromQuery = search.get('prefill') ?? '';
   const prefillKeyFromQuery = search.get('prefillKey') ?? '';
   const snapshotIdFromQuery = search.get('snapshotId') ?? '';
 
   const refreshRecent = useCallback(async () => {
     const runs = await runStore.listRuns(5);
-    setRecentRuns(runs.map((run) => ({ traceId: run.traceId, updatedAt: run.updatedAt, status: toRecentStatus(run) })));
+    setRecentRuns(runs.map((run) => ({ traceId: run.trace_id, updatedAt: run.updatedAt, status: toRecentStatus(run) })));
   }, []);
 
   useEffect(() => {
@@ -279,7 +280,7 @@ export default function ResearchPageContent() {
     const traceId = await runSlip(rawSlip, { coverageAgentEnabled: readCoverageAgentEnabled() });
     setPasteOpen(false);
     await refreshRecent();
-    router.push(appendQuery(nervous.toHref('/stress-test'), { trace: traceId }));
+    router.push(withTraceId(nervous.toHref('/stress-test'), traceId));
   }, [rawSlip, refreshRecent, router, nervous]);
 
   const runDto = useMemo(() => {
@@ -381,7 +382,7 @@ export default function ResearchPageContent() {
       <RecentActivityPanel
         runs={recentRuns}
         demoRun={demoRecentRun}
-        onOpen={(recentTraceId) => router.push(appendQuery(nervous.toHref('/stress-test'), { trace: recentTraceId }))}
+        onOpen={(recentTraceId) => router.push(withTraceId(nervous.toHref('/stress-test'), recentTraceId))}
       />
       <HowItWorksMini />
 

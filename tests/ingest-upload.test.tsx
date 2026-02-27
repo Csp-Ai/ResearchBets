@@ -15,7 +15,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/src/core/pipeline/runSlip', () => ({
-  runSlip: vi.fn()
+  runSlip: vi.fn(async () => 'trace-upload-1')
 }));
 
 vi.mock('tesseract.js', () => ({
@@ -39,17 +39,14 @@ describe('ingest upload screenshot flow', () => {
     expect(screen.getByRole('button', { name: 'Upload screenshot' })).toBeTruthy();
   });
 
-  it('populates slip text from OCR and enables analyze', async () => {
+  it('populates slip text from OCR and keeps save flow available', async () => {
     renderWithProviders(<IngestionPage />);
-
-    const analyzeButton = screen.getAllByRole('button', { name: 'Analyze now' })[0] as HTMLButtonElement;
-    expect(analyzeButton.disabled).toBe(true);
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(['dummy'], 'slip.png', { type: 'image/png' });
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(screen.getByDisplayValue(/Leg A over 22.5 points/)).toBeTruthy());
-    await waitFor(() => expect((screen.getAllByRole('button', { name: 'Analyze now' })[0] as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getAllByRole('button', { name: 'Save slip' })[0] as HTMLButtonElement).disabled).toBe(false));
   });
 });

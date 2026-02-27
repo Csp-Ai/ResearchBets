@@ -295,6 +295,7 @@ export async function runSlip(
   });
   const now = new Date().toISOString();
   const initial: Run = {
+    trace_id: initialTraceId,
     traceId: initialTraceId,
     createdAt: now,
     updatedAt: now,
@@ -332,7 +333,7 @@ export async function runSlip(
   });
   const traceChanged = resolvedTraceId !== initialTraceId;
   if (traceChanged) {
-    await runStore.saveRun({ ...initial, traceId: resolvedTraceId, slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
+    await runStore.saveRun({ ...initial, trace_id: resolvedTraceId, traceId: resolvedTraceId, slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
   } else if (apiResult.slipId || apiResult.anonSessionId || apiResult.requestId) {
     await runStore.updateRun(resolvedTraceId, { slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
   }

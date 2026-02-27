@@ -7,6 +7,7 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 
 import { appendQuery } from '@/src/components/landing/navigation';
 import { parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
+import { withTraceId } from '@/src/core/trace/queryTrace';
 import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
 
@@ -22,6 +23,7 @@ export default function IngestionPage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [submittedSlipId, setSubmittedSlipId] = useState<string | null>(null);
+  const [submittedTraceId, setSubmittedTraceId] = useState<string | null>(null);
   const [hasHistoricalDate, setHasHistoricalDate] = useState(false);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export default function IngestionPage() {
         throw new Error(parsed.success && !parsed.data.ok ? parsed.data.error.message : 'Unable to submit slip.');
       }
       setSubmittedSlipId(parsed.data.data.slip_id ?? null);
+      setSubmittedTraceId(parsed.data.data.trace_id ?? null);
       setHasHistoricalDate(/\b(202[0-5]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(slipText));
       setStatus(parsed.data.data.parse?.needs_review ? 'Saved. Parsing confidence is low, confirm legs next.' : 'Saved and parsed. Next action is ready.');
     } catch (submitError) {
@@ -162,8 +165,8 @@ export default function IngestionPage() {
                 Run settle
               </Button>
             ) : (
-              <Button intent="primary" onClick={() => void router.push(appendQuery(nervous.toHref('/today'), { tab: 'board' }))}>
-                Run research
+              <Button intent="primary" onClick={() => void router.push(withTraceId(nervous.toHref('/research'), submittedTraceId ?? nervous.trace_id ?? ''))}>
+                Analyze now
               </Button>
             )}
           </div>

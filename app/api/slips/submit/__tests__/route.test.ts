@@ -6,7 +6,7 @@ beforeEach(() => {
 });
 
 describe('/api/slips/submit POST', () => {
-  it('returns slip_id + trace envelope with spine continuity', async () => {
+  it('returns slip_id + canonical trace envelope with spine continuity', async () => {
     const createSlipSubmission = vi.fn(async () => undefined);
     const saveEvent = vi.fn(async () => undefined);
 
@@ -31,20 +31,31 @@ describe('/api/slips/submit POST', () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json() as {
-      slip_id: string;
+      ok: boolean;
       trace_id: string;
-      spine: { mode: string; sport: string; tz: string; date: string; trace_id?: string; slip_id?: string };
-      trace: { trace_id: string; mode: string };
+      traceId: string;
+      data: {
+        slip_id: string;
+        trace_id: string;
+        traceId: string;
+        spine: { mode: string; sport: string; tz: string; date: string; trace_id?: string; slip_id?: string };
+        trace: { trace_id: string; traceId: string; mode: string };
+      };
     };
 
-    expect(payload.slip_id).toBeTruthy();
+    expect(payload.ok).toBe(true);
+    expect(payload.data.slip_id).toBeTruthy();
     expect(payload.trace_id).toBe('trace-in');
-    expect(payload.trace.trace_id).toBe(payload.trace_id);
-    expect(payload.trace.mode).toBe(payload.spine.mode);
-    expect(payload.spine.sport).toBe('NFL');
-    expect(payload.spine.tz).toBe('UTC');
-    expect(payload.spine.date).toBe('2026-01-20');
-    expect(payload.spine.trace_id).toBe(payload.trace_id);
-    expect(payload.spine.slip_id).toBe(payload.slip_id);
+    expect(payload.traceId).toBe(payload.trace_id);
+    expect(payload.data.trace_id).toBe(payload.trace_id);
+    expect(payload.data.traceId).toBe(payload.trace_id);
+    expect(payload.data.trace.trace_id).toBe(payload.trace_id);
+    expect(payload.data.trace.traceId).toBe(payload.trace_id);
+    expect(payload.data.trace.mode).toBe(payload.data.spine.mode);
+    expect(payload.data.spine.sport).toBe('NFL');
+    expect(payload.data.spine.tz).toBe('UTC');
+    expect(payload.data.spine.date).toBe('2026-01-20');
+    expect(payload.data.spine.trace_id).toBe(payload.trace_id);
+    expect(payload.data.spine.slip_id).toBe(payload.data.slip_id);
   });
 });

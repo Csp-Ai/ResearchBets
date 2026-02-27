@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const traceContext = getTraceContext(request);
   const parsed = SlipSubmitRequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Invalid slip payload.' }, trace_id: traceContext.trace_id }, { status: 400 });
+    return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Invalid slip payload.' }, trace_id: traceContext.trace_id, traceId: traceContext.trace_id }, { status: 400 });
   }
 
   try {
@@ -128,8 +128,14 @@ export async function POST(request: Request) {
       trace,
       parse: { confidence: parsedSlip.confidence, legs_count: parsedSlip.legs.length, needs_review: parsedSlip.legs.length === 0 },
     });
-    return NextResponse.json({ ok: true, data: response, trace_id: trace.trace_id, provenance: { mode: baseSpine.mode, generatedAt: new Date().toISOString() } });
+    return NextResponse.json({
+      ok: true,
+      data: { ...response, traceId: response.trace_id, trace: { ...trace, traceId: trace.trace_id } },
+      trace_id: trace.trace_id,
+      traceId: trace.trace_id,
+      provenance: { mode: baseSpine.mode, generatedAt: new Date().toISOString() }
+    });
   } catch {
-    return NextResponse.json({ ok: false, error: { code: 'submit_failed', message: 'Failed to submit slip.' }, trace_id: traceContext.trace_id }, { status: 500 });
+    return NextResponse.json({ ok: false, error: { code: 'submit_failed', message: 'Failed to submit slip.' }, trace_id: traceContext.trace_id, traceId: traceContext.trace_id }, { status: 500 });
   }
 }
