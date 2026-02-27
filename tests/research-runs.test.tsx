@@ -45,7 +45,7 @@ describe('research run rendering and reload', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Stress Test')).toBeTruthy();
-      expect(screen.getByText(/trace_id:/i)).toBeTruthy();
+      expect(screen.getByText(/trace_id/i)).toBeTruthy();
     });
   });
 

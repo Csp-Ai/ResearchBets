@@ -13,22 +13,15 @@ import { deriveModePolicy, getModePresentation, persistMode, readPersistedMode }
 import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
-import { FeedStatusChip } from '@/src/components/landing/FeedStatusChip';
 import { ExpandableGamePanel } from '@/src/components/landing/ExpandableGamePanel';
 import { computeInlineSlipWarnings, getLatestTraceId } from '@/src/core/run/store';
+import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
+import { buildCanonicalBoard, type BoardProp } from '@/src/core/today/boardModel';
 import { withTraceId } from '@/src/core/trace/queryTrace';
 import { Chip, Divider, MicroBar, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
 
 type TodayPayload = typeof TodayPayloadSchema._type;
-type BoardProp = TodayPayload['board'][number] & {
-  team?: string;
-  hitRateL10?: number;
-  hitRateL5?: number;
-  confidencePct?: number;
-  riskTag?: string;
-  edgeDelta?: number;
-};
-type SlipToggleProp = Pick<BoardProp, 'id' | 'player' | 'market' | 'line' | 'odds'>;
+type SlipToggleProp = { id: string; player: string; market: string; line: string; odds: string };
 
 const EMPTY_TODAY: TodayPayload = { mode: 'live', reason: 'provider_unavailable', games: [], board: [], status: 'market_closed' };
 
@@ -128,9 +121,9 @@ export function FrontdoorLandingClient() {
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
   const spineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
   const board = useMemo(() => {
-    if ((today.board ?? []).length > 0) return (today.board ?? []).slice(0, 10) as BoardProp[];
-    return (createDemoTodayPayload().board ?? []).slice(0, 10) as unknown as BoardProp[];
-  }, [today.board]);
+    if ((today.board ?? []).length > 0) return buildCanonicalBoard(today).slice(0, 10);
+    return buildCanonicalBoard(createDemoTodayPayload()).slice(0, 10);
+  }, [today]);
 
   const toggleLeg = useCallback((prop: SlipToggleProp, matchup?: string) => {
     if (slipIds.has(prop.id)) return removeLeg(prop.id);
@@ -147,7 +140,6 @@ export function FrontdoorLandingClient() {
     return Array.from(map.entries()).map(([gameId, props]) => ({ gameId, props, game: gameById.get(gameId) }));
   }, [advancedOpen, board, gameById]);
 
-  const marketClosed = today.status === 'market_closed';
   const sampleSlipHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { source: 'landing_sample_slip', prefill: slipText });
   const latestRunHref = latestTraceId ? withTraceId(spineHref('/research'), latestTraceId) : null;
 
@@ -159,11 +151,6 @@ export function FrontdoorLandingClient() {
   const warnings = useMemo(() => computeInlineSlipWarnings(slip), [slip]);
   const fastAddState = slip.length >= 4 ? 'High-conviction cluster active' : slip.length >= 2 ? 'Lead set building' : 'Tap leads for quick add';
 
-  const trackerSteps = [
-    { id: 'before', label: 'BEFORE', done: runStage !== 'before' },
-    { id: 'during', label: 'DURING', done: runStage === 'after' },
-    { id: 'after', label: 'AFTER', done: runStage === 'after' }
-  ] as const;
 
   const modeDecision = deriveModePolicy({ requestedMode: nervous.mode ?? readPersistedMode(), envelopeMode: today.mode });
   const modePresentation = getModePresentation(modeDecision.mode);
@@ -179,7 +166,7 @@ export function FrontdoorLandingClient() {
         reason={today.reason}
         title="Decision-first board + slip rail"
         subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
-        statusSlot={<FeedStatusChip health={(today.providerHealth as Array<{ provider: string; ok: boolean; message?: string; missingKey?: boolean }> | undefined)} />}
+        statusSlot={<RunStatusPill traceId={activeTraceId} mode={modeDecision.mode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
       >
         <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
           <Chip variant="neutral" title={modePresentation.tooltip}>{modePresentation.label}</Chip>
@@ -189,11 +176,6 @@ export function FrontdoorLandingClient() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,1fr)] lg:items-start">
           <div>
             <SectionTitle className="mb-2">Tonight&apos;s Board</SectionTitle>
-            {marketClosed && today.mode !== 'demo' ? (
-              <Panel className="mb-2 p-2.5" data-testid="market-closed-compact">
-                <p className="text-xs text-white/70">Live feeds are quiet — showing recent/cached leads.</p>
-              </Panel>
-            ) : null}
             <div className="space-y-2" data-testid="board-section">
               {loading ? <p className="text-xs text-slate-400">Loading board…</p> : null}
 
@@ -264,26 +246,6 @@ export function FrontdoorLandingClient() {
                 <button type="button" onClick={onAnalyze} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Build from Board</button>
                 <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">Try sample slip</Link>
                 {latestRunHref ? <Link href={latestRunHref} className="self-center text-xs text-cyan-100 underline underline-offset-2">Open latest run</Link> : null}
-              </div>
-            </Panel>
-
-            <Panel data-testid="landing-run-tracker" className="py-2">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Status · trace_id {activeTraceId.slice(0, 12)}</p>
-              <div className="mt-2 flex items-center gap-1.5">
-                {trackerSteps.map((step, index) => {
-                  const isActive = runStage === step.id;
-                  return (
-                    <React.Fragment key={step.id}>
-                      <div
-                        data-testid={`run-stage-${step.id}`}
-                        className={`rounded-full border px-2 py-0.5 text-[10px] ${isActive ? 'border-cyan-300/40 bg-cyan-300/10 text-cyan-100' : 'border-white/10 text-white/50'}`}
-                      >
-                        <span className="mr-1">{step.done ? '✓' : '•'}</span>{step.label}
-                      </div>
-                      {index < trackerSteps.length - 1 ? <div className="h-px flex-1 bg-white/10" aria-hidden="true" /> : null}
-                    </React.Fragment>
-                  );
-                })}
               </div>
             </Panel>
           </aside>

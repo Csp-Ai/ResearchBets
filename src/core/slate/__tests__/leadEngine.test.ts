@@ -72,8 +72,8 @@ describe('generateRankedLeads', () => {
   });
 
   it('penalizes high volatility in reactive windows', () => {
-    const nonReactive = generateRankedLeads(baseBoard, slate, { maxLeads: 8 });
-    const reactive = generateRankedLeads(baseBoard, slate, { maxLeads: 8, reactive: { isReactive: true } });
+    const nonReactive = generateRankedLeads(baseBoard, slate, { maxLeads: 8, allowHighVolatility: true });
+    const reactive = generateRankedLeads(baseBoard, slate, { maxLeads: 8, reactive: { isReactive: true }, allowHighVolatility: true });
     const nonReactiveHigh = nonReactive.find((lead) => lead.prop.market === 'threes');
     const reactiveHigh = reactive.find((lead) => lead.prop.market === 'threes');
     expect(nonReactiveHigh && reactiveHigh).toBeTruthy();

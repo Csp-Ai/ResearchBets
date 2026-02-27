@@ -38,7 +38,7 @@ export function getModePresentation(mode: Mode): { label: string; tooltip: strin
   }
   if (mode === 'cache') {
     return {
-      label: 'Cache (recent)',
+      label: 'Cache',
       tooltip: 'Serving recent cached board data while live providers recover.'
     };
   }

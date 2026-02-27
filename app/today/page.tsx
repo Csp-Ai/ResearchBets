@@ -1,5 +1,5 @@
 import { TodayPageClient } from '@/src/components/today/TodayPageClient';
-import { getTodayPayload } from '@/src/core/today/service.server';
+import { resolveToday } from '@/src/core/today/resolveToday.server';
 
 type TodayPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -16,6 +16,6 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
   const date = readValue(searchParams?.date, new Date().toISOString().slice(0, 10));
   const tz = readValue(searchParams?.tz, 'America/Phoenix');
   const mode = readValue(searchParams?.mode, 'live') === 'demo' ? 'demo' : 'live';
-  const payload = await getTodayPayload({ sport, date, tz, mode });
+  const payload = await resolveToday({ sport, date, tz, mode });
   return <TodayPageClient initialPayload={payload} />;
 }

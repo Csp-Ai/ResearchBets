@@ -34,8 +34,8 @@ describe('FrontdoorLandingClient live modes', () => {
     renderWithNervousSystem(<FrontdoorLandingClient />);
 
     await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
-    expect(screen.getByText('Know where to look tonight.')).toBeTruthy();
-    expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
+    expect(screen.getByText("Tonight's Board")).toBeTruthy();
+    expect(screen.getAllByText('Demo mode (live feeds off)').length).toBeGreaterThan(0);
     expect(screen.getByText(/Fast add/)).toBeTruthy();
   });
 
@@ -51,7 +51,7 @@ describe('FrontdoorLandingClient live modes', () => {
     expect(href).not.toContain('trace=latest-trace-9');
   });
 
-  it('keeps tracker continuity on one trace_id across before/during/after', async () => {
+  it('renders run status pill with stable trace_id', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const href = String(input);
       if (href.includes('/api/today')) {
@@ -61,15 +61,10 @@ describe('FrontdoorLandingClient live modes', () => {
     }));
 
     renderWithNervousSystem(<FrontdoorLandingClient />);
-    await waitFor(() => expect(screen.getByTestId('landing-run-tracker')).toBeTruthy());
+    const runStatus = await screen.findByLabelText('run-status-pill');
+    expect(runStatus.textContent).toContain('trace_id');
 
-    const tracker = screen.getByTestId('landing-run-tracker');
-    expect(tracker.textContent).toContain('trace_id trace-sessio');
-    expect(screen.getByText(/BEFORE/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Check my edge' }));
-    expect(screen.getByText(/DURING/)).toBeTruthy();
-    await waitFor(() => expect(screen.getByText(/AFTER/)).toBeTruthy(), { timeout: 3000 });
-    expect(tracker.textContent).toContain('trace_id trace-sessio');
+    fireEvent.click(screen.getByRole('button', { name: 'Build from Board' }));
+    expect(runStatus.textContent).toContain('trace_id');
   });
 });

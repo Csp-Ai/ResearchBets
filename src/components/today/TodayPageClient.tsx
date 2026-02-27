@@ -9,6 +9,7 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
+import { buildCanonicalBoard, buildTopSpotScouts } from '@/src/core/today/boardModel';
 import type { NormalizedToday } from '@/src/core/today/normalize';
 
 import { TopSpotsPanel } from './TopSpotsPanel';
@@ -74,11 +75,11 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     }
   }, [initialPayload, loadToday]);
 
-  const allRows = useMemo<TerminalBoardRow[]>(() => (payload.board ?? []).map((row) => ({
+  const allRows = useMemo<TerminalBoardRow[]>(() => buildCanonicalBoard(payload).map((row) => ({
     id: row.id,
     gameId: row.gameId,
-    matchup: row.matchup ?? 'TBD @ TBD',
-    startTime: row.startTime ?? 'TBD',
+    matchup: row.matchup,
+    startTime: row.startTime,
     player: row.player,
     market: row.market,
     line: row.line,
@@ -88,7 +89,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     modelProb: row.modelProb,
     edgeDelta: row.edgeDelta,
     riskTag: row.riskTag
-  })), [payload.board]);
+  })), [payload]);
 
   const filteredRows = useMemo(() => allRows.filter((row) => {
     if (league === 'All') return true;
@@ -108,7 +109,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     return sortBoardRows(filtered, sortKey);
   }, [filteredRows, marketFilter, riskFilter, sortKey, teamFilter]);
 
-  const topSpotScouts = useMemo(() => [ ...(payload.board ?? []) ].slice(0, 5).map((row) => ({ ...row, rationale: row.rationale ?? ['Canonical board signal'], provenance: row.provenance ?? 'today.board', lastUpdated: row.lastUpdated ?? payload.generatedAt })), [payload.board, payload.generatedAt]);
+  const topSpotScouts = useMemo(() => buildTopSpotScouts(payload).map((row) => ({ ...row, rationale: row.rationale ?? ['Canonical board signal'], provenance: row.provenance ?? 'today.board', lastUpdated: row.lastUpdated ?? payload.generatedAt })), [payload]);
 
   const onToggleLeg = (row: TerminalBoardRow) => {
     setSelectedLegs((prev) => {
