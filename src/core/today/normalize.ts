@@ -17,6 +17,8 @@ export type NormalizedToday = {
   mode: 'live' | 'cache' | 'demo';
   reason?: string;
   generatedAt?: string;
+  trace_id?: string;
+  traceId?: string;
   provenance?: { mode: 'live' | 'cache' | 'demo'; reason?: string; generatedAt: string };
   games: NormalizedGame[];
   board: BoardRow[];
@@ -26,8 +28,8 @@ export type NormalizedToday = {
 };
 
 const normalizeMode = (value: unknown): NormalizedToday['mode'] => {
-  if (value === 'live' || value === 'cache') return value;
-  return 'live';
+  if (value === 'live' || value === 'cache' || value === 'demo') return value;
+  return 'demo';
 };
 
 const normalizeGame = (entry: Record<string, unknown>, index: number): NormalizedGame => ({
@@ -67,19 +69,28 @@ const buildBoardRow = (entry: Record<string, unknown>, index: number): BoardRow 
     book_count: typeof entry.book_count === 'number' ? entry.book_count : undefined,
     source: typeof entry.source === 'string' ? entry.source : undefined,
     degraded: Boolean(entry.degraded),
-    mode: entry.mode === 'cache' ? 'cache' : 'live'
+    mode: entry.mode === 'cache' ? 'cache' : entry.mode === 'demo' ? 'demo' : 'live'
   };
 };
 
-export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
-  if (!payload || typeof payload !== 'object') {
-    return { mode: 'live', reason: 'provider_unavailable', games: [], board: [], status: 'market_closed' };
-  }
+const asObject = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' ? value as Record<string, unknown> : {});
 
-  const root = payload as Record<string, unknown>;
+const normalizeRoot = (payload: unknown): Record<string, unknown> => {
+  const raw = asObject(payload);
+  return asObject(raw.data ?? raw);
+};
+
+export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
+  const root = normalizeRoot(payload);
   const mode = normalizeMode(root.mode);
   const reason = typeof root.reason === 'string' ? root.reason : undefined;
   const generatedAt = typeof root.generatedAt === 'string' ? root.generatedAt : undefined;
+  const trace_id = typeof root.trace_id === 'string'
+    ? root.trace_id
+    : typeof root.traceId === 'string'
+      ? root.traceId
+      : undefined;
+
   const provenance = root.provenance && typeof root.provenance === 'object'
     ? {
       mode: normalizeMode((root.provenance as Record<string, unknown>).mode),
@@ -92,20 +103,36 @@ export const normalizeTodayPayload = (payload: unknown): NormalizedToday => {
     ? root.games.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object')).map(normalizeGame)
     : [];
 
-  const board = Array.isArray(root.board)
+  const boardFromRoot = Array.isArray(root.board)
     ? root.board.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object')).map(buildBoardRow)
     : [];
 
+  const boardFromPreview = games.flatMap((game, gameIndex) => {
+    const gameInput = Array.isArray(root.games) ? root.games[gameIndex] : undefined;
+    const preview = gameInput && typeof gameInput === 'object' && Array.isArray((gameInput as Record<string, unknown>).propsPreview)
+      ? (gameInput as Record<string, unknown>).propsPreview as unknown[]
+      : [];
+
+    return preview
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object'))
+      .map((entry, idx) => buildBoardRow({ ...entry, gameId: String(entry.gameId ?? game.id) }, idx));
+  });
+
+  const board = boardFromRoot.length > 0 ? boardFromRoot : boardFromPreview;
   const gamesById = new Map(games.map((g) => [g.id, g]));
-  return {
+  const normalized = {
     mode,
     reason,
     generatedAt,
+    trace_id,
+    traceId: trace_id,
     provenance,
     games,
     board: board.map((row) => ({ ...row, matchup: gamesById.get(row.gameId)?.matchup, startTime: gamesById.get(row.gameId)?.startTime, mode })),
     status: root.status === 'active' || root.status === 'next' || root.status === 'market_closed' ? root.status : undefined,
     nextAvailableStartTime: typeof root.nextAvailableStartTime === 'string' ? root.nextAvailableStartTime : undefined,
     providerHealth: Array.isArray(root.providerHealth) ? root.providerHealth.filter((v) => v && typeof v === 'object') as Array<Record<string, unknown>> : undefined
-  };
+  } satisfies NormalizedToday;
+
+  return normalized;
 };

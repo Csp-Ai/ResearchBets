@@ -12,9 +12,35 @@ describe('normalizeTodayPayload', () => {
       }
     });
 
+    expect(payload.mode).toBe('demo');
     expect(payload.games).toHaveLength(1);
     expect(payload.board).toHaveLength(1);
     expect(payload.board[0]?.riskTag).toBe('stable');
+  });
+
+  it('is idempotent for already normalized objects', () => {
+    const once = normalizeTodayPayload({
+      mode: 'cache',
+      reason: 'live_ok',
+      trace_id: 'trace-1',
+      games: [{ id: 'g1', matchup: 'A @ B', startTime: '7:00 PM' }],
+      board: [{ id: 'p1', player: 'A', market: 'assists', line: '6.5', odds: '-110', hitRateL10: 58, gameId: 'g1' }]
+    });
+    const twice = normalizeTodayPayload(once);
+
+    expect(twice).toEqual(once);
+  });
+
+  it('maps legacy traceId into canonical trace_id', () => {
+    const payload = normalizeTodayPayload({
+      mode: 'live',
+      traceId: 'legacy-trace',
+      games: [],
+      board: []
+    });
+
+    expect(payload.trace_id).toBe('legacy-trace');
+    expect(payload.traceId).toBe('legacy-trace');
   });
 
   it('builds board from legacy propsPreview', () => {
