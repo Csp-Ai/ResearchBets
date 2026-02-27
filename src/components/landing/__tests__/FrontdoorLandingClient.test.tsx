@@ -7,102 +7,44 @@ import { FrontdoorLandingClient } from '@/src/components/landing/FrontdoorLandin
 import { renderWithNervousSystem } from '@/src/test-utils/renderWithNervousSystem';
 
 let slipState: Array<{ id: string; player: string; marketType: string; line: string; odds: string; game?: string }> = [];
-
-const addLeg = vi.fn((leg) => {
-  if (!slipState.some((item) => item.id === leg.id)) slipState.push(leg);
-});
-const removeLeg = vi.fn((legId: string) => {
-  slipState = slipState.filter((leg) => leg.id !== legId);
-});
+const addLeg = vi.fn((leg) => { if (!slipState.some((item) => item.id === leg.id)) slipState.push(leg); });
+const removeLeg = vi.fn((legId: string) => { slipState = slipState.filter((leg) => leg.id !== legId); });
 
 vi.mock('@/src/hooks/useDraftSlip', () => ({
-  useDraftSlip: () => ({
-    slip: slipState,
-    addLeg,
-    removeLeg,
-    getSlip: vi.fn(),
-    updateLeg: vi.fn(),
-    setSlip: vi.fn(),
-    clearSlip: vi.fn()
-  })
+  useDraftSlip: () => ({ slip: slipState, addLeg, removeLeg, getSlip: vi.fn(), updateLeg: vi.fn(), setSlip: vi.fn(), clearSlip: vi.fn() })
 }));
 
-describe('FrontdoorLandingClient', () => {
+describe('FrontdoorLandingClient live modes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     slipState = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          ok: true,
-          trace_id: 'trace-frontdoor-1',
-          data: {
-            mode: 'demo',
-            reason: 'deterministic_fallback',
-            games: [
-              { id: 'g1', matchup: 'NYK @ IND', startTime: '7:00 PM' },
-              { id: 'g2', matchup: 'LAL @ DEN', startTime: '8:30 PM' }
-            ],
-            board: Array.from({ length: 6 }, (_, index) => ({
-              id: `p-${index + 1}`,
-              gameId: index % 2 === 0 ? 'g1' : 'g2',
-              player: `Player ${index + 1}`,
-              market: 'points',
-              line: '20.5',
-              odds: '-110',
-              hitRateL10: 60,
-              riskTag: 'stable'
-            }))
-          }
-        })
-      }))
-    );
   });
 
-  it('renders canonical demo mode label with compact board rows', async () => {
+  it('renders active slate rows', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 't1', data: { mode: 'live', status: 'active', games: [{ id: 'g1', matchup: 'NYK @ IND', startTime: '7:00 PM' }], board: [{ id: 'p1', gameId: 'g1', player: 'Player 1', market: 'points', line: '20.5', odds: '-110', hitRateL10: 63 }] } }) })));
     renderWithNervousSystem(<FrontdoorLandingClient />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Demo mode (live feeds off)')).toBeTruthy();
-    });
-
-    expect(screen.getByText('Slip rail')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add Player 1 points 20.5 to slip' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('NYK @ IND')).toBeTruthy());
     expect(screen.getByText('Player 1')).toBeTruthy();
-    expect(screen.getAllByText('-110').length).toBeGreaterThan(0);
   });
 
-  it('uses desktop rail grid structure and compact plus-minus row controls', async () => {
-    const { container } = renderWithNervousSystem(<FrontdoorLandingClient />);
-
-    await waitFor(() => {
-      expect(screen.getAllByTestId('slip-rail-desktop').length).toBeGreaterThan(0);
-    });
-
-    expect(screen.getAllByTestId('landing-terminal-grid').length).toBeGreaterThan(0);
-
-    const rows = screen.getAllByTestId('terminal-prop-rows');
-    expect(rows.length).toBeGreaterThan(0);
-    expect(container.querySelector('.legacy-prop-bar')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Add Player 1 points 20.5 to slip' }).textContent).toBe('+');
+  it('renders next slate chip copy', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 't2', data: { mode: 'live', status: 'next', nextAvailableStartTime: '2026-01-15T20:00:00.000Z', games: [{ id: 'g2', matchup: 'LAL @ DEN', startTime: '8:30 PM' }], board: [] } }) })));
+    renderWithNervousSystem(<FrontdoorLandingClient />);
+    await waitFor(() => expect(screen.getByText(/Next slate begins at/i)).toBeTruthy());
   });
 
-  it('keeps primary CTA disabled when empty and enables after trying sample slip', async () => {
-    const view = renderWithNervousSystem(<FrontdoorLandingClient />);
+  it('renders market closed state', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 't3', data: { mode: 'live', status: 'market_closed', games: [], board: [] } }) })));
+    renderWithNervousSystem(<FrontdoorLandingClient />);
+    await waitFor(() => expect(screen.getByText('Markets closed.')).toBeTruthy());
+    expect(screen.getByText('Upload last slip →')).toBeTruthy();
+  });
 
-    await waitFor(() => {
-      expect(screen.getAllByText('Start by adding legs →').length).toBeGreaterThan(0);
-    });
-
-    const sampleAction = screen.getAllByRole('button', { name: 'Try sample slip' })[0];
-    fireEvent.click(sampleAction as HTMLElement);
-    view.rerender(<FrontdoorLandingClient />);
-
-    await waitFor(() => {
-      expect(screen.getAllByText('Stress test this slip →').length).toBeGreaterThan(0);
-    });
-    expect(addLeg).toHaveBeenCalled();
+  it('shows partial feed chip', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 't4', data: { mode: 'live', games: [], board: [], providerHealth: [{ provider: 'the-odds-api', ok: false, message: 'timeout' }] } }) })));
+    renderWithNervousSystem(<FrontdoorLandingClient />);
+    await waitFor(() => expect(screen.getByText('Live feeds: Partial')).toBeTruthy());
+    fireEvent.click(screen.getByText('Live feeds: Partial'));
+    expect(screen.getByText(/the-odds-api/i)).toBeTruthy();
   });
 });

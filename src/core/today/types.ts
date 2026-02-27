@@ -5,6 +5,13 @@ export type TodayLeague = (typeof TODAY_LEAGUES)[number];
 
 export type TodayMode = 'live' | 'cache' | 'demo';
 
+export type ProviderHealth = {
+  provider: string;
+  ok: boolean;
+  message?: string;
+  missingKey?: boolean;
+};
+
 
 export type TodayProvenance = {
   mode: TodayMode;
@@ -80,9 +87,12 @@ export type TodayPayload = {
   modeFallbackApplied?: boolean;
   providerErrors?: string[];
   userSafeReason?: string;
+  status?: 'active' | 'next' | 'market_closed';
+  nextAvailableStartTime?: string;
+  providerHealth?: ProviderHealth[];
   landing?: {
-    mode: 'live' | 'demo';
-    reason: 'live_ok' | 'demo_requested' | 'live_mode_disabled' | 'missing_keys' | 'provider_unavailable';
+    mode: 'live';
+    reason: 'live_ok' | 'missing_keys' | 'provider_unavailable';
     gamesCount: number;
     lastUpdatedAt: string;
     headlineMatchup?: string;

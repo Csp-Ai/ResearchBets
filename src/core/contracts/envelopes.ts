@@ -17,6 +17,15 @@ export const TodayPayloadSchema = z.object({
     reason: z.string().optional(),
     generatedAt: z.string(),
   }).optional(),
+
+  status: z.enum(['active', 'next', 'market_closed']).optional(),
+  nextAvailableStartTime: z.string().optional(),
+  providerHealth: z.array(z.object({
+    provider: z.string().min(1),
+    ok: z.boolean(),
+    message: z.string().optional(),
+    missingKey: z.boolean().optional(),
+  })).optional(),
   games: z.array(z.object({
     id: z.string().min(1),
     matchup: z.string().min(1),
