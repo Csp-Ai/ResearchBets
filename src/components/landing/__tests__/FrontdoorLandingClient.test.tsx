@@ -51,6 +51,19 @@ describe('FrontdoorLandingClient live modes', () => {
     expect(href).not.toContain('trace=latest-trace-9');
   });
 
+
+  it('renders cognitive engine hero artifacts above the board', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 'trace-hero', data: { mode: 'demo', status: 'active', games: [{ id: 'g1', matchup: 'DAL @ PHX', startTime: '8:00 PM' }], board: [{ id: 'p1', gameId: 'g1', player: 'K. Irving', market: 'points', line: '24.5', odds: '-110' }] } }) })));
+
+    renderWithNervousSystem(<FrontdoorLandingClient />);
+
+    await waitFor(() => expect(screen.getByTestId('pipeline-hero-panel')).toBeTruthy());
+    expect(screen.getByText('Pipeline visualizer')).toBeTruthy();
+    expect(screen.getByText('Trace feed')).toBeTruthy();
+    expect(screen.getByText('Weakest-leg delta impact')).toBeTruthy();
+    expect(screen.getByText('Model confidence calibration')).toBeTruthy();
+  });
+
   it('renders run status pill with stable trace_id', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const href = String(input);
