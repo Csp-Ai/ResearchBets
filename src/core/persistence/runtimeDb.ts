@@ -13,6 +13,7 @@ import type {
   InsightNodeRecord,
   OutcomeSnapshotRecord,
   EdgeRealizedRecord,
+  SlipOutcomeRecord,
   UserTrackedBetRecord,
   SessionRecord,
   SlipSubmission,
@@ -37,6 +38,7 @@ export interface RuntimeDb {
   insightNodes: InsightNodeRecord[];
   outcomeSnapshots: OutcomeSnapshotRecord[];
   edgeRealized: EdgeRealizedRecord[];
+  slipOutcomes: SlipOutcomeRecord[];
   trackedProps: UserTrackedBetRecord[];
 }
 
@@ -57,6 +59,7 @@ export const persistenceDb: RuntimeDb = {
   insightNodes: [],
   outcomeSnapshots: [],
   edgeRealized: [],
+  slipOutcomes: [],
   trackedProps: []
 };
 
@@ -268,6 +271,19 @@ export class MemoryRuntimeStore implements RuntimeStore {
     return [...persistenceDb.edgeRealized];
   }
 
+  async saveSlipOutcome(outcome: SlipOutcomeRecord): Promise<void> {
+    const existingIndex = persistenceDb.slipOutcomes.findIndex((item) => item.id === outcome.id);
+    if (existingIndex >= 0) {
+      persistenceDb.slipOutcomes[existingIndex] = outcome;
+      return;
+    }
+    persistenceDb.slipOutcomes.unshift(outcome);
+  }
+
+  async listSlipOutcomes(): Promise<SlipOutcomeRecord[]> {
+    return [...persistenceDb.slipOutcomes];
+  }
+
   async saveTrackedProp(prop: UserTrackedBetRecord): Promise<void> {
     const existingIndex = persistenceDb.trackedProps.findIndex((item) => item.id === prop.id);
     if (existingIndex >= 0) {
@@ -398,5 +414,6 @@ export const resetRuntimeDb = (): void => {
   persistenceDb.insightNodes.length = 0;
   persistenceDb.outcomeSnapshots.length = 0;
   persistenceDb.edgeRealized.length = 0;
+  persistenceDb.slipOutcomes.length = 0;
   persistenceDb.trackedProps.length = 0;
 };
