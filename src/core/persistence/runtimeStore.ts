@@ -189,6 +189,24 @@ export interface EdgeRealizedRecord {
   computedAt: string;
 }
 
+export interface SlipOutcomeRecord {
+  id: string;
+  traceId: string;
+  runId: string;
+  userId: string | null;
+  verdictInternal: 'KEEP' | 'MODIFY' | 'PASS';
+  verdictPresented: 'TAKE' | 'MODIFY' | 'PASS';
+  confidenceScore: number;
+  fragilityScore: number;
+  correlationScore: number;
+  weakestLeg: string;
+  topReasons: string[];
+  finalOutcome: 'WIN' | 'LOSS' | 'PUSH';
+  hitWeakestLeg: boolean;
+  verdictCorrect: boolean;
+  createdAt: string;
+}
+
 export interface UserTrackedBetRecord {
   id: string;
   gameId: string;
@@ -302,6 +320,8 @@ export interface RuntimeStore {
   getOutcomeSnapshot(gameId: string): Promise<OutcomeSnapshotRecord | null>;
   saveEdgeRealized(edge: EdgeRealizedRecord): Promise<void>;
   listEdgeRealized(): Promise<EdgeRealizedRecord[]>;
+  saveSlipOutcome(outcome: SlipOutcomeRecord): Promise<void>;
+  listSlipOutcomes(): Promise<SlipOutcomeRecord[]>;
   saveTrackedProp(prop: UserTrackedBetRecord): Promise<void>;
   listTrackedProps(gameId?: string): Promise<UserTrackedBetRecord[]>;
   getRecommendationOutcome(recommendationId: string): Promise<RecommendationOutcome | null>;

@@ -134,6 +134,7 @@ Key current truth from audits: audit manifests can lag route changes; treat rout
 
 - Prop scout agent (`src/core/agents/propScout.server.ts`) now ranks per-game recommendations deterministically by edge + L10, powering `/game/[gameId]` detail cards.
 - Outcome learning loop (`/api/outcomes/log`, `src/core/learning/updateWeights.server.ts`) logs settled picks and emits `learning_update` events tied to `run_id`.
+- Calibration + defensibility loop (`src/core/metrics/calibrationEngine.ts`, `/api/metrics/calibration`) computes deterministic scorecard metrics (TAKE accuracy, weakest-leg accuracy, confidence bucket calibration, decision-profile tendencies) from trace-linked outcome logs.
 
 ## Tonight decision surface intelligence (`/tonight`)
 

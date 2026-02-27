@@ -18,6 +18,7 @@ import type {
   InsightNodeRecord,
   OutcomeSnapshotRecord,
   EdgeRealizedRecord,
+  SlipOutcomeRecord,
   UserTrackedBetRecord,
   SessionRecord,
   SlipSubmission,
@@ -47,6 +48,7 @@ const TABLES = {
   insightNodes: 'insight_nodes',
   outcomeSnapshots: 'outcome_snapshots',
   edgeRealized: 'edge_realized',
+  slipOutcomes: 'slip_outcomes',
   trackedProps: 'tracked_props'
 } as const;
 
@@ -636,6 +638,52 @@ export class SupabaseRuntimeStore implements RuntimeStore {
       closingLineMovement: Number(row.closing_line_movement ?? 0),
       edgeDirection: row.edge_direction as EdgeRealizedRecord['edgeDirection'],
       computedAt: row.computed_at as string
+    }));
+  }
+
+  async saveSlipOutcome(outcome: SlipOutcomeRecord): Promise<void> {
+    const { error } = await this.client.from(TABLES.slipOutcomes).upsert({
+      id: outcome.id,
+      trace_id: outcome.traceId,
+      run_id: outcome.runId,
+      user_id: outcome.userId,
+      verdict_internal: outcome.verdictInternal,
+      verdict_presented: outcome.verdictPresented,
+      confidence_score: outcome.confidenceScore,
+      fragility_score: outcome.fragilityScore,
+      correlation_score: outcome.correlationScore,
+      weakest_leg: outcome.weakestLeg,
+      top_reasons: outcome.topReasons,
+      final_outcome: outcome.finalOutcome,
+      hit_weakest_leg: outcome.hitWeakestLeg,
+      verdict_correct: outcome.verdictCorrect,
+      created_at: outcome.createdAt
+    });
+    if (error) throw error;
+  }
+
+  async listSlipOutcomes(): Promise<SlipOutcomeRecord[]> {
+    const { data, error } = await this.client
+      .from(TABLES.slipOutcomes)
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      traceId: row.trace_id as string,
+      runId: row.run_id as string,
+      userId: (row.user_id as string | null) ?? null,
+      verdictInternal: row.verdict_internal as SlipOutcomeRecord['verdictInternal'],
+      verdictPresented: row.verdict_presented as SlipOutcomeRecord['verdictPresented'],
+      confidenceScore: Number(row.confidence_score),
+      fragilityScore: Number(row.fragility_score),
+      correlationScore: Number(row.correlation_score),
+      weakestLeg: row.weakest_leg as string,
+      topReasons: (row.top_reasons as string[] | null) ?? [],
+      finalOutcome: row.final_outcome as SlipOutcomeRecord['finalOutcome'],
+      hitWeakestLeg: Boolean(row.hit_weakest_leg),
+      verdictCorrect: Boolean(row.verdict_correct),
+      createdAt: row.created_at as string
     }));
   }
 
