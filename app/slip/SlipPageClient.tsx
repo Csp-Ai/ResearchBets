@@ -103,7 +103,7 @@ export default function SlipPageClient() {
     if (dedupedLegs.length === 0) return;
     const tracking = createTrackingFromDraft(dedupedLegs, boardMode);
     saveSlip(tracking);
-    router.push(`/track?slipId=${tracking.slipId}`);
+    router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
   };
 
   const onCopyLegs = async () => {
@@ -171,8 +171,8 @@ export default function SlipPageClient() {
             setSlip(nextLegs);
           }} />
           <div className="grid grid-cols-1 gap-2">
+            <button type="button" className="w-full rounded-xl border border-emerald-300/80 bg-emerald-500/20 px-4 py-3 text-base font-semibold text-emerald-50 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track slip ({dedupedLegs.length})</button>
             <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze now ({dedupedLegs.length})</button>
-            <button type="button" className="w-full rounded-xl border border-emerald-400/60 bg-emerald-500/10 px-4 py-3 text-base font-semibold text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track this slip</button>
           </div>
         </div>
       </div>
