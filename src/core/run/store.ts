@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from '@/services/supabaseClient';
+import { buildSlipStructureReport, computeSlipIntelligence } from '@/src/core/slips/slipIntelligence';
 
 import { normalizeRun } from '@/src/core/run/normalizeRun';
 import type { Run } from './types';
@@ -193,3 +194,51 @@ export const createRunStore = (): RunStore => {
 };
 
 export const runStore: RunStore = createRunStore();
+
+export type SlipWarningLeg = {
+  id: string;
+  player: string;
+  marketType: string;
+  line: string;
+  odds?: string;
+  game?: string;
+};
+
+export type InlineSlipWarnings = {
+  weakestLeg: string | null;
+  highCorrelation: boolean;
+  overstacked: boolean;
+};
+
+export function computeInlineSlipWarnings(legs: SlipWarningLeg[]): InlineSlipWarnings {
+  if (legs.length === 0) return { weakestLeg: null, highCorrelation: false, overstacked: false };
+
+  const report = buildSlipStructureReport(legs.map((leg) => ({
+    id: leg.id,
+    player: leg.player,
+    marketType: leg.marketType,
+    line: leg.line,
+    odds: leg.odds,
+    game: leg.game
+  })));
+  const intel = computeSlipIntelligence(legs.map((leg) => ({
+    id: leg.id,
+    player: leg.player,
+    marketType: leg.marketType,
+    line: leg.line,
+    odds: leg.odds,
+    game: leg.game
+  })));
+
+  const weakestLegId = report.weakest_leg_id;
+  const weakestLegData = weakestLegId ? report.legs.find((leg) => leg.leg_id === weakestLegId) : undefined;
+  const weakestLeg = weakestLegData ? `${weakestLegData.player ?? 'Unknown'} ${weakestLegData.market} ${weakestLegData.line ?? ''}`.trim() : null;
+  const overstacked = report.script_clusters.some((cluster) => cluster.leg_ids.length >= 4)
+    || intel.exposureSummary.topGames.some((game) => game.count >= 4);
+
+  return {
+    weakestLeg,
+    highCorrelation: intel.correlationScore >= 55 || intel.sameGameStack,
+    overstacked
+  };
+}
