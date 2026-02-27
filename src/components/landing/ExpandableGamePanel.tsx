@@ -55,23 +55,23 @@ export function ExpandableGamePanel({ gameId, matchup, startTime, props, inSlip,
   const spread = props.find((prop) => prop.market.toLowerCase().includes('spread'));
   const total = props.find((prop) => prop.market.toLowerCase().includes('total'));
   const sorted = [...props].sort((left, right) => confidenceFromProp(right) - confidenceFromProp(left));
-  const visible = expanded ? sorted : sorted.slice(0, 2);
+  const visible = expanded ? sorted : sorted.slice(0, 3);
 
   return (
-    <Panel className="p-3" >
-      <div className="flex items-start justify-between gap-3">
+    <Panel className="p-2.5" >
+      <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-slate-100">{matchup.replace('@', 'vs')}</p>
           <p className="text-xs text-white/60">{startTime}</p>
         </div>
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {underdog ? <Chip variant="good">Underdog {underdog.odds}</Chip> : null}
+        <div className="flex flex-wrap justify-end gap-1">
+          {underdog ? <Chip variant="good">Dog {underdog.odds}</Chip> : null}
           {spread ? <Chip>Spread {spread.line}</Chip> : null}
           {total ? <Chip>Total {total.line}</Chip> : null}
         </div>
       </div>
 
-      <div className="mt-3 space-y-2" data-testid="value-props-grid">
+      <div className="mt-2 space-y-1.5" data-testid="value-props-grid">
         {visible.map((prop) => {
           const selected = inSlip(prop.id);
           const confidence = confidenceFromProp(prop);
@@ -80,14 +80,15 @@ export function ExpandableGamePanel({ gameId, matchup, startTime, props, inSlip,
             <SlipRow
               key={prop.id}
               className={`transition ${pulsePropId === prop.id ? 'border-cyan-300/60 bg-cyan-300/10' : ''}`}
-              leftPrimary={`${prop.player} — ${prop.line} ${prop.market.toUpperCase()}`}
-              leftSecondary={`Hit L10: ${l10} • Risk: ${riskCopy(prop.riskTag)}`}
+              leftPrimary={<span>{prop.player} • {prop.market.toUpperCase()}</span>}
+              leftSecondary={`Line ${prop.line} • Hit ${l10} • ${riskCopy(prop.riskTag)}`}
               right={(
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {prop.odds ? <span className="text-xs text-white/70">{prop.odds}</span> : null}
-                  <MicroBar value={confidence} />
+                  <Chip className="px-2 py-0.5 text-[10px]">{confidence}%</Chip>
                   <IconButton
                     type="button"
+                    className="h-8 w-8"
                     aria-label={`${selected ? 'Remove' : 'Add'} ${prop.player} ${prop.market} ${prop.line}`}
                     onClick={() => {
                       onToggleLeg(prop);
@@ -104,15 +105,17 @@ export function ExpandableGamePanel({ gameId, matchup, startTime, props, inSlip,
         })}
       </div>
 
-      {sorted.length > 2 ? (
+      <MicroBar className="mt-2 w-full" value={Math.max(40, Math.round(sorted.reduce((acc, prop) => acc + confidenceFromProp(prop), 0) / Math.max(1, sorted.length)))} />
+
+      {sorted.length > 3 ? (
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="mt-3 text-xs text-cyan-100 underline-offset-2 transition hover:text-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+          className="mt-2 text-xs text-cyan-100 underline-offset-2 transition hover:text-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
           aria-expanded={expanded}
           aria-controls={`more-props-${gameId}`}
         >
-          {expanded ? 'Show fewer props' : `Show more props (${sorted.length - 2})`}
+          {expanded ? 'Show fewer props' : `Show more props (${sorted.length - 3})`}
         </button>
       ) : null}
       <div id={`more-props-${gameId}`} className="sr-only" />
