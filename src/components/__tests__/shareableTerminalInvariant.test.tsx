@@ -48,6 +48,7 @@ describe('shareable terminal copy invariants', () => {
         onCopySlip={vi.fn()}
         onShareRun={vi.fn()}
         slipHref="/slip"
+        boardHref="/today?tab=board"
         shareStatus="idle"
         demoSlip={'A over\nB over'}
       />

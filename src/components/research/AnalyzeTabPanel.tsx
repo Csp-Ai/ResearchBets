@@ -10,7 +10,6 @@ import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import {
-  EmptyStateBettor,
   LegRankList,
   type AnalyzeLeg
 } from '@/src/components/bettor/BettorFirstBlocks';
@@ -36,6 +35,7 @@ type AnalyzeTabPanelProps = {
   onCopySlip: () => void;
   onShareRun: () => void;
   slipHref: string;
+  boardHref: string;
   shareStatus: 'idle' | 'done' | 'error';
   uncertainty?: string;
   demoSlip: string;
@@ -58,6 +58,7 @@ export default function AnalyzeTabPanel({
   onCopySlip,
   onShareRun,
   slipHref,
+  boardHref,
   shareStatus,
   uncertainty,
   demoSlip,
@@ -99,6 +100,7 @@ export default function AnalyzeTabPanel({
   });
   const combinedReasons = selectTopReasons(rankedReasons, 3);
   const hasSlip = legs.length > 0;
+  const hasWeakestLeg = Boolean(riskSummary.weakestLeg && riskSummary.weakestLeg.toLowerCase() !== 'unknown leg');
   const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip)
     .split('\n')
     .map((line) => line.trim())
@@ -118,27 +120,44 @@ export default function AnalyzeTabPanel({
       </section>
 
       <Surface kind="hero" className="space-y-3 p-4" data-testid="decision-terminal-verdict">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
-          <p className="text-2xl font-bold text-strong">{presentRecommendation(riskSummary.recommendation)}</p>
-          <p className="text-sm text-subtle">Confidence {riskSummary.confidencePct}% · Risk {riskSummary.riskLabel}</p>
-          <p className="text-sm font-semibold text-amber-200">Weakest leg: {riskSummary.weakestLeg}</p>
-          <p className="text-xs text-rose-200">Dominant risk factor: {riskSummary.dominantRiskFactor}</p>
-        </div>
-        <ul className="space-y-1 text-sm text-subtle">
-          {combinedReasons.length > 0 ? combinedReasons.map((reason) => <li key={reason}>• {reason}</li>) : <li>• Review line movement and recent hit rate before placement.</li>}
-        </ul>
-        {uncertainty ? <p className="text-xs text-muted">Uncertainty: {uncertainty}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          <Button intent="primary" onClick={onCopySlip}>{copySlipStatus === 'done' ? 'Copied slip' : copySlipStatus === 'error' ? 'Copy unavailable' : 'Copy slip'}</Button>
-          <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Edit in Slip</a>
-          <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onCopyReasons}>
-            {copyStatus === 'done' ? 'Copied reasons' : copyStatus === 'error' ? 'Copy unavailable' : 'Copy reasons'}
-          </button>
-          <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onShareRun}>
-            {shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}
-          </button>
-        </div>
+        {hasSlip ? (
+          <>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
+              <p className="text-2xl font-bold text-strong">{presentRecommendation(riskSummary.recommendation)}</p>
+              <p className="text-sm text-subtle">Confidence {riskSummary.confidencePct}% · Risk {riskSummary.riskLabel}</p>
+              {hasWeakestLeg ? <p className="text-sm font-semibold text-amber-200">Weakest leg: {riskSummary.weakestLeg}</p> : null}
+              <p className="text-xs text-rose-200">Dominant risk factor: {riskSummary.dominantRiskFactor}</p>
+            </div>
+            <ul className="space-y-1 text-sm text-subtle">
+              {combinedReasons.length > 0 ? combinedReasons.map((reason) => <li key={reason}>• {reason}</li>) : <li>• Review line movement and recent hit rate before placement.</li>}
+            </ul>
+            {uncertainty ? <p className="text-xs text-muted">Uncertainty: {uncertainty}</p> : null}
+            <div className="flex flex-wrap gap-2">
+              <Button intent="primary" onClick={onCopySlip}>{copySlipStatus === 'done' ? 'Copied slip' : copySlipStatus === 'error' ? 'Copy unavailable' : 'Copy slip'}</Button>
+              <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Edit in Slip</a>
+              <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onCopyReasons}>
+                {copyStatus === 'done' ? 'Copied reasons' : copyStatus === 'error' ? 'Copy unavailable' : 'Copy reasons'}
+              </button>
+              <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onShareRun}>
+                {shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3" data-testid="empty-slip-verdict-state">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
+              <p className="text-lg font-semibold text-strong">Add a slip to get a verdict.</p>
+            </div>
+            <p className="text-sm text-subtle">Run a sample slip to see weakest-leg + correlation risk.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button intent="primary" onClick={onPasteOpen}>Paste slip</Button>
+              <Button intent="secondary" onClick={onTryExample}>Try sample slip (demo)</Button>
+              <a href={boardHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Build from Board</a>
+            </div>
+          </div>
+        )}
       </Surface>
 
       <Surface className="space-y-3 p-4">
@@ -165,7 +184,7 @@ export default function AnalyzeTabPanel({
 
       <details className="ui-shell-drawer px-3 py-2" data-testid="run-details-collapsed">
         <summary className="cursor-pointer text-xs font-semibold tracking-wide text-muted">Run details</summary>
-        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <EmptyStateBettor onPaste={onPasteOpen} />}
+        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-subtle">Run a sample slip to see weakest-leg + correlation risk.</p>}
       </details>
     </div>
   );
