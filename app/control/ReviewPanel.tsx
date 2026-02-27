@@ -35,11 +35,15 @@ const buildNextTimeAdjustments = (postmortem: PostMortemResult): string[] => {
 export function ReviewPanel({
   retroDto,
   uploadName,
-  postmortem
+  postmortem,
+  shareStatus,
+  onShare
 }: {
   retroDto: ResearchRunDTO | null;
   uploadName: string;
   postmortem: PostMortemResult | null;
+  shareStatus: 'idle' | 'done' | 'error';
+  onShare: () => void;
 }) {
   const reviewIntelLegs = retroDto?.legs.map((leg) => ({
     id: leg.id,
@@ -65,7 +69,7 @@ export function ReviewPanel({
     <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm space-y-2">
       <SlipIntelBar legs={reviewIntelLegs} />
       <p className="font-medium">Parsed slip ({uploadName || 'sample'}): {retroDto.legs.length} legs</p>
-      <p>What failed: <span className="text-cyan-300">{postmortem?.classification.process ?? 'Running…'}</span></p>
+      <p>What happened: <span className="text-cyan-300">{postmortem?.classification.process ?? 'Running…'}</span></p>
       <p>Verdict: {presentRecommendation(retroDto.verdict.decision)} · Fragility {retroDto.verdict.fragility_score}/100 · Correlation {retroDto.verdict.correlation_flag ? 'High' : 'Managed'}</p>
       <p>Weakest leg: {weakestLegLabel}</p>
       <p>Volatility: {retroDto.verdict.volatility_summary}</p>
@@ -73,6 +77,11 @@ export function ReviewPanel({
       <ul className="list-disc pl-5 text-slate-300">
         {postmortemReasons.map((reason) => <li key={reason}>{reason}</li>)}
       </ul>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={onShare} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">
+          {shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}
+        </button>
+      </div>
       {postmortem ? (
         <div>
           <p className="font-medium mt-2">What to change next time</p>
