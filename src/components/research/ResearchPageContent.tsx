@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -139,6 +139,8 @@ export default function ResearchPageContent() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [copySlipStatus, setCopySlipStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
+  const [activeTraceId, setActiveTraceId] = useState<string>('');
+  const autoDemoTriggeredRef = useRef(false);
   const { slip } = useDraftSlip();
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
@@ -212,6 +214,29 @@ export default function ResearchPageContent() {
     };
   }, [recentRuns.length, nervous.date, nervous.mode, nervous.sport, nervous.tz, nervous]);
 
+
+  useEffect(() => {
+    if (traceFromQuery) {
+      setActiveTraceId(traceFromQuery);
+      autoDemoTriggeredRef.current = true;
+    }
+  }, [traceFromQuery]);
+
+  useEffect(() => {
+    if (autoDemoTriggeredRef.current) return;
+    if (nervous.mode !== 'demo' || safeTab !== 'analyze') return;
+    if (traceFromQuery || prefillFromQuery || prefillKeyFromQuery || rawSlip.trim()) return;
+
+    autoDemoTriggeredRef.current = true;
+    setRawSlip(DEMO_SLIP);
+    void runSlip(DEMO_SLIP, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
+      setActiveTraceId(traceId);
+      await refreshRecent();
+      router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
+    }).catch(() => {
+      autoDemoTriggeredRef.current = false;
+    });
+  }, [nervous, prefillFromQuery, prefillKeyFromQuery, rawSlip, refreshRecent, router, safeTab, traceFromQuery]);
   useEffect(() => {
     if (traceFromQuery) {
       void runStore.getRun(traceFromQuery).then((run) => setCurrentRun(run));
@@ -341,7 +366,7 @@ export default function ResearchPageContent() {
   }, [legs, runDto]);
 
   const shareRun = useCallback(async () => {
-    const traceId = runDto?.trace_id ?? currentRun?.trace_id ?? traceFromQuery;
+    const traceId = runDto?.trace_id ?? currentRun?.trace_id ?? activeTraceId ?? traceFromQuery;
     const shareHref = buildShareRunHref(nervous, traceId);
     if (!shareHref || typeof navigator === 'undefined' || !navigator.clipboard) {
       setShareStatus('error');
@@ -354,7 +379,7 @@ export default function ResearchPageContent() {
     } catch {
       setShareStatus('error');
     }
-  }, [currentRun?.trace_id, nervous, runDto?.trace_id, traceFromQuery]);
+  }, [activeTraceId, currentRun?.trace_id, nervous, runDto?.trace_id, traceFromQuery]);
 
   return (
     <section className="mx-auto max-w-6xl space-y-4">
@@ -398,6 +423,7 @@ export default function ResearchPageContent() {
           onCopySlip={() => void copySlip()}
           onShareRun={() => void shareRun()}
           slipHref={slipHref}
+          boardHref={boardHref}
           shareStatus={shareStatus}
           uncertainty={currentRun?.analysis.dataQuality?.confidenceCapReason}
           demoSlip={DEMO_SLIP}

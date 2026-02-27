@@ -40,7 +40,7 @@ export function formatWeakestLeg(weakest?: { player?: string; selection?: string
   const note = Array.isArray(weakest?.notes) ? weakest?.notes[0] : weakest?.notes;
   const candidate = weakest?.player ?? weakest?.selection ?? note ?? 'Unknown leg';
   const normalized = cleanToken(candidate);
-  if (!normalized || isDirty(normalized)) return 'Unknown Leg';
+  if (!normalized || isDirty(normalized)) return '';
   const clipped = normalized.slice(0, 72);
   return toTitleCase(clipped);
 }
@@ -94,14 +94,16 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
   const confidencePct = clamp(100 - fragilityScore);
   const riskLabel = fragilityScore >= 65 ? 'High' : fragilityScore >= 40 ? 'Medium' : 'Low';
 
+  const weakestLeg = formatWeakestLeg(weakest);
+
   const reasonBullets = [
     dominantRiskFactor,
-    `Weakest leg: ${formatWeakestLeg(weakest)}.`,
+    ...(weakestLeg ? [`Weakest leg: ${weakestLeg}.`] : []),
     `Correlation check: ${correlationReason}`
   ].slice(0, 3);
 
   return {
-    weakestLeg: formatWeakestLeg(weakest),
+    weakestLeg,
     fragilityScore,
     correlationFlag,
     correlationReason,

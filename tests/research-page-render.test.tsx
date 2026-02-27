@@ -10,9 +10,10 @@ import ResearchPageContent from '@/src/components/research/ResearchPageContent';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 
 const push = vi.fn();
+const replace = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
   useSearchParams: () => ({ get: () => null }),
 }));
 
@@ -55,10 +56,10 @@ describe('/research render polish', () => {
     ]));
 
     renderWithProviders(<ResearchPageContent />);
-    const link = await screen.findByRole('link', { name: 'Open latest run' });
-    const href = link.getAttribute('href') ?? '';
-    expect(href).toContain('trace_id=latest-research-trace');
-    expect(href).not.toContain('trace=latest-research-trace');
+    const links = await screen.findAllByRole('link', { name: 'Open latest run' });
+    const hrefs = links.map((link) => link.getAttribute('href') ?? '');
+    expect(hrefs.some((href) => href.includes('trace_id=latest-research-trace'))).toBe(true);
+    expect(hrefs.some((href) => href.includes('trace=latest-research-trace'))).toBe(false);
   });
 
   it('keeps structural smoke expectations stable', () => {
