@@ -4,6 +4,9 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { BoardTerminalTable, sortBoardRows, type TerminalBoardRow } from '@/src/components/today/BoardTerminalTable';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -61,6 +64,7 @@ const modeTone: Record<TodayPayload['mode'], string> = {
 export function TonightPageClient({ payload }: { payload: TodayPayload }) {
   const router = useRouter();
   const draft = useDraftSlip();
+  const nervous = useNervousSystem();
   const [highConvictionOnly, setHighConvictionOnly] = useState(false);
   const slateSummary = useMemo(() => buildSlateSummary(payload), [payload]);
   const reactiveWindow = useMemo(() => detectReactiveWindow(payload), [payload]);
@@ -90,7 +94,7 @@ export function TonightPageClient({ payload }: { payload: TodayPayload }) {
     if (draft.slip.length === 0) return;
     const tracking = createTrackingFromDraft(draft.slip, payload.mode);
     saveSlip(tracking);
-    router.push(`/track?slipId=${tracking.slipId}`);
+    router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
   };
 
   return (
@@ -107,6 +111,7 @@ export function TonightPageClient({ payload }: { payload: TodayPayload }) {
         <button type="button" className="mt-3 rounded border border-cyan-400/60 bg-cyan-500/10 px-3 py-1.5 text-xs" onClick={onTrackDraft}>
           Track slip ({draft.slip.length})
         </button>
+        <p className="mt-2 text-xs text-slate-300">Build a draft from leads, then Track slip to monitor DURING + journal AFTER.</p>
       </header>
 
       {reactiveWindow.isReactive ? (

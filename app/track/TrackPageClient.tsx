@@ -1,14 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { buildJournalEntry } from '@/src/core/journal/buildJournalEntry';
 import { saveJournalEntry } from '@/src/core/journal/storage';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { buildSlateSummary } from '@/src/core/slate/slateEngine';
+import { detectReactiveWindow } from '@/src/core/slate/reactiveWindow';
+import { generateRankedLeads, type BoardProp } from '@/src/core/slate/leadEngine';
 import { advanceDemoTracking } from '@/src/core/slips/demoSlipTracker';
-import { loadSlip, saveSlip } from '@/src/core/slips/storage';
+import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
+import { createTrackingFromDraft, loadSlip, saveSlip } from '@/src/core/slips/storage';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
+import type { TodayPayload } from '@/src/core/today/types';
+import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 
 const statusTone: Record<SlipTrackingState['status'], string> = {
   alive: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40',
@@ -17,10 +25,13 @@ const statusTone: Record<SlipTrackingState['status'], string> = {
 };
 
 export function TrackPageClient() {
+  const router = useRouter();
+  const nervous = useNervousSystem();
   const params = useSearchParams();
   const slipId = params.get('slipId') ?? '';
   const [state, setState] = useState<SlipTrackingState | null>(null);
   const [saved, setSaved] = useState(false);
+  const [sampleLoading, setSampleLoading] = useState(false);
 
   useEffect(() => {
     if (!slipId) return;
@@ -54,8 +65,96 @@ export function TrackPageClient() {
     window.setTimeout(() => setSaved(false), 2000);
   };
 
+  const onTrackLatestDraft = () => {
+    const draft = DraftSlipStore.getSlip();
+    if (draft.length === 0) {
+      router.push(appendQuery(nervous.toHref('/tonight'), {}));
+      return;
+    }
+    const tracking = createTrackingFromDraft(draft, 'demo');
+    saveSlip(tracking);
+    router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
+  };
+
+  const onSampleSlip = async () => {
+    setSampleLoading(true);
+    try {
+      const response = await fetch(nervous.toHref('/api/today'));
+      const payload = await response.json() as { ok?: boolean; data?: TodayPayload };
+      if (!payload.ok || !payload.data) return;
+
+      const board: BoardProp[] = payload.data.games.flatMap((game, gameIndex) => game.propsPreview.map((prop, propIndex) => ({
+        id: prop.id,
+        player: prop.player,
+        market: prop.market,
+        line: prop.line ?? '0.5',
+        odds: prop.odds ?? '-110',
+        hitRateL10: prop.hitRateL10 ?? (56 + ((gameIndex + propIndex) % 20)),
+        riskTag: prop.riskTag ?? (((gameIndex + propIndex) % 3 === 0) ? 'watch' : 'stable'),
+        gameId: game.id
+      })));
+
+      const slateSummary = buildSlateSummary(payload.data);
+      const reactiveWindow = detectReactiveWindow(payload.data);
+      const rankedLeads = generateRankedLeads(board, slateSummary, {
+        maxLeads: 7,
+        diversifyAcrossGames: true,
+        maxPerGame: 2,
+        minConviction: 60,
+        reactive: { isReactive: reactiveWindow.isReactive }
+      });
+
+      const selected = rankedLeads.slice(0, 7);
+      if (selected.length < 5) return;
+
+      const legs: SlipBuilderLeg[] = selected.map((lead) => ({
+        id: lead.prop.id,
+        player: lead.prop.player,
+        marketType: lead.prop.market,
+        line: lead.prop.line,
+        odds: lead.prop.odds,
+        game: lead.prop.gameId,
+        confidence: lead.convictionScore / 100,
+        volatility: lead.volatility
+      }));
+
+      DraftSlipStore.setSlip(legs);
+      const tracking = createTrackingFromDraft(legs, payload.data.mode);
+      saveSlip(tracking);
+      router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
+    } finally {
+      setSampleLoading(false);
+    }
+  };
+
   if (!state) {
-    return <section className="mx-auto max-w-4xl rounded-xl border border-slate-700 bg-slate-900/60 p-6">No tracked slip found. Build a draft and use <strong>Track slip</strong>.</section>;
+    const hasDraft = DraftSlipStore.getSlip().length > 0;
+
+    return (
+      <section className="mx-auto max-w-4xl rounded-xl border border-slate-700 bg-slate-900/60 p-6">
+        <h1 className="text-xl font-semibold">No tracked slip yet</h1>
+        <p className="mt-2 text-sm text-slate-300">Track a slip to get live status + learning even after elimination.</p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            className="rounded-lg border border-cyan-400/60 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-100"
+            onClick={onTrackLatestDraft}
+            title={hasDraft ? 'Create tracking from your latest draft.' : 'Build a quick draft first.'}
+          >
+            Track latest draft
+          </button>
+          <Link href={appendQuery(nervous.toHref('/tonight'), {})} className="rounded-lg border border-white/20 px-3 py-2 text-center text-sm text-slate-100">Open Tonight</Link>
+          <button
+            type="button"
+            className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 disabled:opacity-60"
+            onClick={() => void onSampleSlip()}
+            disabled={sampleLoading}
+          >
+            {sampleLoading ? 'Building sample…' : 'Try sample tracked slip (demo)'}
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -115,7 +214,7 @@ export function TrackPageClient() {
       <div className="flex items-center gap-2">
         <button type="button" className="rounded border border-cyan-400/70 bg-cyan-500/10 px-4 py-2 text-sm" onClick={onSaveJournal}>Save to Journal</button>
         {saved ? <span className="text-xs text-emerald-300">Saved</span> : null}
-        <Link href="/journal" className="text-xs underline text-slate-300">Open Journal</Link>
+        <Link href={appendQuery(nervous.toHref('/journal'), {})} className="text-xs underline text-slate-300">Open Journal</Link>
       </div>
     </section>
   );
