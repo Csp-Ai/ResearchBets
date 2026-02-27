@@ -15,6 +15,8 @@ export function PostmortemUploadWedge() {
   const nervous = useNervousSystem();
   const [text, setText] = useState('');
 
+  const storageKey = `rb:postmortem:${nervous.trace_id ?? 'unknown'}`;
+
   const parsed = useMemo((): ParsedSlip | null => {
     if (!text.trim()) return null;
     if (detectFanDuel(text)) return parseFanDuel(text);
@@ -61,7 +63,8 @@ export function PostmortemUploadWedge() {
         </div>
       ) : null}
       <Link
-        href={appendQuery(nervous.toHref('/stress-test'), { postmortem: 1, source: 'landing_wedge', book: parsed?.book })}
+        onClick={() => { if (parsed && typeof window !== 'undefined') window.sessionStorage.setItem(storageKey, JSON.stringify(parsed)); }}
+        href={appendQuery(nervous.toHref('/stress-test'), { postmortem: 1, source: 'landing_wedge', book: parsed?.book, trace_id: nervous.trace_id, prefill_key: storageKey })}
         className="mt-3 inline-block rounded-md border border-cyan-300/60 bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300"
       >
         Run post-mortem →

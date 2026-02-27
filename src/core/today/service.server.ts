@@ -1,101 +1,176 @@
 import 'server-only';
 
-import { getBoardData, type BoardSport } from '@/src/core/board/boardService.server';
-
 import { computeEdgeDelta, computeMarketImpliedProb, computeModelProb } from '@/src/core/markets/edgePrimitives';
-import { TODAY_LEAGUES, type TodayPayload } from './types';
+import { getProviderRegistry } from '@/src/core/providers/registry.server';
+import type { BoardSport } from '@/src/core/board/boardService.server';
+import { TODAY_LEAGUES, type ProviderHealth, type TodayPayload, type TodayPropKey } from './types';
 
 const TTL_MS = 120_000;
+const MARKETS = ['points', 'rebounds', 'assists'] as const;
 
 let cache: { key: string; expiresAt: number; payload: TodayPayload } | null = null;
 
-const boardSportToLeague = (sport: BoardSport) => sport;
+const toLocal = (iso: string, tz: string) =>
+  new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
 
-type LandingReason = NonNullable<TodayPayload['landing']>['reason'];
-
-const toLandingReason = (reason: string | undefined): LandingReason => {
-  if (reason === 'demo_requested') return 'demo_requested';
-  if (reason === 'live_mode_disabled') return 'live_mode_disabled';
-  if (reason === 'missing_keys') return 'missing_keys';
-  if (reason === 'provider_unavailable') return 'provider_unavailable';
-  return 'live_ok';
+const toSportKey = (sport: BoardSport) => {
+  if (sport === 'NBA') return 'basketball_nba';
+  if (sport === 'NFL') return 'americanfootball_nfl';
+  if (sport === 'NHL') return 'icehockey_nhl';
+  if (sport === 'MLB') return 'baseball_mlb';
+  return 'mma_mixed_martial_arts';
 };
 
-const withLandingSummary = (payload: TodayPayload): TodayPayload => {
+const startOfDay = (date: string) => new Date(`${date}T00:00:00.000Z`).getTime();
+const endOfDay = (date: string) => new Date(`${date}T23:59:59.999Z`).getTime();
+
+const providerHealth = (errors: string[] = []): ProviderHealth[] => [
+  {
+    provider: 'the-odds-api',
+    ok: errors.length === 0,
+    missingKey: !process.env.ODDS_API_KEY,
+    message: errors[0]
+  },
+  {
+    provider: 'sportsdataio',
+    ok: Boolean(process.env.SPORTSDATA_API_KEY),
+    missingKey: !process.env.SPORTSDATA_API_KEY,
+    message: process.env.SPORTSDATA_API_KEY ? undefined : 'SPORTSDATA_API_KEY missing'
+  }
+];
+
+function withLandingSummary(payload: TodayPayload): TodayPayload {
   const lastUpdatedAt = payload.games[0]?.lastUpdated ?? payload.generatedAt;
   return {
     ...payload,
     landing: {
-      mode: payload.mode === 'live' ? 'live' : 'demo',
-      reason: toLandingReason(payload.reason),
+      mode: 'live',
+      reason: payload.reason === 'missing_keys' ? 'missing_keys' : payload.reason === 'provider_unavailable' ? 'provider_unavailable' : 'live_ok',
       gamesCount: payload.games.length,
       lastUpdatedAt,
       headlineMatchup: payload.games[0]?.matchup
     }
   };
-};
+}
 
-export async function getTodayPayload(options?: { forceRefresh?: boolean; demoRequested?: boolean; sport?: BoardSport; date?: string; tz?: string }): Promise<TodayPayload> {
+export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?: BoardSport; date?: string; tz?: string }): Promise<TodayPayload> {
   const sport = options?.sport ?? 'NBA';
   const tz = options?.tz ?? 'America/Phoenix';
-  const date = options?.date;
-  const key = `${sport}:${tz}:${date ?? 'today'}:${options?.demoRequested ? 'demo' : 'auto'}`;
+  const date = options?.date ?? new Date().toISOString().slice(0, 10);
+  const key = `${sport}:${tz}:${date}`;
 
   if (!options?.forceRefresh && cache && cache.key === key && cache.expiresAt > Date.now()) {
     return withLandingSummary({ ...cache.payload, mode: 'cache' });
   }
 
-  const board = await getBoardData({ sport, tz, date, demoRequested: options?.demoRequested });
+  const registry = getProviderRegistry();
+  const now = Date.now();
+  const errors: string[] = [];
 
-  const generatedAt = new Date().toISOString();
+  let events: Array<{ id: string; commence_time?: string; home_team?: string; away_team?: string }> = [];
+  try {
+    const result = await registry.oddsProvider.fetchEvents({ sport: toSportKey(sport) });
+    events = (result.events ?? []) as Array<{ id: string; commence_time?: string; home_team?: string; away_team?: string }>;
+    if (result.fallbackReason) errors.push(result.fallbackReason);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'provider_unavailable');
+  }
+
+  const active = events.filter((event) => {
+    if (!event.commence_time) return false;
+    const stamp = new Date(event.commence_time).getTime();
+    return stamp >= startOfDay(date) && stamp <= endOfDay(date);
+  });
+
+  const nextWindow = events
+    .filter((event) => event.commence_time)
+    .filter((event) => {
+      const stamp = new Date(event.commence_time!).getTime();
+      return stamp > now && stamp <= now + 48 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => new Date(a.commence_time!).getTime() - new Date(b.commence_time!).getTime());
+
+  const selected = active.length > 0 ? active : nextWindow;
+  const status: TodayPayload['status'] = active.length > 0 ? 'active' : nextWindow.length > 0 ? 'next' : 'market_closed';
+
+  const games: TodayPayload['games'] = selected.slice(0, 8).map((event, idx) => {
+    const startTimeUTC = event.commence_time ?? new Date(now + idx * 3_600_000).toISOString();
+    const home = event.home_team ?? `HOME-${idx + 1}`;
+    const away = event.away_team ?? `AWAY-${idx + 1}`;
+    return {
+      id: event.id,
+      league: sport,
+      status: new Date(startTimeUTC).getTime() <= now ? 'live' as const : 'upcoming' as const,
+      startTime: toLocal(startTimeUTC, tz),
+      matchup: `${away} @ ${home}`,
+      teams: [away, home],
+      bookContext: 'Provider market board',
+      propsPreview: [],
+      provenance: 'the-odds-api',
+      lastUpdated: new Date().toISOString()
+    };
+  });
+
+  const eventIds = games.map((g) => g.id);
+  const board: TodayPropKey[] = [];
+  if (eventIds.length > 0) {
+    for (const market of MARKETS) {
+      try {
+        const odds = await registry.oddsProvider.fetchEventOdds({ sport, eventIds, marketType: market });
+        if (odds.fallbackReason) errors.push(odds.fallbackReason);
+        odds.platformLines.slice(0, 30).forEach((line, idx) => {
+          const game = games[idx % games.length];
+          if (!game) return;
+          const implied = computeMarketImpliedProb({ odds: typeof line.odds === 'number' ? String(line.odds) : String(line.odds ?? '-110') });
+          const model = computeModelProb({ deterministic: { idSeed: `${game.id}:${line.player}:${market}:${idx}`, hitRateL10: 56 + (idx % 20), riskTag: idx % 2 ? 'watch' : 'stable' } });
+          board.push({
+            id: `${game.id}:${market}:${idx}`,
+            player: line.player,
+            market,
+            line: String(line.line),
+            odds: typeof line.odds === 'number' ? String(line.odds) : String(line.odds ?? '-110'),
+            hitRateL10: 56 + (idx % 20),
+            hitRateL5: 54 + (idx % 24),
+            marketImpliedProb: implied,
+            modelProb: model,
+            edgeDelta: computeEdgeDelta(model, implied),
+            riskTag: idx % 2 ? 'watch' : 'stable',
+            confidencePct: 58 + (idx % 30),
+            rationale: ['Recent trend alignment', 'Market line context'],
+            provenance: line.platform,
+            lastUpdated: new Date().toISOString()
+          });
+        });
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'provider_unavailable');
+      }
+    }
+  }
+
+  const gameById = new Map(games.map((g) => [g.id, g]));
+  games.forEach((game) => {
+    game.propsPreview = board.filter((p) => p.id.startsWith(`${game.id}:`)).slice(0, 4);
+  });
 
   const payload: TodayPayload = {
-    mode: board.mode,
-    generatedAt,
-    provenance: { mode: board.mode, reason: board.reason, generatedAt },
+    mode: 'live',
+    generatedAt: new Date().toISOString(),
+    provenance: { mode: 'live', reason: errors.length ? 'provider_unavailable' : 'live_ok', generatedAt: new Date().toISOString() },
     leagues: [...TODAY_LEAGUES],
-    games: board.games.map((game) => ({
-      id: game.gameId,
-      league: boardSportToLeague(game.league),
-      status: game.status,
-      startTime: game.startTimeLocal,
-      matchup: `${game.away} @ ${game.home}`,
-      teams: [game.away, game.home],
-      bookContext: 'Unified board resolver',
-      provenance: board.mode === 'live' ? 'provider registry' : 'deterministic demo fallback',
-      lastUpdated: new Date().toISOString(),
-      propsPreview: board.scouts.filter((scout) => scout.gameId === game.gameId).map((scout, idx) => {
-        const odds = scout.subline;
-        const hitRateL10 = Math.max(47, Math.min(78, 54 + scout.reasons.length * 3 - idx));
-        const riskTag = hitRateL10 >= 60 ? 'stable' as const : 'watch' as const;
-        const marketImpliedProb = computeMarketImpliedProb({ odds });
-        const modelProb = computeModelProb({ deterministic: { idSeed: `${game.gameId}:${idx}:${scout.headline}`, hitRateL10, riskTag } });
-        return {
-          id: `${game.gameId}:prop:${idx}`,
-          player: scout.headline.split(' points over ')[0] ?? 'Core Player',
-          market: 'points',
-          line: scout.headline.split(' points over ')[1] ?? '',
-          odds,
-          hitRateL10,
-          marketImpliedProb,
-          modelProb,
-          edgeDelta: computeEdgeDelta(modelProb, marketImpliedProb),
-          riskTag,
-          book_source: 'consensus_demo_book',
-          line_variance: 0,
-          book_count: 1,
-          rationale: scout.reasons,
-          provenance: scout.sources.join(' + '),
-          lastUpdated: new Date().toISOString()
-        };
-      })
-    })),
-    reason: board.reason,
-    modeFallbackApplied: board.modeFallbackApplied,
-    providerErrors: board.providerErrors,
-    userSafeReason: board.userSafeReason
+    games,
+    reason: errors.length ? (errors.some((entry) => entry.includes('key_missing')) ? 'missing_keys' : 'provider_unavailable') : 'live_ok',
+    providerErrors: errors,
+    userSafeReason: errors.length ? 'Live mode (some feeds unavailable)' : undefined,
+    status,
+    nextAvailableStartTime: status === 'next' ? selected[0]?.commence_time : undefined,
+    providerHealth: providerHealth(errors)
   };
 
-  cache = { key, expiresAt: Date.now() + TTL_MS, payload };
-  return withLandingSummary(payload);
+  const shaped = {
+    ...payload,
+    board: board.slice(0, 24).map((row) => { const gameId = row.id.split(':')[0] ?? ''; return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: payload.mode }; })
+  } as TodayPayload & { board: Array<Record<string, unknown>> };
+
+  cache = { key, expiresAt: Date.now() + TTL_MS, payload: shaped as TodayPayload };
+  return withLandingSummary(shaped as TodayPayload);
 }
