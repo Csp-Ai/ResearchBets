@@ -52,16 +52,33 @@ describe('FrontdoorLandingClient live modes', () => {
   });
 
 
-  it('renders cognitive engine hero artifacts above the board', async () => {
+  it('renders tonight board above pipeline visualizer by default', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 'trace-hero', data: { mode: 'demo', status: 'active', games: [{ id: 'g1', matchup: 'DAL @ PHX', startTime: '8:00 PM' }], board: [{ id: 'p1', gameId: 'g1', player: 'K. Irving', market: 'points', line: '24.5', odds: '-110' }] } }) })));
 
     renderWithNervousSystem(<FrontdoorLandingClient />);
 
+    const boardTitle = await screen.findByText("Tonight's Board");
+    const pipelinePanel = screen.getByTestId('pipeline-hero-panel');
+    const boardContainer = boardTitle.parentElement;
+    expect(boardContainer).toBeTruthy();
+    expect(boardContainer?.compareDocumentPosition(pipelinePanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Build from Board' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Try sample slip' })).toBeTruthy();
+    expect(screen.getByLabelText('Slip text')).toBeTruthy();
+  });
+
+  it('keeps pipeline visualizer collapsed by default and expands on click', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 'trace-collapse', data: { mode: 'demo', status: 'active', games: [{ id: 'g1', matchup: 'DAL @ PHX', startTime: '8:00 PM' }], board: [{ id: 'p1', gameId: 'g1', player: 'K. Irving', market: 'points', line: '24.5', odds: '-110' }] } }) })));
+
+    renderWithNervousSystem(<FrontdoorLandingClient />);
     await waitFor(() => expect(screen.getByTestId('pipeline-hero-panel')).toBeTruthy());
-    expect(screen.getByText('Pipeline visualizer')).toBeTruthy();
-    expect(screen.getByText('Trace feed')).toBeTruthy();
-    expect(screen.getByText('Weakest-leg delta impact')).toBeTruthy();
-    expect(screen.getByText('Model confidence calibration')).toBeTruthy();
+
+    expect(screen.queryByText('Trace feed')).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Show trace details' });
+    fireEvent.click(toggle);
+
+    expect(await screen.findByText('Trace feed')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hide trace details' })).toBeTruthy();
   });
 
   it('renders run status pill with stable trace_id', async () => {
