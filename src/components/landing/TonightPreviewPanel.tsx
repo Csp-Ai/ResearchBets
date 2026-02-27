@@ -63,7 +63,9 @@ export function TonightPreviewPanel() {
     maxLeads: 5,
     diversifyAcrossGames: true,
     maxPerGame: 2,
-    minConviction: 65
+    minConviction: 65,
+    allowHighVolatility: false,
+    reactivePenaltyMultiplier: 1.2
   }), [slate, today]);
 
   const modeLabel = today.mode === 'live' ? 'Live' : today.mode === 'cache' ? 'Cached' : 'Demo mode (live feeds off)';

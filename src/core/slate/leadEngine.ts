@@ -28,13 +28,17 @@ export type LeadOptions = {
   maxPerGame: number;
   minConviction?: number;
   reactive?: { isReactive: boolean };
+  allowHighVolatility: boolean;
+  reactivePenaltyMultiplier: number;
 };
 
 const DEFAULT_OPTIONS: LeadOptions = {
   maxLeads: 8,
   diversifyAcrossGames: true,
   maxPerGame: 2,
-  reactive: { isReactive: false }
+  reactive: { isReactive: false },
+  allowHighVolatility: false,
+  reactivePenaltyMultiplier: 1
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -76,12 +80,13 @@ function riskScore(prop: BoardProp, volatility: RankedLead['volatility']) {
   return riskTagPenalty + hitRatePenalty + volatilityPenalty;
 }
 
-function convictionForProp(prop: BoardProp, slate: SlateSummary, reactive: boolean) {
+function convictionForProp(prop: BoardProp, slate: SlateSummary, reactive: boolean, reactivePenaltyMultiplier: number) {
   const volatility = volatilityClass(prop.market, prop.line);
   const scriptFit = scriptFitForProp(prop, slate);
   const base = clamp(prop.hitRateL10, 0, 100);
   const fitBonus = scriptFit === 'strong' ? 8 : scriptFit === 'fragile' ? -8 : 0;
-  const reactivePenalty = reactive && volatility === 'high' ? 10 : reactive && volatility === 'medium' ? 4 : 0;
+  const reactivePenaltyBase = reactive && volatility === 'high' ? 10 : reactive && volatility === 'medium' ? 4 : 0;
+  const reactivePenalty = Math.round(reactivePenaltyBase * reactivePenaltyMultiplier);
   const convictionScore = clamp(Math.round(base - riskScore(prop, volatility) + fitBonus - reactivePenalty + 18), 0, 100);
   return { convictionScore, volatility, scriptFit };
 }
@@ -146,7 +151,7 @@ export function generateRankedLeads(board: BoardProp[], slate: SlateSummary, opt
 
   const scored = board
     .map((prop) => {
-      const { convictionScore, volatility, scriptFit } = convictionForProp(prop, slate, reactive);
+      const { convictionScore, volatility, scriptFit } = convictionForProp(prop, slate, reactive, options.reactivePenaltyMultiplier);
       return {
         prop,
         convictionScore,
@@ -156,6 +161,7 @@ export function generateRankedLeads(board: BoardProp[], slate: SlateSummary, opt
         tags: buildTags(prop, scriptFit, volatility, slate)
       } satisfies RankedLead;
     })
+    .filter((lead) => options.allowHighVolatility || lead.volatility !== 'high')
     .filter((lead) => options.minConviction === undefined || lead.convictionScore >= options.minConviction)
     .sort((a, b) => (b.convictionScore - a.convictionScore) || a.prop.player.localeCompare(b.prop.player) || a.prop.id.localeCompare(b.prop.id));
 

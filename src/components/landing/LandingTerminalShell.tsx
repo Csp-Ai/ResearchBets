@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { ModeBadge } from '@/src/components/landing/ModeBadge';
+import { getModePresentation } from '@/src/core/mode';
 import type { TodayMode } from '@/src/core/today/types';
 
 type LandingTerminalShellProps = {
@@ -15,8 +16,7 @@ type LandingTerminalShellProps = {
 };
 
 export const modeLabel = (mode: TodayMode) => {
-  if (mode === 'cache') return 'Live mode (some feeds unavailable)';
-  return 'Live feeds on';
+  return getModePresentation(mode).label;
 };
 
 export function LandingTerminalShell({
