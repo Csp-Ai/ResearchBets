@@ -1,7 +1,7 @@
 import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 
-export type SlipVerdictDecision = 'TAKE' | 'MODIFY' | 'PASS';
+export type SlipVerdictDecision = 'KEEP' | 'MODIFY' | 'PASS';
 
 export type SlipRiskSummary = {
   weakestLeg: string;
@@ -20,7 +20,30 @@ export type SlipRiskSummary = {
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
-const title = (value?: string) => (value && value.trim().length > 0 ? value : 'Unlabeled leg');
+const cleanToken = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+const toTitleCase = (value: string) => value
+  .toLowerCase()
+  .split(' ')
+  .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+  .join(' ');
+
+const isDirty = (value: string) => /(?:^|\b)(?:n\/a|undefined|null)(?:\b|$)|\[object/i.test(value);
+
+const title = (value?: string) => {
+  const normalized = value ? cleanToken(value) : '';
+  if (!normalized || isDirty(normalized)) return 'Unlabeled leg';
+  return normalized;
+};
+
+export function formatWeakestLeg(weakest?: { player?: string; selection?: string; notes?: string[] | string; team?: string; market?: string; line?: string | number }): string {
+  const note = Array.isArray(weakest?.notes) ? weakest?.notes[0] : weakest?.notes;
+  const candidate = weakest?.player ?? weakest?.selection ?? note ?? 'Unknown leg';
+  const normalized = cleanToken(candidate);
+  if (!normalized || isDirty(normalized)) return 'Unknown Leg';
+  const clipped = normalized.slice(0, 72);
+  return toTitleCase(clipped);
+}
 
 const volatilityLabel = (volatility?: 'low' | 'med' | 'high') => {
   if (volatility === 'high') return 'High' as const;
@@ -59,7 +82,7 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
   const volatilitySummary = `${highVolatilityLegs}/${report.legs.length} high-vol legs`;
 
   const passRecommended = fragilityScore > 62 || correlationFlag || highVolatilityLegs >= 2;
-  const recommendation: SlipVerdictDecision = passRecommended ? 'PASS' : fragilityScore >= 45 ? 'MODIFY' : 'TAKE';
+  const recommendation: SlipVerdictDecision = passRecommended ? 'PASS' : fragilityScore >= 45 ? 'MODIFY' : 'KEEP';
   const dominantRiskFactor = fragilityScore > 62
     ? 'Fragility score is above safe threshold.'
     : correlationFlag
@@ -73,12 +96,12 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
 
   const reasonBullets = [
     dominantRiskFactor,
-    `Weakest leg: ${title(weakest?.notes ?? weakest?.player)}.`,
+    `Weakest leg: ${formatWeakestLeg(weakest)}.`,
     `Correlation check: ${correlationReason}`
   ].slice(0, 3);
 
   return {
-    weakestLeg: title(weakest?.notes ?? weakest?.player),
+    weakestLeg: formatWeakestLeg(weakest),
     fragilityScore,
     correlationFlag,
     correlationReason,

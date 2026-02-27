@@ -7,6 +7,8 @@ import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
+import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
+import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import {
   EmptyStateBettor,
   LegRankList,
@@ -56,10 +58,15 @@ export default function AnalyzeTabPanel({
   demoSlip,
   latestRunHref
 }: AnalyzeTabPanelProps) {
-  const reasons = (runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? []).slice(0, 3);
+  const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
   const weakestReasons = (weakestLeg?.riskFactors ?? []).filter(Boolean);
   const riskSummary = deriveSlipRiskSummary(intelLegs);
-  const combinedReasons = [...riskSummary.reasonBullets, ...reasons, ...weakestReasons].filter(Boolean).slice(0, 3);
+  const rankedReasons = rankReasons([...riskSummary.reasonBullets, ...reasons, ...weakestReasons], {
+    dominant: riskSummary.dominantRiskFactor,
+    correlation: riskSummary.correlationFlag,
+    volatility: riskSummary.volatilitySummary
+  });
+  const combinedReasons = selectTopReasons(rankedReasons, 3);
   const hasSlip = legs.length > 0;
   const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip)
     .split('\n')
@@ -75,7 +82,7 @@ export default function AnalyzeTabPanel({
       <Surface kind="hero" className="space-y-3 p-4" data-testid="decision-terminal-verdict">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
-          <p className="text-2xl font-bold text-strong">{riskSummary.recommendation}</p>
+          <p className="text-2xl font-bold text-strong">{presentRecommendation(riskSummary.recommendation)}</p>
           <p className="text-sm text-subtle">Confidence {riskSummary.confidencePct}% · Risk {riskSummary.riskLabel}</p>
           <p className="text-sm font-semibold text-amber-200">Weakest leg: {riskSummary.weakestLeg}</p>
           <p className="text-xs text-rose-200">Dominant risk factor: {riskSummary.dominantRiskFactor}</p>
