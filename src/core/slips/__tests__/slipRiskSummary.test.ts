@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
+import { deriveSlipRiskSummary, formatWeakestLeg } from '@/src/core/slips/slipRiskSummary';
 
 describe('deriveSlipRiskSummary', () => {
   it('triggers PASS for high fragility and correlation stacks', () => {
@@ -23,5 +23,13 @@ describe('deriveSlipRiskSummary', () => {
 
     expect(summary.correlationFlag).toBe(true);
     expect(summary.correlationReason.toLowerCase()).toContain('stack');
+  });
+
+  it('formats weakest leg as a non-empty string even from notes arrays', () => {
+    const weakestLeg = formatWeakestLeg({ notes: ['aggressive alt line', 'plus money'], selection: 'bench scorer over', player: undefined });
+    expect(typeof weakestLeg).toBe('string');
+    expect(weakestLeg.length).toBeGreaterThan(0);
+    expect(weakestLeg.toLowerCase()).not.toContain('undefined');
+    expect(weakestLeg).not.toContain('[object');
   });
 });

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 
 import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
+import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 
 export function SlipIntelBar({ legs, className = '' }: { legs: SlipIntelLeg[]; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -15,7 +16,7 @@ export function SlipIntelBar({ legs, className = '' }: { legs: SlipIntelLeg[]; c
   return (
     <section className={`rounded-xl border border-cyan-900/70 bg-slate-950/50 p-3 ${className}`} data-testid="slip-risk-panel">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-full border border-cyan-500/40 px-2 py-1">{risk.recommendation}</span>
+        <span className="rounded-full border border-cyan-500/40 px-2 py-1">{presentRecommendation(risk.recommendation)}</span>
         <span className="rounded-full border border-white/20 px-2 py-1">Confidence {risk.confidencePct}%</span>
         <span className="rounded-full border border-rose-500/40 px-2 py-1">Risk {risk.riskLabel}</span>
         <span className="rounded-full border border-amber-500/40 px-2 py-1">Weakest {risk.weakestLeg}</span>
