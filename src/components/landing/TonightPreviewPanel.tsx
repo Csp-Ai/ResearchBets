@@ -1,5 +1,6 @@
 'use client';
 
+import { getModePresentation } from '@/src/core/mode';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -16,6 +17,7 @@ const EMPTY_TODAY: TodayPayload = {
   generatedAt: new Date(0).toISOString(),
   leagues: [],
   games: [],
+  board: [],
   status: 'market_closed'
 };
 
@@ -68,7 +70,7 @@ export function TonightPreviewPanel() {
     reactivePenaltyMultiplier: 1.2
   }), [slate, today]);
 
-  const modeLabel = today.mode === 'live' ? 'Live' : today.mode === 'cache' ? 'Cached' : 'Demo mode (live feeds off)';
+  const modeLabel = getModePresentation(today.mode).label;
 
   return (
     <section className="group relative overflow-hidden rounded-2xl border border-cyan-300/30 bg-slate-950/70 p-[1px] shadow-[0_0_60px_-35px_rgba(34,211,238,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_75px_-30px_rgba(34,211,238,0.7)]">

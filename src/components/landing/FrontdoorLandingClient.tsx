@@ -11,6 +11,7 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 import { EventEnvelopeSchema, TodayPayloadSchema } from '@/src/core/contracts/envelopes';
 import { deriveModePolicy, getModePresentation, persistMode, readPersistedMode } from '@/src/core/mode';
 import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
+import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { FeedStatusChip } from '@/src/components/landing/FeedStatusChip';
 import { ExpandableGamePanel } from '@/src/components/landing/ExpandableGamePanel';
@@ -53,7 +54,7 @@ export function FrontdoorLandingClient() {
   const [loading, setLoading] = useState(true);
   const [activeTraceId, setActiveTraceId] = useState<string>(() => nervous.trace_id ?? crypto.randomUUID());
   const [latestTraceId, setLatestTraceId] = useState<string | null>(null);
-  const [slipText, setSlipText] = useState('Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)');
+  const [slipText, setSlipText] = useState('Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)\nLeBron James over 6.5 rebounds (-105)');
   const [runStage, setRunStage] = useState<'before' | 'during' | 'after'>('before');
   const [slipPulse, setSlipPulse] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -126,7 +127,10 @@ export function FrontdoorLandingClient() {
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
   const spineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
-  const board = useMemo(() => (today.board.slice(0, 10) as BoardProp[]), [today.board]);
+  const board = useMemo(() => {
+    if ((today.board ?? []).length > 0) return (today.board ?? []).slice(0, 10) as BoardProp[];
+    return (createDemoTodayPayload().board ?? []).slice(0, 10) as unknown as BoardProp[];
+  }, [today.board]);
 
   const toggleLeg = useCallback((prop: SlipToggleProp, matchup?: string) => {
     if (slipIds.has(prop.id)) return removeLeg(prop.id);
@@ -185,15 +189,15 @@ export function FrontdoorLandingClient() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,1fr)] lg:items-start">
           <div>
             <SectionTitle className="mb-2">Tonight&apos;s Board</SectionTitle>
-            {marketClosed ? (
+            {marketClosed && today.mode !== 'demo' ? (
               <Panel className="mb-2 p-2.5" data-testid="market-closed-compact">
-                <p className="text-xs text-white/70">Markets are currently quiet. {today.status === 'next' && today.nextAvailableStartTime ? `Next start: ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'No upcoming slates posted yet.'}</p>
+                <p className="text-xs text-white/70">Live feeds are quiet — showing recent/cached leads.</p>
               </Panel>
             ) : null}
             <div className="space-y-2" data-testid="board-section">
               {loading ? <p className="text-xs text-slate-400">Loading board…</p> : null}
-              {!loading && board.length === 0 && !marketClosed ? <p className="text-xs text-slate-400">No active props in this window.</p> : null}
-              {board.slice(0, 4).map((prop) => (
+
+              {board.slice(0, 6).map((prop) => (
                 <SlipRow
                   key={prop.id}
                   leftPrimary={`${prop.player} • ${prop.market.toUpperCase()} ${prop.line}`}

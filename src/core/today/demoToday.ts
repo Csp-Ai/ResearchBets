@@ -7,6 +7,7 @@ export const DEMO_TODAY_PAYLOAD: TodayPayload = {
   generatedAt: DEMO_GENERATED_AT,
   leagues: [...TODAY_LEAGUES],
   reason: 'live_unavailable',
+  board: [],
   games: [
     {
       id: 'nba-lal-dal-demo',
@@ -81,8 +82,27 @@ export const DEMO_TODAY_PAYLOAD: TodayPayload = {
   ]
 };
 
+
+
+function buildBoardFromGames(payload: TodayPayload): TodayPayload['board'] {
+  return payload.games.flatMap((game) => game.propsPreview.map((prop) => ({
+    ...prop,
+    gameId: game.id,
+    matchup: game.matchup,
+    startTime: game.startTime,
+    mode: payload.mode,
+    line: prop.line ?? '',
+    odds: prop.odds ?? '-110',
+    hitRateL10: typeof prop.hitRateL10 === 'number' ? prop.hitRateL10 : 55,
+    marketImpliedProb: typeof prop.marketImpliedProb === 'number' ? prop.marketImpliedProb : 0.5,
+    modelProb: typeof prop.modelProb === 'number' ? prop.modelProb : 0.55,
+    edgeDelta: typeof prop.edgeDelta === 'number' ? prop.edgeDelta : 0.05,
+    riskTag: prop.riskTag ?? 'watch'
+  })));
+}
+
 export function createDemoTodayPayload(): TodayPayload {
-  return {
+  const payload = {
     ...DEMO_TODAY_PAYLOAD,
     leagues: [...DEMO_TODAY_PAYLOAD.leagues],
     games: DEMO_TODAY_PAYLOAD.games.map((game) => ({
@@ -91,4 +111,5 @@ export function createDemoTodayPayload(): TodayPayload {
       propsPreview: game.propsPreview.map((prop) => ({ ...prop, rationale: [...prop.rationale] }))
     }))
   };
+  return { ...payload, board: buildBoardFromGames(payload) };
 }

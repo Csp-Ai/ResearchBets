@@ -23,7 +23,7 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
-import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
+import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
@@ -351,7 +351,7 @@ export default function ResearchPageContent() {
           ]}
           traceId={traceFromQuery || nervous.trace_id}
         />
-        <ThinkingTracker traceId={traceFromQuery || nervous.trace_id} mode={nervous.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
+        <RunStatusPill traceId={traceFromQuery || nervous.trace_id} mode={nervous.mode} generatedAt={new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
         <div className="flex flex-wrap gap-2 text-xs">
           <a href="#fragility" className="rounded-full border border-white/20 px-2 py-1 text-slate-300">Why fragile?</a>
           <a href="#correlation" className="rounded-full border border-white/20 px-2 py-1 text-slate-300">Correlation risk</a>

@@ -1,3 +1,4 @@
+import { getModePresentation } from '@/src/core/mode';
 import React from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
@@ -27,7 +28,7 @@ export function TodayHeader({
           <p className="text-xs text-slate-400">Live now + upcoming slate with prop keys.</p>
         </div>
         <div className="flex items-center gap-2">
-          <span title={mode === 'demo' ? 'No live provider calls are made in demo mode.' : 'Live provider calls are enabled.'}><Chip tone={mode === 'demo' ? 'caution' : mode === 'live' ? 'strong' : 'neutral'}>{mode === 'demo' ? 'Demo mode (live feeds off)' : mode === 'live' ? 'Live mode' : 'Synced feed'}</Chip></span>
+          <span title={mode === 'demo' ? 'No live provider calls are made in demo mode.' : 'Live provider calls are enabled.'}><Chip tone={mode === 'demo' ? 'caution' : mode === 'live' ? 'strong' : 'neutral'}>{getModePresentation(mode).label}</Chip></span>
           <Button intent="secondary" className="px-3 py-1.5 text-xs" onClick={onRefresh}>Refresh</Button>
         </div>
       </div>

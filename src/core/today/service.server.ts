@@ -3,10 +3,12 @@ import 'server-only';
 import { computeEdgeDelta, computeMarketImpliedProb, computeModelProb } from '@/src/core/markets/edgePrimitives';
 import { getProviderRegistry } from '@/src/core/providers/registry.server';
 import type { BoardSport } from '@/src/core/board/boardService.server';
+import { createDemoTodayPayload } from './demoToday';
 import { TODAY_LEAGUES, type ProviderHealth, type TodayPayload, type TodayPropKey } from './types';
 
 const TTL_MS = 120_000;
 const MARKETS = ['points', 'rebounds', 'assists'] as const;
+export const MIN_BOARD_ROWS = 6;
 
 let cache: { key: string; expiresAt: number; payload: TodayPayload } | null = null;
 
@@ -39,12 +41,35 @@ const providerHealth = (errors: string[] = []): ProviderHealth[] => [
   }
 ];
 
+function buildBoardFromGames(games: TodayPayload['games'], mode: TodayPayload['mode']) {
+  return games.flatMap((game) => game.propsPreview.map((prop) => ({
+    ...prop,
+    gameId: game.id,
+    matchup: game.matchup,
+    startTime: game.startTime,
+    mode,
+    line: prop.line ?? '',
+    odds: prop.odds ?? '-110',
+    hitRateL10: typeof prop.hitRateL10 === 'number' ? prop.hitRateL10 : 55,
+    marketImpliedProb: typeof prop.marketImpliedProb === 'number' ? prop.marketImpliedProb : computeMarketImpliedProb({ odds: prop.odds ?? '-110' }),
+    modelProb: typeof prop.modelProb === 'number' ? prop.modelProb : computeModelProb({ deterministic: { idSeed: prop.id, hitRateL10: typeof prop.hitRateL10 === 'number' ? prop.hitRateL10 : 55, riskTag: prop.riskTag ?? 'watch' } }),
+    edgeDelta: typeof prop.edgeDelta === 'number'
+      ? prop.edgeDelta
+      : computeEdgeDelta(
+        typeof prop.modelProb === 'number' ? prop.modelProb : computeModelProb({ deterministic: { idSeed: prop.id, hitRateL10: typeof prop.hitRateL10 === 'number' ? prop.hitRateL10 : 55, riskTag: prop.riskTag ?? 'watch' } }),
+        typeof prop.marketImpliedProb === 'number' ? prop.marketImpliedProb : computeMarketImpliedProb({ odds: prop.odds ?? '-110' })
+      ),
+    riskTag: prop.riskTag ?? 'watch',
+    rationale: prop.rationale ?? ['Deterministic board fallback']
+  })));
+}
+
 function withLandingSummary(payload: TodayPayload): TodayPayload {
   const lastUpdatedAt = payload.games[0]?.lastUpdated ?? payload.generatedAt;
   return {
     ...payload,
     landing: {
-      mode: 'live',
+      mode: payload.mode,
       reason: payload.reason === 'missing_keys' ? 'missing_keys' : payload.reason === 'provider_unavailable' ? 'provider_unavailable' : 'live_ok',
       gamesCount: payload.games.length,
       lastUpdatedAt,
@@ -53,16 +78,26 @@ function withLandingSummary(payload: TodayPayload): TodayPayload {
   };
 }
 
-export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?: BoardSport; date?: string; tz?: string }): Promise<TodayPayload> {
-  const sport = options?.sport ?? 'NBA';
-  const tz = options?.tz ?? 'America/Phoenix';
-  const date = options?.date ?? new Date().toISOString().slice(0, 10);
-  const key = `${sport}:${tz}:${date}`;
+function ensureBoard(payload: TodayPayload): TodayPayload {
+  const board = Array.isArray(payload.board) && payload.board.length > 0 ? payload.board : buildBoardFromGames(payload.games, payload.mode);
+  return { ...payload, board };
+}
 
-  if (!options?.forceRefresh && cache && cache.key === key && cache.expiresAt > Date.now()) {
-    return withLandingSummary({ ...cache.payload, mode: 'cache' });
-  }
+function getDemoFallback(reason: string): TodayPayload {
+  const demo = createDemoTodayPayload();
+  const withBoard = ensureBoard({
+    ...demo,
+    reason,
+    status: 'active',
+    provenance: { mode: 'demo', reason, generatedAt: demo.generatedAt },
+    providerErrors: reason === 'live_ok' ? [] : [reason],
+    providerHealth: providerHealth([reason])
+  });
+  return withLandingSummary(withBoard);
+}
 
+async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: string }): Promise<TodayPayload> {
+  const { sport, tz, date } = options;
   const registry = getProviderRegistry();
   const now = Date.now();
   const errors: string[] = [];
@@ -163,14 +198,73 @@ export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?
     userSafeReason: errors.length ? 'Live mode (some feeds unavailable)' : undefined,
     status,
     nextAvailableStartTime: status === 'next' ? selected[0]?.commence_time : undefined,
-    providerHealth: providerHealth(errors)
+    providerHealth: providerHealth(errors),
+    board: board.slice(0, 24).map((row) => {
+      const gameId = row.id.split(':')[0] ?? '';
+      return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: 'live' as const };
+    })
   };
 
-  const shaped = {
-    ...payload,
-    board: board.slice(0, 24).map((row) => { const gameId = row.id.split(':')[0] ?? ''; return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: payload.mode }; })
-  } as TodayPayload & { board: Array<Record<string, unknown>> };
+  return withLandingSummary(payload);
+}
 
-  cache = { key, expiresAt: Date.now() + TTL_MS, payload: shaped as TodayPayload };
-  return withLandingSummary(shaped as TodayPayload);
+export async function resolveTodayTruth(options?: {
+  forceRefresh?: boolean;
+  sport?: BoardSport;
+  date?: string;
+  tz?: string;
+  mode?: TodayPayload['mode'];
+  strictLive?: boolean;
+}): Promise<TodayPayload> {
+  const sport = options?.sport ?? 'NBA';
+  const tz = options?.tz ?? 'America/Phoenix';
+  const date = options?.date ?? new Date().toISOString().slice(0, 10);
+  const mode = options?.mode ?? 'live';
+  const key = `${sport}:${tz}:${date}`;
+
+  if (mode === 'demo') {
+    return getDemoFallback('demo_requested');
+  }
+
+  if (!options?.forceRefresh && cache && cache.key === key && cache.expiresAt > Date.now()) {
+    return withLandingSummary({ ...cache.payload, mode: 'cache', provenance: { mode: 'cache', reason: 'cache_hit', generatedAt: cache.payload.generatedAt } });
+  }
+
+  let livePayload: TodayPayload | null = null;
+  try {
+    livePayload = ensureBoard(await fetchLiveToday({ sport, tz, date }));
+  } catch {
+    livePayload = null;
+  }
+
+  const shouldFallback = !livePayload
+    || (livePayload.board?.length ?? 0) < MIN_BOARD_ROWS
+    || livePayload.games.length === 0
+    || livePayload.status === 'market_closed'
+    || livePayload.reason === 'provider_unavailable'
+    || livePayload.reason === 'missing_keys';
+
+  if (livePayload && !shouldFallback) {
+    cache = { key, expiresAt: Date.now() + TTL_MS, payload: livePayload };
+    return livePayload;
+  }
+
+  if (options?.strictLive) {
+    return livePayload ?? getDemoFallback('provider_unavailable');
+  }
+
+  if (cache?.key === key && (cache.payload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
+    return withLandingSummary({
+      ...cache.payload,
+      mode: 'cache',
+      reason: 'provider_unavailable',
+      provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cache.payload.generatedAt }
+    });
+  }
+
+  return getDemoFallback(livePayload?.reason ?? 'provider_unavailable');
+}
+
+export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?: BoardSport; date?: string; tz?: string; mode?: TodayPayload['mode']; strictLive?: boolean }): Promise<TodayPayload> {
+  return resolveTodayTruth(options);
 }

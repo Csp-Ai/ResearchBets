@@ -1,5 +1,6 @@
 'use client';
 
+import { getModePresentation } from '@/src/core/mode';
 import React from 'react';
 
 type FeedState = 'ok' | 'warn';
@@ -28,10 +29,10 @@ export function ModeHealthStrip({ mode, asOf, feeds }: ModeHealthStripProps) {
   const isDemo = mode === 'demo';
 
   const modeLabel = isDemo
-    ? 'Demo mode (live feeds off)'
+    ? getModePresentation('demo').label
     : hasWarn
       ? 'Live mode (some feeds unavailable)'
-      : 'Live';
+      : getModePresentation('live').label;
 
   const modeTooltip = isDemo
     ? 'Live feeds are disabled. You can still build, run risk, and review using demo data.'

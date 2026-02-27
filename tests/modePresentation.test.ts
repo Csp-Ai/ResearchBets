@@ -19,3 +19,10 @@ describe('mode presentation copy', () => {
     expect(demo.tooltip).toContain('deterministic demo board');
   });
 });
+
+
+it('labels cache mode as cache and never as live mode', () => {
+  const cache = getModePresentation('cache');
+  expect(cache.label).toContain('Cache');
+  expect(cache.label).not.toContain('Live mode');
+});
