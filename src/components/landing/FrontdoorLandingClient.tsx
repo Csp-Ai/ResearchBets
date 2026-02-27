@@ -12,9 +12,13 @@ import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { FeedStatusChip } from '@/src/components/landing/FeedStatusChip';
 import { PostmortemUploadWedge } from '@/src/components/landing/PostmortemUploadWedge';
+import { deriveScoutCards } from '@/src/core/scout/deriveScoutCards';
+import { ScoutCardsPanel } from '@/src/components/landing/ScoutCardsPanel';
+import { ExpandableGamePanel } from '@/src/components/landing/ExpandableGamePanel';
 
 type TodayPayload = typeof TodayPayloadSchema._type;
 type BoardProp = TodayPayload['board'][number] & { hitRateL10?: number; hitRateL5?: number; confidencePct?: number; riskTag?: string };
+type SlipToggleProp = Pick<BoardProp, 'id' | 'player' | 'market' | 'line' | 'odds'>;
 
 const EMPTY_TODAY: TodayPayload = { mode: 'live', reason: 'provider_unavailable', games: [], board: [], status: 'market_closed' };
 
@@ -38,7 +42,6 @@ export function FrontdoorLandingClient() {
   const [today, setToday] = useState<TodayPayload>(EMPTY_TODAY);
   const [loading, setLoading] = useState(true);
   const [traceId, setTraceId] = useState<string | undefined>(nervous.trace_id);
-  const [openInsightRow, setOpenInsightRow] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,9 +68,10 @@ export function FrontdoorLandingClient() {
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
   const activeTraceId = traceId ?? nervous.trace_id;
   const spineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
-  const board = today.board.slice(0, 6) as BoardProp[];
+  const buildHref = useCallback((path: '/today' | '/stress-test' | '/postmortem', query?: Record<string, string | number | undefined>) => appendQuery(spineHref(path), query ?? {}), [spineHref]);
+  const board = today.board.slice(0, 8) as BoardProp[];
 
-  const toggleLeg = useCallback((prop: BoardProp, matchup?: string) => {
+  const toggleLeg = useCallback((prop: SlipToggleProp, matchup?: string) => {
     if (slipIds.has(prop.id)) return removeLeg(prop.id);
     addLeg({ id: prop.id, player: prop.player, marketType: toSlipMarketType(prop.market), line: prop.line, odds: prop.odds, game: matchup });
   }, [addLeg, removeLeg, slipIds]);
@@ -79,65 +83,62 @@ export function FrontdoorLandingClient() {
   }, [board, gameById]);
 
   const marketClosed = today.status === 'market_closed';
+  const { cards: scoutCards, topSignal } = useMemo(() => deriveScoutCards(today), [today]);
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 pb-10" style={{ minHeight: 760 }}>
+    <section className="mx-auto w-full max-w-6xl px-4 pb-8" style={{ minHeight: 760 }}>
       <LandingTerminalShell
         mode={today.mode}
         reason={today.reason}
         title="Tonight's Board"
-        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Scan edges, build a slip, then stress test before lock.'}
+        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Live board and stress-test loop.'}
         statusSlot={<FeedStatusChip health={(today.providerHealth as Array<{ provider: string; ok: boolean; message?: string; missingKey?: boolean }> | undefined)} />}
       >
+        {topSignal ? <p className="mb-2 text-xs text-slate-300" data-testid="top-signal-line">Top signals now: {topSignal}</p> : null}
+        <ScoutCardsPanel cards={scoutCards} buildHref={buildHref} />
+
         {marketClosed ? (
-          <div className="mb-4 rounded-xl border border-white/10 bg-slate-950/70 p-4">
-            <h3 className="text-lg font-semibold text-slate-100">Markets closed.</h3>
-            <p className="mt-1 text-sm text-slate-300">No upcoming slates posted.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={spineHref('/stress-test', { source: 'upload_last_slip' })} className="rounded border border-cyan-300/60 px-3 py-1.5 text-sm text-cyan-100">Upload last slip →</Link>
-              <Link href={spineHref('/today', { sport: nervous.sport === 'NBA' ? 'NFL' : 'NBA' })} className="rounded border border-white/20 px-3 py-1.5 text-sm text-slate-100">Switch sport →</Link>
-            </div>
+          <div className="mt-2 rounded-lg border border-white/10 bg-slate-950/70 p-2" data-testid="market-closed-compact">
+            <p className="text-sm font-semibold text-slate-100">Markets closed.</p>
+            <p className="text-xs text-slate-400">{today.status === 'next' && today.nextAvailableStartTime ? `Next start: ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'No upcoming slates posted.'}</p>
           </div>
         ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]" data-testid="landing-terminal-grid">
-          <div className="space-y-3">
-            {loading ? <p className="text-sm text-slate-400">Loading live board…</p> : null}
-            {grouped.length === 0 && !marketClosed ? <p className="text-sm text-slate-400">Live mode (some feeds unavailable)</p> : null}
+        <div className="mt-2 grid gap-3 lg:grid-cols-[2fr_1fr]" data-testid="landing-terminal-grid">
+          <div className="space-y-2" data-testid="board-section">
+            {loading ? <p className="text-xs text-slate-400">Loading live board…</p> : null}
+            {grouped.length === 0 && !marketClosed ? <p className="text-xs text-slate-400">Live feeds returned no active props for this spine.</p> : null}
             {grouped.map(({ gameId, props, game }) => (
-              <article key={gameId} className="rounded-xl border border-white/10 bg-slate-950/70 p-2.5">
-                <p className="text-sm font-medium text-slate-100">{game?.matchup ?? gameId}</p>
-                <p className="text-xs text-slate-400">{game?.startTime ?? 'Upcoming'}</p>
-                <div className="mt-1.5 divide-y divide-white/10 rounded-md border border-white/10 bg-slate-950/60" data-testid="terminal-prop-rows">
-                  {props.map((prop) => {
-                    const inSlip = slipIds.has(prop.id);
-                    return (
-                      <div key={prop.id} className="compact-prop-row grid min-h-9 grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 px-2 py-1 text-[11px]">
-                        <span className="truncate font-medium text-slate-100" title={prop.player}>{prop.player}</span>
-                        <span className="truncate font-mono text-slate-300">{prop.market} {prop.line}</span>
-                        <span className="rounded-full border border-cyan-300/30 px-1.5 py-0.5 text-[10px] text-cyan-100">L10 {prop.hitRateL10 ?? 0}%</span>
-                        <span className="font-mono text-slate-300">{prop.odds}</span>
-                        <button type="button" onClick={() => setOpenInsightRow((current) => (current === prop.id ? null : prop.id))} className="h-5 min-w-5 rounded border border-white/20 px-1 text-[10px]">Why</button>
-                        <button type="button" onClick={() => toggleLeg(prop, game?.matchup)} aria-label={`${inSlip ? 'Remove' : 'Add'} ${prop.player} ${prop.market} ${prop.line} ${inSlip ? 'from' : 'to'} slip`} className="h-5 min-w-5 rounded border border-white/20 px-1 text-[10px] text-cyan-100">{inSlip ? '−' : '+'}</button>
-                        {openInsightRow === prop.id ? <div className="col-span-full rounded border border-cyan-300/20 bg-slate-900/80 px-2 py-1 text-[10px] text-slate-200">L5 {prop.hitRateL5 ?? '—'} · L10 {prop.hitRateL10 ?? '—'} · Volatility {String(prop.riskTag ?? 'watch')} · Confidence {prop.confidencePct ?? '—'} · Odds {prop.odds}</div> : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </article>
+              <ExpandableGamePanel
+                key={gameId}
+                gameId={gameId}
+                matchup={game?.matchup ?? gameId}
+                startTime={game?.startTime ?? 'Upcoming'}
+                props={props}
+                inSlip={(propId) => slipIds.has(propId)}
+                onToggleLeg={(prop) => toggleLeg(prop, game?.matchup)}
+              />
             ))}
+            {slip.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-white/20 bg-slate-950/50 p-2 text-xs text-slate-300" data-testid="slip-inline-prompt">
+                Add 2–3 legs to run a quick stress test.
+                <Link href={appendQuery(spineHref('/stress-test'), { source: 'frontdoor_inline_prompt' })} className="ml-2 rounded border border-cyan-300/40 px-1.5 py-0.5 text-cyan-100">Open stress-test →</Link>
+              </div>
+            ) : null}
           </div>
 
-          <aside className="lg:sticky lg:top-6 lg:self-start" data-testid="slip-rail-desktop">
-            <div className="rounded-xl border border-white/10 bg-slate-950/70 p-3">
-              <h3 className="text-sm font-semibold">Slip rail</h3>
-              {slip.length === 0 ? <p className="mt-2 text-sm text-slate-400">No legs yet. Add live legs from the board.</p> : <ul className="mt-2 space-y-1 text-xs text-slate-200">{slip.map((leg) => <li key={leg.id} className="rounded-md border border-white/10 px-2 py-1.5">{leg.player} · {leg.marketType} {leg.line}</li>)}</ul>}
-              <Link href={appendQuery(spineHref('/stress-test'), { source: 'frontdoor' })} className={`mt-3 block rounded-md px-3 py-2 text-center text-sm font-semibold ${slip.length > 0 ? 'border border-cyan-300/60 bg-cyan-400 text-slate-950' : 'cursor-not-allowed border border-white/15 text-slate-500'}`}>{slip.length > 0 ? 'Stress test this slip →' : 'Start by adding legs →'}</Link>
-            </div>
-          </aside>
+          {slip.length > 0 ? (
+            <aside className="lg:sticky lg:top-4 lg:self-start" data-testid="slip-rail-desktop">
+              <div className="rounded-lg border border-white/10 bg-slate-950/70 p-2">
+                <h3 className="text-sm font-semibold">Slip rail</h3>
+                <ul className="mt-1.5 space-y-1 text-xs text-slate-200">{slip.map((leg) => <li key={leg.id} className="rounded border border-white/10 px-2 py-1">{leg.player} · {leg.marketType} {leg.line}</li>)}</ul>
+                <Link href={appendQuery(spineHref('/stress-test'), { source: 'frontdoor' })} className="mt-2 block rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-center text-sm font-semibold text-slate-950">Stress test this slip →</Link>
+              </div>
+            </aside>
+          ) : null}
         </div>
       </LandingTerminalShell>
-      <div className={`mt-4 ${marketClosed ? '' : 'opacity-90'}`}>
+      <div className="mt-3" data-testid="postmortem-wedge-wrap">
         <PostmortemUploadWedge />
       </div>
     </section>
