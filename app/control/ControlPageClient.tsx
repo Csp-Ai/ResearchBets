@@ -12,6 +12,7 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
+import { buildShareRunHref } from '@/src/core/trace/shareHref';
 
 const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPanel), {
   ssr: false,
@@ -56,6 +57,7 @@ export function ControlPageClient() {
   const [retroDto, setRetroDto] = useState<ResearchRunDTO | null>(null);
   const [uploadName, setUploadName] = useState('');
   const [latestTrace, setLatestTrace] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
 
   const riskDelta = useMemo(() => {
     if (slip.length === 0) return 0;
@@ -101,15 +103,30 @@ export function ControlPageClient() {
     }
   }, [retroDto, runReview, search, tab]);
 
+  const shareRun = useCallback(async () => {
+    const shareHref = buildShareRunHref(nervous, retroDto?.trace_id ?? latestTrace);
+    if (!shareHref || typeof navigator === 'undefined' || !navigator.clipboard) {
+      setShareStatus('error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareHref);
+      setShareStatus('done');
+      window.setTimeout(() => setShareStatus('idle'), 1200);
+    } catch {
+      setShareStatus('error');
+    }
+  }, [latestTrace, nervous, retroDto?.trace_id]);
+
   return (
     <section className="mx-auto max-w-6xl space-y-3">
       <TruthSpineHeader
         title="Control Room"
         subtitle="After loop: track live posture, review outcomes, and feed back process fixes."
         actions={[
-          { label: 'Open latest run', href: latestTrace ? appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace }) : nervous.toHref('/stress-test'), tone: 'primary' },
           { label: 'Build from Board', href: nervous.toHref('/today') },
-          { label: 'Run sample slip', href: appendQuery(nervous.toHref('/stress-test'), { demo: '1' }) }
+          ...(latestTrace ? [{ label: 'Open latest run', href: appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace }), tone: 'primary' as const }] : []),
+          { label: 'Try sample slip (demo)', href: appendQuery(nervous.toHref('/stress-test'), { demo: '1' }) }
         ]}
       />
 
@@ -126,10 +143,10 @@ export function ControlPageClient() {
             <>
               <AliveEmptyState
                 title="No active run yet"
-                message="Open latest run, run a deterministic sample, or build from Board to start live tracking."
+                message="Open latest run, try a deterministic sample, or build from Board to start live tracking."
                 actions={<>
                   {latestTrace ? <Link href={appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace })} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link> : null}
-                  <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded border border-white/20 px-3 py-2 text-sm">Run sample slip</Link>
+                  <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded border border-white/20 px-3 py-2 text-sm">Try sample slip (demo)</Link>
                   <Link href={nervous.toHref('/today')} className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
                 </>}
               />
@@ -172,7 +189,7 @@ export function ControlPageClient() {
             <button type="button" onClick={() => void runReview()} className="rounded bg-cyan-400 px-3 py-1.5 text-sm font-medium text-slate-950">Run sample review</button>
           </div>
 
-          <ReviewPanel retroDto={retroDto} uploadName={uploadName} postmortem={postmortem} />
+          <ReviewPanel retroDto={retroDto} uploadName={uploadName} postmortem={postmortem} shareStatus={shareStatus} onShare={() => void shareRun()} />
           {postmortem ? (
             <div className="grid gap-2 md:grid-cols-3">
               <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-xs">Postmortem card preview ready.</div>

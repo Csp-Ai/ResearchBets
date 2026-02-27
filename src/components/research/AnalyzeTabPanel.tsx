@@ -33,7 +33,9 @@ type AnalyzeTabPanelProps = {
   onTryExample: () => void;
   onCopyReasons: () => void;
   onCopySlip: () => void;
+  onShareRun: () => void;
   slipHref: string;
+  shareStatus: 'idle' | 'done' | 'error';
   uncertainty?: string;
   demoSlip: string;
   latestRunHref?: string | null;
@@ -53,7 +55,9 @@ export default function AnalyzeTabPanel({
   onTryExample,
   onCopyReasons,
   onCopySlip,
+  onShareRun,
   slipHref,
+  shareStatus,
   uncertainty,
   demoSlip,
   latestRunHref
@@ -96,6 +100,9 @@ export default function AnalyzeTabPanel({
           <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Edit in Slip</a>
           <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onCopyReasons}>
             {copyStatus === 'done' ? 'Copied reasons' : copyStatus === 'error' ? 'Copy unavailable' : 'Copy reasons'}
+          </button>
+          <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onShareRun}>
+            {shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}
           </button>
         </div>
       </Surface>

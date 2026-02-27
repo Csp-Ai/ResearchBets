@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint && node scripts/audit/tohref-guard.mjs && npm run audit:state && npm run audit:ui-regression",
+    "lint": "next lint && npm run audit:fonts && node scripts/audit/tohref-guard.mjs && npm run audit:state && npm run audit:ui-regression",
     "typecheck": "tsc --noEmit",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -37,7 +37,8 @@
     "audit:state": "node scripts/audit-repo-state.mjs",
     "check:landing-imports": "node scripts/check-landing-imports.mjs",
     "check:governor": "tsx scripts/check-governor.mjs",
-    "audit:ui-regression": "node scripts/audit/ui-regression-guard.mjs"
+    "audit:ui-regression": "node scripts/audit/ui-regression-guard.mjs",
+    "audit:fonts": "node scripts/audit/font-import-guard.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

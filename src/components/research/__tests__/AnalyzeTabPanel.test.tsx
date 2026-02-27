@@ -30,12 +30,15 @@ describe('AnalyzeTabPanel', () => {
         onTryExample={noop}
         onCopyReasons={noop}
         onCopySlip={noop}
+        onShareRun={noop}
         slipHref="/slip"
+        shareStatus="idle"
         demoSlip={'A over\nB over'}
       />
     );
 
     expect(screen.getByTestId('decision-terminal-verdict').textContent).toMatch(/TAKE|MODIFY|PASS/);
     expect(screen.queryByText(/n\/a/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
   });
 });

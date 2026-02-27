@@ -23,6 +23,7 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
+import { buildShareRunHref } from '@/src/core/trace/shareHref';
 import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 
@@ -137,6 +138,7 @@ export default function ResearchPageContent() {
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [copySlipStatus, setCopySlipStatus] = useState<'idle' | 'done' | 'error'>('idle');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const { slip } = useDraftSlip();
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
@@ -338,6 +340,22 @@ export default function ResearchPageContent() {
     }
   }, [legs, runDto]);
 
+  const shareRun = useCallback(async () => {
+    const traceId = runDto?.trace_id ?? currentRun?.trace_id ?? traceFromQuery;
+    const shareHref = buildShareRunHref(nervous, traceId);
+    if (!shareHref || typeof navigator === 'undefined' || !navigator.clipboard) {
+      setShareStatus('error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareHref);
+      setShareStatus('done');
+      window.setTimeout(() => setShareStatus('idle'), 1200);
+    } catch {
+      setShareStatus('error');
+    }
+  }, [currentRun?.trace_id, nervous, runDto?.trace_id, traceFromQuery]);
+
   return (
     <section className="mx-auto max-w-6xl space-y-4">
       <header className="space-y-3">
@@ -346,8 +364,8 @@ export default function ResearchPageContent() {
           subtitle="During loop: isolate the weakest leg and enforce process over impulse."
           actions={[
             { label: 'Build from Board', href: boardHref },
-            { label: 'Try sample slip', href: appendQuery(nervous.toHref('/ingest'), { demo: 1 }) },
-            ...(latestRunHref ? [{ label: 'Open latest run', href: latestRunHref, tone: 'primary' as const }] : [{ label: 'Track', href: nervous.toHref('/track'), tone: 'primary' as const }])
+            ...(latestRunHref ? [{ label: 'Open latest run', href: latestRunHref, tone: 'primary' as const }] : []),
+            { label: 'Try sample slip (demo)', href: appendQuery(nervous.toHref('/ingest'), { demo: 1 }) }
           ]}
           traceId={traceFromQuery || nervous.trace_id}
         />
@@ -378,7 +396,9 @@ export default function ResearchPageContent() {
           onTryExample={() => router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))}
           onCopyReasons={() => void copyReasons()}
           onCopySlip={() => void copySlip()}
+          onShareRun={() => void shareRun()}
           slipHref={slipHref}
+          shareStatus={shareStatus}
           uncertainty={currentRun?.analysis.dataQuality?.confidenceCapReason}
           demoSlip={DEMO_SLIP}
           latestRunHref={latestRunHref}
