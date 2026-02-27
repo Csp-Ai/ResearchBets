@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: {
@@ -13,6 +13,8 @@ export default defineConfig({
     jsx: 'automatic'
   },
   test: {
-    setupFiles: ['tests/setup/serverOnlyShim.ts']
+    setupFiles: ['tests/setup/serverOnlyShim.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx', 'app/**/*.test.ts', 'app/**/*.test.tsx'],
+    exclude: [...configDefaults.exclude, 'tests/journey.spec.ts']
   }
 });

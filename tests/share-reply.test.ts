@@ -4,6 +4,7 @@ import { buildGroupReply } from '@/src/components/bettor/ShareReply';
 import type { Run } from '@/src/core/run/types';
 
 const runFixture: Run = {
+  trace_id: 'trace-1',
   traceId: 'trace-1',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

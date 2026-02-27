@@ -13,7 +13,7 @@ import { POST } from '../app/api/feed/[post_id]/feedback/route';
 
 describe('POST /api/feed/[post_id]/feedback', () => {
   it('requires auth', async () => {
-    const response = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ value: 'up' }) }), { params: { post_id: 'abc' } });
+    const response = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ value: 'up' }) }), { params: { post_id: '00000000-0000-0000-0000-000000000111' } });
     expect(response.status).toBe(401);
   });
 
@@ -24,10 +24,10 @@ describe('POST /api/feed/[post_id]/feedback', () => {
         headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
         body: JSON.stringify({ value: 'down' })
       }),
-      { params: { post_id: 'abc' } }
+      { params: { post_id: '00000000-0000-0000-0000-000000000111' } }
     );
 
     expect(response.status).toBe(200);
-    expect(upsert).toHaveBeenCalledWith({ post_id: 'abc', user_id: 'user-1', value: 'down' }, { onConflict: 'post_id,user_id' });
+    expect(upsert).toHaveBeenCalledWith({ post_id: '00000000-0000-0000-0000-000000000111', user_id: 'user-1', value: 'down' }, { onConflict: 'post_id,user_id' });
   });
 });

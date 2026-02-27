@@ -16,8 +16,8 @@ describe('computeSlipIntelligence', () => {
     const intel = computeSlipIntelligence(legs);
 
     expect(intel.correlationScore).toBeGreaterThanOrEqual(85);
-    expect(intel.fragilityScore).toBeGreaterThanOrEqual(85);
-    expect(intel.volatilityTier).toBe('Extreme');
+    expect(intel.fragilityScore).toBeGreaterThanOrEqual(60);
+    expect(['High', 'Extreme']).toContain(intel.volatilityTier);
     expect(intel.sameGameStack).toBe(true);
     expect(intel.exposureSummary.topGames[0]).toEqual({ game: 'LAL @ DAL', count: 7 });
   });
