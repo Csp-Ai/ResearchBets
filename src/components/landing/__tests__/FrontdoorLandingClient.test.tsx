@@ -45,6 +45,18 @@ describe('FrontdoorLandingClient live modes', () => {
     expect(screen.getByRole('link', { name: 'Paste slip' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Try sample slip' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Build from Board' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Auto-build 3 safe' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Auto-build 2 safe + 1 upside' })).toBeTruthy();
+  });
+
+  it('renders scout chips on board rows for confidence and risk', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 'chips-demo', data: { mode: 'demo', status: 'active', games: [{ id: 'g1', matchup: 'BOS @ NYK', startTime: '7:00 PM' }], board: [{ id: 'p1', gameId: 'g1', player: 'J. Brunson', market: 'points', line: '27.5', odds: '-108', hitRateL10: 64, riskTag: 'stable' }] } }) } as Response)));
+
+    renderWithNervousSystem(<FrontdoorLandingClient />);
+
+    await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
+    expect(screen.getByTestId('scout-confidence-chip')).toBeTruthy();
+    expect(screen.getByTestId('scout-risk-chip')).toBeTruthy();
   });
 
   it('adding a board prop populates quick slip rail leg list', async () => {
@@ -60,6 +72,60 @@ describe('FrontdoorLandingClient live modes', () => {
     expect(await screen.findByText('K. Irving · POINTS')).toBeTruthy();
     expect(screen.getByLabelText('Edit line K. Irving')).toBeTruthy();
     expect(screen.getByLabelText('Edit odds K. Irving')).toBeTruthy();
+  });
+
+  it('shows weakest-leg preview after adding two legs', async () => {
+    slipState = [
+      { id: 'p1', player: 'K. Irving', marketType: 'points', line: '24.5', odds: '-110', game: 'g1' },
+      { id: 'p2', player: 'D. Booker', marketType: 'points', line: '29.5', odds: '+165', game: 'g1' }
+    ];
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 'weakest-preview', data: {
+      mode: 'demo',
+      status: 'active',
+      games: [
+        { id: 'g1', matchup: 'DAL @ PHX', startTime: '8:00 PM' },
+        { id: 'g2', matchup: 'LAL @ DEN', startTime: '9:30 PM' }
+      ],
+      board: [
+        { id: 'p1', gameId: 'g1', player: 'K. Irving', market: 'points', line: '24.5', odds: '-110', riskTag: 'stable' },
+        { id: 'p2', gameId: 'g1', player: 'D. Booker', market: 'points', line: '29.5', odds: '+165', riskTag: 'watch' },
+        { id: 'p3', gameId: 'g2', player: 'L. James', market: 'points', line: '26.5', odds: '-112', riskTag: 'stable' }
+      ]
+    } }) } as Response)));
+
+    renderWithNervousSystem(<FrontdoorLandingClient />);
+
+    expect(await screen.findByTestId('pre-run-guardrail')).toBeTruthy();
+    expect(screen.getByText(/Weakest leg right now:/)).toBeTruthy();
+  });
+
+  it('auto-build populates 3 legs and keeps game diversity when available', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, trace_id: 'autobuild-demo', data: {
+      mode: 'demo',
+      status: 'active',
+      games: [
+        { id: 'g1', matchup: 'DAL @ PHX', startTime: '8:00 PM' },
+        { id: 'g2', matchup: 'LAL @ DEN', startTime: '9:30 PM' },
+        { id: 'g3', matchup: 'BOS @ NYK', startTime: '7:00 PM' }
+      ],
+      board: [
+        { id: 'p1', gameId: 'g1', player: 'K. Irving', market: 'points', line: '24.5', odds: '-110', riskTag: 'stable' },
+        { id: 'p2', gameId: 'g2', player: 'L. James', market: 'rebounds', line: '7.5', odds: '-108', riskTag: 'stable' },
+        { id: 'p3', gameId: 'g3', player: 'J. Brunson', market: 'assists', line: '6.5', odds: '-115', riskTag: 'stable' },
+        { id: 'p4', gameId: 'g1', player: 'D. Booker', market: 'points', line: '29.5', odds: '+160', riskTag: 'watch' }
+      ]
+    } }) } as Response)));
+
+    const { rerender } = renderWithNervousSystem(<FrontdoorLandingClient />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Auto-build 3 safe' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-build 3 safe' }));
+    rerender(<FrontdoorLandingClient />);
+
+    expect(await screen.findByText('K. Irving · POINTS')).toBeTruthy();
+    expect(screen.getByText('L. James · REBOUNDS')).toBeTruthy();
+    expect(screen.getByText('J. Brunson · ASSISTS')).toBeTruthy();
+    const uniqueGames = new Set(slipState.map((leg) => leg.game));
+    expect(uniqueGames.size).toBe(3);
   });
 
   it('renders alive strip with deterministic demo phases', async () => {

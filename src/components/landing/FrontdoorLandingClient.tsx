@@ -54,6 +54,13 @@ const normalizeTodayResult = (input: unknown): TodayPayload => {
   return parsed.success ? parsed.data : EMPTY_TODAY;
 };
 
+const confidenceFromBoardProp = (prop: BoardProp) => {
+  if (typeof prop.modelProb === 'number' && Number.isFinite(prop.modelProb) && prop.modelProb > 0) return Math.round(prop.modelProb * 100);
+  if (prop.hitRateL10 >= 68) return 74;
+  if (prop.hitRateL10 >= 58) return 64;
+  return 52;
+};
+
 export function FrontdoorLandingClient() {
   const nervous = useNervousSystem();
   const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
@@ -269,10 +276,16 @@ export function FrontdoorLandingClient() {
               {board.slice(0, 6).map((prop) => (
                 <SlipRow
                   key={prop.id}
-                  leftPrimary={`${prop.player} • ${prop.market.toUpperCase()} ${prop.line}`}
-                  leftSecondary={`${gameById.get(prop.gameId)?.matchup ?? prop.gameId} · ${prop.odds}`}
+                  leftPrimary={(
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>{prop.player} • {prop.market.toUpperCase()} {prop.line}</span>
+                      <Chip variant="good" className="px-1.5 py-0.5 text-[10px]" data-testid="scout-confidence-chip">{confidenceFromBoardProp(prop)}% conf</Chip>
+                      <Chip variant={prop.riskTag === 'stable' ? 'good' : 'warn'} className="px-1.5 py-0.5 text-[10px]" data-testid="scout-risk-chip">{prop.riskTag}</Chip>
+                    </span>
+                  )}
+                  leftSecondary={`${gameById.get(prop.gameId)?.matchup ?? prop.gameId} · ${prop.odds} · L10 ${prop.hitRateL10}%${typeof (prop as BoardProp & { hitRateL5?: number }).hitRateL5 === 'number' ? ` · L5 ${(prop as BoardProp & { hitRateL5?: number }).hitRateL5}%` : ''}`}
                   right={(
-                    <button type="button" onClick={() => toggleLeg(prop, gameById.get(prop.gameId)?.matchup)} className="rounded-lg border border-cyan-300/50 px-2 py-1 text-xs text-cyan-100">
+                    <button type="button" onClick={() => toggleLeg(prop, gameById.get(prop.gameId)?.matchup)} className="rounded-md border border-cyan-300/50 px-2 py-0.5 text-[11px] text-cyan-100">
                       {slipIds.has(prop.id) ? 'Added' : 'Add'}
                     </button>
                   )}
@@ -306,6 +319,8 @@ export function FrontdoorLandingClient() {
               runAnalysisHref={runAnalysisHref}
               sampleSlipHref={sampleSlipHref}
               latestRunHref={latestRunHref}
+              board={board}
+              onAddLeg={addLeg}
               onRemoveLeg={removeLeg}
               onEditLeg={updateLeg}
             />
