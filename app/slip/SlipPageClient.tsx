@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 import { GamesToday, mapPropToLeg, type TodayGame } from '@/features/dashboard/GamesToday';
 import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
@@ -12,6 +13,8 @@ import { createTrackingFromDraft, saveSlip } from '@/src/core/slips/storage';
 import type { TodayPayload } from '@/src/core/today/types';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
+import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
@@ -80,24 +83,24 @@ export default function SlipPageClient() {
         const data = payload.data;
         setBoardMode(data.mode);
         const asTodayPayload: TodayPayload = { mode: data.mode, generatedAt: new Date().toISOString(), leagues: ['NBA','NFL','MLB','Soccer','UFC','NHL'], games: data.games.map((g) => ({ id: g.id, league: 'NBA', status: 'upcoming', startTime: g.startTime, matchup: g.matchup, teams: g.matchup.split('@').map((v) => v.trim()), bookContext: 'Unified board resolver', provenance: 'normalized_board', lastUpdated: new Date().toISOString(), propsPreview: data.board.filter((b) => b.gameId === g.id).map((b) => ({ id: b.id, player: b.player, market: b.market as TodayPayload['games'][number]['propsPreview'][number]['market'], line: b.line, odds: b.odds, rationale: ['Board signal'], provenance: 'normalized_board', lastUpdated: new Date().toISOString() })) })) };
-        const mappedGames = mapTodayPayload(asTodayPayload);
-        setGames(mappedGames);
-        if (dedupedLegs.length === 0) {
-          const seeded = getScoutDraftLegs(mappedGames);
-          if (seeded.length > 0) setSlip(seeded);
-        }
+        setGames(mapTodayPayload(asTodayPayload));
       })
       .catch(() => undefined);
-  }, [dedupedLegs.length, nervous, nervous.sport, nervous.date, nervous.tz, nervous.mode, setSlip]);
+  }, [nervous]);
+
+  useEffect(() => {
+    if (searchParams.get('sample') !== '1' || dedupedLegs.length > 0 || games.length === 0) return;
+    const seeded = getScoutDraftLegs(games);
+    if (seeded.length > 0) setSlip(seeded);
+  }, [dedupedLegs.length, games, searchParams, setSlip]);
 
   const onAnalyzeSlip = () => {
     if (dedupedLegs.length === 0 || typeof window === 'undefined') return;
     const prefillText = serializeDraftSlip(dedupedLegs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(appendQuery(nervous.toHref('/research'), { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
+    router.push(appendQuery(nervous.toHref('/stress-test'), { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
   };
-
 
   const onTrackSlip = () => {
     if (dedupedLegs.length === 0) return;
@@ -130,15 +133,31 @@ export default function SlipPageClient() {
 
   return (
     <section className="mx-auto max-w-7xl space-y-4">
-      <header className="space-y-2">
-        <h1 className="text-4xl font-semibold">Draft Slip</h1>
-        <p className="text-sm text-slate-300">Bar-ready flow: add legs from Tonight&apos;s Board, remove quickly, copy list into your book, then analyze weakest-leg risk.</p>
-        <p className="text-xs text-slate-500">Board mode: {boardMode} • Context locked to {nervous.sport} / {nervous.date} / {nervous.tz}</p>
-      </header>
+      <TruthSpineHeader
+        title="Draft Slip"
+        subtitle="During loop: stage the ticket, enforce concentration checks, then analyze."
+        actions={[
+          { label: 'Build from Board', href: nervous.toHref('/today'), tone: 'primary' },
+          { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) },
+          { label: 'Analyze (Stress Test)', href: nervous.toHref('/stress-test') }
+        ]}
+      />
       <SlipIntelBar legs={dedupedLegs} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
-          <GamesToday games={games} onAddLeg={addLeg} />
+          {games.length === 0 ? (
+            <AliveEmptyState
+              title="Today's prop board is empty"
+              message="No board rows are loaded yet. Go to Board to add props, or seed a deterministic sample in demo mode."
+              note={boardMode === 'demo' ? 'Demo mode (live feeds off).' : 'Waiting for live events — showing deterministic demo signals when needed.'}
+              actions={(
+                <>
+                  <Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Go to Board to add props</Link>
+                  {boardMode === 'demo' ? <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded border border-white/20 px-3 py-1.5">Seed sample props</Link> : null}
+                </>
+              )}
+            />
+          ) : <GamesToday games={games} onAddLeg={addLeg} />}
         </div>
         <div className="xl:sticky xl:top-4 xl:h-fit space-y-3">
           <section className="rounded-xl border border-cyan-500/30 bg-slate-900/90 p-4 space-y-3">
@@ -146,7 +165,13 @@ export default function SlipPageClient() {
               <h2 className="text-base font-semibold text-cyan-100">Draft Slip</h2>
               <span className="text-xs text-slate-400">{dedupedLegs.length} legs</span>
             </div>
-            <p className="text-xs text-slate-400">No paste required: seeded with deterministic board scouts. Reorder/remove then copy into FanDuel manually.</p>
+            {dedupedLegs.length === 0 ? (
+              <AliveEmptyState
+                title="Start with one board action"
+                message="Your draft has 0 legs. Add 2–3 leads from Board to unlock Analyze and Track."
+                actions={<Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Browse board</Link>}
+              />
+            ) : null}
             <ul className="space-y-2">
               {dedupedLegs.map((leg, index) => (
                 <li key={leg.id} className="rounded-lg border border-slate-700 bg-slate-950/60 p-2">
@@ -171,8 +196,9 @@ export default function SlipPageClient() {
             setSlip(nextLegs);
           }} />
           <div className="grid grid-cols-1 gap-2">
-            <button type="button" className="w-full rounded-xl border border-emerald-300/80 bg-emerald-500/20 px-4 py-3 text-base font-semibold text-emerald-50 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track slip ({dedupedLegs.length})</button>
-            <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze now ({dedupedLegs.length})</button>
+            <button type="button" className="w-full rounded-xl border border-emerald-300/80 bg-emerald-500/20 px-4 py-3 text-base font-semibold text-emerald-50 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</button>
+            <button type="button" className="w-full rounded-xl border border-cyan-400/70 bg-cyan-500/10 px-4 py-3 text-base font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze (Stress Test) ({dedupedLegs.length})</button>
+            {dedupedLegs.length === 0 ? <p className="text-xs text-slate-400">Actions are disabled because the draft has 0 legs.</p> : null}
           </div>
         </div>
       </div>

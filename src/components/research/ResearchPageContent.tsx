@@ -24,6 +24,7 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 import { appendQuery } from '@/src/components/landing/navigation';
 import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
 import { ThinkingTracker } from '@/src/components/trace/ThinkingTracker';
+import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
   loading: () => <Surface className="h-48 animate-pulse bg-slate-900/60" />
@@ -339,19 +340,23 @@ export default function ResearchPageContent() {
 
   return (
     <section className="mx-auto max-w-6xl space-y-4">
-      <header className="bettor-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-semibold">Stress Test</h1>
-            <p className="mt-1 text-sm text-slate-300">Find the weakest leg before you place.</p>
-            <div className="mt-3"><ThinkingTracker traceId={traceFromQuery || nervous.trace_id} mode={nervous.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} /></div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Back to Slip</a>
-            <a href={boardHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Back to Board</a>
-          </div>
+      <header className="space-y-3">
+        <TruthSpineHeader
+          title="Stress Test"
+          subtitle="During loop: isolate the weakest leg and enforce process over impulse."
+          actions={[
+            { label: 'Build from Board', href: boardHref },
+            { label: 'Try sample slip', href: appendQuery(nervous.toHref('/ingest'), { demo: 1 }) },
+            ...(latestRunHref ? [{ label: 'Open latest run', href: latestRunHref, tone: 'primary' as const }] : [{ label: 'Track', href: nervous.toHref('/track'), tone: 'primary' as const }])
+          ]}
+          traceId={traceFromQuery || nervous.trace_id}
+        />
+        <ThinkingTracker traceId={traceFromQuery || nervous.trace_id} mode={nervous.mode} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
+        <div className="flex flex-wrap gap-2 text-xs">
+          <a href="#fragility" className="rounded-full border border-white/20 px-2 py-1 text-slate-300">Why fragile?</a>
+          <a href="#correlation" className="rounded-full border border-white/20 px-2 py-1 text-slate-300">Correlation risk</a>
         </div>
-        <div className="mt-4 flex w-fit gap-2 rounded-xl bg-slate-950/60 p-1">
+        <div className="flex w-fit gap-2 rounded-xl bg-slate-950/60 p-1">
           {tabs.map((candidate) => (
             <button key={candidate} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { tab: candidate }))} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
           ))}
@@ -374,7 +379,6 @@ export default function ResearchPageContent() {
           onCopyReasons={() => void copyReasons()}
           onCopySlip={() => void copySlip()}
           slipHref={slipHref}
-          boardHref={boardHref}
           uncertainty={currentRun?.analysis.dataQuality?.confidenceCapReason}
           demoSlip={DEMO_SLIP}
           latestRunHref={latestRunHref}
@@ -384,12 +388,12 @@ export default function ResearchPageContent() {
       {safeTab === 'scout' ? <ScoutTabPanel data={data} /> : null}
       {safeTab === 'live' ? <LiveTabPanel data={data} /> : null}
 
-      <RecentActivityPanel
+      <div id="fragility"><RecentActivityPanel
         runs={recentRuns}
         demoRun={demoRecentRun}
         onOpen={(recentTraceId) => router.push(withTraceId(nervous.toHref('/stress-test'), recentTraceId))}
-      />
-      <HowItWorksMini />
+      /></div>
+      <div id="correlation"><HowItWorksMini /></div>
 
       <AdvancedDrawer developerMode={developerMode}>
         <div className="flex flex-wrap gap-2"><Chip>Mode: {data?.mode ?? 'loading'}</Chip></div>

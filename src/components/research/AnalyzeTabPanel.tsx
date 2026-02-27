@@ -31,7 +31,6 @@ type AnalyzeTabPanelProps = {
   onCopyReasons: () => void;
   onCopySlip: () => void;
   slipHref: string;
-  boardHref: string;
   uncertainty?: string;
   demoSlip: string;
   latestRunHref?: string | null;
@@ -52,7 +51,6 @@ export default function AnalyzeTabPanel({
   onCopyReasons,
   onCopySlip,
   slipHref,
-  boardHref,
   uncertainty,
   demoSlip,
   latestRunHref
@@ -69,16 +67,6 @@ export default function AnalyzeTabPanel({
   return (
     <div className="space-y-3">
       <section className="bettor-card space-y-2 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h2 className="text-2xl font-semibold">Stress Test</h2>
-            <p className="text-sm text-slate-300">Find the weakest leg before you place.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a href={slipHref} className="rounded-lg border border-white/20 px-2.5 py-1.5 text-xs text-slate-100 hover:bg-white/5">Back to Slip</a>
-            <a href={boardHref} className="rounded-lg border border-white/20 px-2.5 py-1.5 text-xs text-slate-100 hover:bg-white/5">Back to Board</a>
-          </div>
-        </div>
         <SlipIntelBar legs={intelLegs} />
       </section>
 

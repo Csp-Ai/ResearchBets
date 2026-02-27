@@ -10,6 +10,8 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
+import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 
 const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPanel), {
   ssr: false,
@@ -101,10 +103,15 @@ export function ControlPageClient() {
 
   return (
     <section className="mx-auto max-w-6xl space-y-3">
-      <header>
-        <h1 className="text-3xl font-semibold">Control Room</h1>
-        <p className="text-sm text-slate-400">Manage active risk live, then review settled slips to sharpen your process.</p>
-      </header>
+      <TruthSpineHeader
+        title="Control Room"
+        subtitle="After loop: track live posture, review outcomes, and feed back process fixes."
+        actions={[
+          { label: 'Open latest run', href: latestTrace ? appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace }) : nervous.toHref('/stress-test'), tone: 'primary' },
+          { label: 'Build from Board', href: nervous.toHref('/today') },
+          { label: 'Run sample slip', href: appendQuery(nervous.toHref('/stress-test'), { demo: '1' }) }
+        ]}
+      />
 
       <div className="flex gap-2 rounded-xl bg-slate-900/70 p-1 w-fit">
         <button type="button" onClick={() => setTab('live')} className={`rounded-lg px-3 py-1.5 text-sm ${tab === 'live' ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>Live</button>
@@ -116,16 +123,21 @@ export function ControlPageClient() {
           <h2 className="text-lg font-semibold">Control Room: Live</h2>
           <SlipIntelBar legs={slip} />
           {slip.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-white/20 p-4 text-sm text-slate-300 space-y-3">
-              <p>No active slip found yet. Pick a path below to get a live run in motion.</p>
-              <div className="flex flex-wrap gap-2">
-                {latestTrace ? (
-                  <Link href={appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace })} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link>
-                ) : null}
-                <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded border border-white/20 px-3 py-2 text-sm">Try sample slip</Link>
-                <Link href={nervous.toHref('/slip')} className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
-              </div>
-            </div>
+            <>
+              <AliveEmptyState
+                title="No active run yet"
+                message="Open latest run, run a deterministic sample, or build from Board to start live tracking."
+                actions={<>
+                  {latestTrace ? <Link href={appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace })} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link> : null}
+                  <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded border border-white/20 px-3 py-2 text-sm">Run sample slip</Link>
+                  <Link href={nervous.toHref('/today')} className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
+                </>}
+              />
+              <section className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm text-slate-300">
+                <h3 className="text-sm font-semibold text-slate-100">Run timeline</h3>
+                <p className="mt-1 text-xs text-slate-400">Demo sample: Scout submitted → legs extracted → weakest-leg note recorded.</p>
+              </section>
+            </>
           ) : (
             <>
               <p className="text-sm text-slate-300">Pregame → live confidence delta: <span className={riskDelta >= 0 ? 'text-emerald-300' : 'text-amber-300'}>{riskDelta >= 0 ? '+' : ''}{riskDelta}%</span></p>
@@ -161,6 +173,13 @@ export function ControlPageClient() {
           </div>
 
           <ReviewPanel retroDto={retroDto} uploadName={uploadName} postmortem={postmortem} />
+          {postmortem ? (
+            <div className="grid gap-2 md:grid-cols-3">
+              <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-xs">Postmortem card preview ready.</div>
+              <button type="button" className="rounded-lg border border-white/20 bg-slate-950/50 p-3 text-xs text-left">Rebuild without weakest legs</button>
+              <button type="button" className="rounded-lg border border-white/20 bg-slate-950/50 p-3 text-xs text-left">Log journal note</button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
