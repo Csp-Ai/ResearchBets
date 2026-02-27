@@ -2,7 +2,7 @@ import React from 'react';
 
 import { BoardPreviewSSR, getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
 import { FrontdoorLandingClient } from '@/src/components/landing/FrontdoorLandingClient';
-import { BDAStrip, Credibility30s, TrustNote } from '@/src/components/landing/LandingCompactModules';
+import { BDAStrip, Credibility30s, PostmortemUploadWedge, TrustNote } from '@/src/components/landing/LandingCompactModules';
 
 type HomePageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -23,6 +23,7 @@ export default function HomePage({ searchParams }: HomePageProps) {
           <Credibility30s spine={spine} />
           <TrustNote spine={spine} />
         </section>
+        <PostmortemUploadWedge />
       </div>
     </main>
   );

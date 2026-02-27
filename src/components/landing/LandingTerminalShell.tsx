@@ -9,6 +9,7 @@ type LandingTerminalShellProps = {
   title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  hooksSlot?: React.ReactNode;
   className?: string;
 };
 
@@ -24,6 +25,7 @@ export function LandingTerminalShell({
   title = "Tonight's Board",
   subtitle = 'Scan edges, build a slip, then stress test before lock.',
   children,
+  hooksSlot,
   className
 }: LandingTerminalShellProps) {
   return (
@@ -40,6 +42,7 @@ export function LandingTerminalShell({
         <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
         <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>
       </div>
+      {hooksSlot}
       {children}
     </section>
   );
