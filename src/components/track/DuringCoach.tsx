@@ -12,6 +12,7 @@ import { Button } from '@/src/components/ui/button';
 export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; compact?: boolean }) {
   const coach = useMemo(() => computeDuringCoach(ticket), [ticket]);
   const [showWhy, setShowWhy] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const closest = coach.nextToHit[0];
@@ -54,10 +55,15 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
       </div>
 
       <p className="text-xs text-slate-400">Suggested actions</p>
-      <details className="rounded-lg bg-black/20 px-3 py-2 text-slate-300">
-        <summary className="cursor-pointer text-xs">Coach details</summary>
-        <ul className="mt-2 list-disc pl-5 text-xs">{coach.explanation.map((rule) => <li key={`${ticket.ticketId}-${rule}`}>{rule}</li>)}</ul>
-      </details>
+      <div className="rounded-lg bg-black/20 px-3 py-2 text-slate-300">
+        <button type="button" className={`disclosure-button ${showDetails ? 'disclosure-open' : ''}`} onClick={() => setShowDetails((value) => !value)}>
+          <span>Coach details</span>
+          <span className="disclosure-caret">⌄</span>
+        </button>
+        <div className={`collapse-shell ${showDetails ? 'collapse-shell-open mt-2' : ''}`}>
+          <ul className="list-disc pl-5 text-xs">{coach.explanation.map((rule) => <li key={`${ticket.ticketId}-${rule}`}>{rule}</li>)}</ul>
+        </div>
+      </div>
 
       <Button type="button" intent="primary" onClick={handleSave} className="min-h-0 px-3 py-2 text-xs">Save for postmortem</Button>
       {toast ? <p className="text-xs text-emerald-200">{toast}</p> : null}

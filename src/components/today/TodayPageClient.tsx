@@ -54,6 +54,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [selectedLegs, setSelectedLegs] = useState<SlipBuilderLeg[]>([]);
   const [highlightedRowId, setHighlightedRowId] = useState<string | undefined>(undefined);
+  const [recentAddedRowId, setRecentAddedRowId] = useState<string | null>(null);
   const nervous = useNervousSystem();
 
   const loadToday = useCallback(async (refresh = false) => {
@@ -114,6 +115,8 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     setSelectedLegs((prev) => {
       const exists = prev.some((leg) => leg.id === row.id);
       if (exists) return prev.filter((leg) => leg.id !== row.id);
+      setRecentAddedRowId(row.id);
+      window.setTimeout(() => setRecentAddedRowId(null), 700);
       if (prev.length >= 3) return [...prev.slice(1), { id: row.id, player: row.player, marketType: row.market, line: row.line ?? 'TBD', odds: row.odds, volatility: row.riskTag === 'stable' ? 'low' : 'high', game: row.matchup }];
       return [...prev, { id: row.id, player: row.player, marketType: row.market, line: row.line ?? 'TBD', odds: row.odds, volatility: row.riskTag === 'stable' ? 'low' : 'high', game: row.matchup }];
     });
@@ -165,7 +168,15 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
       </section>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-3">
-          <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} />
+          <section className="panel-shell p-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full border border-cyan-300/35 bg-cyan-500/10 px-2 py-1 text-cyan-100">Board → Ticket</span>
+              <span className={`mono-number rounded-full border px-2 py-1 transition-all ${recentAddedRowId ? 'scale-105 border-emerald-300/60 bg-emerald-500/10 text-emerald-100' : 'border-white/15 bg-slate-900/70 text-slate-200'}`}>{selectedLegs.length} legs staged</span>
+              {selectedLegs.length > 0 ? <p className="text-slate-300">Ready to analyze or track this ticket.</p> : <p className="text-slate-400">Add 2–3 board signals to build a ticket.</p>}
+              {selectedLegs.length >= 3 ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-2 py-1 text-amber-100">Guardrail cue: keep exposure concentrated</span> : null}
+            </div>
+          </section>
+          <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} />
           <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} />
         </div>
         <SlipDrawer legs={selectedLegs} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} />

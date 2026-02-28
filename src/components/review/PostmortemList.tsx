@@ -10,7 +10,7 @@ import { saveGuardrail } from '@/src/core/guardrails/localGuardrails';
 
 export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [toast, setToast] = useState<string | null>(null);
+  const [appliedByTicket, setAppliedByTicket] = useState<Record<string, boolean>>({});
 
   return (
     <CardSurface className="p-4" data-testid="postmortem-list">
@@ -29,7 +29,11 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
                 <span className="text-xs text-slate-300">{killer}</span>
                 <span className="mono-number text-xs text-amber-100">Gap {Math.abs(missedBy).toFixed(1)}</span>
               </div>
-              <button type="button" className="mt-2 text-xs text-cyan-200 underline" onClick={() => setOpen((prev) => ({ ...prev, [record.ticketId]: !isOpen }))}>{isOpen ? 'Hide detail' : 'Expand detail'}</button>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-1 text-cyan-100">Lesson: {killer.replaceAll('_', ' ')}</span>
+                <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-amber-100">Next time: {record.nextTimeRule?.title ?? 'Keep sizing disciplined'}</span>
+              </div>
+              <button type="button" className={`disclosure-button mt-2 ${isOpen ? 'disclosure-open' : ''}`} onClick={() => setOpen((prev) => ({ ...prev, [record.ticketId]: !isOpen }))}><span>{isOpen ? 'Hide detail' : 'Expand detail'}</span><span className="disclosure-caret">⌄</span></button>
               {isOpen ? (
                 <div className="mt-2 space-y-2">
                   <div className="overflow-hidden rounded-md border border-white/10">
@@ -51,12 +55,12 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
                         className="mt-2 min-h-0 px-2 py-1 text-xs"
                         onClick={() => {
                           saveGuardrail(record.nextTimeRule!);
-                          setToast('Guardrail applied');
-                          window.setTimeout(() => setToast(null), 1200);
+                          setAppliedByTicket((prev) => ({ ...prev, [record.ticketId]: true }));
                         }}
                       >
-                        Apply as Guardrail
+                        {appliedByTicket[record.ticketId] ? 'Guardrail applied ✓' : 'Apply as Guardrail'}
                       </Button>
+                      {appliedByTicket[record.ticketId] ? <p className="mt-1 text-xs text-emerald-200">Saved to your local guardrails.</p> : null}
                     </div>
                   ) : null}
                 </div>
@@ -65,7 +69,6 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
           );
         })}
       </ul>
-      {toast ? <p className="mt-2 text-xs text-emerald-200">{toast}</p> : null}
     </CardSurface>
   );
 }
