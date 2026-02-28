@@ -3,16 +3,13 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 
 import { Button } from '@/src/components/ui/button';
-import { Chip } from '@/src/components/ui/chip';
-import { Surface } from '@/src/components/ui/surface';
+import { Badge } from '@/src/components/ui/Badge';
+import { CardSurface } from '@/src/components/ui/CardSurface';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
-import {
-  LegRankList,
-  type AnalyzeLeg
-} from '@/src/components/bettor/BettorFirstBlocks';
+import { LegRankList, type AnalyzeLeg } from '@/src/components/bettor/BettorFirstBlocks';
 import { SystemCalibrationStrip } from '@/src/components/research/SystemCalibrationStrip';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
@@ -43,33 +40,10 @@ type AnalyzeTabPanelProps = {
 };
 
 export default function AnalyzeTabPanel({
-  intelLegs,
-  legs,
-  sortedLegs,
-  weakestLeg,
-  runDto,
-  currentRun,
-  prefillKeyFromQuery,
-  copyStatus,
-  copySlipStatus,
-  onPasteOpen,
-  onTryExample,
-  onCopyReasons,
-  onCopySlip,
-  onShareRun,
-  slipHref,
-  boardHref,
-  shareStatus,
-  uncertainty,
-  demoSlip,
-  latestRunHref
+  intelLegs, legs, sortedLegs, weakestLeg, runDto, currentRun, prefillKeyFromQuery, copyStatus, copySlipStatus,
+  onPasteOpen, onTryExample, onCopyReasons, onCopySlip, onShareRun, slipHref, boardHref, shareStatus, uncertainty, demoSlip, latestRunHref
 }: AnalyzeTabPanelProps) {
-  const [calibration, setCalibration] = useState({
-    take_accuracy: 0,
-    weakest_leg_accuracy: 0,
-    runs_analyzed: 0,
-    last_updated: null as string | null
-  });
+  const [calibration, setCalibration] = useState({ take_accuracy: 0, weakest_leg_accuracy: 0, runs_analyzed: 0, last_updated: null as string | null });
 
   useEffect(() => {
     let active = true;
@@ -85,9 +59,7 @@ export default function AnalyzeTabPanel({
         });
       })
       .catch(() => undefined);
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
@@ -100,11 +72,7 @@ export default function AnalyzeTabPanel({
   });
   const combinedReasons = selectTopReasons(rankedReasons, 3);
   const hasSlip = legs.length > 0;
-  const hasWeakestLeg = Boolean(riskSummary.weakestLeg && riskSummary.weakestLeg.toLowerCase() !== 'unknown leg');
-  const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip).split('\n').map((line) => line.trim()).filter(Boolean);
 
   return (
     <div className="space-y-3">
@@ -115,77 +83,71 @@ export default function AnalyzeTabPanel({
         lastUpdated={calibration.last_updated}
       />
 
-      <section className="bettor-card space-y-2 p-4">
-        <SlipIntelBar legs={intelLegs} />
-      </section>
-
-      <Surface kind="hero" className="space-y-3 p-4" data-testid="decision-terminal-verdict">
-        {hasSlip ? (
-          <>
+      {hasSlip ? (
+        <CardSurface className="space-y-4 p-4 transition-opacity duration-300" data-testid="decision-terminal-verdict">
+          <div className="grid gap-3 md:grid-cols-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
-              <p className="text-2xl font-bold text-strong">{presentRecommendation(riskSummary.recommendation)}</p>
-              <p className="text-sm text-subtle">Confidence {riskSummary.confidencePct}% · Risk {riskSummary.riskLabel}</p>
-              {hasWeakestLeg ? <p className="text-sm font-semibold text-amber-200">Weakest leg: {riskSummary.weakestLeg}</p> : null}
-              <p className="text-xs text-rose-200">Dominant risk factor: {riskSummary.dominantRiskFactor}</p>
+              <p className="text-xs text-slate-500">Decision</p>
+              <p className="text-3xl font-bold text-slate-100">{presentRecommendation(riskSummary.recommendation)}</p>
             </div>
-            <ul className="space-y-1 text-sm text-subtle">
-              {combinedReasons.length > 0 ? combinedReasons.map((reason) => <li key={reason}>• {reason}</li>) : <li>• Review line movement and recent hit rate before placement.</li>}
-            </ul>
-            {uncertainty ? <p className="text-xs text-muted">Uncertainty: {uncertainty}</p> : null}
-            <div className="flex flex-wrap gap-2">
-              <Button intent="primary" onClick={onCopySlip}>{copySlipStatus === 'done' ? 'Copied slip' : copySlipStatus === 'error' ? 'Copy unavailable' : 'Copy slip'}</Button>
-              <a href={slipHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Edit in Slip</a>
-              <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onCopyReasons}>
-                {copyStatus === 'done' ? 'Copied reasons' : copyStatus === 'error' ? 'Copy unavailable' : 'Copy reasons'}
-              </button>
-              <button type="button" className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5" onClick={onShareRun}>
-                {shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="space-y-3" data-testid="empty-slip-verdict-state">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted">Slip verdict</p>
-              <p className="text-lg font-semibold text-strong">Add a slip to get a verdict.</p>
+              <p className="text-xs text-slate-500">Confidence</p>
+              <div className="mt-1 h-2 rounded bg-slate-900"><div className="h-2 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${riskSummary.confidencePct}%` }} /></div>
+              <p className="mt-1 text-sm text-slate-200">{riskSummary.confidencePct}%</p>
             </div>
-            <p className="text-sm text-subtle">Run a sample slip to see weakest-leg + correlation risk.</p>
-            <div className="flex flex-wrap gap-2">
-              <Button intent="primary" onClick={onPasteOpen}>Paste slip</Button>
-              <Button intent="secondary" onClick={onTryExample}>Try sample slip (demo)</Button>
-              <a href={boardHref} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">Build from Board</a>
+            <div>
+              <p className="text-xs text-slate-500">Fragility</p>
+              <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-[#22C55E] via-[#FFB020] to-[#FF4D4F] transition-all duration-1000" style={{ width: `${riskSummary.fragilityScore}%` }} /></div>
+              <p className="mt-1 text-sm text-amber-100">{riskSummary.fragilityScore}/100</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Correlation</p>
+              <Badge variant={riskSummary.correlationFlag ? 'warning' : 'success'} className="mt-1">{riskSummary.correlationFlag ? 'HIGH' : 'MANAGED'}</Badge>
             </div>
           </div>
-        )}
-      </Surface>
 
-      <Surface className="space-y-3 p-4">
-        {hasSlip ? (
-          <>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">Slip to place</h3>
-            <ol className="space-y-1 text-sm text-strong">
-              {slipLines.map((line, index) => <li key={`${index + 1}-${line}`}>{index + 1}. {line}</li>)}
-            </ol>
-          </>
-        ) : (
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">Paste slip</h3>
-            <pre className="ui-shell-panel p-3 text-xs text-subtle whitespace-pre-wrap">{demoSlip}</pre>
-            <div className="flex items-center gap-3">
-              <Button intent="primary" onClick={onPasteOpen}>Paste slip</Button>
-              <button type="button" className="text-xs text-link underline" onClick={onTryExample}>Try an example</button>
-              {latestRunHref ? <a href={latestRunHref} className="text-xs text-link underline">Open latest run</a> : null}
+          <CardSurface className="p-4">
+            <p className="text-xs font-semibold text-amber-100">⚠ Weakest Leg</p>
+            <p className="mt-1 text-lg font-medium text-slate-100">{riskSummary.weakestLeg}</p>
+            <p className="mt-2 text-sm text-slate-300">Fragility {riskSummary.fragilityScore}/100</p>
+            <p className="text-sm text-amber-100">Key risk: {riskSummary.correlationFlag ? 'Correlation High' : riskSummary.dominantRiskFactor}</p>
+            <div className="mt-2 space-y-1 text-sm text-slate-300">
+              {combinedReasons.length > 0 ? combinedReasons.slice(0, 3).map((reason) => <p key={reason}>• {reason}</p>) : <p>• Check line movement before locking.</p>}
             </div>
-          </div>
-        )}
-        {prefillKeyFromQuery ? <Chip tone="strong">Draft from Scout</Chip> : null}
-      </Surface>
+          </CardSurface>
 
-      <details className="ui-shell-drawer px-3 py-2" data-testid="run-details-collapsed">
-        <summary className="cursor-pointer text-xs font-semibold tracking-wide text-muted">Run details</summary>
-        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-subtle">Run a sample slip to see weakest-leg + correlation risk.</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button intent="primary" onClick={onCopySlip}>{copySlipStatus === 'done' ? 'Copied slip' : copySlipStatus === 'error' ? 'Copy unavailable' : 'Copy slip'}</Button>
+            <a href={slipHref} className="rounded-lg bg-[#00E5C8] px-3 py-2 text-sm font-semibold text-slate-950">Edit in Slip</a>
+            <button type="button" className="rounded-lg px-3 py-2 text-sm text-slate-100" onClick={onCopyReasons}>{copyStatus === 'done' ? 'Copied reasons' : copyStatus === 'error' ? 'Copy unavailable' : 'Copy reasons'}</button>
+            <button type="button" className="rounded-lg px-3 py-2 text-sm text-slate-100" onClick={onShareRun}>{shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}</button>
+          </div>
+        </CardSurface>
+      ) : (
+        <CardSurface className="space-y-3 p-4" data-testid="empty-slip-verdict-state">
+          <p className="text-lg font-semibold text-slate-100">Add a slip to get a verdict.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button intent="primary" onClick={onPasteOpen}>Paste slip</Button>
+            <Button intent="secondary" onClick={onTryExample}>Try sample slip (demo)</Button>
+            <a href={boardHref} className="rounded-lg bg-[#00E5C8] px-3 py-2 text-sm font-semibold text-slate-950">Build from Board</a>
+          </div>
+        </CardSurface>
+      )}
+
+      <CardSurface className="space-y-3 p-4">
+        <h3 className="text-sm font-semibold text-slate-400">Slip to place</h3>
+        <ol className="space-y-1 text-sm text-slate-100">{slipLines.map((line, index) => <li key={`${index + 1}-${line}`}>{index + 1}. {line}</li>)}</ol>
+        {prefillKeyFromQuery ? <Badge variant="info">Draft from Scout</Badge> : null}
+      </CardSurface>
+
+      <details className="rounded-lg bg-black/20 px-3 py-2" data-testid="run-details-collapsed">
+        <summary className="cursor-pointer text-xs font-semibold tracking-wide text-slate-400">Details</summary>
+        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-slate-400">Run a sample slip to see weakest-leg + correlation risk.</p>}
+        {uncertainty ? <p className="mt-2 text-xs text-slate-400">Uncertainty: {uncertainty}</p> : null}
+        {latestRunHref ? <a href={latestRunHref} className="mt-1 block text-xs text-cyan-200 underline">Open latest run</a> : null}
       </details>
+
+      <div className="hidden"><SlipIntelBar legs={intelLegs} /></div>
     </div>
   );
 }

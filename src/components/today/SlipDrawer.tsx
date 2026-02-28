@@ -7,25 +7,10 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
+import { Badge } from '@/src/components/ui/Badge';
+import { CardSurface } from '@/src/components/ui/CardSurface';
 
-const riskLevelScore: Record<'stable' | 'watch', number> = {
-  stable: 1,
-  watch: 2
-};
-
-function aggregateRisk(legs: SlipBuilderLeg[]): string {
-  if (legs.length === 0) return 'No risk';
-  const score = legs.reduce((sum, leg) => sum + riskLevelScore[leg.volatility === 'low' ? 'stable' : 'watch'], 0);
-  if (score <= legs.length + 1) return 'Low';
-  if (score <= legs.length * 1.8) return 'Medium';
-  return 'Elevated';
-}
-
-export function SlipDrawer({
-  legs,
-  onRemove,
-  onRunStressTest
-}: {
+export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
   legs: SlipBuilderLeg[];
   onRemove: (id: string) => void;
   onRunStressTest: () => void;
@@ -42,42 +27,52 @@ export function SlipDrawer({
   })));
 
   return (
-    <aside className="rounded-xl border border-white/10 bg-slate-950/80 p-3 lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Slip Drawer</h3>
-        <span className="text-xs text-slate-400">{legs.length} legs</span>
-      </div>
-      <p className="mt-1 text-xs text-slate-400">Expected risk: <span className="font-medium text-slate-200">{aggregateRisk(legs)}</span></p>
-      {legs.length >= 2 ? <p className="mt-1 text-xs text-amber-200">Weakest preview: {risk.weakestLeg}</p> : null}
-      {legs.length >= 2 && (risk.recommendation === 'PASS' || risk.fragilityScore > 62) ? <p className="mt-1 text-xs font-semibold text-rose-200">This slip is fragile.</p> : null}
-      {legs.length === 0 ? (
-        <div className="mt-3 space-y-2 rounded-lg border border-dashed border-white/20 bg-slate-900/60 p-3 text-xs text-slate-300">
-          <p>Add 2–3 leads to start a process-valid slip.</p>
-          <div className="flex flex-wrap gap-2">
-            <a href="#board-terminal" className="rounded border border-white/20 px-2 py-1">Browse board leads</a>
-            <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded border border-white/20 px-2 py-1">Try sample slip</Link>
-            <Link href={appendQuery(nervous.toHref('/stress-test'), { tab: 'analyze' })} className="rounded border border-white/20 px-2 py-1">Paste slip</Link>
-          </div>
+    <aside className="lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
+      <CardSurface className="space-y-3 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-100">Quick Ticket</h3>
+          <span className="text-xs text-slate-400">{legs.length} legs</span>
         </div>
-      ) : null}
-      <ul className="mt-2 space-y-1.5">
-        {legs.map((leg) => (
-          <li key={leg.id} className="rounded border border-white/10 bg-slate-900/60 px-2 py-1.5 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-slate-100">{leg.player} · {leg.marketType} {leg.line}</p>
-              <button type="button" onClick={() => onRemove(leg.id)} className="text-[11px] text-rose-200">Remove</button>
+
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div><p className="text-slate-500">Avg conf</p><p className="text-sm font-semibold text-cyan-100">{risk.confidencePct}%</p></div>
+          <div><p className="text-slate-500">Fragility</p><p className="text-sm font-semibold text-amber-100">{risk.fragilityScore}</p></div>
+          <div><p className="text-slate-500">Correlation</p><Badge variant={risk.correlationFlag ? 'warning' : 'success'} className="justify-center">{risk.correlationFlag ? 'HIGH' : 'MANAGED'}</Badge></div>
+        </div>
+
+        {legs.length >= 2 ? <p className="text-xs text-amber-100">Weakest preview: {risk.weakestLeg}</p> : null}
+
+        {legs.length === 0 ? (
+          <div className="rounded-lg bg-black/20 p-3 text-xs text-slate-300">
+            <p>Add legs from the board to stage a ticket.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <a href="#board-terminal" className="text-cyan-200 underline">Browse board</a>
+              <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="text-cyan-200 underline">Sample slip</Link>
             </div>
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        disabled={legs.length === 0}
-        onClick={onRunStressTest}
-        className="mt-3 w-full rounded border border-cyan-400/70 bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Analyze (Stress Test)
-      </button>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {legs.map((leg) => (
+              <li key={leg.id} className="border-b border-white/10 pb-2 last:border-b-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-100">{leg.player}</p>
+                  <button type="button" onClick={() => onRemove(leg.id)} className="text-xs text-rose-200">Remove</button>
+                </div>
+                <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} {leg.odds ?? ''}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <button
+          type="button"
+          disabled={legs.length === 0}
+          onClick={onRunStressTest}
+          className="w-full rounded-lg bg-[#00E5C8] px-4 py-3 text-sm font-bold text-slate-950 transition hover:brightness-110 disabled:opacity-40"
+        >
+          Analyze Slip →
+        </button>
+      </CardSurface>
     </aside>
   );
 }

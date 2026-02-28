@@ -24,7 +24,6 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 import { appendQuery } from '@/src/components/landing/navigation';
 import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
-import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
@@ -411,15 +410,14 @@ export default function ResearchPageContent() {
           ]}
           traceId={traceFromQuery || nervous.trace_id}
         />
-        <RunStatusPill traceId={traceFromQuery || nervous.trace_id} mode={nervous.mode} generatedAt={new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
-        <div className="flex flex-wrap gap-2 text-xs">
-          <a href="#fragility" className="rounded-full border border-white/20 px-2 py-1 text-slate-300">Why fragile?</a>
-          <a href="#correlation" className="rounded-full border border-white/20 px-2 py-1 text-slate-300">Correlation risk</a>
-        </div>
         <div className="flex w-fit gap-2 rounded-xl bg-slate-950/60 p-1">
           {tabs.map((candidate) => (
             <button key={candidate} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { tab: candidate }))} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
           ))}
+        <details className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-xs text-slate-400">
+          <summary className="cursor-pointer">Details</summary>
+          <p className="mt-1">trace_id: {traceFromQuery || nervous.trace_id} · mode: {nervous.mode} · seed: {`${nervous.sport}:${nervous.date}:${nervous.tz}`}</p>
+        </details>
         </div>
       </header>
 

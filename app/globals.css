@@ -6,9 +6,9 @@
   color-scheme: dark;
 
   /* Legacy tokens (surface/text) are deprecated. Prefer semantic tokens below. */
-  --surface-0: #020617;
-  --surface-1: #0b1221;
-  --surface-2: #111a2d;
+  --surface-0: #05070A;
+  --surface-1: #0A1220;
+  --surface-2: #0E1628;
   --border-subtle: rgba(148, 163, 184, 0.22);
   --text-muted: rgba(203, 213, 225, 0.72);
   --text-strong: rgba(248, 250, 252, 0.98);
@@ -19,15 +19,15 @@
   --card-foreground: var(--text-strong);
   --popover: var(--surface-2);
   --popover-foreground: var(--text-strong);
-  --primary: #22d3ee;
+  --primary: #00E5C8;
   --primary-foreground: #020617;
   --secondary: rgba(15, 23, 42, 0.7);
   --secondary-foreground: #f1f5f9;
   --muted: var(--surface-2);
   --muted-foreground: var(--text-muted);
-  --accent: #67e8f9;
+  --accent: #00E5C8;
   --accent-foreground: #020617;
-  --destructive: #ef4444;
+  --destructive: #FF4D4F;
   --destructive-foreground: #fff;
   --border: var(--border-subtle);
   --input: var(--border-subtle);
@@ -38,9 +38,9 @@
   --shadow-hero: 0 18px 50px rgba(2, 6, 23, 0.38);
   --shadow-primary-hover: 0 8px 20px rgba(34, 211, 238, 0.22);
 
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
 
   --tone-neutral-bg: transparent;
   --tone-neutral-border: var(--border);
@@ -73,15 +73,15 @@
   --card-foreground: var(--text-strong);
   --popover: var(--surface-2);
   --popover-foreground: var(--text-strong);
-  --primary: #22d3ee;
+  --primary: #00E5C8;
   --primary-foreground: #020617;
   --secondary: rgba(15, 23, 42, 0.7);
   --secondary-foreground: #f1f5f9;
   --muted: var(--surface-2);
   --muted-foreground: var(--text-muted);
-  --accent: #67e8f9;
+  --accent: #00E5C8;
   --accent-foreground: #020617;
-  --destructive: #ef4444;
+  --destructive: #FF4D4F;
   --destructive-foreground: #fff;
   --border: var(--border-subtle);
   --input: var(--border-subtle);
@@ -92,9 +92,9 @@
   --shadow-hero: 0 18px 50px rgba(2, 6, 23, 0.38);
   --shadow-primary-hover: 0 8px 20px rgba(34, 211, 238, 0.22);
 
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
 
   --tone-neutral-bg: transparent;
   --tone-neutral-border: var(--border);
