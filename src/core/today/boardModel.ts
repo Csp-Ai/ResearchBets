@@ -10,6 +10,7 @@ export type BoardProp = {
   line: string;
   odds: string;
   hitRateL10: number;
+  hitRateL5?: number;
   marketImpliedProb: number;
   modelProb: number;
   edgeDelta: number;
@@ -38,6 +39,7 @@ export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[]
       line: typeof row.line === 'string' ? row.line : '',
       odds: typeof row.odds === 'string' ? row.odds : '-110',
       hitRateL10: typeof row.hitRateL10 === 'number' ? row.hitRateL10 : 55,
+      hitRateL5: typeof row.hitRateL5 === 'number' ? row.hitRateL5 : undefined,
       marketImpliedProb: typeof row.marketImpliedProb === 'number' ? row.marketImpliedProb : 0.5,
       modelProb: typeof row.modelProb === 'number' ? row.modelProb : 0.5,
       edgeDelta: typeof row.edgeDelta === 'number' ? row.edgeDelta : 0,
