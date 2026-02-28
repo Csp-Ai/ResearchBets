@@ -29,5 +29,7 @@ export type TrackedTicket = {
   createdAt: string;
   sourceHint: string;
   rawSlipText: string;
+  cashoutAvailable?: boolean;
+  cashoutValue?: number;
   legs: TrackedTicketLeg[];
 };

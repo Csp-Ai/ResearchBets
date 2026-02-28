@@ -99,6 +99,8 @@ export function TrackSlipInput({ onTracked, onOpenDraft, onTrySample, sampleLoad
     const normalizedTicket: TrackedTicket = {
       ...parsedTicket,
       ticketId,
+      cashoutAvailable: typeof parsedTicket.cashoutValue === 'number',
+      cashoutValue: typeof parsedTicket.cashoutValue === 'number' ? parsedTicket.cashoutValue : undefined,
       legs: parsedTicket.legs.map((leg, index) => ({ ...leg, legId: leg.legId || `leg-${index + 1}`, needsReview: needsReview(leg) }))
     };
     saveTrackedTicket(normalizedTicket, { replaceTicketId: parsedTicket.ticketId });
@@ -140,6 +142,29 @@ export function TrackSlipInput({ onTracked, onOpenDraft, onTrySample, sampleLoad
 
         <div className="mt-2 flex gap-2 text-xs">
           <button type="button" className="rounded border border-white/20 px-2 py-1" onClick={() => setParsedTicket((current) => current ? ({ ...current, legs: [...current.legs, createLeg(current.legs.length + 1, current.sourceHint)] }) : current)}>+ Add leg</button>
+        </div>
+
+        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-slate-300">Cashout value (optional)</span>
+            <input
+              aria-label="cashout-value"
+              type="number"
+              step="0.01"
+              min="0"
+              className="rounded border border-slate-700 bg-slate-950 p-1"
+              value={typeof parsedTicket.cashoutValue === 'number' ? parsedTicket.cashoutValue : ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                setParsedTicket((current) => current ? ({
+                  ...current,
+                  cashoutAvailable: value.trim().length > 0,
+                  cashoutValue: value.trim().length > 0 ? Number(value) : undefined
+                }) : current);
+              }}
+              placeholder="Leave blank if unknown"
+            />
+          </label>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2 text-sm">

@@ -43,6 +43,38 @@ describe('OpenTicketsPanel', () => {
     expect(fetchMock).toHaveBeenCalledTimes(0);
   });
 
+  it('shows coach panel in sweat mode and neutral copy', () => {
+    saveTrackedTicket({
+      ticketId: 'ticket-coach',
+      createdAt: '2026-02-26T10:00:00.000Z',
+      sourceHint: 'paste',
+      rawSlipText: 'Player over 10.5 points',
+      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+    });
+
+    render(<OpenTicketsPanel mode="demo" />);
+
+    expect(screen.getByTestId('during-coach-panel')).toBeTruthy();
+    expect(screen.getByText('Suggested actions')).toBeTruthy();
+    expect(screen.queryByText('ERROR')).toBeNull();
+    expect(screen.queryByText(/panic/i)).toBeNull();
+  });
+
+  it('sweat mode off collapses details and keeps next-to-hit summary', () => {
+    saveTrackedTicket({
+      ticketId: 'ticket-summary',
+      createdAt: '2026-02-26T10:00:00.000Z',
+      sourceHint: 'paste',
+      rawSlipText: 'Player over 10.5 points',
+      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+    });
+
+    render(<OpenTicketsPanel mode="demo" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide details' }));
+
+    expect(screen.queryByRole('button', { name: 'Expand legs' })).toBeNull();
+    expect(screen.getByText(/Next to hit:/)).toBeTruthy();
+  });
 
   it('shows partial live coverage chip when game ids are missing', async () => {
     saveTrackedTicket({
