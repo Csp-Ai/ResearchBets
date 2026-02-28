@@ -180,12 +180,15 @@ export default function SlipPageClient() {
               {dedupedLegs.map((leg, index) => (
                 <li key={leg.id} className="row-shell">
                   <div className="flex items-start justify-between gap-2">
-                    <div><p className="text-sm font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? ''}</span></p><div className="mt-1 flex gap-1"><Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">{leg.volatility ?? 'watch'}</Badge></div></div>
-                    <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</Button>
+                    <div className="min-w-0"><p className="text-sm font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p></div>
+                    <div className="flex items-center gap-1">
+                      <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px]" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</Button>
+                      <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px]" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</Button>
+                      <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</Button>
+                    </div>
                   </div>
-                  <div className="mt-2 flex gap-1">
-                    <Button intent="ghost" className="min-h-0 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</Button>
-                    <Button intent="ghost" className="min-h-0 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</Button>
+                  <div className="mt-1">
+                    <Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">{leg.volatility ?? 'watch'}</Badge>
                   </div>
                 </li>
               ))}
@@ -203,7 +206,7 @@ export default function SlipPageClient() {
           <div className="grid grid-cols-1 gap-3">
             <Button intent="secondary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</Button>
             <Button intent="primary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</Button>
-            {dedupedLegs.length === 0 ? <p className="text-xs text-slate-400">Actions are disabled because the draft has 0 legs.</p> : null}
+            {dedupedLegs.length === 0 ? <p className="text-xs text-slate-400">Actions unlock once at least one leg is added.</p> : null}
           </div>
         </div>
       </div>

@@ -30,19 +30,19 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
   };
 
   if (compact) {
-    return <div className="mt-2 text-xs text-slate-300" data-testid="during-coach-compact">Closest: {closest?.player ?? '—'} · Kill risk: {coach.killRisk.player} · Cashout: {ticket.cashoutAvailable ? `$${ticket.cashoutValue?.toFixed(2)}` : 'unknown'}</div>;
+    return <div className="mt-2 text-xs text-slate-300" data-testid="during-coach-compact">Closest: {closest?.player ?? '—'} · Kill risk: {coach.killRisk.player} · Cashout: {ticket.cashoutAvailable ? `$${ticket.cashoutValue?.toFixed(2)}` : 'unavailable'}</div>;
   }
 
   return (
     <div className="mt-2 space-y-3" data-testid="during-coach-panel">
       <div className="grid gap-3 md:grid-cols-3">
         <CardSurface className="flex min-h-[108px] flex-col justify-between p-3">
-          <p className="inline-flex items-center gap-1 text-xs text-emerald-300">◉ Closest</p>
+          <p className="inline-flex items-center gap-1 text-xs text-emerald-300">Closest to hit</p>
           <p className="mt-1 text-sm font-semibold text-slate-100">{closest ? `${closest.player} ${closest.marketType}` : 'No active leg'}</p>
-          {closest ? <Badge size="sm" variant="success">Needs {closest.requiredRemaining.toFixed(1)} more</Badge> : null}
+          {closest ? <Badge size="sm" variant="success">Remaining {closest.requiredRemaining.toFixed(1)}</Badge> : null}
         </CardSurface>
         <CardSurface className="flex min-h-[108px] flex-col justify-between p-3">
-          <p className="inline-flex items-center gap-1 text-xs text-rose-300">⚠ Kill Risk</p>
+          <p className="inline-flex items-center gap-1 text-xs text-rose-300">Kill risk</p>
           <p className="mt-1 text-sm font-semibold text-slate-100">{coach.killRisk.player}</p>
           <div className="mt-1 flex flex-wrap gap-1">{coach.killRiskReasonChips.slice(0, 1).map((chip) => <Badge key={`${coach.killRisk.legId}-${chip}`} variant="danger" size="sm">{chip}</Badge>)}</div>
         </CardSurface>
@@ -55,7 +55,7 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
 
       <p className="text-xs text-slate-400">Suggested actions</p>
       <details className="rounded-lg bg-black/20 px-3 py-2 text-slate-300">
-        <summary className="cursor-pointer text-xs">More details</summary>
+        <summary className="cursor-pointer text-xs">Coach details</summary>
         <ul className="mt-2 list-disc pl-5 text-xs">{coach.explanation.map((rule) => <li key={`${ticket.ticketId}-${rule}`}>{rule}</li>)}</ul>
       </details>
 

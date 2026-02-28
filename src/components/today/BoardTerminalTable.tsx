@@ -6,6 +6,7 @@ import { formatSignedPct } from '@/src/core/markets/edgePrimitives';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { Button } from '@/src/components/ui/button';
 
 export type SortKey = 'edge' | 'l10' | 'risk' | 'start';
 
@@ -66,26 +67,22 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
         const signal = confidence >= 62 ? 'stable' : 'watch';
 
         return (
-          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition duration-200 hover-glow ${highlightedRowId === row.id ? 'ring-cyan-300/55' : ''} ${isSelected ? 'border-cyan-300/40 bg-cyan-500/[0.07]' : ''}`}>
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{row.matchup} · {row.odds ?? 'ODDS TBD'}</p>
+          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
+                <p className="truncate text-xs text-slate-400">{row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
               </div>
-              <div className="hidden min-w-[132px] justify-end md:flex">
-                <Badge variant={confidenceVariant} className="mono-number justify-center">{confidence}% • {signal}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={confidenceVariant} className="justify-center">{confidence}% {signal}</Badge>
+                <Button
+                  intent={isSelected ? 'secondary' : 'primary'}
+                  onClick={() => onToggleLeg(row)}
+                  className="min-h-0 px-3 py-1.5 text-xs"
+                >
+                  {isSelected ? 'Added' : '+ Add'}
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={() => onToggleLeg(row)}
-                className={`terminal-focus inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold transition ${isSelected ? 'border-cyan-300/60 bg-cyan-400/20 text-cyan-100' : 'border-cyan-300/35 bg-cyan-500/10 text-cyan-100 hover:border-cyan-200/70 hover:bg-cyan-400/20'}`}
-              >
-                {isSelected ? 'Added' : '+ Add'}
-              </button>
-            </div>
-            <div className="mt-2 flex items-center justify-between md:hidden">
-              <Badge variant={confidenceVariant} className="mono-number">{confidence}% • {signal}</Badge>
-              <span className="text-xs text-slate-500">{formatSignedPct(row.edgeDelta ?? 0)}</span>
             </div>
           </CardSurface>
         );
