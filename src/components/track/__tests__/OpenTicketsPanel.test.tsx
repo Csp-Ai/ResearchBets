@@ -60,7 +60,7 @@ describe('OpenTicketsPanel', () => {
     expect(screen.queryByText(/panic/i)).toBeNull();
   });
 
-  it('sweat mode off collapses details and keeps next-to-hit summary', () => {
+  it('sweat mode off renders one-glance summary only', () => {
     saveTrackedTicket({
       ticketId: 'ticket-summary',
       createdAt: '2026-02-26T10:00:00.000Z',
@@ -73,7 +73,27 @@ describe('OpenTicketsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hide details' }));
 
     expect(screen.queryByRole('button', { name: 'Expand legs' })).toBeNull();
-    expect(screen.getByText(/Next to hit:/)).toBeTruthy();
+    expect(screen.getByText(/Closest:/)).toBeTruthy();
+    expect(screen.getByText(/Kill risk:/)).toBeTruthy();
+    expect(screen.queryByText('Suggested actions')).toBeNull();
+  });
+
+  it('save for postmortem writes rb:postmortems:v1', () => {
+    saveTrackedTicket({
+      ticketId: 'ticket-postmortem',
+      createdAt: '2026-02-26T10:00:00.000Z',
+      sourceHint: 'paste',
+      rawSlipText: 'Player over 10.5 points',
+      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'assists', threshold: 5.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+    });
+
+    render(<OpenTicketsPanel mode="demo" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save for postmortem' }));
+
+    const raw = window.localStorage.getItem('rb:postmortems:v1');
+    expect(raw).toBeTruthy();
+    const records = JSON.parse(raw ?? '[]') as Array<{ ticketId: string }>;
+    expect(records[0]?.ticketId).toBe('ticket-postmortem');
   });
 
   it('shows partial live coverage chip when game ids are missing', async () => {
@@ -91,7 +111,7 @@ describe('OpenTicketsPanel', () => {
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     render(<OpenTicketsPanel mode="live" />);
 
-    await waitFor(() => expect(screen.getByText('Partial live coverage')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('Partial live coverage').length).toBeGreaterThan(0));
     fireEvent.click(screen.getByRole('button', { name: 'Expand legs' }));
     expect(screen.getByText('no_game_id')).toBeTruthy();
   });

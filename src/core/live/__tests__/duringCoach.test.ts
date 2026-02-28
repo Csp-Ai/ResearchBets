@@ -39,36 +39,37 @@ function ticket(legs: LiveLegState[], overrides?: Partial<OpenTicket>): OpenTick
 }
 
 describe('computeDuringCoach', () => {
-  it('sorts next to hit by remaining distance then volatility', () => {
-    const one = leg({ legId: 'a', player: 'A', requiredRemaining: 2, volatility: 'high' });
-    const two = leg({ legId: 'b', player: 'B', requiredRemaining: 1.5, volatility: 'moderate' });
-    const three = leg({ legId: 'c', player: 'C', requiredRemaining: 2, volatility: 'stable' });
-
-    const result = computeDuringCoach(ticket([one, two, three]));
-    expect(result.nextToHit.map((item) => item.legId)).toEqual(['b', 'c']);
+  it('sorts next to hit by remaining distance then fragility', () => {
+    const assist = leg({ legId: 'a', player: 'A Guard', marketType: 'assists', requiredRemaining: 1, volatility: 'high', liveClock: { quarter: 4, timeRemainingSec: 30, elapsedGameMinutes: 47.5 } });
+    const point = leg({ legId: 'b', player: 'B Wing', marketType: 'points', requiredRemaining: 1, volatility: 'stable', liveClock: { quarter: 4, timeRemainingSec: 30, elapsedGameMinutes: 47.5 } });
+    const result = computeDuringCoach(ticket([assist, point]));
+    expect(result.nextToHit.map((item) => item.legId)).toEqual(['b', 'a']);
   });
 
-  it('triggers cashout when minutes risk with cashout available', () => {
-    const risky = leg({ legId: 'a', status: 'behind', minutesRisk: true, requiredRemaining: 4 });
-    const steady = leg({ legId: 'b', status: 'on_pace', requiredRemaining: 0.5, volatility: 'stable' });
-    const result = computeDuringCoach(ticket([risky, steady], { cashoutAvailable: true, cashoutValue: 14.2 }));
+  it('selects killRisk by highest fragility score', () => {
+    const low = leg({ legId: 'a', player: 'A', marketType: 'points', requiredRemaining: 2, volatility: 'stable' });
+    const high = leg({ legId: 'b', player: 'B', marketType: 'assists', requiredRemaining: 1, volatility: 'high', liveClock: { quarter: 4, timeRemainingSec: 20, elapsedGameMinutes: 47.7 } });
+    const result = computeDuringCoach(ticket([low, high]));
+    expect(result.killRisk.legId).toBe('b');
+    expect(result.killRiskFragility.fragilityScore).toBeGreaterThanOrEqual(70);
+  });
+
+  it('fires deterministic action rules by cashout and coverage flags', () => {
+    const highFragility = leg({ legId: 'a', marketType: 'assists', requiredRemaining: 1, volatility: 'high', liveClock: { quarter: 4, timeRemainingSec: 25, elapsedGameMinutes: 47.6 }, coverage: { coverage: 'missing' } });
+    const steady = leg({ legId: 'b', marketType: 'points', status: 'ahead', requiredRemaining: 0, volatility: 'stable' });
+    const result = computeDuringCoach(ticket([highFragility, steady], {
+      cashoutAvailable: true,
+      coverage: { coverage: 'partial', coveredLegs: 1, totalLegs: 2 }
+    }));
+
     expect(result.actions.some((action) => action.kind === 'cashout')).toBe(true);
+    expect(result.actions.some((action) => action.kind === 'hold')).toBe(true);
   });
 
-  it('triggers hedge when one fragile leg and rest likely', () => {
-    const fragile = leg({ legId: 'a', status: 'needs_spike', volatility: 'high', requiredRemaining: 3 });
-    const hit = leg({ legId: 'b', status: 'ahead', requiredRemaining: 0 });
-    const near = leg({ legId: 'c', status: 'on_pace', requiredRemaining: 0.8 });
-
-    const result = computeDuringCoach(ticket([fragile, hit, near]));
-    expect(result.actions.some((action) => action.kind === 'hedge')).toBe(true);
-  });
-
-  it('returns stop sweating when ticket has busted leg', () => {
-    const busted = leg({ legId: 'a', status: 'needs_spike', requiredRemaining: 3, liveClock: { quarter: 4, timeRemainingSec: 90, elapsedGameMinutes: 46.5 } });
-    const other = leg({ legId: 'b', status: 'ahead', requiredRemaining: 0 });
-
-    const result = computeDuringCoach(ticket([busted, other]));
-    expect(result.actions[0]?.kind).toBe('stop_sweating');
+  it('returns hold with not connected reason when coverage is none', () => {
+    const risky = leg({ legId: 'a', marketType: 'points', requiredRemaining: 3 });
+    const result = computeDuringCoach(ticket([risky], { coverage: { coverage: 'none', coveredLegs: 0, totalLegs: 1 } }));
+    expect(result.actions[0]?.kind).toBe('hold');
+    expect(result.explanation).toContain('hold:not_connected');
   });
 });

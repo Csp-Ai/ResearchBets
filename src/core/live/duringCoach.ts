@@ -1,3 +1,4 @@
+import { computeLegFragility, endgameVarianceChip, type LegFragility } from '@/src/core/live/legFragility';
 import type { LiveLegState, OpenTicket } from '@/src/core/live/openTickets';
 
 export type DuringCoachActionKind = 'hold' | 'cashout' | 'hedge' | 'stop_sweating';
@@ -11,83 +12,84 @@ export type DuringCoachAction = {
 export type DuringCoachResult = {
   nextToHit: LiveLegState[];
   killRisk: LiveLegState;
+  killRiskFragility: LegFragility;
+  killRiskReasonChips: string[];
   actions: DuringCoachAction[];
   explanation: string[];
 };
 
-const volatilityRank: Record<LiveLegState['volatility'], number> = { stable: 0, moderate: 1, high: 2 };
-const statusRiskRank: Record<LiveLegState['status'], number> = { ahead: 0, on_pace: 1, behind: 3, needs_spike: 5 };
-
-function estimateMinutesRemaining(leg: LiveLegState): number {
-  if (leg.liveClock?.timeRemainingSec != null) return Math.max(1, leg.liveClock.timeRemainingSec / 60);
-  if (leg.liveClock?.quarter != null) {
-    const phaseMinutes = { 1: 30, 2: 22, 3: 12, 4: 5 }[leg.liveClock.quarter];
-    return Math.max(1, phaseMinutes);
-  }
-  return 12;
-}
-
-function computeKillScore(leg: LiveLegState): number {
-  return statusRiskRank[leg.status] + volatilityRank[leg.volatility] + (leg.minutesRisk ? 2 : 0) + (leg.requiredRemaining >= 4 ? 1 : 0);
-}
-
-function isLikelyLeg(leg: LiveLegState): boolean {
-  return leg.requiredRemaining <= 1 || leg.status === 'ahead' || leg.status === 'on_pace';
+function estimateSecondsRemaining(leg: LiveLegState): number {
+  return leg.liveClock?.timeRemainingSec ?? 720;
 }
 
 function isBusted(leg: LiveLegState): boolean {
-  const minutesRemaining = estimateMinutesRemaining(leg);
+  const minutesRemaining = Math.max(1, estimateSecondsRemaining(leg) / 60);
   return leg.status === 'needs_spike' && minutesRemaining <= 2.5 && leg.requiredRemaining >= 2;
+}
+
+function hedgeEligibleLegs(legs: LiveLegState[]): LiveLegState[] {
+  return legs.filter((leg) => leg.status === 'needs_spike' || (leg.status === 'behind' && leg.volatility === 'high'));
 }
 
 export function computeDuringCoach(ticket: Pick<OpenTicket, 'coverage' | 'legs' | 'weakestLeg' | 'cashoutAvailable'>): DuringCoachResult {
   const explanation: string[] = [];
-  const legs = ticket.legs;
-  const nextToHit = [...legs]
-    .sort((a, b) => (a.requiredRemaining - b.requiredRemaining) || (volatilityRank[a.volatility] - volatilityRank[b.volatility]))
+  const fragilityByLegId = new Map(ticket.legs.map((leg) => [leg.legId, computeLegFragility(leg, ticket.coverage.coverage)]));
+
+  const nextToHit = [...ticket.legs]
+    .sort((a, b) => {
+      const distanceDelta = a.requiredRemaining - b.requiredRemaining;
+      if (distanceDelta !== 0) return distanceDelta;
+      return (fragilityByLegId.get(a.legId)?.fragilityScore ?? 0) - (fragilityByLegId.get(b.legId)?.fragilityScore ?? 0);
+    })
     .slice(0, 2);
 
-  const killRisk = [...legs].sort((a, b) => computeKillScore(b) - computeKillScore(a))[0] ?? ticket.weakestLeg;
+  const killRisk = [...ticket.legs].sort((a, b) => (fragilityByLegId.get(b.legId)?.fragilityScore ?? 0) - (fragilityByLegId.get(a.legId)?.fragilityScore ?? 0))[0] ?? ticket.weakestLeg;
+  const killRiskFragility = fragilityByLegId.get(killRisk.legId) ?? computeLegFragility(killRisk, ticket.coverage.coverage);
 
-  if (legs.every((leg) => leg.requiredRemaining <= 0)) {
+  const killRiskReasonChips = [
+    ...killRisk.reasonChips,
+    ...(ticket.coverage.coverage !== 'full' ? ['Partial live coverage'] : []),
+    ...(endgameVarianceChip(killRiskFragility) ? [endgameVarianceChip(killRiskFragility) as string] : [])
+  ].slice(0, 4);
+
+  if (ticket.legs.every((leg) => leg.requiredRemaining <= 0)) {
     explanation.push('stop_sweating:all_legs_hit');
-    return { nextToHit, killRisk, actions: [{ kind: 'stop_sweating', label: 'Stop sweating', details: 'All legs are currently at or above target.' }], explanation };
+    return { nextToHit, killRisk, killRiskFragility, killRiskReasonChips, actions: [{ kind: 'stop_sweating', label: 'Stop sweating', details: 'All legs are currently at or above target.' }], explanation };
   }
 
-  if (legs.some((leg) => isBusted(leg))) {
+  if (ticket.legs.some((leg) => isBusted(leg))) {
     explanation.push('stop_sweating:leg_busted');
-    return { nextToHit, killRisk, actions: [{ kind: 'stop_sweating', label: 'Stop sweating', details: 'At least one leg is very unlikely from current pace and time remaining.' }], explanation };
+    return { nextToHit, killRisk, killRiskFragility, killRiskReasonChips, actions: [{ kind: 'stop_sweating', label: 'Stop sweating', details: 'At least one leg is very unlikely from current pace and time remaining.' }], explanation };
   }
-
-  const minutesRemaining = estimateMinutesRemaining(killRisk);
-  const urgency = killRisk.requiredRemaining / Math.max(1, minutesRemaining);
-  const ladderDistanceHigh = killRisk.requiredRemaining >= 5 || urgency >= 1.2;
-  const cashoutTrigger = Boolean(ticket.cashoutAvailable && (killRisk.status === 'needs_spike' || killRisk.minutesRisk || ladderDistanceHigh));
-
-  const highRiskLegs = legs.filter((leg) => leg.status === 'needs_spike' || (leg.status === 'behind' && leg.volatility === 'high'));
-  const likelyLegs = legs.filter((leg) => isLikelyLeg(leg));
-  const hedgeTrigger = highRiskLegs.length === 1 && likelyLegs.length >= 2;
 
   const actions: DuringCoachAction[] = [];
+  const killClock = estimateSecondsRemaining(killRisk);
 
-  const onPaceShare = legs.length > 0
-    ? legs.filter((leg) => leg.status === 'ahead' || leg.status === 'on_pace').length / legs.length
-    : 0;
-  const holdTrigger = onPaceShare >= 0.6 && !cashoutTrigger && !hedgeTrigger && ticket.coverage.coverage !== 'none';
-
-  if (holdTrigger) {
-    actions.push({ kind: 'hold', label: 'Hold', details: 'Most live signals are still within a normal range.' });
-    explanation.push('hold:at_least_sixty_percent_on_pace');
+  if (ticket.coverage.coverage === 'none') {
+    actions.push({ kind: 'hold', label: 'Hold', details: 'Live feed is not connected, so this view cannot confirm endgame pace right now.' });
+    explanation.push('hold:not_connected');
   }
 
-  if (cashoutTrigger) {
-    actions.push({ kind: 'cashout', label: 'Consider cashout', details: 'Cashout available. Consider if your goal is to lock value.' });
-    explanation.push('cashout:minutes_or_distance_risk');
+  if (killRisk.requiredRemaining <= 1 && killRiskFragility.endgameSensitivity === 'high' && killClock <= 120) {
+    if (ticket.cashoutAvailable) {
+      actions.push({ kind: 'hold', label: 'Hold', details: 'Late high-variance stat swings can reverse quickly; holding avoids rushed edits in the final minute.' });
+      explanation.push('hold:late_high_variance_one_stat_left');
+    } else {
+      actions.push({ kind: 'stop_sweating', label: 'Stop sweating', details: 'With one stat left in late game variance, the remaining outcome is mostly endgame noise.' });
+      explanation.push('stop_sweating:late_high_variance_one_stat_left');
+    }
   }
 
-  if (hedgeTrigger) {
-    actions.push({ kind: 'hedge', label: 'Consider hedge (light)', details: 'If you want to reduce variance: consider a small opposing position on the most fragile leg’s correlated market.' });
-    explanation.push('hedge:single_high_risk_leg');
+  if (ticket.cashoutAvailable && killRiskFragility.fragilityScore >= 80 && ticket.coverage.coverage !== 'full') {
+    actions.push({ kind: 'cashout', label: 'Consider cashout', details: 'Cashout is available while fragility is elevated and coverage is incomplete.' });
+    explanation.push('cashout:high_fragility_partial_coverage');
+  }
+
+  const highRiskLegs = hedgeEligibleLegs(ticket.legs);
+  const likelyLegs = ticket.legs.filter((leg) => leg.requiredRemaining <= 1 || leg.status === 'ahead' || leg.status === 'on_pace');
+  if (highRiskLegs.length === 1 && likelyLegs.length >= 2) {
+    actions.push({ kind: 'hedge', label: 'Hedge (manual)', details: 'Educational only: if you prefer lower variance, you can manually offset exposure tied to the kill-risk leg.' });
+    explanation.push('hedge:single_fragile_leg_manual_only');
   }
 
   if (actions.length === 0) {
@@ -95,5 +97,5 @@ export function computeDuringCoach(ticket: Pick<OpenTicket, 'coverage' | 'legs' 
     explanation.push('hold:default');
   }
 
-  return { nextToHit, killRisk, actions: actions.slice(0, 3), explanation };
+  return { nextToHit, killRisk, killRiskFragility, killRiskReasonChips, actions: actions.slice(0, 3), explanation };
 }
