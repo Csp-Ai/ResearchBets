@@ -87,7 +87,7 @@ export default function AnalyzeTabPanel({
         <CardSurface className="space-y-4 p-4 transition-opacity duration-300" data-testid="decision-terminal-verdict">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
             <div className="space-y-1">
-              <p className="text-xs text-slate-500">Verdict</p>
+              <p className="text-xs text-slate-500">Verdict bar</p>
               <div className="flex items-center gap-2">
                 <Badge variant={presentRecommendation(riskSummary.recommendation).toUpperCase().includes('TAKE') ? 'success' : 'warning'}>{presentRecommendation(riskSummary.recommendation)}</Badge>
                 <p className="text-sm text-slate-300">{combinedReasons[0] ?? 'Check line movement before locking.'}</p>
@@ -100,7 +100,7 @@ export default function AnalyzeTabPanel({
             </div>
             <div className="flex items-end gap-2">
               <Badge variant="warning">Fragility {riskSummary.fragilityScore}</Badge>
-              <Badge variant={riskSummary.correlationFlag ? 'warning' : 'success'}>{riskSummary.correlationFlag ? 'Correlation high' : 'Correlation managed'}</Badge>
+              <Badge variant={riskSummary.correlationFlag ? 'warning' : 'success'}>{riskSummary.correlationFlag ? 'Guardrail active' : 'Correlation managed'}</Badge>
             </div>
           </div>
 
@@ -137,11 +137,11 @@ export default function AnalyzeTabPanel({
         {prefillKeyFromQuery ? <Badge variant="info">Draft from Scout</Badge> : null}
       </CardSurface>
 
-      <details className="rounded-lg bg-black/20 px-3 py-2" data-testid="run-details-collapsed">
+      <details className="rounded-lg border border-white/10 bg-black/20 px-3 py-2" data-testid="run-details-collapsed">
         <summary className="cursor-pointer text-xs font-semibold tracking-wide text-slate-400">Details</summary>
-        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-slate-400">Run a sample slip to see weakest-leg + correlation risk.</p>}
+        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-slate-400">Run a sample slip to see weakest-leg and correlation risk.</p>}
         {uncertainty ? <p className="mt-2 text-xs text-slate-400">Uncertainty: {uncertainty}</p> : null}
-        {latestRunHref ? <a href={latestRunHref} className="mt-1 block text-xs text-cyan-200 underline">Open latest run</a> : null}
+        {latestRunHref ? <a href={latestRunHref} className="mt-1 block text-xs text-cyan-200 underline">Open latest run details</a> : null}
       </details>
 
       <div className="hidden"><SlipIntelBar legs={intelLegs} /></div>

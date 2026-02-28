@@ -29,21 +29,24 @@ export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; on
   }, [legs]);
 
   return (
-    <CardSurface className="p-4">
+    <CardSurface className="space-y-3 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Slip builder</h3>
-        <p className="text-xs text-slate-400">{legs.length} legs {totalConfidence !== null ? `· ${Math.round(totalConfidence * 100)}% avg confidence` : ''}</p>
+        <p className="mono-number text-xs text-slate-400">{legs.length} legs {totalConfidence !== null ? `· ${Math.round(totalConfidence * 100)}% avg` : ''}</p>
       </div>
-      <ul className="mt-3 space-y-2 text-sm">
+      <ul className="space-y-2 text-sm">
         {legs.map((leg) => (
           <li key={leg.id} className="row-shell">
             <div className="flex items-center justify-between gap-2">
-              <p>{leg.player} {leg.marketType} {leg.line} {leg.odds ?? ''}</p>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-100">{leg.player}</p>
+                <p className="truncate text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
+              </div>
               <Button intent="ghost" className="min-h-0 px-2 py-1 text-xs" onClick={() => onLegsChange(legs.filter((row) => row.id !== leg.id))}>Remove</Button>
             </div>
-            <div className="mt-1 flex gap-2 text-[11px]">
-              {leg.volatility ? <Badge variant="warning" size="sm">Volatility: {leg.volatility}</Badge> : null}
-              {typeof leg.confidence === 'number' ? <Badge variant="info" size="sm">Conf {Math.round(leg.confidence * 100)}%</Badge> : null}
+            <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
+              {leg.volatility ? <Badge variant="warning" size="sm">{leg.volatility}</Badge> : null}
+              {typeof leg.confidence === 'number' ? <Badge variant="info" size="sm">Hit est {Math.round(leg.confidence * 100)}%</Badge> : null}
             </div>
           </li>
         ))}

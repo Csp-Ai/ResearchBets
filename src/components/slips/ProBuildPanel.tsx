@@ -96,11 +96,11 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
         <div className="row-shell"><p className="text-slate-400">Leg count</p><p className="mono-number text-slate-100">{legs.length}</p></div>
         <div className="row-shell"><p className="text-slate-400">Variance legs</p><p className="mono-number text-slate-100">{constraints.varianceLegs}</p></div>
         <div className="row-shell"><p className="text-slate-400">Weakest dominance</p><p className="mono-number text-slate-100">{constraints.weakestDominancePct}%</p></div>
-        <div className="row-shell"><p className="text-slate-400">Correlation</p><p className="text-slate-100">{constraints.excessiveCorrelation ? 'Warning' : 'Normal'}</p></div>
+        <div className="row-shell"><p className="text-slate-400">Correlation</p><p className="text-slate-100">{constraints.excessiveCorrelation ? 'Guardrail active' : 'In range'}</p></div>
       </div>
       <div className="terminal-divider pt-2 text-xs text-slate-300">
         <p className="mono-number">Hit est: {(independentProb * 100).toFixed(1)}% | Break-even: {(breakEven * 100).toFixed(1)}% | Gap: {(probabilityGap * 100).toFixed(1)}%</p>
-        <p className="mt-1 text-slate-400">Estimate uses proxies.</p>
+        <p className="mt-1 text-slate-400">Estimate uses deterministic proxies.</p>
       </div>
       <div className="space-y-1">
         {constraints.warnings.map((warning) => <p key={warning} className="text-xs text-amber-200">• {warning}</p>)}

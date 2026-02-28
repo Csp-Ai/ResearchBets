@@ -9,6 +9,7 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { Button } from '@/src/components/ui/button';
 
 export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
   legs: SlipBuilderLeg[];
@@ -30,19 +31,14 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
     <aside className="lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
       <CardSurface className="space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-100">Quick Ticket</h3>
+          <h3 className="text-lg font-semibold text-slate-100">Bet Ticket</h3>
           <span className="mono-number text-xs text-slate-400">{legs.length} legs</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-md border border-white/10 bg-slate-900/60 p-2"><p className="text-slate-500">Ticket count</p><p className="mono-number text-sm font-semibold text-cyan-100">{legs.length}</p></div>
-          <div className="rounded-md border border-white/10 bg-slate-900/60 p-2"><p className="text-slate-500">Stake</p><p className="mono-number text-sm font-semibold text-slate-100">--</p></div>
-          <div className="rounded-md border border-white/10 bg-slate-900/60 p-2"><p className="text-slate-500">Payout</p><p className="mono-number text-sm font-semibold text-slate-100">--</p></div>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <Badge variant={risk.correlationFlag ? 'warning' : 'success'}>{risk.correlationFlag ? 'HIGH CORR' : 'BALANCED'}</Badge>
-          <span className="text-slate-400">Conf {risk.confidencePct}% · Fragility {risk.fragilityScore}</span>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant={risk.correlationFlag ? 'warning' : 'success'}>{risk.correlationFlag ? 'Guardrail active' : 'Correlation in range'}</Badge>
+          <Badge variant="neutral">Hit est <span className="ml-1">{risk.confidencePct}%</span></Badge>
+          <Badge variant="neutral">Fragility <span className="ml-1">{risk.fragilityScore}</span></Badge>
         </div>
 
         {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest preview: {risk.weakestLeg}</p> : null}
@@ -58,27 +54,31 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
         ) : (
           <ul className="space-y-2">
             {legs.map((leg) => (
-              <li key={leg.id} className="rounded-md border border-white/10 bg-slate-950/55 p-2.5">
+              <li key={leg.id} className="row-shell">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
-                  <button type="button" onClick={() => onRemove(leg.id)} className="text-xs text-rose-200">Remove</button>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
+                    <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
+                  </div>
+                  <button type="button" onClick={() => onRemove(leg.id)} className="terminal-focus text-xs text-rose-200">Remove</button>
                 </div>
-                <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line}</p>
-                <p className="mono-number text-xs text-slate-400">{leg.odds ?? '—'}</p>
               </li>
             ))}
           </ul>
         )}
 
-        <button
-          type="button"
-          disabled={legs.length === 0}
-          onClick={onRunStressTest}
-          className="terminal-focus w-full rounded-md bg-[#00E5C8] px-4 py-3 text-sm font-bold text-slate-950 transition hover:brightness-110 disabled:opacity-40"
-        >
-          <span className="inline-flex items-center gap-1">Analyze slip →</span>
-        </button>
-        <Link href={nervous.toHref('/track')} className="terminal-focus block w-full rounded-md border border-white/20 px-4 py-2.5 text-center text-sm font-semibold text-slate-200 transition hover:border-cyan-300/45 hover:text-cyan-100">Track</Link>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          <Button
+            type="button"
+            intent="primary"
+            disabled={legs.length === 0}
+            onClick={onRunStressTest}
+            className="w-full text-sm font-semibold"
+          >
+            Analyze slip
+          </Button>
+          <Link href={nervous.toHref('/track')} className="ui-button ui-button-secondary terminal-focus w-full text-center text-sm font-semibold">Track ticket</Link>
+        </div>
       </CardSurface>
     </aside>
   );

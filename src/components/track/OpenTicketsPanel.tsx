@@ -115,7 +115,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
     <CardSurface className="p-4" data-testid="open-tickets-panel">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Open Tickets</h2>
-        <p className="text-xs text-slate-400">Live progress view</p>
+        <p className="text-xs text-slate-400">Live ticket terminal</p>
       </div>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
@@ -139,8 +139,8 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
 
       {tickets.length === 0 ? (
         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-sm">
-          <p className="font-medium">No open tickets yet</p>
-          <p className="mt-1 text-slate-300">Build from Board · Try sample slip · Open last run</p>
+          <p className="font-medium">No open tickets</p>
+          <p className="mt-1 text-slate-300">Build from Board, stage a sample slip, then return here.</p>
         </div>
       ) : (
         <>
@@ -152,20 +152,20 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
             ))}
           </div>
 
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 space-y-3">
             {tickets.slice(0, 5).map((ticket, index) => {
               const isExpanded = !!expanded[ticket.ticketId];
               return (
-                <li key={ticket.ticketId} className="row-shell" data-testid={`ticket-${index + 1}`}>
+                <li key={ticket.ticketId} className="row-shell space-y-2" data-testid={`ticket-${index + 1}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{ticket.title} • {ticket.odds} • {ticket.wager}</p>
-                    <p className="text-xs text-slate-300">{ticket.onPaceCount}/{ticket.legs.length} legs on pace</p>
+                    <p className="text-sm font-medium">{ticket.title}</p>
+                    <p className="text-xs text-slate-300"><span className="mono-number">{ticket.odds}</span> · <span className="mono-number">{ticket.wager}</span> · {ticket.onPaceCount}/{ticket.legs.length} legs on pace</p>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
                     {sweatMode ? (
                       <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest: {ticket.weakestLeg.player}</span>
                     ) : null}
-                    {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">${ticket.cashoutValue.toFixed(2)} · Cashout available</span> : <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1">Cashout: unknown (not connected)</span>}
+                    {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">${ticket.cashoutValue.toFixed(2)} · Cashout available</span> : <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1">Cashout: unavailable</span>}
                     {ticket.coverage.coverage !== 'full' ? <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1" title={`${ticket.coverage.coveredLegs}/${ticket.coverage.totalLegs} legs covered`}>Partial live coverage</span> : null}
                   </div>
 
@@ -175,7 +175,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
 
                   {ticket.rawSlipText ? (
                     <details className="mt-2 text-xs text-slate-300">
-                      <summary className="cursor-pointer">Slip debug</summary>
+                      <summary className="cursor-pointer">Slip details</summary>
                       <p className="mt-1 whitespace-pre-wrap">{ticket.rawSlipText}</p>
                     </details>
                   ) : null}
@@ -198,11 +198,11 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                             <p>{leg.player} · {leg.marketType} {leg.currentValue.toFixed(1)}/{leg.threshold}</p>
                             <span className={`rounded-full border px-2 py-0.5 ${statusTone[leg.status]}`}>{leg.status.replace('_', ' ')}</span>
                           </div>
-                          <p className="mt-1 text-slate-300">Pace projection: {leg.paceProjection.toFixed(1)} · Need {leg.requiredRemaining.toFixed(1)} more</p>
+                          <p className="mt-1 text-slate-300">Pace proj: {leg.paceProjection.toFixed(1)} · Remaining {leg.requiredRemaining.toFixed(1)}</p>
                           <div className="mt-1 flex gap-2">
                             <span className="rounded border border-white/20 px-1.5 py-0.5">{leg.volatility}</span>
                             {leg.minutesRisk ? <span className="rounded border border-amber-300/30 px-1.5 py-0.5">Minutes risk (margin)</span> : null}
-                            {leg.coverage.coverage === 'missing' ? <span className="rounded border border-slate-300/30 px-1.5 py-0.5 text-slate-300">{leg.coverage.reason ?? 'provider_unavailable'}</span> : null}
+                            {leg.coverage.coverage === 'missing' ? <span className="rounded border border-slate-300/30 px-1.5 py-0.5 text-slate-300">{leg.coverage.reason ?? 'coverage unavailable'}</span> : null}
                           </div>
                         </li>
                       ))}
