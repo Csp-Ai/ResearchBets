@@ -5,9 +5,12 @@ import { useState } from 'react';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { Button } from '@/src/components/ui/button';
+import { saveGuardrail } from '@/src/core/guardrails/localGuardrails';
 
 export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<string | null>(null);
 
   return (
     <CardSurface className="p-4" data-testid="postmortem-list">
@@ -28,21 +31,41 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
               </div>
               <button type="button" className="mt-2 text-xs text-cyan-200 underline" onClick={() => setOpen((prev) => ({ ...prev, [record.ticketId]: !isOpen }))}>{isOpen ? 'Hide detail' : 'Expand detail'}</button>
               {isOpen ? (
-                <div className="mt-2 overflow-hidden rounded-md border border-white/10">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900/70 text-slate-400">
-                      <tr><th className="px-2 py-1">Leg</th><th className="px-2 py-1">Target</th><th className="px-2 py-1">Final</th><th className="px-2 py-1">Tags</th></tr>
-                    </thead>
-                    <tbody>
-                      {record.legs.map((leg) => <tr key={leg.legId} className="border-t border-white/10"><td className="px-2 py-1">{leg.player}</td><td className="mono-number px-2 py-1">{leg.target}</td><td className="mono-number px-2 py-1">{leg.finalValue ?? '—'}</td><td className="px-2 py-1">{leg.missTags.join(', ') || '—'}</td></tr>)}
-                    </tbody>
-                  </table>
+                <div className="mt-2 space-y-2">
+                  <div className="overflow-hidden rounded-md border border-white/10">
+                    <table className="w-full text-left text-xs text-slate-300">
+                      <thead className="bg-slate-900/70 text-slate-400">
+                        <tr><th className="px-2 py-1">Leg</th><th className="px-2 py-1">Target</th><th className="px-2 py-1">Final</th><th className="px-2 py-1">Tags</th></tr>
+                      </thead>
+                      <tbody>
+                        {record.legs.map((leg) => <tr key={leg.legId} className="border-t border-white/10"><td className="px-2 py-1">{leg.player}</td><td className="mono-number px-2 py-1">{leg.target}</td><td className="mono-number px-2 py-1">{leg.finalValue ?? '—'}</td><td className="px-2 py-1">{leg.missTags.join(', ') || '—'}</td></tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                  {record.nextTimeRule ? (
+                    <div className="rounded-md border border-cyan-400/30 bg-cyan-400/10 p-2" data-testid="next-time-card">
+                      <p className="text-xs font-semibold text-cyan-100">Next Time: {record.nextTimeRule.title}</p>
+                      <p className="mt-1 text-xs text-slate-200">{record.nextTimeRule.body}</p>
+                      <Button
+                        intent="secondary"
+                        className="mt-2 min-h-0 px-2 py-1 text-xs"
+                        onClick={() => {
+                          saveGuardrail(record.nextTimeRule!);
+                          setToast('Guardrail applied');
+                          window.setTimeout(() => setToast(null), 1200);
+                        }}
+                      >
+                        Apply as Guardrail
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </li>
           );
         })}
       </ul>
+      {toast ? <p className="mt-2 text-xs text-emerald-200">{toast}</p> : null}
     </CardSurface>
   );
 }

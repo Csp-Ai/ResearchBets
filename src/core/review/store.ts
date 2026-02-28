@@ -1,5 +1,6 @@
 import { buildEdgeProfile, type EdgeProfile } from '@/src/core/review/edgeProfile';
 import type { DraftPostmortemSnapshot, PostmortemRecord } from '@/src/core/review/types';
+import { mapMissTagsToNextTimeRule } from '@/src/core/guardrails/localGuardrails';
 
 const POSTMORTEMS_KEY = 'rb:postmortems:v1';
 const DRAFT_KEY = 'rb:draft-postmortems:v1';
@@ -17,7 +18,8 @@ const demoPostmortems = (): PostmortemRecord[] => ([
     ],
     coverage: { level: 'partial', reasons: ['provider_unavailable'] },
     fragility: { score: 72, chips: ['High-variance market', 'Ladder distance'] },
-    narrative: ['Ticket lost with two close misses.', 'Assists leg carried most of the variance.', 'Coverage was partial for one game.']
+    narrative: ['Ticket lost with two close misses.', 'Assists leg carried most of the variance.', 'Coverage was partial for one game.'],
+    nextTimeRule: mapMissTagsToNextTimeRule(['assist_variance'])
   }
 ]);
 

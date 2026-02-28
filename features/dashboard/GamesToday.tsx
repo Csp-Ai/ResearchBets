@@ -5,6 +5,9 @@ import React, { useState } from 'react';
 import { buildPropLegInsight } from '../../src/core/slips/propInsights';
 import type { MarketType } from '../../src/core/markets/marketType';
 import type { SlipBuilderLeg } from '../betslip/SlipBuilder';
+import { CardSurface } from '@/src/components/ui/CardSurface';
+import { Badge } from '@/src/components/ui/Badge';
+import { Button } from '@/src/components/ui/button';
 
 export type TodayGame = {
   id: string;
@@ -40,15 +43,15 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
   const [selectedChips, setSelectedChips] = useState<Set<string>>(() => new Set());
 
   return (
-    <section className="rounded-xl border border-slate-800/70 bg-slate-900/80 p-4">
+    <CardSurface className="p-4">
       <h2 className="text-lg font-semibold">Today&apos;s prop board</h2>
-      <p className="mt-1 text-xs text-slate-400">Click a prop chip to add to slip. Selected chips are highlighted.</p>
+      <p className="mt-1 text-xs text-slate-400">Click a market to add to slip.</p>
       <div className="mt-3 space-y-3">
         {games.map((game) => (
-          <article key={game.id} className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+          <article key={game.id} className="row-shell p-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-medium">{game.matchup}</h3>
-              <span className="rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-cyan-100">{game.league}</span>
+              <Badge size="sm" variant="info">{game.league}</Badge>
             </div>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
               {game.teams.map((team) => (
@@ -64,10 +67,10 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
                             const insight = buildPropLegInsight({ selection: player.name, market: prop.market, odds: prop.odds });
                             const active = selectedChips.has(chipId);
                             return (
-                              <button
+                              <Button
                                 key={chipId}
-                                type="button"
-                                className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${active ? 'border-cyan-300 bg-cyan-400/20 text-cyan-50' : 'border-slate-600/90 bg-slate-900/30 hover:border-cyan-400/70 hover:bg-slate-900'}`}
+                                intent={active ? 'primary' : 'ghost'}
+                                className="min-h-0 px-2 py-1 text-[11px]"
                                 title={`Add to slip · ${player.matchupNotes} · ${player.injuryStatus} · ${insight.riskTag} volatility`}
                                 onClick={() => {
                                   setSelectedChips((prev) => {
@@ -79,7 +82,7 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
                                 }}
                               >
                                 {prop.market} {prop.line}
-                              </button>
+                              </Button>
                             );
                           })}
                         </div>
@@ -92,6 +95,6 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
           </article>
         ))}
       </div>
-    </section>
+    </CardSurface>
   );
 }

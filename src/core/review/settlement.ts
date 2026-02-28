@@ -2,6 +2,7 @@ import type { OpenTicket } from '@/src/core/live/openTickets';
 import { tagMiss } from '@/src/core/review/missTagger';
 import { getDraftPostmortem, savePostmortem } from '@/src/core/review/store';
 import type { PostmortemRecord, TicketSettlementStatus } from '@/src/core/review/types';
+import { mapMissTagsToNextTimeRule } from '@/src/core/guardrails/localGuardrails';
 
 export type SettleTicketInput = {
   ticket: OpenTicket;
@@ -61,6 +62,7 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
   });
 
   const missed = legs.filter((leg) => !leg.hit);
+  const nextTimeRule = mapMissTagsToNextTimeRule(missed.flatMap((leg) => leg.missTags));
   const narrative = [
     `${input.ticket.title} settled ${input.status} with ${missed.length} missed leg(s).`,
     missed[0] ? `${missed[0].player} was the biggest swing (${missed[0].delta.toFixed(1)} vs line).` : 'All tracked legs cleared the line.',
@@ -80,7 +82,8 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
     },
     fragility: { score: fragilityScore, chips: fragilityChips },
     narrative,
-    coachSnapshot: getDraftPostmortem(input.ticket.ticketId)
+    coachSnapshot: getDraftPostmortem(input.ticket.ticketId),
+    nextTimeRule
   };
 }
 
