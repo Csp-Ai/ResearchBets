@@ -124,8 +124,12 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     <p className="text-xs text-slate-300">{ticket.onPaceCount}/{ticket.legs.length} legs on pace</p>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest now: {ticket.weakestLeg.player}</span>
-                    {ticket.weakestLeg.reasonChips.map((reason) => <span key={`${ticket.ticketId}-${reason}`} className="rounded-full border border-white/15 px-2 py-1">{reason}</span>)}
+                    {sweatMode ? (
+                      <>
+                        <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest now: {ticket.weakestLeg.player}</span>
+                        {ticket.weakestLeg.reasonChips.map((reason) => <span key={`${ticket.ticketId}-${reason}`} className="rounded-full border border-white/15 px-2 py-1">{reason}</span>)}
+                      </>
+                    ) : null}
                     {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">${ticket.cashoutValue.toFixed(2)} · Cashout available</span> : <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1">Cashout: unknown (not connected)</span>}
                     {ticket.coverage.coverage !== 'full' ? <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1" title={`${ticket.coverage.coveredLegs}/${ticket.coverage.totalLegs} legs covered`}>Partial live coverage</span> : null}
                   </div>

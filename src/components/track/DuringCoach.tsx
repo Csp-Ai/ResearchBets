@@ -5,6 +5,17 @@ import { useMemo, useState } from 'react';
 import { computeDuringCoach } from '@/src/core/live/duringCoach';
 import type { OpenTicket } from '@/src/core/live/openTickets';
 
+type SavedPostmortem = {
+  ticketId: string;
+  savedAt: string;
+  killLeg: string;
+  reasons: string[];
+  fragilityScore: number;
+  coverageSummary: string;
+};
+
+const POSTMORTEM_STORAGE_KEY = 'rb:postmortems:v1';
+
 const statusTone = {
   ahead: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
   on_pace: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100',
@@ -12,15 +23,45 @@ const statusTone = {
   needs_spike: 'border-rose-400/40 bg-rose-500/10 text-rose-100'
 } as const;
 
+function savePostmortem(record: SavedPostmortem) {
+  const existing = window.localStorage.getItem(POSTMORTEM_STORAGE_KEY);
+  const parsed = existing ? JSON.parse(existing) as SavedPostmortem[] : [];
+  const deduped = [record, ...parsed.filter((item) => !(item.ticketId === record.ticketId && item.killLeg === record.killLeg))].slice(0, 40);
+  window.localStorage.setItem(POSTMORTEM_STORAGE_KEY, JSON.stringify(deduped));
+}
+
 export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; compact?: boolean }) {
   const coach = useMemo(() => computeDuringCoach(ticket), [ticket]);
   const [showWhy, setShowWhy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const closest = coach.nextToHit[0];
+  const topKillReason = coach.killRiskReasonChips[0] ?? 'Monitoring variance';
+
+  const handleSave = () => {
+    savePostmortem({
+      ticketId: ticket.ticketId,
+      savedAt: new Date().toISOString(),
+      killLeg: `${coach.killRisk.player} ${coach.killRisk.marketType}`,
+      reasons: coach.killRiskReasonChips.slice(0, 3),
+      fragilityScore: coach.killRiskFragility.fragilityScore,
+      coverageSummary: `${ticket.coverage.coverage}:${ticket.coverage.coveredLegs}/${ticket.coverage.totalLegs}`
+    });
+    setToast('Saved for postmortem');
+    window.setTimeout(() => setToast(null), 1500);
+  };
 
   if (compact) {
-    const summary = coach.nextToHit.map((leg) => `${leg.player} (${leg.requiredRemaining.toFixed(1)} left)`).join(' · ');
     return (
-      <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/50 p-2 text-xs">
-        <p className="text-slate-200">Next to hit: {summary || '—'}</p>
+      <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/50 p-2 text-xs" data-testid="during-coach-compact">
+        <p className="text-slate-200">Closest: {closest ? `${closest.player} ${closest.marketType} (needs ${closest.requiredRemaining.toFixed(1)})` : '—'}</p>
+        <p className="mt-1 text-slate-200">Kill risk: {coach.killRisk.player} {coach.killRisk.marketType} <span className="ml-1 rounded-full border border-white/20 px-1.5 py-0.5">{topKillReason}</span></p>
+        <p className="mt-1 text-slate-300">Cashout: {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? `$${ticket.cashoutValue.toFixed(2)}` : 'unknown'}</p>
+        <details className="mt-2 text-slate-300">
+          <summary className="cursor-pointer">Save for postmortem</summary>
+          <button type="button" onClick={handleSave} className="mt-1 rounded border border-white/20 px-2 py-0.5">Save for postmortem</button>
+        </details>
+        {toast ? <p className="mt-1 text-emerald-200">{toast}</p> : null}
       </div>
     );
   }
@@ -49,7 +90,7 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
         <div className="mt-1 rounded border border-slate-700 p-2">
           <p>{coach.killRisk.player}</p>
           <div className="mt-1 flex flex-wrap gap-1">
-            {coach.killRisk.reasonChips.map((chip) => (
+            {coach.killRiskReasonChips.map((chip) => (
               <span key={`${coach.killRisk.legId}-${chip}`} className="rounded-full border border-white/20 px-1.5 py-0.5">{chip}</span>
             ))}
           </div>
@@ -67,6 +108,12 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
           ))}
         </ul>
       </div>
+
+      <details className="mt-2 text-slate-300">
+        <summary className="cursor-pointer">Save for postmortem</summary>
+        <button type="button" onClick={handleSave} className="mt-1 rounded border border-white/20 px-2 py-0.5">Save for postmortem</button>
+      </details>
+      {toast ? <p className="mt-1 text-emerald-200">{toast}</p> : null}
 
       <div className="mt-2">
         <button type="button" className="text-slate-300 underline" onClick={() => setShowWhy((value) => !value)}>
