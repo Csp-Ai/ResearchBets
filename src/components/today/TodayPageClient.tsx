@@ -136,7 +136,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const selectedLegIds = useMemo(() => new Set(selectedLegs.map((leg) => leg.id)), [selectedLegs]);
 
   return (
-    <section className="w-full space-y-3 pb-20">
+    <section className="w-full space-y-3 pb-14">
       <TruthSpineHeader
         title="Board"
         subtitle="Before loop: scout leads, check risk, and stage a slip."
@@ -147,12 +147,12 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
           { label: 'Track', href: nervous.toHref('/track') }
         ]}
       />
-      <section className="rounded-lg bg-black/20 p-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+      <section className="panel-shell p-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
           {FILTERS.map((item) => (
-            <button key={item} type="button" onClick={() => setLeague(item)} className={`rounded-md px-3 py-1 ${league === item ? 'bg-cyan-400/20 text-cyan-100' : 'text-slate-400 hover:text-slate-200'}`}>{item}</button>
+            <button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>
           ))}
-          <span className="ml-auto text-slate-500">{payload.mode.toUpperCase()} · {timeAgo(payload.generatedAt)}</span>
+          <span className="ml-auto text-slate-500 mono-number">{payload.mode.toUpperCase()} · {timeAgo(payload.generatedAt)}</span>
         </div>
         <details className="mt-2 text-xs text-slate-500">
           <summary className="cursor-pointer">Details</summary>
@@ -163,12 +163,12 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
           </div>
         </details>
       </section>
-      <section id="board-terminal" className="rounded-lg bg-black/20 p-3">
+      <section id="board-terminal" className="panel-shell p-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded-md bg-slate-900 px-2 py-1" data-testid="sort-select"><option value="edge">EDGE</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start</option></select>
-          <select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="rounded-md bg-slate-900 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select>
-          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="rounded-md bg-slate-900 px-2 py-1"><option value="all">all risk</option><option value="stable">stable</option><option value="watch">watch</option></select>
-          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="rounded-md bg-slate-900 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select>
+          <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1" data-testid="sort-select"><option value="edge">EDGE</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start</option></select>
+          <select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select>
+          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1"><option value="all">all risk</option><option value="stable">stable</option><option value="watch">watch</option></select>
+          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select>
         </div>
       </section>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">

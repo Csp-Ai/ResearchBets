@@ -9,7 +9,7 @@
   --surface-0: #05070A;
   --surface-1: #0A1220;
   --surface-2: #0E1628;
-  --border-subtle: rgba(148, 163, 184, 0.22);
+  --border-subtle: rgba(148, 163, 184, 0.28);
   --text-muted: rgba(203, 213, 225, 0.72);
   --text-strong: rgba(248, 250, 252, 0.98);
 
@@ -34,13 +34,22 @@
   --ring: rgba(103, 232, 249, 0.7);
 
   --surface-elevated: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.88));
-  --shadow-card: 0 12px 32px rgba(2, 6, 23, 0.22);
+  --shadow-card: 0 14px 30px rgba(2, 6, 23, 0.32);
   --shadow-hero: 0 18px 50px rgba(2, 6, 23, 0.38);
-  --shadow-primary-hover: 0 8px 20px rgba(34, 211, 238, 0.22);
+  --shadow-primary-hover: 0 10px 30px rgba(34, 211, 238, 0.24);
 
   --radius-md: 0.5rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.5rem;
+
+  --type-base: 0.9375rem;
+  --type-sm: 0.8125rem;
+  --type-xs: 0.75rem;
+  --type-h1: clamp(1.55rem, 1.2rem + 1vw, 2.05rem);
+  --type-h2: clamp(1.15rem, 1rem + 0.45vw, 1.4rem);
+
+  --space-card: 1rem;
+  --space-row: 0.7rem;
 
   --tone-neutral-bg: transparent;
   --tone-neutral-border: var(--border);
@@ -123,7 +132,22 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-size: var(--type-base);
   @apply antialiased;
+}
+
+h1,
+.text-h1 {
+  font-size: var(--type-h1);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+h2,
+.text-h2 {
+  font-size: var(--type-h2);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 
@@ -135,6 +159,13 @@ body {
   .text-link { color: var(--link); }
   .text-link:hover { color: var(--link-hover); }
   .divide-default > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
+  .panel-title { @apply text-sm font-semibold text-slate-100; }
+  .panel-subtitle { font-size: var(--type-xs); @apply text-slate-400; }
+  .panel-shell { @apply rounded-lg border border-white/10 bg-gradient-to-b from-slate-950/90 to-slate-900/70 shadow-[0_14px_30px_rgba(2,6,23,0.35)] ring-1 ring-inset ring-white/[0.06]; }
+  .row-shell { @apply rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2.5 transition duration-200; }
+  .terminal-focus { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-0; }
+  .hover-glow { @apply hover:border-cyan-300/40 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_14px_30px_rgba(2,6,23,0.45)] hover:-translate-y-0.5; }
+  .mono-number { @apply font-mono tabular-nums; }
 }
 
 .terminal-shell-outer {

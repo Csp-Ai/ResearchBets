@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { DuringCoach } from '@/src/components/track/DuringCoach';
+import { CardSurface } from '@/src/components/ui/CardSurface';
 import { buildOpenTickets, computeExposureSummary, type LiveCoverageMap, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
 import { settleTicket } from '@/src/core/review/settlement';
 import type { TicketSettlementStatus } from '@/src/core/review/types';
@@ -111,20 +112,23 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   };
 
   return (
-    <section className="rounded-xl border border-slate-700 bg-slate-950/70 p-4" data-testid="open-tickets-panel">
+    <CardSurface className="p-4" data-testid="open-tickets-panel">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Open Tickets</h2>
         <p className="text-xs text-slate-400">Live progress view</p>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-300">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
         <div className="flex items-center gap-2">
           <span>Auto-refresh: {mode === 'live' && autoRefresh ? 'On' : 'Off'}</span>
           <button type="button" className="rounded border border-white/20 px-2 py-0.5" onClick={() => setAutoRefresh((value) => !value)} disabled={mode !== 'live'}>
             {autoRefresh ? 'Turn off' : 'Turn on'}
           </button>
-          <span className="ml-2">Sweat mode: {sweatMode ? 'On' : 'Off'}</span>
-          <button type="button" className="rounded border border-white/20 px-2 py-0.5" onClick={() => setSweatMode((value) => !value)}>
+          <button
+            type="button"
+            className="ml-2 rounded-md border border-white/15 bg-slate-900/70 px-2 py-0.5 transition hover:border-cyan-300/40"
+            onClick={() => setSweatMode((value) => !value)}
+          >
             {sweatMode ? 'Hide details' : 'Show details'}
           </button>
         </div>
@@ -152,17 +156,14 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
             {tickets.slice(0, 5).map((ticket, index) => {
               const isExpanded = !!expanded[ticket.ticketId];
               return (
-                <li key={ticket.ticketId} className="rounded-lg border border-slate-700 bg-slate-900/60 p-3" data-testid={`ticket-${index + 1}`}>
+                <li key={ticket.ticketId} className="row-shell" data-testid={`ticket-${index + 1}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium">{ticket.title} • {ticket.odds} • {ticket.wager}</p>
                     <p className="text-xs text-slate-300">{ticket.onPaceCount}/{ticket.legs.length} legs on pace</p>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
                     {sweatMode ? (
-                      <>
-                        <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest now: {ticket.weakestLeg.player}</span>
-                        {ticket.weakestLeg.reasonChips.map((reason) => <span key={`${ticket.ticketId}-${reason}`} className="rounded-full border border-white/15 px-2 py-1">{reason}</span>)}
-                      </>
+                      <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest: {ticket.weakestLeg.player}</span>
                     ) : null}
                     {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">${ticket.cashoutValue.toFixed(2)} · Cashout available</span> : <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1">Cashout: unknown (not connected)</span>}
                     {ticket.coverage.coverage !== 'full' ? <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1" title={`${ticket.coverage.coveredLegs}/${ticket.coverage.totalLegs} legs covered`}>Partial live coverage</span> : null}
@@ -245,7 +246,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
           </div>
         </div>
       ) : null}
-    </section>
+    </CardSurface>
   );
 }
 

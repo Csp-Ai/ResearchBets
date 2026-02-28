@@ -63,25 +63,29 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
         const isSelected = selectedLegIds.has(row.id);
         const confidence = Math.max(0, Math.min(100, Math.round(((row.modelProb ?? 0.5) - (row.marketImpliedProb ?? 0.5) + 0.5) * 100)));
         const confidenceVariant = confidence >= 62 ? 'success' : confidence >= 52 ? 'warning' : 'neutral';
+        const signal = confidence >= 62 ? 'stable' : 'watch';
 
         return (
-          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(0,229,200,0.12)] ${highlightedRowId === row.id ? 'ring-cyan-300/55' : ''}`}>
-            <div className="flex items-center justify-between gap-3">
+          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition duration-200 hover-glow ${highlightedRowId === row.id ? 'ring-cyan-300/55' : ''} ${isSelected ? 'border-cyan-300/40 bg-cyan-500/[0.07]' : ''}`}>
+            <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="truncate text-base font-bold text-slate-100">{row.player}</p>
-                <p className="text-sm text-slate-300">{MARKET_LABEL[row.market]} {row.line ?? 'TBD'} {row.odds ?? ''}</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <Badge variant={confidenceVariant}>CONF {confidence}%</Badge>
-                  <span className="text-xs text-slate-500">{formatSignedPct(row.edgeDelta ?? 0)}</span>
-                </div>
+                <p className="truncate text-[15px] font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{row.matchup} · {row.odds ?? 'ODDS TBD'}</p>
+              </div>
+              <div className="hidden min-w-[132px] justify-end md:flex">
+                <Badge variant={confidenceVariant} className="mono-number justify-center">{confidence}% • {signal}</Badge>
               </div>
               <button
                 type="button"
                 onClick={() => onToggleLeg(row)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition duration-300 ${isSelected ? 'bg-rose-500/15 text-rose-100' : 'bg-cyan-400/20 text-cyan-100 hover:shadow-[0_0_22px_rgba(0,229,200,0.35)]'}`}
+                className={`terminal-focus inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold transition ${isSelected ? 'border-cyan-300/60 bg-cyan-400/20 text-cyan-100' : 'border-cyan-300/35 bg-cyan-500/10 text-cyan-100 hover:border-cyan-200/70 hover:bg-cyan-400/20'}`}
               >
                 {isSelected ? 'Added' : '+ Add'}
               </button>
+            </div>
+            <div className="mt-2 flex items-center justify-between md:hidden">
+              <Badge variant={confidenceVariant} className="mono-number">{confidence}% • {signal}</Badge>
+              <span className="text-xs text-slate-500">{formatSignedPct(row.edgeDelta ?? 0)}</span>
             </div>
           </CardSurface>
         );

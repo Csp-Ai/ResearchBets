@@ -35,20 +35,20 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
   return (
     <div className="mt-2 space-y-3" data-testid="during-coach-panel">
       <div className="grid gap-3 md:grid-cols-3">
-        <CardSurface className="p-3">
-          <p className="text-xs text-emerald-300">Closest</p>
+        <CardSurface className="flex min-h-[108px] flex-col justify-between p-3">
+          <p className="inline-flex items-center gap-1 text-xs text-emerald-300">◉ Closest</p>
           <p className="mt-1 text-sm font-semibold text-slate-100">{closest ? `${closest.player} ${closest.marketType}` : 'No active leg'}</p>
-          {closest ? <p className="text-xs text-slate-300">Needs {closest.requiredRemaining.toFixed(1)} more</p> : null}
+          {closest ? <Badge size="sm" variant="success">Needs {closest.requiredRemaining.toFixed(1)} more</Badge> : null}
         </CardSurface>
-        <CardSurface className="p-3">
-          <p className="text-xs text-rose-300">Kill Risk</p>
+        <CardSurface className="flex min-h-[108px] flex-col justify-between p-3">
+          <p className="inline-flex items-center gap-1 text-xs text-rose-300">⚠ Kill Risk</p>
           <p className="mt-1 text-sm font-semibold text-slate-100">{coach.killRisk.player}</p>
-          <div className="mt-1 flex flex-wrap gap-1">{coach.killRiskReasonChips.slice(0, 2).map((chip) => <Badge key={`${coach.killRisk.legId}-${chip}`} variant="danger">{chip}</Badge>)}</div>
+          <div className="mt-1 flex flex-wrap gap-1">{coach.killRiskReasonChips.slice(0, 1).map((chip) => <Badge key={`${coach.killRisk.legId}-${chip}`} variant="danger" size="sm">{chip}</Badge>)}</div>
         </CardSurface>
-        <CardSurface className="p-3">
+        <CardSurface className="flex min-h-[108px] flex-col justify-between p-3">
           <p className="text-xs text-cyan-300">Cashout</p>
           <p className="mt-1 text-sm font-semibold text-slate-100">{ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? `$${ticket.cashoutValue.toFixed(2)}` : 'Unavailable'}</p>
-          <p className="text-xs text-slate-300">{coach.actions[0]?.label ?? 'Monitor pace'}</p>
+          <Badge size="sm" variant="info">{coach.actions[0]?.label ?? 'Monitor pace'}</Badge>
         </CardSurface>
       </div>
 
