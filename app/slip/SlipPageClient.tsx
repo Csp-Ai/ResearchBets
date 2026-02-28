@@ -134,7 +134,7 @@ export default function SlipPageClient() {
   };
 
   return (
-    <section className="mx-auto max-w-7xl space-y-4">
+    <section className="mx-auto max-w-7xl space-y-3">
       <TruthSpineHeader
         title="Draft Slip"
         subtitle="During loop: stage the ticket, enforce concentration checks, then analyze."
@@ -145,7 +145,7 @@ export default function SlipPageClient() {
         ]}
       />
       <SlipIntelBar legs={dedupedLegs} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
           {games.length === 0 ? (
             <AliveEmptyState
@@ -165,7 +165,7 @@ export default function SlipPageClient() {
           <CardSurface className="space-y-4 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-100">Bet Ticket</h2>
-              <span className="text-xs text-slate-400">{dedupedLegs.length} legs</span>
+              <span className="mono-number text-xs text-slate-400">{dedupedLegs.length} legs</span>
             </div>
             {dedupedLegs.length === 0 ? (
               <AliveEmptyState
@@ -174,11 +174,11 @@ export default function SlipPageClient() {
                 actions={<Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Browse board</Link>}
               />
             ) : null}
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {dedupedLegs.map((leg, index) => (
-                <li key={leg.id} className="rounded-lg bg-black/20 p-3">
+                <li key={leg.id} className="row-shell">
                   <div className="flex items-start justify-between gap-2">
-                    <div><p className="text-base font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-sm text-slate-300">{leg.marketType.toUpperCase()} {leg.line} {leg.odds ?? ''}</p><div className="mt-1 flex gap-1"><Badge variant={leg.volatility === 'low' ? 'success' : 'warning'}>{leg.volatility ?? 'watch'}</Badge><Badge variant="info">conf</Badge></div></div>
+                    <div><p className="text-sm font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? ''}</span></p><div className="mt-1 flex gap-1"><Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">{leg.volatility ?? 'watch'}</Badge></div></div>
                     <button type="button" className="rounded border border-rose-500/50 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</button>
                   </div>
                   <div className="mt-2 flex gap-1">
@@ -188,7 +188,7 @@ export default function SlipPageClient() {
                 </li>
               ))}
             </ul>
-            <button type="button" className="w-full rounded-lg bg-black/30 px-3 py-2 text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</button>
+            <button type="button" className="terminal-focus w-full rounded-md border border-white/15 bg-black/30 px-3 py-2 text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</button>
           </CardSurface>
           <SlipBuilder legs={dedupedLegs} onLegsChange={(nextLegs) => {
             if (nextLegs.length === 0) {
@@ -198,8 +198,8 @@ export default function SlipPageClient() {
             setSlip(nextLegs);
           }} />
           <div className="grid grid-cols-1 gap-3">
-            <button type="button" className="w-full rounded-lg bg-[#22C55E] px-4 py-3 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</button>
-            <button type="button" className="w-full rounded-lg bg-[#00E5C8] px-4 py-3 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</button>
+            <button type="button" className="terminal-focus w-full rounded-md border border-emerald-300/40 bg-[#22C55E] px-4 py-3 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</button>
+            <button type="button" className="terminal-focus w-full rounded-md bg-[#00E5C8] px-4 py-3 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</button>
             {dedupedLegs.length === 0 ? <p className="text-xs text-slate-400">Actions are disabled because the draft has 0 legs.</p> : null}
           </div>
         </div>

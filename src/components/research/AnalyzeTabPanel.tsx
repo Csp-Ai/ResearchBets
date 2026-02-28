@@ -85,40 +85,37 @@ export default function AnalyzeTabPanel({
 
       {hasSlip ? (
         <CardSurface className="space-y-4 p-4 transition-opacity duration-300" data-testid="decision-terminal-verdict">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div>
-              <p className="text-xs text-slate-500">Decision</p>
-              <p className="text-3xl font-bold text-slate-100">{presentRecommendation(riskSummary.recommendation)}</p>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500">Verdict</p>
+              <div className="flex items-center gap-2">
+                <Badge variant={presentRecommendation(riskSummary.recommendation).toUpperCase().includes('TAKE') ? 'success' : 'warning'}>{presentRecommendation(riskSummary.recommendation)}</Badge>
+                <p className="text-sm text-slate-300">{combinedReasons[0] ?? 'Check line movement before locking.'}</p>
+              </div>
             </div>
             <div>
               <p className="text-xs text-slate-500">Confidence</p>
-              <div className="mt-1 h-2 rounded bg-slate-900"><div className="h-2 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${riskSummary.confidencePct}%` }} /></div>
-              <p className="mt-1 text-sm text-slate-200">{riskSummary.confidencePct}%</p>
+              <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${riskSummary.confidencePct}%` }} /></div>
+              <p className="mono-number mt-1 text-sm text-slate-200">{riskSummary.confidencePct}%</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Fragility</p>
-              <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-[#22C55E] via-[#FFB020] to-[#FF4D4F] transition-all duration-1000" style={{ width: `${riskSummary.fragilityScore}%` }} /></div>
-              <p className="mt-1 text-sm text-amber-100">{riskSummary.fragilityScore}/100</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Correlation</p>
-              <Badge variant={riskSummary.correlationFlag ? 'warning' : 'success'} className="mt-1">{riskSummary.correlationFlag ? 'HIGH' : 'MANAGED'}</Badge>
+            <div className="flex items-end gap-2">
+              <Badge variant="warning">Fragility {riskSummary.fragilityScore}</Badge>
+              <Badge variant={riskSummary.correlationFlag ? 'warning' : 'success'}>{riskSummary.correlationFlag ? 'Correlation high' : 'Correlation managed'}</Badge>
             </div>
           </div>
 
           <CardSurface className="p-4">
-            <p className="text-xs font-semibold text-amber-100">⚠ Weakest Leg</p>
-            <p className="mt-1 text-lg font-medium text-slate-100">{riskSummary.weakestLeg}</p>
-            <p className="mt-2 text-sm text-slate-300">Fragility {riskSummary.fragilityScore}/100</p>
-            <p className="text-sm text-amber-100">Key risk: {riskSummary.correlationFlag ? 'Correlation High' : riskSummary.dominantRiskFactor}</p>
+            <p className="text-xs font-semibold text-amber-100">Weakest leg</p>
+            <p className="mt-1 text-lg font-semibold text-slate-100">{riskSummary.weakestLeg}</p>
+            <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">Why it&rsquo;s fragile</p>
             <div className="mt-2 space-y-1 text-sm text-slate-300">
               {combinedReasons.length > 0 ? combinedReasons.slice(0, 3).map((reason) => <p key={reason}>• {reason}</p>) : <p>• Check line movement before locking.</p>}
             </div>
+            <a href={slipHref} className="terminal-focus mt-3 inline-flex rounded-md border border-cyan-300/45 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/10">Edit slip</a>
           </CardSurface>
 
           <div className="flex flex-wrap gap-2">
             <Button intent="primary" onClick={onCopySlip}>{copySlipStatus === 'done' ? 'Copied slip' : copySlipStatus === 'error' ? 'Copy unavailable' : 'Copy slip'}</Button>
-            <a href={slipHref} className="rounded-lg bg-[#00E5C8] px-3 py-2 text-sm font-semibold text-slate-950">Edit in Slip</a>
             <button type="button" className="rounded-lg px-3 py-2 text-sm text-slate-100" onClick={onCopyReasons}>{copyStatus === 'done' ? 'Copied reasons' : copyStatus === 'error' ? 'Copy unavailable' : 'Copy reasons'}</button>
             <button type="button" className="rounded-lg px-3 py-2 text-sm text-slate-100" onClick={onShareRun}>{shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}</button>
           </div>

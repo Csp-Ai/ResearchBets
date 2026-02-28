@@ -3,8 +3,12 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/src/lib/ui/cn';
 
-const badgeVariants = cva('inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium tracking-wide', {
+const badgeVariants = cva('inline-flex items-center rounded-md border font-medium tracking-wide', {
   variants: {
+    size: {
+      sm: 'px-1.5 py-0.5 text-[10px]',
+      md: 'px-2 py-0.5 text-[11px]'
+    },
     variant: {
       success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
       warning: 'border-amber-400/35 bg-amber-400/10 text-amber-100',
@@ -14,6 +18,7 @@ const badgeVariants = cva('inline-flex items-center rounded-md border px-2 py-0.
     }
   },
   defaultVariants: {
+    size: 'md',
     variant: 'neutral'
   }
 });
