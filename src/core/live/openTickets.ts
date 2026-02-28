@@ -23,7 +23,7 @@ export type LiveLegState = {
 
 export type OpenTicket = {
   ticketId: string; title: string; odds: string; wager: string; mode: 'demo' | 'cache' | 'live';
-  sourceHint?: string; rawSlipText?: string; legs: LiveLegState[]; onPaceCount: number; weakestLeg: LiveLegState;
+  sourceHint?: string; rawSlipText?: string; createdAt?: string; legs: LiveLegState[]; onPaceCount: number; weakestLeg: LiveLegState;
   cashoutAvailable?: boolean; cashoutValue?: number; coverage: TicketCoverage;
 };
 
@@ -112,6 +112,7 @@ function toTicketFromTracked(ticket: TrackedTicket, index: number, mode: 'demo' 
     mode,
     sourceHint: ticket.sourceHint,
     rawSlipText: ticket.rawSlipText,
+    createdAt: ticket.createdAt,
     legs,
     onPaceCount,
     weakestLeg,

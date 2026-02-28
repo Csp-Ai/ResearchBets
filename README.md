@@ -90,6 +90,13 @@ npm run env:check:strict
 Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_URL` and one public key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`), then restart dev server.
 
 
+
+## AFTER loop additions
+
+- `/track` now includes manual-first **Settle** actions that write deterministic postmortems to local storage (`rb:postmortems:v1`).
+- `/review` shows a local-only **Edge Profile** plus recent postmortems.
+- DURING Coach snapshots are saved (`rb:draft-postmortems:v1`) and attached to settlement records for AFTER comparison.
+
 ## Repo Grounding
 
 - Canonical home routing chain is `app/page.tsx` (server wrapper with `Suspense`) → `app/HomeLandingClient.tsx` → `src/components/landing/HomeLandingPage.tsx`.

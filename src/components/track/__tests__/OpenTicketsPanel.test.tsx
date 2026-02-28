@@ -78,7 +78,7 @@ describe('OpenTicketsPanel', () => {
     expect(screen.queryByText('Suggested actions')).toBeNull();
   });
 
-  it('save for postmortem writes rb:postmortems:v1', () => {
+  it('save for postmortem writes draft snapshot store', () => {
     saveTrackedTicket({
       ticketId: 'ticket-postmortem',
       createdAt: '2026-02-26T10:00:00.000Z',
@@ -90,7 +90,7 @@ describe('OpenTicketsPanel', () => {
     render(<OpenTicketsPanel mode="demo" />);
     fireEvent.click(screen.getByRole('button', { name: 'Save for postmortem' }));
 
-    const raw = window.localStorage.getItem('rb:postmortems:v1');
+    const raw = window.localStorage.getItem('rb:draft-postmortems:v1');
     expect(raw).toBeTruthy();
     const records = JSON.parse(raw ?? '[]') as Array<{ ticketId: string }>;
     expect(records[0]?.ticketId).toBe('ticket-postmortem');

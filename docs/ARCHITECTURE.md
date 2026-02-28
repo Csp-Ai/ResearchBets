@@ -175,3 +175,11 @@ Determinism guarantee: all `/tonight` and landing lead computations are pure aga
 - Entry builder: `src/core/journal/buildJournalEntry.ts` maps tracked slip state into compact review notes (hits, misses, runback candidates, bias-resistant notes).
 - Persistence + UI: localStorage-backed `src/core/journal/storage.ts`, list view at `/journal`, detail view at `/journal/[entryId]`.
 - Scope: local-first persistence for fast iteration; no backend dependency required for demo or degraded environments.
+
+## AFTER: Review intelligence module (v2)
+
+- Miss tagging engine: `src/core/review/missTagger.ts` maps losing legs into deterministic tags (`bust_by_one`, `assist_variance`, `ladder_distance`, `minutes_compression`, `coverage_gap`, `endgame_noise`) plus one-line narrative + lesson hints.
+- Settlement pipeline: `src/core/review/settlement.ts` composes manual settlement inputs from `/track` into stable `PostmortemRecord` payloads and stores them through `src/core/review/store.ts`.
+- DURING-to-AFTER bridge: `src/components/track/DuringCoach.tsx` writes draft coach snapshots, and settlement attaches the latest snapshot for “what coach saw vs what happened.”
+- Edge aggregation: `src/core/review/edgeProfile.ts` derives local-only tendencies from postmortems (win rate, near-miss rate, high-fragility share, coverage-gap share, top miss tags, killer stat types).
+- UI surfaces: `/track` includes a Settle panel; `/review` renders the Edge Profile card + recent postmortem table.

@@ -4,17 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { computeDuringCoach } from '@/src/core/live/duringCoach';
 import type { OpenTicket } from '@/src/core/live/openTickets';
-
-type SavedPostmortem = {
-  ticketId: string;
-  savedAt: string;
-  killLeg: string;
-  reasons: string[];
-  fragilityScore: number;
-  coverageSummary: string;
-};
-
-const POSTMORTEM_STORAGE_KEY = 'rb:postmortems:v1';
+import { saveDraftPostmortem } from '@/src/core/review/store';
 
 const statusTone = {
   ahead: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
@@ -22,13 +12,6 @@ const statusTone = {
   behind: 'border-amber-400/40 bg-amber-500/10 text-amber-100',
   needs_spike: 'border-rose-400/40 bg-rose-500/10 text-rose-100'
 } as const;
-
-function savePostmortem(record: SavedPostmortem) {
-  const existing = window.localStorage.getItem(POSTMORTEM_STORAGE_KEY);
-  const parsed = existing ? JSON.parse(existing) as SavedPostmortem[] : [];
-  const deduped = [record, ...parsed.filter((item) => !(item.ticketId === record.ticketId && item.killLeg === record.killLeg))].slice(0, 40);
-  window.localStorage.setItem(POSTMORTEM_STORAGE_KEY, JSON.stringify(deduped));
-}
 
 export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; compact?: boolean }) {
   const coach = useMemo(() => computeDuringCoach(ticket), [ticket]);
@@ -39,7 +22,7 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
   const topKillReason = coach.killRiskReasonChips[0] ?? 'Monitoring variance';
 
   const handleSave = () => {
-    savePostmortem({
+    saveDraftPostmortem({
       ticketId: ticket.ticketId,
       savedAt: new Date().toISOString(),
       killLeg: `${coach.killRisk.player} ${coach.killRisk.marketType}`,
