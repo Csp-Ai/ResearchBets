@@ -17,6 +17,7 @@ import type { LeagueFilter } from './types';
 import { BoardTerminalTable, sortBoardRows, type SortKey, type TerminalBoardRow } from './BoardTerminalTable';
 import { SlipDrawer } from './SlipDrawer';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { Skeleton } from '@/src/components/ui/Skeleton';
 import { appendQuery } from '@/src/components/landing/navigation';
 
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
@@ -47,6 +48,7 @@ function normalizedToTodayPayload(normalized: NormalizedToday): TodayPayload {
 export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayload }) {
   const router = useRouter();
   const [payload, setPayload] = useState<TodayPayload>(initialPayload ?? createDemoTodayPayload());
+  const [isLoading, setIsLoading] = useState(!initialPayload);
   const [league, setLeague] = useState<LeagueFilter>('All');
   const [sortKey, setSortKey] = useState<SortKey>('edge');
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -58,6 +60,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const nervous = useNervousSystem();
 
   const loadToday = useCallback(async (refresh = false) => {
+    setIsLoading(true);
     try {
       const response = await fetch(`/api/today?${new URLSearchParams({ refresh: refresh ? '1' : '0', sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }).toString()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('fetch_failed');
@@ -66,6 +69,8 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
       setPayload(normalizedToTodayPayload(next.data));
     } catch {
       setPayload(createDemoTodayPayload());
+    } finally {
+      setIsLoading(false);
     }
   }, [nervous.date, nervous.mode, nervous.sport, nervous.tz]);
 
@@ -138,6 +143,33 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
 
   const selectedLegIds = useMemo(() => new Set(selectedLegs.map((leg) => leg.id)), [selectedLegs]);
 
+  const boardSkeleton = (
+    <section className="space-y-2" aria-label="Board loading">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={`board-skeleton-${index + 1}`} className="panel-shell p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+            <Skeleton className="h-7 w-24" />
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+
+  const slipRailSkeleton = (
+    <aside className="lg:sticky lg:top-4 lg:h-fit">
+      <div className="panel-shell space-y-3 p-4">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    </aside>
+  );
+
   return (
     <section className="w-full space-y-3 pb-14">
       <TruthSpineHeader
@@ -176,10 +208,10 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
               {selectedLegs.length >= 3 ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-2 py-1 text-amber-100">Guardrail cue: keep exposure concentrated</span> : null}
             </div>
           </section>
-          <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} />
+          {isLoading ? boardSkeleton : <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} />}
           <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} />
         </div>
-        <SlipDrawer legs={selectedLegs} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} />
+        {isLoading ? slipRailSkeleton : <SlipDrawer legs={selectedLegs} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} />}
       </div>
     </section>
   );

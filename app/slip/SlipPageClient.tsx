@@ -19,6 +19,7 @@ import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
+import { Skeleton } from '@/src/components/ui/Skeleton';
 
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
@@ -54,7 +55,7 @@ function getScoutDraftLegs(games: TodayGame[]): SlipBuilderLeg[] {
 }
 
 export default function SlipPageClient() {
-  const { slip, addLeg, removeLeg, clearSlip, setSlip } = useDraftSlip();
+  const { slip, isHydrated, addLeg, removeLeg, clearSlip, setSlip } = useDraftSlip();
   const [games, setGames] = useState<TodayGame[]>([]);
   const [boardMode, setBoardMode] = useState<'live' | 'cache' | 'demo'>('demo');
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle');
@@ -169,7 +170,14 @@ export default function SlipPageClient() {
               <h2 className="text-lg font-semibold text-slate-100">Bet Ticket</h2>
               <span className="mono-number text-xs text-slate-400">{dedupedLegs.length} legs</span>
             </div>
-            {dedupedLegs.length === 0 ? (
+            {!isHydrated ? (
+              <div className="space-y-2" aria-label="Ticket loading">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : null}
+            {isHydrated && dedupedLegs.length === 0 ? (
               <AliveEmptyState
                 title="Start with one board action"
                 message="Add 2–3 leads from Board or load a sample; then we stage your ticket for Analyze and Track."
@@ -177,7 +185,7 @@ export default function SlipPageClient() {
               />
             ) : null}
             <ul className="space-y-2">
-              {dedupedLegs.map((leg, index) => (
+              {isHydrated ? dedupedLegs.map((leg, index) => (
                 <li key={leg.id} className="row-shell">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0"><p className="text-sm font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p></div>
@@ -191,9 +199,9 @@ export default function SlipPageClient() {
                     <Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">{leg.volatility ?? 'watch'}</Badge>
                   </div>
                 </li>
-              ))}
+              )) : null}
             </ul>
-            <Button intent="ghost" className="w-full text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</Button>
+            <Button intent="ghost" className="w-full text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0 || !isHydrated}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</Button>
           </CardSurface>
           <SlipBuilder legs={dedupedLegs} onLegsChange={(nextLegs) => {
             if (nextLegs.length === 0) {

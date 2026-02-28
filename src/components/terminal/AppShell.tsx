@@ -12,6 +12,7 @@ import { COPY_TOAST_EVENT } from './copyToast';
 import { ContextBadge } from '@/src/components/nervous/ContextBadge';
 import { ContextHeaderStrip } from '@/src/components/nervous/ContextHeaderStrip';
 import { NervousSystemProvider, useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { SurfaceHeaderBar } from './SurfaceHeaderBar';
 
 const BASE_NAV_ITEMS = [
   { label: 'Board', href: '/today' },
@@ -105,7 +106,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
             <ContextBadge />
             <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
             <details className="relative">
-              <summary className="cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
+              <summary className="terminal-focus cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
                 <Link href={nervous.toHref('/settings')} className="block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Settings</Link>
                 {developerMode ? <Link href={nervous.toHref('/dev/dashboard')} className="mt-1 block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Dev dashboard</Link> : null}
@@ -124,6 +125,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         </div>
       </header>
       <ContextHeaderStrip />
+      <SurfaceHeaderBar />
       <div className={`grid gap-6 ${showRail ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
         <main className="min-w-0 space-y-6 pb-28 sm:pb-10">{children}</main>
         <aside className={`sticky top-20 hidden h-fit space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 ${showRail ? 'lg:block' : ''}`}>

@@ -21,6 +21,7 @@ import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
 import type { TodayPayload } from '@/src/core/today/types';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import { Skeleton } from '@/src/components/ui/Skeleton';
 
 const statusTone: Record<SlipTrackingState['status'], string> = {
   alive: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40',
@@ -37,12 +38,16 @@ export function TrackPageClient() {
   const [saved, setSaved] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
   const [showTrackedToast, setShowTrackedToast] = useState(params.get('tracked') === '1');
+  const [isHydratingTicket, setIsHydratingTicket] = useState(Boolean(slipId));
 
   useEffect(() => {
-    if (!slipId) return;
+    if (!slipId) {
+      setIsHydratingTicket(false);
+      return;
+    }
     const loaded = loadSlip(slipId);
-    if (!loaded) return;
-    setState(loaded);
+    if (loaded) setState(loaded);
+    setIsHydratingTicket(false);
   }, [slipId]);
 
   useEffect(() => {
@@ -148,6 +153,12 @@ export function TrackPageClient() {
         <OpenTicketsPanel mode={surfaceMode} />
         {showTrackedToast ? <p className="text-xs text-emerald-200">Slip tracked.</p> : null}
         <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
+          {isHydratingTicket ? (
+            <div className="mb-3 space-y-2" aria-label="Ticket loading">
+              <Skeleton className="h-6 w-44" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : null}
           <h1 className="text-xl font-semibold">No tracked slip yet</h1>
           <p className="mt-2 text-sm text-slate-300">{modeNote}</p>
           <p className="mt-1 text-sm text-slate-300">Track a slip to get live status + learning even after elimination.</p>
@@ -162,6 +173,12 @@ export function TrackPageClient() {
     <section className="mx-auto max-w-6xl space-y-4 pb-20">
       <OpenTicketsPanel mode={surfaceMode} />
       <header className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
+        {isHydratingTicket ? (
+          <div className="space-y-2" aria-label="Ticket loading">
+            <Skeleton className="h-3 w-56" />
+            <Skeleton className="h-6 w-32 rounded-full" />
+          </div>
+        ) : null}
         <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel} · {modeNote}</p>
         <div className="flex items-center gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}>{state.status}</span>
