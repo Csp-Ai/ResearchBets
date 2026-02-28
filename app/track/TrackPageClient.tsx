@@ -15,6 +15,7 @@ import { advanceDemoTracking } from '@/src/core/slips/demoSlipTracker';
 import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
 import { createTrackingFromDraft, loadSlip, saveSlip } from '@/src/core/slips/storage';
 import { deriveRunHeader, deriveSlipLearningHighlights } from '@/src/core/ui/deriveTruth';
+import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
 import type { TodayPayload } from '@/src/core/today/types';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
@@ -128,15 +129,20 @@ export function TrackPageClient() {
   };
 
   const runHeader = deriveRunHeader({ trace_id: nervous.trace_id, mode: state?.mode });
+  const surfaceMode = (state?.mode ?? nervous.mode) as 'demo' | 'cache' | 'live';
+  const modeNote = surfaceMode === 'demo' ? 'Demo mode (live feeds off)' : surfaceMode === 'cache' ? 'Using cached slate' : 'Live feeds active';
 
   if (!state) {
     const hasDraft = DraftSlipStore.getSlip().length > 0;
 
     return (
-      <section className="mx-auto max-w-4xl rounded-xl border border-slate-700 bg-slate-900/60 p-6">
-        <h1 className="text-xl font-semibold">No tracked slip yet</h1>
-        <p className="mt-2 text-sm text-slate-300">Track a slip to get live status + learning even after elimination.</p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      <section className="mx-auto max-w-6xl space-y-4 pb-20">
+        <OpenTicketsPanel mode={surfaceMode} />
+        <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
+          <h1 className="text-xl font-semibold">No tracked slip yet</h1>
+          <p className="mt-2 text-sm text-slate-300">{modeNote}</p>
+          <p className="mt-1 text-sm text-slate-300">Track a slip to get live status + learning even after elimination.</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <button
             type="button"
             className="rounded-lg border border-cyan-400/60 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-100"
@@ -154,15 +160,17 @@ export function TrackPageClient() {
           >
             {sampleLoading ? 'Building sample…' : 'Try sample tracked slip (demo)'}
           </button>
-        </div>
+          </div>
+        </section>
       </section>
     );
   }
 
   return (
     <section className="mx-auto max-w-6xl space-y-4 pb-20">
+      <OpenTicketsPanel mode={surfaceMode} />
       <header className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
-        <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel}</p>
+        <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel} · {modeNote}</p>
         <div className="flex items-center gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}>{state.status}</span>
           {state.eliminatedByLegId ? <span className="text-sm text-rose-100">Eliminated by: {state.legs.find((leg) => leg.legId === state.eliminatedByLegId)?.player}</span> : null}

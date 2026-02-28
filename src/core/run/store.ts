@@ -38,6 +38,23 @@ const readRuns = (): Run[] => {
   }
 };
 
+
+function fallbackLatestTraceIdFromRaw(): string | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Array<{ trace_id?: string; traceId?: string; updatedAt?: string }>;
+    if (!Array.isArray(parsed)) return null;
+    const latest = [...parsed]
+      .filter((run) => typeof run.trace_id === 'string' || typeof run.traceId === 'string')
+      .sort((a, b) => Date.parse(b.updatedAt ?? '') - Date.parse(a.updatedAt ?? ''))[0];
+    return latest?.trace_id ?? latest?.traceId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const writeRuns = (runs: Run[]) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
@@ -185,7 +202,8 @@ export function getLatestTraceId(): string | null {
   const runs = readRuns()
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const latest = runs[0];
-  return latest ? runIdOf(latest) : null;
+  if (latest) return runIdOf(latest);
+  return fallbackLatestTraceIdFromRaw();
 }
 
 export const createRunStore = (): RunStore => {
