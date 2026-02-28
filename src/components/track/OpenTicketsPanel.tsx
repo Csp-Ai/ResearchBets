@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { DuringCoach } from '@/src/components/track/DuringCoach';
 import { buildOpenTickets, computeExposureSummary, type LiveCoverageMap, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
 import { listRecentSlips } from '@/src/core/slips/storage';
 import { listTrackedTickets } from '@/src/core/track/store';
@@ -22,6 +23,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [trackedTickets, setTrackedTickets] = useState<TrackedTicket[]>([]);
   const [coverage, setCoverage] = useState<LiveCoverageMap>({});
+  const [sweatMode, setSweatMode] = useState(true);
 
   useEffect(() => {
     setTrackedTickets(listTrackedTickets());
@@ -89,6 +91,10 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
           <button type="button" className="rounded border border-white/20 px-2 py-0.5" onClick={() => setAutoRefresh((value) => !value)} disabled={mode !== 'live'}>
             {autoRefresh ? 'Turn off' : 'Turn on'}
           </button>
+          <span className="ml-2">Sweat mode: {sweatMode ? 'On' : 'Off'}</span>
+          <button type="button" className="rounded border border-white/20 px-2 py-0.5" onClick={() => setSweatMode((value) => !value)}>
+            {sweatMode ? 'Hide details' : 'Show details'}
+          </button>
         </div>
         <span>Last updated: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : '—'}</span>
       </div>
@@ -120,9 +126,11 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
                     <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest now: {ticket.weakestLeg.player}</span>
                     {ticket.weakestLeg.reasonChips.map((reason) => <span key={`${ticket.ticketId}-${reason}`} className="rounded-full border border-white/15 px-2 py-1">{reason}</span>)}
-                    {ticket.cashoutValue ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">{ticket.cashoutValue} · Cashout available</span> : null}
+                    {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">${ticket.cashoutValue.toFixed(2)} · Cashout available</span> : <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1">Cashout: unknown (not connected)</span>}
                     {ticket.coverage.coverage !== 'full' ? <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1" title={`${ticket.coverage.coveredLegs}/${ticket.coverage.totalLegs} legs covered`}>Partial live coverage</span> : null}
                   </div>
+
+                  <DuringCoach ticket={ticket} compact={!sweatMode} />
 
                   {ticket.rawSlipText ? (
                     <details className="mt-2 text-xs text-slate-300">
@@ -131,15 +139,17 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     </details>
                   ) : null}
 
-                  <button
-                    type="button"
-                    className="mt-2 text-xs text-cyan-200 underline"
-                    onClick={() => setExpanded((prev) => ({ ...prev, [ticket.ticketId]: !isExpanded }))}
-                  >
-                    {isExpanded ? 'Hide legs' : 'Expand legs'}
-                  </button>
+                  {sweatMode ? (
+                    <button
+                      type="button"
+                      className="mt-2 text-xs text-cyan-200 underline"
+                      onClick={() => setExpanded((prev) => ({ ...prev, [ticket.ticketId]: !isExpanded }))}
+                    >
+                      {isExpanded ? 'Hide legs' : 'Expand legs'}
+                    </button>
+                  ) : null}
 
-                  {isExpanded ? (
+                  {sweatMode && isExpanded ? (
                     <ul className="mt-2 space-y-2 text-xs">
                       {ticket.legs.map((leg) => (
                         <li key={leg.legId} className="rounded border border-slate-700 p-2">
