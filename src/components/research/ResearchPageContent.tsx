@@ -226,6 +226,7 @@ export default function ResearchPageContent() {
     if (autoDemoTriggeredRef.current) return;
     if (nervous.mode !== 'demo' || safeTab !== 'analyze') return;
     if (traceFromQuery || prefillFromQuery || prefillKeyFromQuery || rawSlip.trim()) return;
+    if (getLatestTraceId()) return;
 
     autoDemoTriggeredRef.current = true;
     setRawSlip(DEMO_SLIP);
@@ -325,7 +326,23 @@ export default function ResearchPageContent() {
   const slipHref = nervous.toHref('/slip');
   const boardHref = appendQuery(nervous.toHref('/today'), { tab: 'board' });
   const latestRunHref = useMemo(() => {
-    const latest = getLatestTraceId();
+    const latestFromStorage = () => {
+      if (typeof window === 'undefined') return null;
+      const raw = window.localStorage.getItem('rb:runs:v1');
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw) as Array<{ trace_id?: string; traceId?: string; updatedAt?: string }>;
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+        const latest = [...parsed]
+          .filter((run) => run.trace_id || run.traceId)
+          .sort((a, b) => Date.parse(b.updatedAt ?? '') - Date.parse(a.updatedAt ?? ''))[0];
+        return latest?.trace_id ?? latest?.traceId ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const latest = getLatestTraceId() ?? latestFromStorage();
     return latest ? withTraceId(nervous.toHref('/research'), latest) : null;
   }, [nervous]);
 
