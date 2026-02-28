@@ -19,6 +19,7 @@ function parseAmerican(odds?: string): number | null {
 export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApply: (nextLegs: SlipBuilderLeg[]) => void }) {
   const constraints = useMemo(() => enforceProConstraints(legs), [legs]);
   const guardrails = useMemo(() => listGuardrails(), []);
+  const activeGuardrail = guardrails[0];
 
   const independentProb = useMemo(() => {
     const probs = legs.map((leg) => Math.max(0.2, Math.min(0.95, leg.confidence ?? 0.55)));
@@ -35,6 +36,8 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
     return breakEvenProbFromDecimal(decimal);
   }, [legs]);
 
+  const probabilityGap = useMemo(() => independentProb - breakEven, [independentProb, breakEven]);
+
   const applyProSize = (size: number) => {
     const ranked = [...legs]
       .map((leg) => ({ leg, score: proBuildScore(leg) }))
@@ -42,11 +45,37 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
 
     const selected: SlipBuilderLeg[] = [];
     let highVarianceUsed = 0;
+    let assistLegsUsed = 0;
+    let ladderLegUsed = false;
+
+    const isHighVarianceLeg = (leg: SlipBuilderLeg) => leg.marketType === 'assists' || leg.marketType === 'threes' || leg.volatility === 'high';
+    const isThinLadderLeg = (leg: SlipBuilderLeg) => {
+      const line = Number(leg.line);
+      if (!Number.isFinite(line)) return false;
+      if (leg.marketType === 'points') return line >= 30;
+      if (leg.marketType === 'threes') return line >= 4.5;
+      if (leg.marketType === 'assists') return line >= 6;
+      return false;
+    };
+
     for (const item of ranked) {
-      const isHighVariance = item.leg.marketType === 'assists' || item.leg.marketType === 'threes' || item.leg.volatility === 'high';
+      const isHighVariance = isHighVarianceLeg(item.leg);
+      const isAssist = item.leg.marketType === 'assists';
+      const isThinLadder = isThinLadderLeg(item.leg);
       if (isHighVariance && highVarianceUsed >= 1) continue;
+      if (isAssist && assistLegsUsed >= 1) continue;
+      if (isThinLadder && ladderLegUsed) continue;
+
+      const saferAlternativeExists = ranked.some((candidate) => {
+        if (selected.some((picked) => picked.id === candidate.leg.id)) return false;
+        return !isThinLadderLeg(candidate.leg);
+      });
+      if (isThinLadder && saferAlternativeExists && selected.length + 1 < size) continue;
+
       selected.push(item.leg);
       if (isHighVariance) highVarianceUsed += 1;
+      if (isAssist) assistLegsUsed += 1;
+      if (isThinLadder) ladderLegUsed = true;
       if (selected.length === size) break;
     }
     onApply(selected);
@@ -58,6 +87,11 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
         <h3 className="text-sm font-semibold text-slate-100">Pro Build</h3>
         <Badge size="sm" variant="info">Deterministic</Badge>
       </div>
+      {activeGuardrail ? (
+        <div className="w-fit rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-100">
+          Active guardrail: {activeGuardrail.title}
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="row-shell"><p className="text-slate-400">Leg count</p><p className="mono-number text-slate-100">{legs.length}</p></div>
         <div className="row-shell"><p className="text-slate-400">Variance legs</p><p className="mono-number text-slate-100">{constraints.varianceLegs}</p></div>
@@ -65,13 +99,11 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
         <div className="row-shell"><p className="text-slate-400">Correlation</p><p className="text-slate-100">{constraints.excessiveCorrelation ? 'Warning' : 'Normal'}</p></div>
       </div>
       <div className="terminal-divider pt-2 text-xs text-slate-300">
-        <p className="mono-number">Independent parlay probability: {(independentProb * 100).toFixed(1)}%</p>
-        <p className="mono-number">Break-even probability: {(breakEven * 100).toFixed(1)}%</p>
+        <p className="mono-number">Hit est: {(independentProb * 100).toFixed(1)}% | Break-even: {(breakEven * 100).toFixed(1)}% | Gap: {(probabilityGap * 100).toFixed(1)}%</p>
         <p className="mt-1 text-slate-400">Estimate uses proxies.</p>
       </div>
       <div className="space-y-1">
         {constraints.warnings.map((warning) => <p key={warning} className="text-xs text-amber-200">• {warning}</p>)}
-        {guardrails.map((rule) => <p key={rule.key} className="text-xs text-cyan-200">• Guardrail: {rule.title}</p>)}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Button intent="secondary" className="min-h-0 py-2 text-xs" onClick={() => applyProSize(2)} disabled={legs.length < 2}>Apply 2-leg Pro</Button>

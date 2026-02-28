@@ -25,6 +25,7 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { listGuardrails } from '@/src/core/guardrails/localGuardrails';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
   loading: () => <Surface className="h-48 animate-pulse bg-slate-900/60" />
@@ -290,6 +291,7 @@ export default function ResearchPageContent() {
   }, [currentRun?.snapshotId, snapshotIdFromQuery]);
 
   const legs = useMemo(() => (currentRun ? toAnalyzeLeg(currentRun) : []), [currentRun]);
+  const activeGuardrail = useMemo(() => listGuardrails()[0], []);
   const sortedLegs = useMemo(() => {
     if (!currentRun) return legs;
     return [...legs].sort((a, b) => {
@@ -410,6 +412,11 @@ export default function ResearchPageContent() {
           ]}
           traceId={traceFromQuery || nervous.trace_id}
         />
+        {activeGuardrail ? (
+          <div className="w-fit rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-100">
+            Guardrail active: {activeGuardrail.title}
+          </div>
+        ) : null}
         <div className="flex w-fit gap-2 rounded-xl bg-slate-950/60 p-1">
           {tabs.map((candidate) => (
             <button key={candidate} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { tab: candidate }))} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
