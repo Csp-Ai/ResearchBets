@@ -14,7 +14,6 @@ import type { NormalizedToday } from '@/src/core/today/normalize';
 
 import { TopSpotsPanel } from './TopSpotsPanel';
 import type { LeagueFilter } from './types';
-import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { BoardTerminalTable, sortBoardRows, type SortKey, type TerminalBoardRow } from './BoardTerminalTable';
 import { SlipDrawer } from './SlipDrawer';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
@@ -148,24 +147,28 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
           { label: 'Track', href: nervous.toHref('/track') }
         ]}
       />
-      <RunStatusPill traceId={nervous.trace_id} mode={payload.mode} providerHealth={payload.providerHealth} generatedAt={payload.generatedAt} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />
-      <section className="rounded-xl border border-white/10 bg-slate-950/65 p-3">
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((item) => (
-            <button key={item} type="button" onClick={() => setLeague(item)} className={`rounded-full border px-3 py-1 text-xs ${league === item ? 'border-cyan-300 bg-cyan-300/20 text-cyan-100' : 'border-white/20 text-slate-300'}`}>{item}</button>
-          ))}
-        </div>
-      </section>
-      <section id="board-terminal" className="rounded-xl border border-white/10 bg-slate-950/65 p-3">
+      <section className="rounded-lg bg-black/20 p-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <label className="text-slate-400">Sort</label>
-          <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded border border-white/20 bg-slate-900 px-2 py-1" data-testid="sort-select"><option value="edge">EDGE</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start time</option></select>
-          <label className="text-slate-400">Market</label>
-          <select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="rounded border border-white/20 bg-slate-900 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select>
-          <label className="text-slate-400">Risk</label>
-          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="rounded border border-white/20 bg-slate-900 px-2 py-1"><option value="all">all</option><option value="stable">stable</option><option value="watch">watch</option></select>
-          <label className="text-slate-400">Team</label>
-          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="rounded border border-white/20 bg-slate-900 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select>
+          {FILTERS.map((item) => (
+            <button key={item} type="button" onClick={() => setLeague(item)} className={`rounded-md px-3 py-1 ${league === item ? 'bg-cyan-400/20 text-cyan-100' : 'text-slate-400 hover:text-slate-200'}`}>{item}</button>
+          ))}
+          <span className="ml-auto text-slate-500">{payload.mode.toUpperCase()} · {timeAgo(payload.generatedAt)}</span>
+        </div>
+        <details className="mt-2 text-xs text-slate-500">
+          <summary className="cursor-pointer">Details</summary>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <span>trace: {nervous.trace_id}</span>
+            <span>sport: {nervous.sport}</span>
+            <span>tz: {nervous.tz}</span>
+          </div>
+        </details>
+      </section>
+      <section id="board-terminal" className="rounded-lg bg-black/20 p-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded-md bg-slate-900 px-2 py-1" data-testid="sort-select"><option value="edge">EDGE</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start</option></select>
+          <select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="rounded-md bg-slate-900 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select>
+          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="rounded-md bg-slate-900 px-2 py-1"><option value="all">all risk</option><option value="stable">stable</option><option value="watch">watch</option></select>
+          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="rounded-md bg-slate-900 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select>
         </div>
       </section>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">

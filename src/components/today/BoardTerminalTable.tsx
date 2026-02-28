@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 
-import { formatPct, formatSignedPct } from '@/src/core/markets/edgePrimitives';
+import { formatSignedPct } from '@/src/core/markets/edgePrimitives';
 import type { MarketType } from '@/src/core/markets/marketType';
+import { Badge } from '@/src/components/ui/Badge';
+import { CardSurface } from '@/src/components/ui/CardSurface';
 
 export type SortKey = 'edge' | 'l10' | 'risk' | 'start';
 
@@ -50,107 +51,41 @@ export function sortBoardRows(rows: TerminalBoardRow[], sortKey: SortKey): Termi
   });
 }
 
-export function BoardTerminalTable({
-  rows,
-  onToggleLeg,
-  selectedLegIds,
-  highlightedRowId
-}: {
+export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highlightedRowId }: {
   rows: TerminalBoardRow[];
   onToggleLeg: (row: TerminalBoardRow) => void;
   selectedLegIds: Set<string>;
   highlightedRowId?: string;
 }) {
   return (
-    <>
-      <div className="hidden overflow-x-auto rounded-xl border border-white/10 bg-slate-950/80 lg:block">
-        <table className="min-w-full text-left text-xs">
-          <thead className="border-b border-white/10 bg-slate-900/80 text-[11px] uppercase tracking-wide text-slate-400">
-            <tr>
-              <th className="px-3 py-2">Player / Market / Line</th>
-              <th className="px-3 py-2">L10</th>
-              <th className="px-3 py-2">Market / Model</th>
-              <th className="px-3 py-2">Edge</th>
-              <th className="px-3 py-2">Risk</th>
-              <th className="px-3 py-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const edge = Number.isFinite(row.edgeDelta) ? row.edgeDelta ?? 0 : 0;
-              const isSelected = selectedLegIds.has(row.id);
-              const isHighlighted = highlightedRowId === row.id;
+    <div className="space-y-2">
+      {rows.map((row) => {
+        const isSelected = selectedLegIds.has(row.id);
+        const confidence = Math.max(0, Math.min(100, Math.round(((row.modelProb ?? 0.5) - (row.marketImpliedProb ?? 0.5) + 0.5) * 100)));
+        const confidenceVariant = confidence >= 62 ? 'success' : confidence >= 52 ? 'warning' : 'neutral';
 
-              return (
-                <tr
-                  key={row.id}
-                  id={`board-row-${row.id}`}
-                  className={`border-b border-white/5 ${isHighlighted ? 'bg-cyan-500/10' : 'hover:bg-white/5'}`}
-                >
-                  <td className="px-3 py-2.5">
-                    <p className="font-medium text-white">{row.player}</p>
-                    <p className="text-slate-400">{MARKET_LABEL[row.market]} · {row.line ?? 'TBD'} {row.odds ?? ''}</p>
-                    <p className="text-[11px] text-slate-500"><Link className="underline decoration-dotted" href={`/game/${encodeURIComponent(row.gameId)}`}>{row.matchup}</Link> · {row.startTime}</p>
-                  </td>
-                  <td className="px-3 py-2.5 text-slate-200">{row.hitRateL10 ?? 0}%</td>
-                  <td className="px-3 py-2.5 text-slate-200">{formatPct(row.marketImpliedProb ?? 0.5)} / {formatPct(row.modelProb ?? 0.5)}</td>
-                  <td className="px-3 py-2.5">
-                    <p className="text-lg font-bold text-cyan-200">{formatSignedPct(edge)}</p>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Model − Market</p>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className={`rounded border px-2 py-0.5 text-[11px] ${row.riskTag === 'stable' ? 'border-emerald-400/40 text-emerald-200' : 'border-amber-400/40 text-amber-200'}`}>
-                      {(row.riskTag ?? 'watch').toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => onToggleLeg(row)}
-                      className={`rounded border px-2 py-1 text-[11px] ${isSelected ? 'border-rose-400/60 text-rose-200' : 'border-cyan-400/60 text-cyan-100'}`}
-                    >
-                      {isSelected ? '− Remove' : '+ Add'}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="grid gap-2 lg:hidden">
-        {rows.map((row) => {
-          const edge = Number.isFinite(row.edgeDelta) ? row.edgeDelta ?? 0 : 0;
-          const isSelected = selectedLegIds.has(row.id);
-          const isHighlighted = highlightedRowId === row.id;
-
-          return (
-            <article key={row.id} id={`board-row-${row.id}`} className={`rounded-lg border border-white/10 bg-slate-950/75 p-2.5 ${isHighlighted ? 'ring-1 ring-cyan-400/60' : ''}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold">{row.player}</p>
-                  <p className="text-xs text-slate-300">{MARKET_LABEL[row.market]} · {row.line ?? 'TBD'} {row.odds ?? ''}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-cyan-200">{formatSignedPct(edge)}</p>
-                  <p className="text-[10px] text-slate-400">Model − Market</p>
+        return (
+          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(0,229,200,0.12)] ${highlightedRowId === row.id ? 'ring-cyan-300/55' : ''}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-slate-100">{row.player}</p>
+                <p className="text-sm text-slate-300">{MARKET_LABEL[row.market]} {row.line ?? 'TBD'} {row.odds ?? ''}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <Badge variant={confidenceVariant}>CONF {confidence}%</Badge>
+                  <span className="text-xs text-slate-500">{formatSignedPct(row.edgeDelta ?? 0)}</span>
                 </div>
               </div>
-              <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-                <span><Link className="underline decoration-dotted" href={`/game/${encodeURIComponent(row.gameId)}`}>{row.matchup}</Link> · L10 {row.hitRateL10 ?? 0}% · {row.startTime}</span>
-                <button
-                  type="button"
-                  onClick={() => onToggleLeg(row)}
-                  className={`rounded border px-2 py-1 ${isSelected ? 'border-rose-400/60 text-rose-200' : 'border-cyan-400/60 text-cyan-100'}`}
-                >
-                  {isSelected ? 'Remove' : '+ Add'}
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </>
+              <button
+                type="button"
+                onClick={() => onToggleLeg(row)}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition duration-300 ${isSelected ? 'bg-rose-500/15 text-rose-100' : 'bg-cyan-400/20 text-cyan-100 hover:shadow-[0_0_22px_rgba(0,229,200,0.35)]'}`}
+              >
+                {isSelected ? 'Added' : '+ Add'}
+              </button>
+            </div>
+          </CardSurface>
+        );
+      })}
+    </div>
   );
 }
