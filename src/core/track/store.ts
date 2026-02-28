@@ -31,13 +31,35 @@ function writeStore(store: TrackedTicketStore) {
   window.localStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
 
+function hashToHex(input: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function normalizeLegSignature(ticket: TrackedTicket) {
+  const legs = [...ticket.legs]
+    .map((leg) => `${leg.player.toLowerCase()}|${leg.marketType}|${leg.direction}|${leg.threshold}`)
+    .sort()
+    .join('||');
+  return hashToHex(`${ticket.createdAt}|${legs}`);
+}
+
 export function listTrackedTickets(): TrackedTicket[] {
   return [...readStore().tickets].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
-export function saveTrackedTicket(ticket: TrackedTicket) {
+export function saveTrackedTicket(ticket: TrackedTicket, options?: { replaceTicketId?: string }) {
   const store = readStore();
-  const deduped = store.tickets.filter((item) => item.ticketId !== ticket.ticketId);
+  const signature = normalizeLegSignature(ticket);
+  const deduped = store.tickets.filter((item) => {
+    if (options?.replaceTicketId && item.ticketId === options.replaceTicketId) return false;
+    if (item.ticketId === ticket.ticketId) return false;
+    return normalizeLegSignature(item) !== signature;
+  });
   deduped.unshift(ticket);
   writeStore({ version: 1, tickets: deduped.slice(0, 20) });
 }

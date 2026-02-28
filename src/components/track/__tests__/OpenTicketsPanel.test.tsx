@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
 import { saveTrackedTicket } from '@/src/core/track/store';
@@ -27,7 +27,7 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
-      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel' }]
+      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
     });
 
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, data: { updates: { 'leg-1': { currentValue: 6.2, liveMargin: 11, elapsedGameMinutes: 18, quarter: 2 } } } }) }));
@@ -41,5 +41,26 @@ describe('OpenTicketsPanel', () => {
     render(<OpenTicketsPanel mode="live" />);
     await waitFor(() => expect(screen.getByText(/Auto-refresh: On/)).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
+
+
+  it('shows partial live coverage chip when game ids are missing', async () => {
+    saveTrackedTicket({
+      ticketId: 'ticket-coverage',
+      createdAt: '2026-02-26T10:00:00.000Z',
+      sourceHint: 'paste',
+      rawSlipText: 'Player over 10.5 points',
+      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+    });
+
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, data: { updates: { 'leg-1': { currentValue: 6.2, liveMargin: 11, elapsedGameMinutes: 18, quarter: 2 } }, coverage: { 'ticket-coverage': { coverage: 'partial', legs: { 'leg-1': { coverage: 'missing', reason: 'no_game_id' } } } } } }) }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    render(<OpenTicketsPanel mode="live" />);
+
+    await waitFor(() => expect(screen.getByText('Partial live coverage')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Expand legs' }));
+    expect(screen.getByText('no_game_id')).toBeTruthy();
   });
 });

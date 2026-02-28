@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { buildOpenTickets, computeExposureSummary, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
+import { buildOpenTickets, computeExposureSummary, type LiveCoverageMap, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
 import { listRecentSlips } from '@/src/core/slips/storage';
 import { listTrackedTickets } from '@/src/core/track/store';
 import type { TrackedTicket } from '@/src/core/track/types';
@@ -21,6 +21,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   const [liveUpdates, setLiveUpdates] = useState<Record<string, LiveLegUpdate>>({});
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [trackedTickets, setTrackedTickets] = useState<TrackedTicket[]>([]);
+  const [coverage, setCoverage] = useState<LiveCoverageMap>({});
 
   useEffect(() => {
     setTrackedTickets(listTrackedTickets());
@@ -55,9 +56,10 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tickets: payloadTickets })
       });
-      const payload = await response.json() as { ok?: boolean; data?: { updates?: Record<string, LiveLegUpdate> } };
+      const payload = await response.json() as { ok?: boolean; data?: { updates?: Record<string, LiveLegUpdate>; coverage?: LiveCoverageMap } };
       if (!response.ok || !payload.ok || !payload.data?.updates) return;
       setLiveUpdates(payload.data.updates);
+      setCoverage(payload.data.coverage ?? {});
       const stamped = new Date().toISOString();
       setLastUpdatedAt(stamped);
       setNowIso(stamped);
@@ -71,7 +73,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
     return () => window.clearInterval(timer);
   }, [mode, autoRefresh]);
 
-  const tickets = useMemo(() => buildOpenTickets(mode, trackedTickets, listRecentSlips(), nowIso, liveUpdates), [mode, nowIso, liveUpdates, trackedTickets]);
+  const tickets = useMemo(() => buildOpenTickets(mode, trackedTickets, listRecentSlips(), nowIso, liveUpdates, coverage), [mode, nowIso, liveUpdates, trackedTickets, coverage]);
   const exposure = useMemo(() => computeExposureSummary(tickets), [tickets]);
 
   return (
@@ -119,6 +121,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">Weakest now: {ticket.weakestLeg.player}</span>
                     {ticket.weakestLeg.reasonChips.map((reason) => <span key={`${ticket.ticketId}-${reason}`} className="rounded-full border border-white/15 px-2 py-1">{reason}</span>)}
                     {ticket.cashoutValue ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">{ticket.cashoutValue} · Cashout available</span> : null}
+                    {ticket.coverage.coverage !== 'full' ? <span className="rounded-full border border-slate-300/40 bg-slate-500/10 px-2 py-1" title={`${ticket.coverage.coveredLegs}/${ticket.coverage.totalLegs} legs covered`}>Partial live coverage</span> : null}
                   </div>
 
                   {ticket.rawSlipText ? (
@@ -148,6 +151,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                           <div className="mt-1 flex gap-2">
                             <span className="rounded border border-white/20 px-1.5 py-0.5">{leg.volatility}</span>
                             {leg.minutesRisk ? <span className="rounded border border-amber-300/30 px-1.5 py-0.5">Minutes risk (margin)</span> : null}
+                            {leg.coverage.coverage === 'missing' ? <span className="rounded border border-slate-300/30 px-1.5 py-0.5 text-slate-300">{leg.coverage.reason ?? 'provider_unavailable'}</span> : null}
                           </div>
                         </li>
                       ))}

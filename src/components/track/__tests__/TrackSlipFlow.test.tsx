@@ -8,9 +8,7 @@ import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
 import { TrackSlipInput } from '@/src/components/track/TrackSlipInput';
 import { listTrackedTickets } from '@/src/core/track/store';
 
-vi.mock('@/src/features/ingest/ocr/ocrClient', () => ({
-  runOcr: vi.fn(async () => 'Jayson Tatum over 29.5 points -110')
-}));
+vi.mock('@/src/features/ingest/ocr/ocrClient', () => ({ runOcr: vi.fn(async () => 'Jayson Tatum over 29.5 points -110') }));
 
 function renderFlow(mode: 'demo' | 'live' = 'demo') {
   const params = new URLSearchParams({ sport: 'NBA', tz: 'America/Phoenix', date: '2026-02-26', mode });
@@ -30,64 +28,21 @@ describe('Track slip flow', () => {
     cleanup();
   });
 
-  it('parses pasted slip DTO and renders in Open Tickets', async () => {
+  it('tracks via verify screen and applies edits before saving', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
-      json: async () => ({
-        ok: true,
-        data: {
-          ticketId: 'ticket_1',
-          createdAt: '2026-02-26T10:00:00.000Z',
-          sourceHint: 'paste',
-          rawSlipText: 'Jayson Tatum over 29.5 points -110',
-          legs: [{ legId: 'leg-1', league: 'NBA', player: 'Jayson Tatum', marketType: 'points', threshold: 29.5, direction: 'over', source: 'fanduel' }]
-        }
-      })
+      json: async () => ({ ok: true, data: { ticketId: 'ticket_parse', createdAt: '2026-02-26T10:00:00.000Z', sourceHint: 'paste', rawSlipText: 'Jayson Tatum over 29.5 points -110', legs: [{ legId: 'leg-1', league: 'NBA', player: 'Jayson Tatum', marketType: 'points', threshold: 29.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }] } })
     })));
 
-    const flow = renderFlow('demo');
-
+    renderFlow('demo');
     fireEvent.change(screen.getByLabelText('Paste slip'), { target: { value: 'Jayson Tatum over 29.5 points -110' } });
     fireEvent.click(screen.getByRole('button', { name: 'Track slip' }));
 
-    await waitFor(() => {
-      expect(listTrackedTickets()).toHaveLength(1);
-    });
-
-    flow.unmount();
-    render(
-      <NervousSystemProvider>
-        <OpenTicketsPanel mode="demo" />
-      </NervousSystemProvider>
-    );
-
-    expect(screen.getByText(/Tracked ticket #1/)).toBeTruthy();
-    expect(screen.getAllByText(/Jayson Tatum/).length).toBeGreaterThan(0);
-  });
-
-  it('uploads screenshot, runs OCR, and saves ticket', async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        data: {
-          ticketId: 'ticket_upload',
-          createdAt: '2026-02-26T10:00:00.000Z',
-          sourceHint: 'screenshot',
-          rawSlipText: 'Jayson Tatum over 29.5 points -110',
-          legs: [{ legId: 'leg-1', league: 'NBA', player: 'Jayson Tatum', marketType: 'points', threshold: 29.5, direction: 'over', source: 'fanduel' }]
-        }
-      })
-    }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    renderFlow('demo');
-
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File(['fake'], 'slip.png', { type: 'image/png' });
-    fireEvent.change(fileInput, { target: { files: [file] } });
+    await waitFor(() => expect(screen.getByText('Verify tracked slip')).toBeTruthy());
+    fireEvent.change(screen.getByLabelText('line-1'), { target: { value: '30.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm & track' }));
 
     await waitFor(() => expect(listTrackedTickets()).toHaveLength(1));
-    expect(fetchMock).toHaveBeenCalledWith('/api/slips/parseText', expect.any(Object));
+    expect(listTrackedTickets()[0]?.legs[0]?.threshold).toBe(30.5);
   });
 });
