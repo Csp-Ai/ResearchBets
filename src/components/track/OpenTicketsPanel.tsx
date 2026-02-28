@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { buildOpenTickets, computeExposureSummary, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
 import { listRecentSlips } from '@/src/core/slips/storage';
-import { buildOpenTickets, computeExposureSummary, type LiveLegState, type OpenTicket } from '@/src/core/live/openTickets';
+import { listTrackedTickets } from '@/src/core/track/store';
+import type { TrackedTicket } from '@/src/core/track/types';
 
 const statusTone: Record<LiveLegState['status'], string> = {
   ahead: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
@@ -15,13 +17,61 @@ const statusTone: Record<LiveLegState['status'], string> = {
 export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) {
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [autoRefresh, setAutoRefresh] = useState(mode === 'live');
+  const [liveUpdates, setLiveUpdates] = useState<Record<string, LiveLegUpdate>>({});
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [trackedTickets, setTrackedTickets] = useState<TrackedTicket[]>([]);
+
+  useEffect(() => {
+    setTrackedTickets(listTrackedTickets());
+    const sync = () => setTrackedTickets(listTrackedTickets());
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
+
+  useEffect(() => {
+    if (mode !== 'live') {
+      setAutoRefresh(false);
+      return;
+    }
+    setAutoRefresh(true);
+  }, [mode]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowIso(new Date().toISOString()), 5000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const tickets = useMemo(() => buildOpenTickets(mode, listRecentSlips(), nowIso), [mode, nowIso]);
+  useEffect(() => {
+    if (mode !== 'live' || !autoRefresh) return;
+
+    const refresh = async () => {
+      if (document.visibilityState === 'hidden') return;
+      const payloadTickets = listTrackedTickets();
+      if (payloadTickets.length === 0) return;
+
+      const response = await fetch('/api/live/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tickets: payloadTickets })
+      });
+      const payload = await response.json() as { ok?: boolean; data?: { updates?: Record<string, LiveLegUpdate> } };
+      if (!response.ok || !payload.ok || !payload.data?.updates) return;
+      setLiveUpdates(payload.data.updates);
+      const stamped = new Date().toISOString();
+      setLastUpdatedAt(stamped);
+      setNowIso(stamped);
+    };
+
+    void refresh();
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [mode, autoRefresh]);
+
+  const tickets = useMemo(() => buildOpenTickets(mode, trackedTickets, listRecentSlips(), nowIso, liveUpdates), [mode, nowIso, liveUpdates, trackedTickets]);
   const exposure = useMemo(() => computeExposureSummary(tickets), [tickets]);
 
   return (
@@ -29,6 +79,16 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Open Tickets</h2>
         <p className="text-xs text-slate-400">Live progress view</p>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-300">
+        <div className="flex items-center gap-2">
+          <span>Auto-refresh: {mode === 'live' && autoRefresh ? 'On' : 'Off'}</span>
+          <button type="button" className="rounded border border-white/20 px-2 py-0.5" onClick={() => setAutoRefresh((value) => !value)} disabled={mode !== 'live'}>
+            {autoRefresh ? 'Turn off' : 'Turn on'}
+          </button>
+        </div>
+        <span>Last updated: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : '—'}</span>
       </div>
 
       {tickets.length === 0 ? (
@@ -60,6 +120,13 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     {ticket.weakestLeg.reasonChips.map((reason) => <span key={`${ticket.ticketId}-${reason}`} className="rounded-full border border-white/15 px-2 py-1">{reason}</span>)}
                     {ticket.cashoutValue ? <span className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1">{ticket.cashoutValue} · Cashout available</span> : null}
                   </div>
+
+                  {ticket.rawSlipText ? (
+                    <details className="mt-2 text-xs text-slate-300">
+                      <summary className="cursor-pointer">Slip debug</summary>
+                      <p className="mt-1 whitespace-pre-wrap">{ticket.rawSlipText}</p>
+                    </details>
+                  ) : null}
 
                   <button
                     type="button"

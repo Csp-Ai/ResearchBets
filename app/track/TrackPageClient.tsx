@@ -8,12 +8,14 @@ import { buildJournalEntry } from '@/src/core/journal/buildJournalEntry';
 import { saveJournalEntry } from '@/src/core/journal/storage';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { TrackSlipInput } from '@/src/components/track/TrackSlipInput';
 import { buildSlateSummary } from '@/src/core/slate/slateEngine';
 import { detectReactiveWindow } from '@/src/core/slate/reactiveWindow';
 import { generateRankedLeads, type BoardProp } from '@/src/core/slate/leadEngine';
 import { advanceDemoTracking } from '@/src/core/slips/demoSlipTracker';
 import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
 import { createTrackingFromDraft, loadSlip, saveSlip } from '@/src/core/slips/storage';
+import { withTraceId } from '@/src/core/trace/queryTrace';
 import { deriveRunHeader, deriveSlipLearningHighlights } from '@/src/core/ui/deriveTruth';
 import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
@@ -34,6 +36,7 @@ export function TrackPageClient() {
   const [state, setState] = useState<SlipTrackingState | null>(null);
   const [saved, setSaved] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
+  const [showTrackedToast, setShowTrackedToast] = useState(params.get('tracked') === '1');
 
   useEffect(() => {
     if (!slipId) return;
@@ -74,7 +77,12 @@ export function TrackPageClient() {
     }
     const tracking = createTrackingFromDraft(draft, 'demo');
     saveSlip(tracking);
-    router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
+    router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slipId: tracking.slipId }));
+  };
+
+  const onTracked = () => {
+    setShowTrackedToast(true);
+    router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { tracked: 1 }));
   };
 
   const onSampleSlip = async () => {
@@ -122,7 +130,7 @@ export function TrackPageClient() {
       DraftSlipStore.setSlip(legs);
       const tracking = createTrackingFromDraft(legs, payload.data.mode);
       saveSlip(tracking);
-      router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
+      router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slipId: tracking.slipId }));
     } finally {
       setSampleLoading(false);
     }
@@ -138,29 +146,13 @@ export function TrackPageClient() {
     return (
       <section className="mx-auto max-w-6xl space-y-4 pb-20">
         <OpenTicketsPanel mode={surfaceMode} />
+        {showTrackedToast ? <p className="text-xs text-emerald-200">Slip tracked.</p> : null}
         <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
           <h1 className="text-xl font-semibold">No tracked slip yet</h1>
           <p className="mt-2 text-sm text-slate-300">{modeNote}</p>
           <p className="mt-1 text-sm text-slate-300">Track a slip to get live status + learning even after elimination.</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <button
-            type="button"
-            className="rounded-lg border border-cyan-400/60 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-100"
-            onClick={onTrackLatestDraft}
-            title={hasDraft ? 'Create tracking from your latest draft.' : 'Build a quick draft first.'}
-          >
-            Track latest draft
-          </button>
-          <Link href={appendQuery(nervous.toHref('/tonight'), {})} className="rounded-lg border border-white/20 px-3 py-2 text-center text-sm text-slate-100">Open Tonight</Link>
-          <button
-            type="button"
-            className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 disabled:opacity-60"
-            onClick={() => void onSampleSlip()}
-            disabled={sampleLoading}
-          >
-            {sampleLoading ? 'Building sample…' : 'Try sample tracked slip (demo)'}
-          </button>
-          </div>
+          <TrackSlipInput onTracked={onTracked} onOpenDraft={onTrackLatestDraft} onTrySample={onSampleSlip} sampleLoading={sampleLoading} />
+          {!hasDraft ? <p className="mt-2 text-xs text-slate-400">No draft found yet. Build one in Tonight and come back.</p> : null}
         </section>
       </section>
     );

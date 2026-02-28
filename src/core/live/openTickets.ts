@@ -1,5 +1,6 @@
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
+import type { TrackedTicket } from '@/src/core/track/types';
 
 export type LiveClock = {
   quarter: 1 | 2 | 3 | 4;
@@ -17,6 +18,7 @@ export type LiveLegInput = {
   pregameSpread?: number;
   liveMargin?: number;
   minutesSensitive?: boolean;
+  recentMedian?: number;
   liveClock: LiveClock;
 };
 
@@ -44,6 +46,8 @@ export type OpenTicket = {
   odds: string;
   wager: string;
   mode: 'demo' | 'cache' | 'live';
+  sourceHint?: string;
+  rawSlipText?: string;
   legs: LiveLegState[];
   onPaceCount: number;
   weakestLeg: LiveLegState;
@@ -54,6 +58,13 @@ export type ExposureSummary = {
   byGame: string[];
   highVarianceLegs: number;
   overlaps: string[];
+};
+
+export type LiveLegUpdate = {
+  currentValue: number;
+  liveMargin?: number;
+  elapsedGameMinutes?: number;
+  quarter?: 1 | 2 | 3 | 4;
 };
 
 const TOTAL_GAME_MINUTES = 48;
@@ -102,10 +113,11 @@ export function evaluateLiveLeg(input: LiveLegInput): LiveLegState {
   const minutesRisk = (input.minutesSensitive ?? isMinutesSensitive(input.marketType, input.threshold)) && (spreadRisk || marginRisk);
 
   const reasonChips: string[] = [];
+  if (status === 'behind' || status === 'needs_spike') reasonChips.push('Behind pace');
+  if (volatility === 'high') reasonChips.push('High-variance market');
   if (minutesRisk) reasonChips.push('Minutes risk (margin)');
-  if (status === 'needs_spike') reasonChips.push('Behind pace');
-  if (status === 'behind') reasonChips.push('Slightly behind pace');
-  if (volatility === 'high') reasonChips.push('High-variance stat');
+  const median = input.recentMedian ?? input.threshold * (0.82 + hashToUnit(`${input.player}:${input.marketType}:median`) * 0.35);
+  if (Math.abs(input.threshold - median) >= 4) reasonChips.push('Ladder distance');
 
   return {
     legId: input.legId,
@@ -147,7 +159,7 @@ function computeClock(createdAtIso: string, nowIso: string): LiveClock {
   return { quarter, timeRemainingSec, elapsedGameMinutes: gameElapsed };
 }
 
-function toTicketFromTracking(state: SlipTrackingState, index: number, nowIso: string): OpenTicket {
+function toTicketFromTracking(state: SlipTrackingState, index: number, nowIso: string, updates: Record<string, LiveLegUpdate>): OpenTicket {
   const clock = computeClock(state.createdAtIso, nowIso);
   const oddsSeed = Math.round((state.legs.length * 185) + (hashToUnit(state.slipId) * 250));
   const odds = `+${Math.max(180, oddsSeed)}`;
@@ -156,11 +168,14 @@ function toTicketFromTracking(state: SlipTrackingState, index: number, nowIso: s
   const legs = state.legs.map((leg) => {
     const threshold = Number(leg.line) || 1;
     const progressSeed = hashToUnit(`${state.slipId}:${leg.legId}`);
-    const currentValue = typeof leg.currentValue === 'number'
-      ? leg.currentValue
-      : Number((threshold * clamp((clock.elapsedGameMinutes / TOTAL_GAME_MINUTES) + (progressSeed * 0.2), 0, 1.15)).toFixed(1));
+    const update = updates[leg.legId];
+    const currentValue = typeof update?.currentValue === 'number'
+      ? update.currentValue
+      : typeof leg.currentValue === 'number'
+        ? leg.currentValue
+        : Number((threshold * clamp((clock.elapsedGameMinutes / TOTAL_GAME_MINUTES) + (progressSeed * 0.2), 0, 1.15)).toFixed(1));
     const pregameSpread = Math.round(4 + hashToUnit(`${leg.gameId}:spread`) * 8);
-    const liveMargin = Math.round(8 + hashToUnit(`${leg.gameId}:margin`) * 18);
+    const liveMargin = typeof update?.liveMargin === 'number' ? update.liveMargin : Math.round(8 + hashToUnit(`${leg.gameId}:margin`) * 18);
     return evaluateLiveLeg({
       legId: leg.legId,
       gameId: leg.gameId,
@@ -175,29 +190,9 @@ function toTicketFromTracking(state: SlipTrackingState, index: number, nowIso: s
     });
   });
 
-  const weakestLeg = [...legs].sort((a, b) => weakestScore(b) - weakestScore(a))[0];
-  if (!weakestLeg) {
-    const fallbackLeg = evaluateLiveLeg({
-      legId: `${state.slipId}-fallback`,
-      gameId: 'N/A',
-      player: 'Pending leg',
-      marketType: 'points',
-      threshold: 1,
-      currentValue: 0,
-      liveClock: clock
-    });
-    return {
-      ticketId: state.slipId,
-      title: `Ticket #${index + 1}`,
-      odds,
-      wager,
-      mode: state.mode,
-      legs: [fallbackLeg],
-      onPaceCount: 0,
-      weakestLeg: fallbackLeg,
-      cashoutValue: undefined
-    };
-  }
+  const weakestLeg = [...legs].sort((a, b) => weakestScore(b) - weakestScore(a))[0] ?? evaluateLiveLeg({
+    legId: `${state.slipId}-fallback`, gameId: 'N/A', player: 'Pending leg', marketType: 'points', threshold: 1, currentValue: 0, liveClock: clock
+  });
   const onPaceCount = legs.filter((leg) => leg.status === 'ahead' || leg.status === 'on_pace').length;
   const cashoutValue = state.status === 'alive' ? `$${(Number(wager.slice(1)) * (0.8 + (onPaceCount / Math.max(1, legs.length)))).toFixed(2)}` : undefined;
 
@@ -207,103 +202,72 @@ function toTicketFromTracking(state: SlipTrackingState, index: number, nowIso: s
     odds,
     wager,
     mode: state.mode,
-    legs,
+    legs: legs.length > 0 ? legs : [weakestLeg],
     onPaceCount,
     weakestLeg,
     cashoutValue
   };
 }
 
-function demoTickets(nowIso: string): OpenTicket[] {
-  const base: Array<{ id: string; odds: string; wager: string; legs: Array<{ gameId: string; player: string; marketType: MarketType; threshold: number; pregameSpread?: number }> }> = [
-    {
-      id: 'demo-ticket-a',
-      odds: '+540',
-      wager: '$20',
-      legs: [
-        { gameId: 'MEM@DAL', player: 'MEM Wing A', marketType: 'points', threshold: 16.5, pregameSpread: 8 },
-        { gameId: 'MEM@DAL', player: 'MEM Guard B', marketType: 'assists', threshold: 5.5, pregameSpread: 8 },
-        { gameId: 'MEM@DAL', player: 'MEM Forward C', marketType: 'rebounds', threshold: 7.5, pregameSpread: 8 }
-      ]
-    },
-    {
-      id: 'demo-ticket-b',
-      odds: '+420',
-      wager: '$25',
-      legs: [
-        { gameId: 'DEN@PHX', player: 'DEN Anchor 1', marketType: 'points', threshold: 24.5 },
-        { gameId: 'DEN@PHX', player: 'DEN Anchor 2', marketType: 'assists', threshold: 7.5 },
-        { gameId: 'BOS@NYK', player: 'NYK Wing D', marketType: 'threes', threshold: 2.5 }
-      ]
-    },
-    {
-      id: 'demo-ticket-c',
-      odds: '+1820',
-      wager: '$10',
-      legs: [
-        { gameId: 'LAL@SAC', player: 'LAL Role E', marketType: 'threes', threshold: 3.5 },
-        { gameId: 'LAL@SAC', player: 'SAC Guard F', marketType: 'assists', threshold: 8.5 },
-        { gameId: 'MEM@DAL', player: 'DAL Center G', marketType: 'rebounds', threshold: 11.5 },
-        { gameId: 'MEM@DAL', player: 'MEM Wing H', marketType: 'points', threshold: 20.5, pregameSpread: 8 },
-        { gameId: 'DEN@PHX', player: 'PHX Scorer I', marketType: 'points', threshold: 31.5 },
-        { gameId: 'BOS@NYK', player: 'BOS Shooter J', marketType: 'threes', threshold: 4.5 }
-      ]
-    }
-  ];
-  const clock = computeClock('2026-01-01T00:00:00.000Z', nowIso);
-
-  return base.map((ticket, ticketIndex) => {
-    const legs = ticket.legs.map((leg, legIndex) => {
-      const progress = 0.2 + hashToUnit(`${ticket.id}:${leg.player}:${Math.floor(Date.parse(nowIso) / 5000)}`) * 0.7;
-      const liveMargin = Math.round(10 + hashToUnit(`${ticket.id}:${leg.gameId}:margin`) * 20);
-      return evaluateLiveLeg({
-        legId: `${ticket.id}-leg-${legIndex + 1}`,
-        gameId: leg.gameId,
-        player: leg.player,
-        marketType: leg.marketType,
-        threshold: leg.threshold,
-        currentValue: Number((leg.threshold * progress).toFixed(1)),
-        pregameSpread: leg.pregameSpread,
-        liveMargin,
-        liveClock: clock
-      });
+function toTicketFromTracked(ticket: TrackedTicket, index: number, mode: 'demo' | 'cache' | 'live', nowIso: string, updates: Record<string, LiveLegUpdate>): OpenTicket {
+  const clock = computeClock(ticket.createdAt, nowIso);
+  const odds = `+${Math.round(220 + (hashToUnit(ticket.ticketId) * 360))}`;
+  const wager = `$${10 + (index * 5)}`;
+  const legs = ticket.legs.map((leg) => {
+    const update = updates[leg.legId];
+    const currentValue = typeof update?.currentValue === 'number'
+      ? update.currentValue
+      : Number((leg.threshold * (0.22 + hashToUnit(`${ticket.ticketId}:${leg.legId}:${Math.floor(Date.parse(nowIso) / 5000)}`) * 0.68)).toFixed(1));
+    return evaluateLiveLeg({
+      legId: leg.legId,
+      gameId: leg.gameId ?? `game-${index + 1}`,
+      player: leg.player,
+      marketType: leg.marketType,
+      threshold: leg.threshold,
+      currentValue,
+      liveMargin: update?.liveMargin,
+      liveClock: {
+        quarter: update?.quarter ?? clock.quarter,
+        timeRemainingSec: clock.timeRemainingSec,
+        elapsedGameMinutes: update?.elapsedGameMinutes ?? clock.elapsedGameMinutes,
+      }
     });
-    const weakestLeg = [...legs].sort((a, b) => weakestScore(b) - weakestScore(a))[0];
-    if (!weakestLeg) {
-      const fallbackLeg = evaluateLiveLeg({
-        legId: `${ticket.id}-fallback`,
-        gameId: 'N/A',
-        player: 'Pending leg',
-        marketType: 'points',
-        threshold: 1,
-        currentValue: 0,
-        liveClock: clock
-      });
-      return {
-        ticketId: ticket.id,
-        title: `Ticket #${ticketIndex + 1}`,
-        odds: ticket.odds,
-        wager: ticket.wager,
-        mode: 'demo' as const,
-        legs: [fallbackLeg],
-        onPaceCount: 0,
-        weakestLeg: fallbackLeg,
-        cashoutValue: `$${Number(ticket.wager.slice(1)).toFixed(2)}`
-      };
-    }
-    const onPaceCount = legs.filter((leg) => leg.status === 'ahead' || leg.status === 'on_pace').length;
-    return {
-      ticketId: ticket.id,
-      title: `Ticket #${ticketIndex + 1}`,
-      odds: ticket.odds,
-      wager: ticket.wager,
-      mode: 'demo' as const,
-      legs,
-      onPaceCount,
-      weakestLeg,
-      cashoutValue: `$${(Number(ticket.wager.slice(1)) * (0.7 + (onPaceCount / Math.max(1, legs.length)))).toFixed(2)}`
-    };
   });
+
+  const weakestLeg = [...legs].sort((a, b) => weakestScore(b) - weakestScore(a))[0] ?? evaluateLiveLeg({
+    legId: `${ticket.ticketId}-fallback`, gameId: 'N/A', player: 'Pending leg', marketType: 'points', threshold: 1, currentValue: 0, liveClock: clock
+  });
+  const onPaceCount = legs.filter((leg) => leg.status === 'ahead' || leg.status === 'on_pace').length;
+
+  return {
+    ticketId: ticket.ticketId,
+    title: `Tracked ticket #${index + 1}`,
+    odds,
+    wager,
+    mode,
+    sourceHint: ticket.sourceHint,
+    rawSlipText: ticket.rawSlipText,
+    legs,
+    onPaceCount,
+    weakestLeg,
+    cashoutValue: `$${(Number(wager.slice(1)) * (0.65 + (onPaceCount / Math.max(1, legs.length)))).toFixed(2)}`
+  };
+}
+
+function demoTickets(nowIso: string): OpenTicket[] {
+  const syntheticTracked: TrackedTicket[] = [{
+    ticketId: 'demo-ticket-a',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    sourceHint: 'demo',
+    rawSlipText: 'MEM Wing A over 16.5 points',
+    legs: [
+      { legId: 'demo-leg-1', league: 'NBA', gameId: 'MEM@DAL', player: 'MEM Wing A', marketType: 'points', threshold: 16.5, direction: 'over', source: 'demo' },
+      { legId: 'demo-leg-2', league: 'NBA', gameId: 'MEM@DAL', player: 'MEM Guard B', marketType: 'assists', threshold: 5.5, direction: 'over', source: 'demo' },
+      { legId: 'demo-leg-3', league: 'NBA', gameId: 'DEN@PHX', player: 'PHX Scorer I', marketType: 'threes', threshold: 2.5, direction: 'over', source: 'demo' },
+    ]
+  }];
+
+  return syntheticTracked.map((ticket, index) => toTicketFromTracked(ticket, index, 'demo', nowIso, {}));
 }
 
 export function computeExposureSummary(tickets: OpenTicket[]): ExposureSummary {
@@ -335,10 +299,20 @@ export function computeExposureSummary(tickets: OpenTicket[]): ExposureSummary {
   };
 }
 
-export function buildOpenTickets(mode: 'demo' | 'cache' | 'live', states: SlipTrackingState[], nowIso: string): OpenTicket[] {
+export function buildOpenTickets(
+  mode: 'demo' | 'cache' | 'live',
+  trackedTickets: TrackedTicket[],
+  states: SlipTrackingState[],
+  nowIso: string,
+  updates: Record<string, LiveLegUpdate> = {}
+): OpenTicket[] {
+  if (trackedTickets.length > 0) {
+    return trackedTickets.slice(0, 5).map((ticket, index) => toTicketFromTracked(ticket, index, mode, nowIso, updates));
+  }
+
   const openStates = states.filter((state) => state.status === 'alive').slice(0, 5);
   if (openStates.length > 0) {
-    return openStates.map((state, index) => toTicketFromTracking(state, index, nowIso));
+    return openStates.map((state, index) => toTicketFromTracking(state, index, nowIso, updates));
   }
   if (mode === 'demo' || mode === 'cache') {
     return demoTickets(nowIso);
