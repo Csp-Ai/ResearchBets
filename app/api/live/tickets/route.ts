@@ -15,6 +15,7 @@ const schema = z.object({
       marketType: z.string().min(1),
       threshold: z.number(),
       player: z.string().min(1),
+      gameId: z.string().optional()
     }))
   }))
 });
@@ -49,6 +50,31 @@ function buildDeterministicUpdates(tickets: TrackedTicket[]) {
   return updates;
 }
 
+function buildCoverage(tickets: TrackedTicket[]) {
+  const coverage: Record<string, { coverage: 'full' | 'partial' | 'none'; legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> }> = {};
+
+  for (const ticket of tickets) {
+    const legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> = {};
+    for (const leg of ticket.legs) {
+      if (!leg.gameId) {
+        legs[leg.legId] = { coverage: 'missing', reason: 'no_game_id' };
+        continue;
+      }
+      if (leg.marketType === 'moneyline') {
+        legs[leg.legId] = { coverage: 'missing', reason: 'unsupported_market' };
+        continue;
+      }
+      const unstable = hashToUnit(`${ticket.ticketId}:${leg.legId}:coverage`) < 0.05;
+      legs[leg.legId] = unstable ? { coverage: 'missing', reason: 'provider_unavailable' } : { coverage: 'covered' };
+    }
+    const covered = Object.values(legs).filter((item) => item.coverage === 'covered').length;
+    const total = Object.keys(legs).length;
+    coverage[ticket.ticketId] = { coverage: covered === 0 ? 'none' : covered === total ? 'full' : 'partial', legs };
+  }
+
+  return coverage;
+}
+
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -56,9 +82,10 @@ export async function POST(request: Request) {
   }
 
   const mode = process.env.LIVE_MODE === '1' ? 'live' : 'demo';
+  const tickets = parsed.data.tickets as TrackedTicket[];
   return NextResponse.json({
     ok: true,
-    data: { updates: buildDeterministicUpdates(parsed.data.tickets as TrackedTicket[]) },
+    data: { updates: buildDeterministicUpdates(tickets), coverage: buildCoverage(tickets) },
     provenance: {
       mode,
       reason: mode === 'demo' ? 'Demo mode (live feeds off)' : undefined,
