@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { DuringCoach } from '@/src/components/track/DuringCoach';
 import { buildOpenTickets, computeExposureSummary, type LiveCoverageMap, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
+import { settleTicket } from '@/src/core/review/settlement';
+import type { TicketSettlementStatus } from '@/src/core/review/types';
 import { listRecentSlips } from '@/src/core/slips/storage';
 import { listTrackedTickets } from '@/src/core/track/store';
 import type { TrackedTicket } from '@/src/core/track/types';
@@ -24,6 +26,11 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   const [trackedTickets, setTrackedTickets] = useState<TrackedTicket[]>([]);
   const [coverage, setCoverage] = useState<LiveCoverageMap>({});
   const [sweatMode, setSweatMode] = useState(true);
+  const [settleTicketId, setSettleTicketId] = useState<string | null>(null);
+  const [settlementStatus, setSettlementStatus] = useState<TicketSettlementStatus>('unknown');
+  const [finalValues, setFinalValues] = useState<Record<string, string>>({});
+  const [cashoutTaken, setCashoutTaken] = useState('');
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
   useEffect(() => {
     setTrackedTickets(listTrackedTickets());
@@ -77,6 +84,31 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
 
   const tickets = useMemo(() => buildOpenTickets(mode, trackedTickets, listRecentSlips(), nowIso, liveUpdates, coverage), [mode, nowIso, liveUpdates, trackedTickets, coverage]);
   const exposure = useMemo(() => computeExposureSummary(tickets), [tickets]);
+  const activeSettleTicket = tickets.find((ticket) => ticket.ticketId === settleTicketId);
+
+  const openSettle = (ticket: OpenTicket) => {
+    setSettleTicketId(ticket.ticketId);
+    setSettlementStatus('unknown');
+    setFinalValues(Object.fromEntries(ticket.legs.map((leg) => [leg.legId, leg.currentValue.toFixed(1)])));
+    setCashoutTaken(ticket.cashoutValue?.toFixed(2) ?? '');
+  };
+
+  const onSaveSettlement = () => {
+    if (!activeSettleTicket) return;
+    const normalizedFinal = Object.fromEntries(
+      activeSettleTicket.legs.map((leg) => [leg.legId, Number(finalValues[leg.legId] ?? leg.currentValue)])
+    ) as Record<string, number>;
+
+    settleTicket({
+      ticket: activeSettleTicket,
+      status: settlementStatus,
+      finalValues: normalizedFinal,
+      cashoutTaken: cashoutTaken ? Number(cashoutTaken) : undefined
+    });
+    setSettleTicketId(null);
+    setSaveToast('Postmortem saved');
+    window.setTimeout(() => setSaveToast(null), 1500);
+  };
 
   return (
     <section className="rounded-xl border border-slate-700 bg-slate-950/70 p-4" data-testid="open-tickets-panel">
@@ -98,6 +130,8 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
         </div>
         <span>Last updated: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : '—'}</span>
       </div>
+
+      {saveToast ? <p className="mt-2 text-xs text-emerald-200">{saveToast}</p> : null}
 
       {tickets.length === 0 ? (
         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-sm">
@@ -135,6 +169,8 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                   </div>
 
                   <DuringCoach ticket={ticket} compact={!sweatMode} />
+
+                  <button type="button" className="mt-2 rounded border border-white/20 px-2 py-1 text-xs" onClick={() => openSettle(ticket)}>Settle</button>
 
                   {ticket.rawSlipText ? (
                     <details className="mt-2 text-xs text-slate-300">
@@ -177,6 +213,38 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
           </ul>
         </>
       )}
+
+      {activeSettleTicket ? (
+        <div className="mt-4 rounded-lg border border-cyan-400/30 bg-slate-900/90 p-3" data-testid="settle-panel">
+          <p className="text-sm font-medium">Settle ticket: {activeSettleTicket.title}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {(['won', 'lost', 'void', 'unknown'] as TicketSettlementStatus[]).map((option) => (
+              <button key={option} type="button" className={`rounded border px-2 py-1 ${settlementStatus === option ? 'border-cyan-300 bg-cyan-500/15' : 'border-white/20'}`} onClick={() => setSettlementStatus(option)}>{option}</button>
+            ))}
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {activeSettleTicket.legs.map((leg) => (
+              <label key={leg.legId} className="text-xs text-slate-200">
+                {leg.player} {leg.marketType} (line {leg.threshold})
+                <input
+                  aria-label={`final-${leg.legId}`}
+                  className="mt-1 w-full rounded border border-white/20 bg-slate-950 px-2 py-1"
+                  value={finalValues[leg.legId] ?? ''}
+                  onChange={(event) => setFinalValues((prev) => ({ ...prev, [leg.legId]: event.target.value }))}
+                />
+              </label>
+            ))}
+          </div>
+          <label className="mt-2 block text-xs text-slate-200">
+            Final cashout taken (optional)
+            <input aria-label="cashout-taken" className="mt-1 w-full rounded border border-white/20 bg-slate-950 px-2 py-1" value={cashoutTaken} onChange={(event) => setCashoutTaken(event.target.value)} />
+          </label>
+          <div className="mt-3 flex gap-2">
+            <button type="button" className="rounded border border-cyan-400/70 bg-cyan-500/10 px-3 py-1 text-xs" onClick={onSaveSettlement}>Save postmortem</button>
+            <button type="button" className="rounded border border-white/20 px-3 py-1 text-xs" onClick={() => setSettleTicketId(null)}>Cancel</button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
