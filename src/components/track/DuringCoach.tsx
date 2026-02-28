@@ -7,6 +7,7 @@ import type { OpenTicket } from '@/src/core/live/openTickets';
 import { saveDraftPostmortem } from '@/src/core/review/store';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { Button } from '@/src/components/ui/button';
 
 export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; compact?: boolean }) {
   const coach = useMemo(() => computeDuringCoach(ticket), [ticket]);
@@ -58,7 +59,7 @@ export function DuringCoach({ ticket, compact = false }: { ticket: OpenTicket; c
         <ul className="mt-2 list-disc pl-5 text-xs">{coach.explanation.map((rule) => <li key={`${ticket.ticketId}-${rule}`}>{rule}</li>)}</ul>
       </details>
 
-      <button type="button" onClick={handleSave} className="rounded-lg bg-[#00E5C8] px-3 py-2 text-xs font-semibold text-slate-950">Save for postmortem</button>
+      <Button type="button" intent="primary" onClick={handleSave} className="min-h-0 px-3 py-2 text-xs">Save for postmortem</Button>
       {toast ? <p className="text-xs text-emerald-200">{toast}</p> : null}
       <button type="button" className="text-xs text-slate-400 underline" onClick={() => setShowWhy((value) => !value)}>Why</button>
       {showWhy ? <ul className="list-disc pl-5 text-xs text-slate-400">{coach.actions.map((action) => <li key={`${ticket.ticketId}-${action.kind}`}>{action.label}</li>)}</ul> : null}

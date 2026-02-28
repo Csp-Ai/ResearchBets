@@ -4,14 +4,24 @@
 
 :root {
   color-scheme: dark;
+  --bg: #05070a;
+  --panel: #0a1220;
+  --panel-2: #0e1628;
+  --border: rgba(148, 163, 184, 0.28);
+  --muted: rgba(203, 213, 225, 0.72);
+  --text: rgba(248, 250, 252, 0.98);
+  --primary: #22d3ee;
+  --success: #34d399;
+  --warn: #f59e0b;
+  --danger: #fb7185;
 
   /* Legacy tokens (surface/text) are deprecated. Prefer semantic tokens below. */
-  --surface-0: #05070A;
-  --surface-1: #0A1220;
-  --surface-2: #0E1628;
-  --border-subtle: rgba(148, 163, 184, 0.28);
-  --text-muted: rgba(203, 213, 225, 0.72);
-  --text-strong: rgba(248, 250, 252, 0.98);
+  --surface-0: var(--bg);
+  --surface-1: var(--panel);
+  --surface-2: var(--panel-2);
+  --border-subtle: var(--border);
+  --text-muted: var(--muted);
+  --text-strong: var(--text);
 
   --background: var(--surface-0);
   --foreground: var(--text-strong);
@@ -19,7 +29,7 @@
   --card-foreground: var(--text-strong);
   --popover: var(--surface-2);
   --popover-foreground: var(--text-strong);
-  --primary: #00E5C8;
+  --primary: #22d3ee;
   --primary-foreground: #020617;
   --secondary: rgba(15, 23, 42, 0.7);
   --secondary-foreground: #f1f5f9;
@@ -27,7 +37,7 @@
   --muted-foreground: var(--text-muted);
   --accent: #00E5C8;
   --accent-foreground: #020617;
-  --destructive: #FF4D4F;
+  --destructive: var(--danger);
   --destructive-foreground: #fff;
   --border: var(--border-subtle);
   --input: var(--border-subtle);
@@ -69,7 +79,7 @@
 
   --link: #67e8f9;
   --link-hover: #22d3ee;
-  --danger: rgb(253, 164, 175);
+  --danger: #fb7185;
 
   --text-subtle: rgb(203 213 225 / 0.9);
 }
@@ -164,7 +174,9 @@ h2,
   .panel-shell { @apply rounded-lg border border-white/10 bg-gradient-to-b from-slate-950/90 to-slate-900/70 shadow-[0_14px_30px_rgba(2,6,23,0.35)] ring-1 ring-inset ring-white/[0.06]; }
   .row-shell { @apply rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2.5 transition duration-200; }
   .terminal-focus { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-0; }
+  .focus-glow { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-0; }
   .hover-glow { @apply hover:border-cyan-300/40 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_14px_30px_rgba(2,6,23,0.45)] hover:-translate-y-0.5; }
+  .terminal-divider { @apply border-t border-white/10; }
   .mono-number { @apply font-mono tabular-nums; }
 }
 
@@ -474,6 +486,17 @@ h2,
   .ui-button-secondary:active {
     transform: translateY(1px);
     background: rgba(51, 65, 85, 1);
+  }
+
+  .ui-button-ghost {
+    background: rgba(15, 23, 42, 0.2);
+    color: var(--secondary-foreground);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+  }
+
+  .ui-button-ghost:hover {
+    background: rgba(30, 41, 59, 0.45);
+    border-color: rgba(125, 211, 252, 0.55);
   }
 
   .ui-chip {

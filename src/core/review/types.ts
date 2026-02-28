@@ -1,5 +1,6 @@
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { CoverageLevel } from '@/src/core/review/missTagger';
+import type { NextTimeRule } from '@/src/core/guardrails/localGuardrails';
 
 export type TicketSettlementStatus = 'won' | 'lost' | 'void' | 'unknown';
 
@@ -36,4 +37,5 @@ export type PostmortemRecord = {
   fragility: { score: number; chips: string[] };
   narrative: string[];
   coachSnapshot?: DraftPostmortemSnapshot;
+  nextTimeRule?: NextTimeRule;
 };

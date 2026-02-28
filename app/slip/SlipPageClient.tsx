@@ -17,6 +17,8 @@ import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { Button } from '@/src/components/ui/button';
+import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
@@ -179,16 +181,16 @@ export default function SlipPageClient() {
                 <li key={leg.id} className="row-shell">
                   <div className="flex items-start justify-between gap-2">
                     <div><p className="text-sm font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? ''}</span></p><div className="mt-1 flex gap-1"><Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">{leg.volatility ?? 'watch'}</Badge></div></div>
-                    <button type="button" className="rounded border border-rose-500/50 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</button>
+                    <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</Button>
                   </div>
                   <div className="mt-2 flex gap-1">
-                    <button type="button" className="rounded border border-slate-600 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</button>
-                    <button type="button" className="rounded border border-slate-600 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</button>
+                    <Button intent="ghost" className="min-h-0 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</Button>
+                    <Button intent="ghost" className="min-h-0 px-2 py-0.5 text-[11px] disabled:opacity-40" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</Button>
                   </div>
                 </li>
               ))}
             </ul>
-            <button type="button" className="terminal-focus w-full rounded-md border border-white/15 bg-black/30 px-3 py-2 text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</button>
+            <Button intent="ghost" className="w-full text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</Button>
           </CardSurface>
           <SlipBuilder legs={dedupedLegs} onLegsChange={(nextLegs) => {
             if (nextLegs.length === 0) {
@@ -197,9 +199,10 @@ export default function SlipPageClient() {
             }
             setSlip(nextLegs);
           }} />
+          <ProBuildPanel legs={dedupedLegs} onApply={setSlip} />
           <div className="grid grid-cols-1 gap-3">
-            <button type="button" className="terminal-focus w-full rounded-md border border-emerald-300/40 bg-[#22C55E] px-4 py-3 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</button>
-            <button type="button" className="terminal-focus w-full rounded-md bg-[#00E5C8] px-4 py-3 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</button>
+            <Button intent="secondary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</Button>
+            <Button intent="primary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</Button>
             {dedupedLegs.length === 0 ? <p className="text-xs text-slate-400">Actions are disabled because the draft has 0 legs.</p> : null}
           </div>
         </div>
