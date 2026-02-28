@@ -172,8 +172,8 @@ export default function SlipPageClient() {
             {dedupedLegs.length === 0 ? (
               <AliveEmptyState
                 title="Start with one board action"
-                message="Your draft has 0 legs. Add 2–3 leads from Board to unlock Analyze and Track."
-                actions={<Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Browse board</Link>}
+                message="Add 2–3 leads from Board or load a sample; then we stage your ticket for Analyze and Track."
+                actions={<><Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Build from Board</Link><Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded border border-white/20 px-3 py-1.5 text-slate-100">Try sample</Link></>}
               />
             ) : null}
             <ul className="space-y-2">

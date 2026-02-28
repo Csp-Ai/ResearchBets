@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 import { DuringCoach } from '@/src/components/track/DuringCoach';
@@ -140,7 +141,11 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
       {tickets.length === 0 ? (
         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-sm">
           <p className="font-medium">No open tickets</p>
-          <p className="mt-1 text-slate-300">Build from Board, stage a sample slip, then return here.</p>
+          <p className="mt-1 text-slate-300">Track a ticket to unlock live pace, kill-risk cues, and cashout context in one strip.</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <Link href="/slip" className="ui-button ui-button-primary min-h-0 px-3 py-1.5">Track a ticket</Link>
+            <Link href="/today" className="ui-button ui-button-ghost min-h-0 px-3 py-1.5">Build from Board</Link>
+          </div>
         </div>
       ) : (
         <>
@@ -160,6 +165,9 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium">{ticket.title}</p>
                     <p className="text-xs text-slate-300"><span className="mono-number">{ticket.odds}</span> · <span className="mono-number">{ticket.wager}</span> · {ticket.onPaceCount}/{ticket.legs.length} legs on pace</p>
+                  </div>
+                  <div className="rounded-md border border-cyan-300/30 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-100">
+                    <span className="font-semibold">Now</span>: Closest {ticket.legs[0]?.player ?? '—'} · Kill risk {ticket.weakestLeg.player} · Cashout {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? `$${ticket.cashoutValue.toFixed(2)}` : 'unavailable'}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
                     {sweatMode ? (
@@ -190,8 +198,8 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     </button>
                   ) : null}
 
-                  {sweatMode && isExpanded ? (
-                    <ul className="mt-2 space-y-2 text-xs">
+                  <div className={`collapse-shell ${sweatMode && isExpanded ? 'collapse-shell-open mt-2' : ''}`}>
+                    <ul className="space-y-2 text-xs">
                       {ticket.legs.map((leg) => (
                         <li key={leg.legId} className="rounded border border-slate-700 p-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -207,7 +215,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                         </li>
                       ))}
                     </ul>
-                  ) : null}
+                  </div>
                 </li>
               );
             })}

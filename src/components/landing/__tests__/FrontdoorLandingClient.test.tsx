@@ -55,8 +55,8 @@ describe('FrontdoorLandingClient live modes', () => {
     renderWithNervousSystem(<FrontdoorLandingClient />);
 
     await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
-    expect(screen.getByTestId('scout-confidence-chip')).toBeTruthy();
-    expect(screen.getByTestId('scout-risk-chip')).toBeTruthy();
+    expect(screen.getAllByTestId('scout-confidence-chip').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('scout-risk-chip').length).toBeGreaterThan(0);
   });
 
   it('adding a board prop populates quick slip rail leg list', async () => {

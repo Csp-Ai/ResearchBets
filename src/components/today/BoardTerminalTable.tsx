@@ -52,11 +52,12 @@ export function sortBoardRows(rows: TerminalBoardRow[], sortKey: SortKey): Termi
   });
 }
 
-export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highlightedRowId }: {
+export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highlightedRowId, recentAddedRowId }: {
   rows: TerminalBoardRow[];
   onToggleLeg: (row: TerminalBoardRow) => void;
   selectedLegIds: Set<string>;
   highlightedRowId?: string;
+  recentAddedRowId?: string | null;
 }) {
   return (
     <div className="space-y-2">
@@ -67,7 +68,7 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
         const signal = confidence >= 62 ? 'stable' : 'watch';
 
         return (
-          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''}`}>
+          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''} ${recentAddedRowId === row.id ? 'ring-1 ring-emerald-300/70 shadow-[0_0_0_1px_rgba(110,231,183,0.4)]' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
                 <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>

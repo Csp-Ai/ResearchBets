@@ -181,7 +181,35 @@ h2,
     min-height: 3rem;
     border-radius: var(--radius-md);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    @apply bg-slate-950/60 px-3 py-2 transition-all duration-150;
+    @apply bg-slate-950/60 px-3 py-2 transition-all duration-200;
+  }
+  .row-shell:hover {
+    border-color: rgba(125, 211, 252, 0.42);
+    background: rgba(15, 23, 42, 0.82);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.18);
+  }
+  .row-shell-active {
+    border-color: rgba(34, 211, 238, 0.48);
+    background: rgba(6, 182, 212, 0.12);
+  }
+  .disclosure-button {
+    @apply terminal-focus inline-flex w-full items-center justify-between gap-2 rounded-md border border-white/10 bg-slate-950/45 px-2.5 py-1.5 text-left text-xs text-slate-300 transition-colors;
+  }
+  .disclosure-button:hover { border-color: rgba(125, 211, 252, 0.45); }
+  .disclosure-caret { @apply text-slate-400 transition-transform duration-300; }
+  .disclosure-open .disclosure-caret { transform: rotate(180deg); }
+  .collapse-shell {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 280ms ease, opacity 220ms ease;
+  }
+  .collapse-shell-open {
+    max-height: 520px;
+    opacity: 1;
+  }
+  .signal-pulse {
+    animation: subtleSignalPulse 1.2s ease-out;
   }
   .terminal-focus { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-0; }
   .focus-glow { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-0; }
@@ -492,6 +520,7 @@ h2,
   .ui-button-secondary:hover {
     border-color: rgba(103, 232, 249, 0.52);
     background: rgba(30, 41, 59, 1);
+    box-shadow: 0 8px 20px rgba(14, 116, 144, 0.18);
   }
 
   .ui-button-secondary:active {
@@ -508,6 +537,7 @@ h2,
   .ui-button-ghost:hover {
     background: rgba(30, 41, 59, 0.45);
     border-color: rgba(125, 211, 252, 0.55);
+    box-shadow: 0 6px 16px rgba(8, 47, 73, 0.24);
   }
 
   .ui-button:focus-visible,
@@ -563,6 +593,11 @@ h2,
   .tone-strong { @apply ui-tone-strong; }
   .tone-caution { @apply ui-tone-caution; }
   .tone-weak { @apply ui-tone-weak; }
+}
+
+@keyframes subtleSignalPulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.38); }
+  100% { box-shadow: 0 0 0 12px rgba(34, 211, 238, 0); }
 }
 
 .bettor-card {

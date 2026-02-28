@@ -81,6 +81,17 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
     onApply(selected);
   };
 
+  const previewSelection = (size: number) => {
+    return [...legs]
+      .map((leg) => ({ leg, score: proBuildScore(leg) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, size)
+      .map((item) => item.leg.player)
+      .join(', ');
+  };
+
+  const gapTone = probabilityGap >= 0 ? 'text-emerald-200' : 'text-rose-200';
+
   return (
     <CardSurface className="space-y-3 p-4" data-testid="pro-build-panel">
       <div className="flex items-center justify-between">
@@ -98,16 +109,17 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
         <div className="row-shell"><p className="text-slate-400">Weakest dominance</p><p className="mono-number text-slate-100">{constraints.weakestDominancePct}%</p></div>
         <div className="row-shell"><p className="text-slate-400">Correlation</p><p className="text-slate-100">{constraints.excessiveCorrelation ? 'Guardrail active' : 'In range'}</p></div>
       </div>
-      <div className="terminal-divider pt-2 text-xs text-slate-300">
-        <p className="mono-number">Hit est: {(independentProb * 100).toFixed(1)}% | Break-even: {(breakEven * 100).toFixed(1)}% | Gap: {(probabilityGap * 100).toFixed(1)}%</p>
+      <div className="terminal-divider rounded-lg bg-slate-950/50 p-3 text-xs text-slate-300">
+        <p className="text-[11px] uppercase tracking-wide text-slate-400">Pro cockpit line</p>
+        <p className="mono-number mt-1 text-sm">Hit est: {(independentProb * 100).toFixed(1)}% <span className="text-slate-500">|</span> Break-even: {(breakEven * 100).toFixed(1)}% <span className="text-slate-500">|</span> <span className={gapTone}>Gap: {(probabilityGap * 100).toFixed(1)}%</span></p>
         <p className="mt-1 text-slate-400">Estimate uses deterministic proxies.</p>
       </div>
       <div className="space-y-1">
         {constraints.warnings.map((warning) => <p key={warning} className="text-xs text-amber-200">• {warning}</p>)}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Button intent="secondary" className="min-h-0 py-2 text-xs" onClick={() => applyProSize(2)} disabled={legs.length < 2}>Apply 2-leg Pro</Button>
-        <Button intent="primary" className="min-h-0 py-2 text-xs" onClick={() => applyProSize(3)} disabled={legs.length < 3}>Apply 3-leg Pro</Button>
+        <Button intent="secondary" title={legs.length < 2 ? 'Need at least 2 legs' : `Preview keeps: ${previewSelection(2) || 'n/a'}`} className="min-h-0 py-2 text-xs" onClick={() => applyProSize(2)} disabled={legs.length < 2}>Apply 2-leg Pro</Button>
+        <Button intent="primary" title={legs.length < 3 ? 'Need at least 3 legs' : `Preview keeps: ${previewSelection(3) || 'n/a'}`} className="min-h-0 py-2 text-xs" onClick={() => applyProSize(3)} disabled={legs.length < 3}>Apply 3-leg Pro</Button>
       </div>
     </CardSurface>
   );

@@ -44,6 +44,8 @@ export default function AnalyzeTabPanel({
   onPasteOpen, onTryExample, onCopyReasons, onCopySlip, onShareRun, slipHref, boardHref, shareStatus, uncertainty, demoSlip, latestRunHref
 }: AnalyzeTabPanelProps) {
   const [calibration, setCalibration] = useState({ take_accuracy: 0, weakest_leg_accuracy: 0, runs_analyzed: 0, last_updated: null as string | null });
+  const [pulse, setPulse] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +63,13 @@ export default function AnalyzeTabPanel({
       .catch(() => undefined);
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!runDto?.trace_id && !currentRun?.trace_id) return;
+    setPulse(true);
+    const timer = window.setTimeout(() => setPulse(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, [runDto?.trace_id, currentRun?.trace_id]);
 
   const reasons = runDto?.verdict.reasons ?? currentRun?.analysis.reasons ?? [];
   const weakestReasons = (weakestLeg?.riskFactors ?? []).filter(Boolean);
@@ -88,17 +97,17 @@ export default function AnalyzeTabPanel({
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
             <div className="space-y-1">
               <p className="text-xs text-slate-500">Verdict bar</p>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 rounded-md px-1 py-0.5 ${pulse ? 'signal-pulse' : ''}`}>
                 <Badge variant={presentRecommendation(riskSummary.recommendation).toUpperCase().includes('TAKE') ? 'success' : 'warning'}>{presentRecommendation(riskSummary.recommendation)}</Badge>
                 <p className="text-sm text-slate-300">{combinedReasons[0] ?? 'Check line movement before locking.'}</p>
               </div>
             </div>
-            <div>
+            <div className={pulse ? 'signal-pulse rounded-md px-1 py-0.5' : ''}>
               <p className="text-xs text-slate-500">Confidence</p>
               <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${riskSummary.confidencePct}%` }} /></div>
               <p className="mono-number mt-1 text-sm text-slate-200">{riskSummary.confidencePct}%</p>
             </div>
-            <div className="flex items-end gap-2">
+            <div className={`flex items-end gap-2 rounded-md px-1 py-0.5 ${pulse ? 'signal-pulse' : ''}`}>
               <Badge variant="warning">Fragility {riskSummary.fragilityScore}</Badge>
               <Badge variant={riskSummary.correlationFlag ? 'warning' : 'success'}>{riskSummary.correlationFlag ? 'Guardrail active' : 'Correlation managed'}</Badge>
             </div>
@@ -137,12 +146,17 @@ export default function AnalyzeTabPanel({
         {prefillKeyFromQuery ? <Badge variant="info">Draft from Scout</Badge> : null}
       </CardSurface>
 
-      <details className="rounded-lg border border-white/10 bg-black/20 px-3 py-2" data-testid="run-details-collapsed">
-        <summary className="cursor-pointer text-xs font-semibold tracking-wide text-slate-400">Details</summary>
-        {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-slate-400">Run a sample slip to see weakest-leg and correlation risk.</p>}
-        {uncertainty ? <p className="mt-2 text-xs text-slate-400">Uncertainty: {uncertainty}</p> : null}
-        {latestRunHref ? <a href={latestRunHref} className="mt-1 block text-xs text-cyan-200 underline">Open latest run details</a> : null}
-      </details>
+      <section className="rounded-lg border border-white/10 bg-black/20 px-3 py-2" data-testid="run-details-collapsed">
+        <button type="button" className={`disclosure-button ${showDetails ? 'disclosure-open' : ''}`} onClick={() => setShowDetails((value) => !value)}>
+          <span className="text-xs font-semibold tracking-wide text-slate-300">Details</span>
+          <span className="disclosure-caret">⌄</span>
+        </button>
+        <div className={`collapse-shell ${showDetails ? 'collapse-shell-open mt-2' : ''}`}>
+          {hasSlip ? <div className="mt-2"><LegRankList legs={sortedLegs} onRemove={() => undefined} trustedContext={currentRun?.trustedContext} /></div> : <p className="mt-2 text-xs text-slate-400">Run a sample slip to see weakest-leg and correlation risk.</p>}
+          {uncertainty ? <p className="mt-2 text-xs text-slate-400">Uncertainty: {uncertainty}</p> : null}
+          {latestRunHref ? <a href={latestRunHref} className="mt-1 block text-xs text-cyan-200 underline">Open latest run details</a> : null}
+        </div>
+      </section>
 
       <div className="hidden"><SlipIntelBar legs={intelLegs} /></div>
     </div>

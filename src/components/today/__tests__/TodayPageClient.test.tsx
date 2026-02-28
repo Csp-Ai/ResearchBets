@@ -133,7 +133,7 @@ describe('TodayPageClient', () => {
     fireEvent.click(addButtons[1]!);
 
     expect(screen.getByText(/Weakest preview:/i)).toBeTruthy();
-    expect(screen.getByText(/2 legs/i)).toBeTruthy();
+    expect(screen.getByText(/2 legs staged/i)).toBeTruthy();
   });
 
 
