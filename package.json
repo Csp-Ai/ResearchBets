@@ -38,7 +38,9 @@
     "check:landing-imports": "node scripts/check-landing-imports.mjs",
     "check:governor": "tsx scripts/check-governor.mjs",
     "audit:ui-regression": "node scripts/audit/ui-regression-guard.mjs",
-    "audit:fonts": "node scripts/audit/font-import-guard.mjs"
+    "audit:fonts": "node scripts/audit/font-import-guard.mjs",
+    "audit:bundle-budget": "node scripts/audit/bundle-budget.mjs",
+    "check:casing": "node scripts/audit/casing-guard.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.8",

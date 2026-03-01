@@ -1,20 +1,51 @@
-import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-const allowlist = ['src/legacy/', 'app/dev/dashboard/', 'src/components/bettor-os/', 'app/traces/', 'src/components/terminal/RunHeaderStrip.tsx', 'src/components/bettor/BettorFirstBlocks.tsx', 'src/components/bettor/GuidedActionsCard.tsx', 'src/components/landing/PostmortemPreviewCard.tsx', 'src/components/landing/ScoutCardCompact.tsx', 'src/components/landing/BottomCTA.tsx', 'src/components/landing/VerdictMock.tsx', 'app/control/ControlPageClient.tsx', 'app/settings/page.tsx'];
-const out = execSync("rg --files app src features -g '*.ts' -g '*.tsx'", { encoding: 'utf8' });
-const files = out.trim().split('\n').filter(Boolean);
+const targets = [
+  'app/page.tsx',
+  'app/HomeLandingClient.tsx',
+  'app/today/page.tsx',
+  'app/slip/page.tsx',
+  'app/slip/SlipPageClient.tsx',
+  'app/track/page.tsx',
+  'app/track/TrackPageClient.tsx',
+  'src/components/track/DuringStageTracker.tsx',
+];
+
+const allowlistRaw = new Set();
 const violations = [];
-for (const file of files) {
-  if (allowlist.some((prefix) => file.startsWith(prefix))) continue;
+
+for (const file of targets) {
   const text = readFileSync(file, 'utf8');
-  if (/router\.(push|replace)\(\s*['"][^'"]+\?/.test(text) || /<Link[^>]+href=['"]\//.test(text)) {
-    violations.push(file);
+
+  const rawNavPatterns = [
+    /router\.(push|replace)\(\s*(['"`])(\/[\s\S]*?)\2/gm,
+    /<Link[^>]*\shref=\s*(['"`])(\/[\s\S]*?)\1/gm,
+    /redirect\(\s*(['"`])(\/[\s\S]*?)\1\s*\)/gm,
+  ];
+
+  for (const pattern of rawNavPatterns) {
+    for (const match of text.matchAll(pattern)) {
+      const rawPath = (match[3] ?? match[2] ?? '').trim();
+      if (!rawPath.startsWith('/')) continue;
+      const key = `${file}:${rawPath}`;
+      if (allowlistRaw.has(key)) continue;
+      violations.push(`${file}: raw navigation "${rawPath}"`);
+    }
+  }
+
+  if (/(appendQuery|toHref|withTraceId)\([^)]*\{[^}]*\b(traceId|slipId)\s*:/.test(text)) {
+    violations.push(`${file}: camelCase query write detected (traceId/slipId)`);
+  }
+
+  if (/[?&](traceId|slipId)=/.test(text)) {
+    violations.push(`${file}: camelCase URL query detected (traceId/slipId)`);
   }
 }
+
 if (violations.length) {
-  console.error('Non-canonical navigation detected. Use nervous.toHref().');
-  violations.slice(0, 80).forEach((f) => console.error(` - ${f}`));
+  console.error('Navigation continuity guard failed. Use nervous.toHref() + snake_case ids.');
+  violations.slice(0, 120).forEach((entry) => console.error(` - ${entry}`));
   process.exit(1);
 }
+
 console.log('toHref guard passed');

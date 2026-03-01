@@ -6,12 +6,19 @@ import { useMemo, useState } from 'react';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { toBettorEventLabel, toBettorReason } from '@/src/core/copy/bettorSafeCopy';
+import type { ControlPlaneEvent } from '@/src/components/AgentNodeGraph';
 import { useTraceEvents } from '@/src/hooks/useTraceEvents';
 
 type Stage = 'Submitted' | 'Extracting' | 'Enriching' | 'Scoring' | 'Verdict' | 'Saved';
 const STAGES: Stage[] = ['Submitted', 'Extracting', 'Enriching', 'Scoring', 'Verdict', 'Saved'];
+const PROOF_EVENT_LIMIT = 5;
 
 type VolatilityDriver = 'Blowout risk' | 'Minutes cap' | 'Pace crash' | 'Foul risk' | 'Unknown';
+
+type SweatMicroSurface = {
+  closestLeg: string;
+  nextBreakRisk: string;
+} | null;
 
 const stageByEvent: Record<string, Stage> = {
   slip_submitted: 'Submitted',
@@ -53,10 +60,64 @@ function deriveVolatilityDriver(events: Array<{ payload?: Record<string, unknown
   return { driver: 'Unknown' };
 }
 
+function textFromPayload(payload: Record<string, unknown>): string {
+  const values = [payload.player, payload.leg_label, payload.selection, payload.market, payload.reason]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  return values.join(' · ');
+}
+
+function pickClosestLeg(payload: Record<string, unknown>): string | null {
+  const explicit = payload.closest_leg ?? payload.closestLeg;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+
+  const player = typeof payload.player === 'string' ? payload.player.trim() : '';
+  const market = typeof payload.market === 'string' ? payload.market.trim() : '';
+  const selection = typeof payload.selection === 'string' ? payload.selection.trim() : '';
+  const label = selection || [player, market].filter(Boolean).join(' ');
+  if (!label) return null;
+
+  const deltaCandidate = payload.leg_delta ?? payload.legDelta;
+  const delta = typeof deltaCandidate === 'number' ? Math.abs(deltaCandidate) : Number.NaN;
+  if (Number.isFinite(delta)) return `${label} (${delta.toFixed(1)} away)`;
+  return label;
+}
+
+function pickNextBreakRisk(payload: Record<string, unknown>): string | null {
+  const explicit = payload.next_break_risk ?? payload.nextBreakRisk;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+
+  const riskCandidate = payload.risk_band ?? payload.riskBand ?? payload.risk;
+  const deltaCandidate = payload.leg_delta ?? payload.legDelta;
+  const delta = typeof deltaCandidate === 'number' ? Math.abs(deltaCandidate) : Number.NaN;
+  if (typeof riskCandidate === 'string' && riskCandidate.trim()) {
+    const band = riskCandidate.trim();
+    return Number.isFinite(delta) ? `${band} (${delta.toFixed(1)} delta)` : band;
+  }
+  if (Number.isFinite(delta)) {
+    if (delta <= 0.5) return 'High (thin edge)';
+    if (delta <= 1.5) return 'Medium (watch next rotation)';
+    return 'Low';
+  }
+  return null;
+}
+
+function deriveSweatMicroSurface(events: ControlPlaneEvent[]): SweatMicroSurface {
+  for (const event of [...events].reverse()) {
+    const payload = event.payload ?? {};
+    const closestLeg = pickClosestLeg(payload);
+    const nextBreakRisk = pickNextBreakRisk(payload);
+    if (closestLeg && nextBreakRisk) return { closestLeg, nextBreakRisk };
+
+    const text = textFromPayload(payload);
+    if (text && nextBreakRisk) return { closestLeg: text, nextBreakRisk };
+  }
+  return null;
+}
+
 export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_id?: string; mode: 'live' | 'cache' | 'demo'; compact?: boolean }) {
   const nervous = useNervousSystem();
   const [proofOpen, setProofOpen] = useState(false);
-  const { events } = useTraceEvents({ trace_id, enabled: Boolean(trace_id), pollIntervalMs: compact ? 3000 : 2500, limit: 30 });
+  const { events } = useTraceEvents({ trace_id, enabled: Boolean(trace_id), pollIntervalMs: compact ? 3000 : 2500, limit: 20 });
 
   const latestEvent = events.at(-1);
   const latestStage = latestEvent ? stageByEvent[latestEvent.event_name] : undefined;
@@ -68,8 +129,9 @@ export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_
       ? 'Using cached slate'
       : 'Warming up';
 
-  const proofRows = useMemo(() => [...events].slice(-5).reverse(), [events]);
+  const proofRows = useMemo(() => [...events].slice(-PROOF_EVENT_LIMIT).reverse(), [events]);
   const volatility = useMemo(() => deriveVolatilityDriver(events), [events]);
+  const sweatMicroSurface = useMemo(() => (compact ? null : deriveSweatMicroSurface(events)), [compact, events]);
 
   if (!trace_id) {
     return (
@@ -107,6 +169,13 @@ export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_
         })}
       </div>
 
+      {sweatMicroSurface ? (
+        <div className="mt-2 rounded border border-white/10 bg-slate-950/40 px-2 py-1.5 text-[11px] text-slate-200" data-testid="during-sweat-surface">
+          <p>Closest leg: <span className="text-slate-100">{sweatMicroSurface.closestLeg}</span></p>
+          <p>Next break risk: <span className="text-slate-100">{sweatMicroSurface.nextBreakRisk}</span></p>
+        </div>
+      ) : null}
+
       {events.length === 0 ? <p className="mt-2 text-xs text-slate-300">{safeFallbackCopy}. {toBettorReason(mode === 'live' ? 'provider_unavailable' : 'cache_hit')}</p> : null}
 
       <div className="mt-2">
@@ -114,7 +183,7 @@ export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_
           {proofOpen ? 'Hide proof' : 'Show proof'}
         </button>
         {proofOpen ? (
-          <ul className="mt-2 space-y-1 text-xs text-slate-300">
+          <ul className="mt-2 space-y-1 text-xs text-slate-300" data-testid="during-proof-list">
             {proofRows.length === 0 ? <li>{safeFallbackCopy}</li> : proofRows.map((event) => <li key={`${event.event_name}-${event.created_at}`}>{toBettorEventLabel(event.event_name)} · {agoLabel(event.created_at)}</li>)}
           </ul>
         ) : null}
