@@ -116,8 +116,12 @@ jobs:
         run: npm run check:governor
       - name: Test
         run: npm run test
+      - name: Build
+        run: npm run build
       - name: Unused code audit
         run: npm run audit:unused:ci
+      - name: Canonical entry policy
+        run: echo "Canonical entry: / → /cockpit (server redirect). Demo/cache expected when keys missing."
 
   dependency-audit:
     name: Dependency audit (production gate)

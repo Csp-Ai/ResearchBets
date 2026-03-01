@@ -150,7 +150,7 @@ export default function IngestionPage() {
       <section className="rounded-xl border border-white/15 bg-white/5 p-3">
         <p className="text-xs text-slate-300">Alive actions</p>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/research'), { demo: 1 })}>Try sample slip</Link>
+          <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })}>Try sample slip</Link>
           <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/history'), {})}>Open latest run</Link>
           <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/today'), { tab: 'board' })}>Build from Board</Link>
           <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/ingest'), {})}>Upload slip</Link>

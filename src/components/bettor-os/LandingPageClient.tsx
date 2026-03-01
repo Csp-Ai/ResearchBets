@@ -19,8 +19,8 @@ export function LandingPageClient({ hasRecentRun }: { hasRecentRun: boolean }) {
         <p className="mt-3 max-w-2xl text-sm text-slate-300">Paste your slip, get a verdict first, then quickly see the weakest leg and why it matters.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href={appendQuery(nervous.toHref('/ingest'), {})} className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Analyze a slip</Link>
-          <Link href={appendQuery(nervous.toHref('/research'), { tab: 'scout' })} className="rounded-xl border border-white/20 px-4 py-2 text-sm">Scout props</Link>
-          {hasRecentRun ? <Link href={appendQuery(nervous.toHref('/research'), {})} className="rounded-xl border border-white/20 px-4 py-2 text-sm">Continue last analysis</Link> : null}
+          <Link href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })} className="rounded-xl border border-white/20 px-4 py-2 text-sm">Scout props</Link>
+          {hasRecentRun ? <Link href={appendQuery(nervous.toHref('/cockpit'), {})} className="rounded-xl border border-white/20 px-4 py-2 text-sm">Continue last analysis</Link> : null}
         </div>
       </motion.div>
 
