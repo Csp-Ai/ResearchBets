@@ -7,9 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { LandingTerminalShell } from '@/src/components/landing/LandingTerminalShell';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { EventEnvelopeSchema, TodayPayloadSchema } from '@/src/core/contracts/envelopes';
 import { deriveModePolicy, getModePresentation, persistMode, readPersistedMode } from '@/src/core/mode';
-import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
+import { parseEventEnvelopeClient, parseTodayEnvelopeClient, parseTodayPayloadClient, type EventEnvelopeClient, type TodayPayloadClient } from '@/src/core/contracts/clientEnvelopes';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { ExpandableGamePanel } from '@/src/components/landing/ExpandableGamePanel';
@@ -22,7 +21,7 @@ import { withTraceId } from '@/src/core/trace/queryTrace';
 import { computeSlipIntelligence } from '@/src/core/slips/slipIntelligence';
 import { Chip, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
 
-type TodayPayload = typeof TodayPayloadSchema._type;
+type TodayPayload = TodayPayloadClient;
 type SlipToggleProp = { id: string; player: string; market: string; line: string; odds: string };
 type TraceStep = { agent: string; status: 'running' | 'complete'; output: string };
 type AlivePhase = { label: string; status: 'complete' | 'active' | 'queued' };
@@ -48,10 +47,10 @@ const toSlipMarketType = (market: string) => {
 
 const normalizeTodayResult = (input: unknown): TodayPayload => {
   if (!input || typeof input !== 'object') return EMPTY_TODAY;
-  const parsedEnvelope = parseTodayEnvelope(input);
-  const candidate = parsedEnvelope.success && parsedEnvelope.data.ok ? parsedEnvelope.data.data : input;
-  const parsed = TodayPayloadSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : EMPTY_TODAY;
+  const parsedEnvelope = parseTodayEnvelopeClient(input);
+  const candidate = parsedEnvelope?.ok ? parsedEnvelope.data : input;
+  const parsed = parseTodayPayloadClient(candidate);
+  return parsed ?? EMPTY_TODAY;
 };
 
 const confidenceFromBoardProp = (prop: BoardProp) => {
@@ -88,8 +87,8 @@ export function FrontdoorLandingClient() {
         const payload = response.ok ? await response.json() : null;
         const normalized = normalizeTodayResult(payload);
         setToday(normalized);
-        const parsedEnvelope = parseTodayEnvelope(payload);
-        if (parsedEnvelope.success && parsedEnvelope.data.ok) setActiveTraceId(parsedEnvelope.data.trace_id);
+        const parsedEnvelope = parseTodayEnvelopeClient(payload);
+        if (parsedEnvelope?.ok) setActiveTraceId(parsedEnvelope.trace_id);
       } catch {
         setToday(EMPTY_TODAY);
       } finally {
@@ -143,15 +142,15 @@ export function FrontdoorLandingClient() {
         const payload = response.ok ? await response.json() : null;
         const parsedFeed = Array.isArray(payload?.events)
           ? payload.events
-            .map((event: unknown) => EventEnvelopeSchema.safeParse(event))
-            .filter((event: ReturnType<typeof EventEnvelopeSchema.safeParse>): event is { success: true; data: typeof EventEnvelopeSchema._type } => event.success)
-            .map((event: { success: true; data: typeof EventEnvelopeSchema._type }) => {
-              const output = typeof event.data.payload === 'string'
-                ? event.data.payload
-                : JSON.stringify(event.data.payload).slice(0, 90);
+            .map((event: unknown) => parseEventEnvelopeClient(event))
+            .filter((event: EventEnvelopeClient | null): event is EventEnvelopeClient => event !== null)
+            .map((event: EventEnvelopeClient) => {
+              const output = typeof event.payload === 'string'
+                ? event.payload
+                : JSON.stringify(event.payload).slice(0, 90);
               return {
-                agent: event.data.type.replaceAll('_', ' '),
-                status: event.data.phase === 'AFTER' ? 'complete' : 'running' as const,
+                agent: event.type.replaceAll('_', ' '),
+                status: event.phase === 'AFTER' ? 'complete' : 'running' as const,
                 output
               };
             })

@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-03-01T04:51:04.867Z",
+  "chunksDir": ".next/static/chunks",
+  "targets": [
+    "fd9d1056",
+    "2117"
+  ],
+  "chunks": {
+    "2117-830198a307f2900b.js": {
+      "bytes": 124365,
+      "packageRootHits": [
+        {
+          "name": "next",
+          "count": 1
+        }
+      ],
+      "srcPathHits": [],
+      "nextDistHits": []
+    },
+    "fd9d1056-a81371f087f4d64b.js": {
+      "bytes": 172835,
+      "packageRootHits": [],
+      "srcPathHits": [],
+      "nextDistHits": [],
+      "notes": "No literal node_modules paths found in minified chunk text."
+    }
+  }
+}

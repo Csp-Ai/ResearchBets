@@ -41,7 +41,9 @@
     "audit:fonts": "node scripts/audit/font-import-guard.mjs",
     "audit:bundle-budget": "node scripts/audit/bundle-budget.mjs",
     "check:casing": "node scripts/audit/casing-guard.mjs",
-    "audit:shared-chunk-owners": "node scripts/audit/shared-chunk-owners.mjs"
+    "audit:shared-chunk-owners": "node scripts/audit/shared-chunk-owners.mjs",
+    "audit:chunk-fingerprint": "node scripts/audit/chunk-fingerprint.mjs",
+    "audit:ui-primitives-import-guard": "node scripts/audit/ui-primitives-import-guard.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.8",
