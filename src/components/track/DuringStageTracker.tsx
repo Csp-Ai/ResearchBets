@@ -11,6 +11,8 @@ import { useTraceEvents } from '@/src/hooks/useTraceEvents';
 type Stage = 'Submitted' | 'Extracting' | 'Enriching' | 'Scoring' | 'Verdict' | 'Saved';
 const STAGES: Stage[] = ['Submitted', 'Extracting', 'Enriching', 'Scoring', 'Verdict', 'Saved'];
 
+type VolatilityDriver = 'Blowout risk' | 'Minutes cap' | 'Pace crash' | 'Foul risk' | 'Unknown';
+
 const stageByEvent: Record<string, Stage> = {
   slip_submitted: 'Submitted',
   slip_extracted: 'Extracting',
@@ -28,10 +30,33 @@ function agoLabel(timestamp?: string): string {
   return `Updated ${deltaSeconds}s ago`;
 }
 
+function deriveVolatilityDriver(events: Array<{ payload?: Record<string, unknown> }>): { driver: VolatilityDriver; minutesRisk?: 'medium' } {
+  for (const event of [...events].reverse()) {
+    const payload = event.payload ?? {};
+    const marginCandidate = payload.score_margin ?? payload.scoreMargin ?? payload.margin;
+    const margin = typeof marginCandidate === 'number' ? Math.abs(marginCandidate) : Number.NaN;
+    if (Number.isFinite(margin)) {
+      if (margin >= 15) return { driver: 'Blowout risk' };
+      if (margin <= 4) return { driver: 'Foul risk' };
+      if (margin <= 8) return { driver: 'Pace crash' };
+    }
+
+    const deltaCandidate = payload.leg_delta ?? payload.legDelta;
+    const timeCandidate = payload.clock_minutes_remaining ?? payload.minutes_remaining ?? payload.minutesRemaining;
+    const delta = typeof deltaCandidate === 'number' ? Math.abs(deltaCandidate) : Number.NaN;
+    const minutesRemaining = typeof timeCandidate === 'number' ? timeCandidate : Number.NaN;
+    if (Number.isFinite(delta) && Number.isFinite(minutesRemaining) && delta <= 1.5 && minutesRemaining <= 10) {
+      return { driver: 'Minutes cap', minutesRisk: 'medium' };
+    }
+  }
+
+  return { driver: 'Unknown' };
+}
+
 export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_id?: string; mode: 'live' | 'cache' | 'demo'; compact?: boolean }) {
   const nervous = useNervousSystem();
   const [proofOpen, setProofOpen] = useState(false);
-  const { events } = useTraceEvents({ trace_id, enabled: Boolean(trace_id), pollIntervalMs: 2500, limit: 30 });
+  const { events } = useTraceEvents({ trace_id, enabled: Boolean(trace_id), pollIntervalMs: compact ? 3000 : 2500, limit: 30 });
 
   const latestEvent = events.at(-1);
   const latestStage = latestEvent ? stageByEvent[latestEvent.event_name] : undefined;
@@ -44,6 +69,7 @@ export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_
       : 'Warming up';
 
   const proofRows = useMemo(() => [...events].slice(-5).reverse(), [events]);
+  const volatility = useMemo(() => deriveVolatilityDriver(events), [events]);
 
   if (!trace_id) {
     return (
@@ -64,6 +90,7 @@ export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_
         <p className="text-sm font-medium text-slate-100">DURING Stage Tracker</p>
         <div className="flex items-center gap-2 text-xs">
           <span className="rounded border border-white/20 px-2 py-0.5">{mode.toUpperCase()}</span>
+          <span className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-slate-200">Volatility driver: {volatility.driver}{volatility.minutesRisk ? ` · Minutes risk: ${volatility.minutesRisk}` : ''}</span>
           <span className="text-slate-300">{latestEvent ? agoLabel(latestEvent.created_at) : safeFallbackCopy}</span>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
-import { FrontdoorLandingClient } from '@/src/components/landing/FrontdoorLandingClient';
+import HomeLandingClient from '@/app/HomeLandingClient';
+import { BoardPreviewSSR, getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
 import { BDAStrip, Credibility30s, TrustNote } from '@/src/components/landing/LandingCompactModules';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 
@@ -25,7 +25,8 @@ export default function HomePage({ searchParams }: HomePageProps) {
           ]}
           traceId={spine.trace_id}
         />
-        <FrontdoorLandingClient />
+        <BoardPreviewSSR spine={spine} />
+        <HomeLandingClient spine={spine} />
 
         <section className="border-t border-white/10 pt-4 pb-6" aria-label="landing-how-it-works">
           <details className="rounded-xl border border-white/10 bg-slate-900/35 p-3">

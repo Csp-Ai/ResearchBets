@@ -109,7 +109,7 @@ export function QuickSlipRail({
         <div className="space-y-2" data-testid="quick-slip-empty-state">
           <p className="text-xs text-white/60">No legs yet. Start from any entry point.</p>
           <div className="flex flex-wrap gap-2">
-            <Link href="/slips/new" className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Paste slip</Link>
+            <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Paste slip</Link>
             <Link href={sampleSlipHref} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Try sample slip</Link>
             <a href="#board-section" className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Build from Board</a>
             <button type="button" onClick={() => autoBuild('safe')} className="rounded-xl border border-emerald-300/35 px-3 py-1.5 text-sm text-emerald-100">Auto-build 3 safe</button>
