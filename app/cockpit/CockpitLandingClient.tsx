@@ -7,10 +7,11 @@ import { useRouter } from 'next/navigation';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { parseSlipExtractEnvelope, parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
+import { useRunEvents } from '@/src/core/events/useRunEvents';
+import { ensureTraceId } from '@/src/core/trace/trace_id';
 
 import './cockpit.css';
 
@@ -148,42 +149,32 @@ export default function CockpitLandingClient() {
     });
   };
 
+  const { latestStage, statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
+
   const runStressTest = async () => {
     if (!stressEnabled || analysis.running) return;
-    setAnalysis((prev) => ({ ...prev, running: true, stage: 'Analyze' }));
+    const ensured = ensureTraceId({ sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: nervous.trace_id, tab: undefined });
+    const traceId = ensured.trace_id;
+    setAnalysis((prev) => ({ ...prev, running: true, stage: 'Analyze', traceId }));
+    router.replace(appendQuery(nervous.toHref('/cockpit'), { trace_id: traceId }));
 
     try {
-      const submitResponse = await fetch('/api/slips/submit', {
+      const response = await fetch('/api/run/stress-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source: 'paste',
-          raw_text: slip.map((leg) => `${leg.player} ${leg.marketType} ${leg.line} ${leg.odds ?? ''}`.trim()).join('\n'),
-          trace_id: nervous.trace_id,
-          spine: { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode },
-          legs: slip
+          trace_id: traceId,
+          spine: ensured.spine,
+          legs: slip.map((leg) => ({
+            player: leg.player,
+            market: String(leg.marketType),
+            line: String(leg.line),
+            odds: String(leg.odds ?? '-110'),
+            game_id: String(leg.game ?? leg.id)
+          }))
         })
       });
-      const submitPayload = await submitResponse.json();
-      const submitEnvelope = parseSlipSubmitEnvelope(submitPayload);
-      if (!submitEnvelope.success || !submitEnvelope.data.ok) {
-        setAnalysis((prev) => ({ ...prev, running: false, stage: 'Before' }));
-        return;
-      }
-
-      const traceId = submitEnvelope.data.data.trace_id;
-      if (traceId && traceId !== nervous.trace_id) {
-        router.replace(nervous.toHref('/cockpit', { trace_id: traceId }));
-      }
-
-      const extractResponse = await fetch('/api/slips/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slip_id: submitEnvelope.data.data.slip_id, anon_session_id: submitEnvelope.data.data.anon_id, request_id: crypto.randomUUID() })
-      });
-      const extractPayload = await extractResponse.json();
-      const extractEnvelope = parseSlipExtractEnvelope(extractPayload);
-
+      const payload = await response.json();
       const report = buildSlipStructureReport(slip.map((leg) => ({
         id: leg.id,
         player: leg.player,
@@ -193,7 +184,7 @@ export default function CockpitLandingClient() {
         game: leg.game
       })));
 
-      const weakestLeg = report.legs.find((leg) => leg.leg_id === report.weakest_leg_id);
+      const weakestLeg = report.legs.find((leg) => leg.player === payload?.analysis?.weakest_leg?.player) ?? report.legs.find((leg) => leg.leg_id === report.weakest_leg_id);
       const corrLabel = report.script_clusters.some((cluster) => cluster.severity === 'high') ? 'High' : report.script_clusters.some((cluster) => cluster.severity === 'med') ? 'Medium' : 'Low';
 
       setAnalysis({
@@ -202,8 +193,8 @@ export default function CockpitLandingClient() {
         weakestLabel: weakestLeg?.player ?? '—',
         traceId,
         corrLabel,
-        fragility: typeof weakestLeg?.fragility_score === 'number' ? weakestLeg.fragility_score : null,
-        reasons: extractEnvelope.success && extractEnvelope.data.ok ? report.reasons.slice(0, 2) : report.reasons.slice(0, 1),
+        fragility: typeof payload?.analysis?.fragility_score === 'number' ? payload.analysis.fragility_score : (typeof weakestLeg?.fragility_score === 'number' ? weakestLeg.fragility_score : null),
+        reasons: Array.isArray(payload?.analysis?.reasons) ? payload.analysis.reasons : report.reasons.slice(0, 2),
         stage: 'Analyze'
       });
     } catch {
@@ -309,6 +300,7 @@ export default function CockpitLandingClient() {
               <div className="moat-row"><span>Fragility index</span><span>{analysis.fragility ?? '—'}</span></div>
             </div>
             {analysis.reasons.length > 0 ? <p className="board-sub">{analysis.reasons.join(' · ')}</p> : null}
+            {analysis.traceId ? <p className="board-sub">{statusText}</p> : null}
           </div>
 
           <div className="ticket-cta-row">
@@ -322,9 +314,13 @@ export default function CockpitLandingClient() {
       <section className="pipeline-strip" aria-label="Run trace strip">
         <span id="trace-chip">{analysis.traceId}</span>
         <div className="stage-row">
-          {(['Before', 'Analyze', 'During', 'After'] as Stage[]).map((stage) => (
-            <div key={stage} className={`stage ${analysis.stage === stage ? 'active' : ''}`}>{stage}{stage === 'During' || stage === 'After' ? ' (preview)' : ''}</div>
-          ))}
+          {(['Before', 'Analyze', 'During', 'After'] as Stage[]).map((stage) => {
+            const active = (stage === 'Before' && latestStage === 'created')
+              || (stage === 'Analyze' && (latestStage === 'analyzing' || latestStage === 'ready'))
+              || (stage === 'During' && latestStage === 'complete')
+              || (stage === 'After' && latestStage === 'complete');
+            return <div key={stage} className={`stage ${active ? 'active' : ''}`}>{stage}{stage === 'During' || stage === 'After' ? ' (preview)' : ''}</div>;
+          })}
         </div>
       </section>
 

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { toHref as buildHref } from '@/src/core/nervous/routes';
-import { DEFAULT_SPINE, parseSpineFromSearch, type QuerySpine } from '@/src/core/nervous/spine';
+import { DEFAULT_SPINE, normalizeSpine, parseSpineFromSearch, type QuerySpine } from '@/src/core/nervous/spine';
 
 type Ctx = QuerySpine & {
   toHref: (path: string, overrides?: Partial<QuerySpine> & Record<string, string | number | undefined>) => string;
@@ -13,7 +13,7 @@ const NervousSystemContext = createContext<Ctx | null>(null);
 
 const readFromSearch = (): QuerySpine => {
   if (typeof window === 'undefined') return DEFAULT_SPINE;
-  return parseSpineFromSearch(window.location.search);
+  return normalizeSpine(parseSpineFromSearch(new URLSearchParams(window.location.search)));
 };
 
 export function NervousSystemProvider({ children }: { children: React.ReactNode }) {

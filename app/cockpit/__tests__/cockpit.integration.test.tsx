@@ -77,16 +77,10 @@ describe('cockpit route integration', () => {
           ] } })
         } as Response;
       }
-      if (url.includes('/api/slips/submit')) {
+      if (url.includes('/api/run/stress-test')) {
         return {
           ok: true,
-          json: async () => ({ ok: true, trace_id: 'trace-live', data: { slip_id: '123e4567-e89b-12d3-a456-426614174000', trace_id: 'trace-live', anon_id: 'anon-1', spine: {}, trace: {}, parse: { confidence: 0.8, legs_count: 2, needs_review: false } } })
-        } as Response;
-      }
-      if (url.includes('/api/slips/extract')) {
-        return {
-          ok: true,
-          json: async () => ({ ok: true, trace_id: 'trace-live', data: { slip_id: '123e4567-e89b-12d3-a456-426614174000', trace_id: 'trace-live', extracted_legs: [], leg_insights: [] } })
+          json: async () => ({ trace_id: 'trace-live', spine: { sport: 'NBA', tz: 'America/Phoenix', date: '2026-02-26', mode: 'demo', trace_id: 'trace-live' }, analysis: { weakest_leg: { player: 'J. Tatum' }, correlation_pressure: 0.4, fragility_score: 58, reasons: ['deterministic reason'] }, events_written: true })
         } as Response;
       }
       return { ok: true, json: async () => ({ ok: true }) } as Response;
@@ -103,7 +97,7 @@ describe('cockpit route integration', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Stress test slip' })[0]!);
 
     await waitFor(() => {
-      expect(screen.getByText('trace-live')).toBeTruthy();
+      expect(screen.getByText('deterministic reason')).toBeTruthy();
       expect(screen.getAllByText(/Correlation pressure/).length).toBeGreaterThan(0);
     });
   });

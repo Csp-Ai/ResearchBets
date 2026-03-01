@@ -4,7 +4,8 @@ const SPINE_KEY_SET = new Set<string>(SPINE_KEYS);
 
 export function toHref(path: string, spine: QuerySpine, overrides?: Partial<QuerySpine> & Record<string, string | number | undefined>) {
   const next = normalizeSpine({ ...(spine as Record<string, string | undefined>), ...(overrides as Record<string, string | undefined>) });
-  const params = serializeSpine(next);
+  const serialized = serializeSpine(next);
+  const params = new URLSearchParams(serialized);
   for (const [key, value] of Object.entries(overrides ?? {})) {
     if (value === undefined || value === null || value === '') continue;
     if (SPINE_KEY_SET.has(key)) continue;
