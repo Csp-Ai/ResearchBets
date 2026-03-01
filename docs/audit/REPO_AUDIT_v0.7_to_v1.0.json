@@ -1,0 +1,279 @@
+{
+  "repo": "Csp-Ai/ResearchBets",
+  "audit_date": "2026-03-01T05:40:00Z",
+  "version_target": "v1.0.0",
+  "scorecard": {
+    "spine_continuity": { "score": 3.5, "status": "partial" },
+    "never_empty_truth": { "score": 4.5, "status": "strong" },
+    "during_observability": { "score": 3.5, "status": "partial" },
+    "trust_safe_copy": { "score": 4.0, "status": "mostly" },
+    "performance_first_fold": { "score": 2.5, "status": "needs_work" },
+    "governance_security": { "score": 3.5, "status": "partial" }
+  },
+  "findings": [
+    {
+      "id": "F-001",
+      "category": "A",
+      "title": "Home entry CTAs bypass canonical spine and lose trace_id continuity",
+      "evidence": [
+        {
+          "path": "app/(home)/page.tsx",
+          "lines": "L23-L25",
+          "snippet": "href: `/today?sport=${spine.sport}&tz=${spine.tz}&date=${spine.date}&mode=${spine.mode}`"
+        },
+        {
+          "path": "src/core/nervous/routes.ts",
+          "lines": "L5-L14",
+          "snippet": "export function toHref(path: string, spine: QuerySpine, overrides?: ...)"
+        }
+      ],
+      "impact": {
+        "bettor": "Trace continuity can drop at first click, weakening confidence that context is preserved.",
+        "pm": "Lifecycle attribution across home→product flow becomes noisier.",
+        "ux": "Inconsistent mode/date/sport context after navigation.",
+        "eng": "Duplicated URL composition logic raises regression risk.",
+        "vc": "Undercuts the single-spine product narrative in demos."
+      },
+      "recommendation": [
+        "Replace manual home CTA query-string composition with toHref(...).",
+        "Preserve trace_id in all home-originated product navigations.",
+        "Add a test asserting CTA hrefs carry full spine keys."
+      ],
+      "effort": "S",
+      "risk": "Low"
+    },
+    {
+      "id": "F-002",
+      "category": "A",
+      "title": "Bettor-facing direct-link bypasses remain outside nervous routing helper",
+      "evidence": [
+        {
+          "path": "src/components/bettor/GuidedActionsCard.tsx",
+          "lines": "L37",
+          "snippet": "<Link href=\"/dashboard\" className={actionClass(false)}>Go to Discover</Link>"
+        },
+        {
+          "path": "src/components/landing/PostmortemPreviewCard.tsx",
+          "lines": "L20-L24",
+          "snippet": "<Link href=\"/control?tab=review\" ...>"
+        },
+        {
+          "path": ".tmp-audit/05_nav_bypass.txt",
+          "lines": "command output",
+          "snippet": "direct absolute href matches found in bettor-facing components"
+        }
+      ],
+      "impact": {
+        "bettor": "Context can silently reset when moving between core surfaces.",
+        "pm": "Funnel and step-level continuity metrics fragment.",
+        "ux": "Unexpected context shifts reduce predictability.",
+        "eng": "Repeated bypasses make spine enforcement brittle.",
+        "vc": "Weakens confidence in platform coherence claims."
+      },
+      "recommendation": [
+        "Route bettor-facing links through nervous.toHref/toHref plus appendQuery.",
+        "Allow explicit hard-reset links only with code comments documenting intent.",
+        "Expand tohref guard coverage for bettor/landing surfaces."
+      ],
+      "effort": "M",
+      "risk": "Low"
+    },
+    {
+      "id": "F-003",
+      "category": "B",
+      "title": "ID contract drift: snake_case and camelCase are both emitted at API boundaries",
+      "evidence": [
+        {
+          "path": "app/api/today/route.ts",
+          "lines": "L40-L47",
+          "snippet": "returns trace_id and traceId in same response"
+        },
+        {
+          "path": "app/api/events/route.ts",
+          "lines": "L62-L64, L77, L81, L83",
+          "snippet": "returns trace_id and traceId"
+        },
+        {
+          "path": "src/core/nervous/spine.ts",
+          "lines": "L26",
+          "snippet": "const trace_id = input?.trace_id ?? input?.trace ?? input?.traceId;"
+        }
+      ],
+      "impact": {
+        "bettor": "Potentially inconsistent run stitching across APIs and clients.",
+        "pm": "Ambiguous schema contracts complicate reporting specs.",
+        "ux": "Edge-case desync when consumers choose different field names.",
+        "eng": "Increases adapter and maintenance overhead.",
+        "vc": "Signals weaker contract discipline pre-v1.0."
+      },
+      "recommendation": [
+        "Standardize on snake_case IDs at external boundaries.",
+        "Convert to internal camelCase only within adapters, not API payloads.",
+        "Add tests/guards that reject camelCase ID keys in response contracts."
+      ],
+      "effort": "M",
+      "risk": "Med"
+    },
+    {
+      "id": "F-004",
+      "category": "B",
+      "title": "DURING polling refetches full windows without incremental cursor support",
+      "evidence": [
+        {
+          "path": "src/hooks/useTraceEvents.ts",
+          "lines": "L77, L108-L110",
+          "snippet": "polls /api/events?trace_id=...&limit=... every interval"
+        },
+        {
+          "path": "app/api/events/route.ts",
+          "lines": "L72-L77",
+          "snippet": "GET supports limit only; no since/cursor"
+        }
+      ],
+      "impact": {
+        "bettor": "Real-time feel can degrade under load.",
+        "pm": "Demo reliability and perceived responsiveness suffer.",
+        "ux": "Higher chance of flicker/stale transitions.",
+        "eng": "Unnecessary dedupe/sort and repeated payload transfer.",
+        "vc": "Scalability concerns for concurrent active traces."
+      },
+      "recommendation": [
+        "Add since/cursor support to GET /api/events.",
+        "Update hook to consume deltas and append in order.",
+        "Apply adaptive polling/backoff based on visibility/idle."
+      ],
+      "effort": "M",
+      "risk": "Med"
+    },
+    {
+      "id": "F-005",
+      "category": "C",
+      "title": "Shared chunk near-universality limits practical isolation and hurts first-fold efficiency",
+      "evidence": [
+        {
+          "path": ".tmp-build-output.txt",
+          "lines": "Route summary",
+          "snippet": "First Load JS shared by all 87.7 kB; / route first load 172 kB"
+        },
+        {
+          "path": "docs/audit/shared-chunk-owners.md",
+          "lines": "L13-L14, L33-L34, L58-L60",
+          "snippet": "fd9d1056 and 2117 owned by 37/39 routes (94.9%)"
+        }
+      ],
+      "impact": {
+        "bettor": "Slower initial page load can delay trust signals in first seconds.",
+        "pm": "Potential conversion drop on cold starts.",
+        "ux": "Lower-end devices see more latency.",
+        "eng": "Harder to realize route-level code-splitting gains.",
+        "vc": "Performance story is weaker for scale-readiness."
+      },
+      "recommendation": [
+        "Audit root/shared dependencies and move non-critical code off hot path.",
+        "Increase dynamic/lazy loading for non-essential landing modules.",
+        "Gate CI with route-first-load and near-universal chunk thresholds."
+      ],
+      "effort": "L",
+      "risk": "Med"
+    },
+    {
+      "id": "F-006",
+      "category": "D",
+      "title": "Governor allows known client/server boundary violations",
+      "evidence": [
+        {
+          "path": "scripts/check-governor.mjs",
+          "lines": "L20-L21, L31",
+          "snippet": "knownViolations allowlist; tolerated boundary violations logged"
+        },
+        {
+          "path": ".tmp-audit/07_governance_guards.txt",
+          "lines": "check:governor output",
+          "snippet": "known boundary violations tolerated: ...ResearchPageContent.tsx"
+        }
+      ],
+      "impact": {
+        "bettor": "Boundary bugs can surface as unstable behavior in production-like flows.",
+        "pm": "Green governance checks may mask debt.",
+        "ux": "Client/server mixups can cause brittle rendering/runtime behavior.",
+        "eng": "Tolerances reduce urgency to close architecture gaps.",
+        "vc": "Governance confidence is reduced before v1.0."
+      },
+      "recommendation": [
+        "Remove each allowlisted violation with owner + deadline.",
+        "Fail CI once cleanup PRs land (no tolerated violations).",
+        "Report remaining exceptions as explicit release blockers."
+      ],
+      "effort": "M",
+      "risk": "Med"
+    },
+    {
+      "id": "F-007",
+      "category": "E",
+      "title": "Legacy landing module tree appears orphaned from active route graph",
+      "evidence": [
+        {
+          "path": "src/legacy/landing/LandingHero.tsx",
+          "lines": "L1-L8",
+          "snippet": "legacy module imports from other legacy files"
+        },
+        {
+          "path": "app/(home)/page.tsx",
+          "lines": "L5-L7",
+          "snippet": "active home imports src/components/landing/* instead"
+        },
+        {
+          "path": "rg output",
+          "lines": "src/legacy search",
+          "snippet": "references found only within src/legacy subtree"
+        }
+      ],
+      "impact": {
+        "bettor": "No direct runtime impact, but stale code raises long-term defect risk.",
+        "pm": "Slower audits and onboarding due to ambiguous canonical surface.",
+        "ux": "Risk of accidental reuse of outdated UI patterns.",
+        "eng": "Repo noise and maintenance overhead increase.",
+        "vc": "Deadweight can signal lower engineering hygiene."
+      },
+      "recommendation": [
+        "Verify no hidden runtime/test dependency on src/legacy/landing.",
+        "Archive or remove orphaned legacy modules.",
+        "Add periodic dead-code scans for src/legacy."
+      ],
+      "effort": "S",
+      "risk": "Low"
+    }
+  ],
+  "pr_plan": [
+    {
+      "id": "PR-1",
+      "title": "Spine continuity hardening across home + bettor surfaces",
+      "scope": "<=10 files",
+      "changes": [
+        "Replace manual absolute href/query-string CTAs with toHref/nervous.toHref.",
+        "Add coverage in routing guard for bettor-facing directories.",
+        "Add focused tests on CTA spine preservation."
+      ]
+    },
+    {
+      "id": "PR-2",
+      "title": "Boundary contract normalization to snake_case IDs",
+      "scope": "<=10 files",
+      "changes": [
+        "Standardize API responses on trace_id/slip_id only.",
+        "Use adapters for internal camelCase mapping if needed.",
+        "Add route contract tests for today/events/slips endpoints."
+      ]
+    },
+    {
+      "id": "PR-3",
+      "title": "Incremental DURING event retrieval",
+      "scope": "<=10 files",
+      "changes": [
+        "Add since/cursor support in /api/events GET.",
+        "Update useTraceEvents to fetch deltas and append in order.",
+        "Add tracker polling/backoff tests."
+      ]
+    }
+  ]
+}
