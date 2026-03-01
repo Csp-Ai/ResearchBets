@@ -29,4 +29,29 @@ describe('/api/today GET', () => {
     expect(Array.isArray(payload.board.props)).toBe(true);
     expect(payload.board.props.length).toBeGreaterThan(0);
   });
+
+  it('returns stable hard_error envelope on unhandled resolver failures', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => {
+        throw new Error('boom');
+      })
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as {
+      spine: { sport: string; tz: string; date: string; mode: string };
+      provenance: { mode: string; reason?: string };
+      board: { props: unknown[]; games: unknown[] };
+    };
+
+    expect(payload.provenance.mode).toBe('demo');
+    expect(payload.provenance.reason).toBe('hard_error');
+    expect(payload.spine).toMatchObject({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
+    expect(payload.spine.mode).toBe('demo');
+    expect(payload.board.props.length).toBeGreaterThan(0);
+    expect(payload.board.games.length).toBeGreaterThan(0);
+  });
 });

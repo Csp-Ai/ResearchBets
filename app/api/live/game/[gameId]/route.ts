@@ -7,6 +7,8 @@ import {
   resolveTraceId,
   successEnvelope
 } from '../../../../../src/core/api/envelope';
+import { normalizeSpine } from '../../../../../src/core/nervous/spine';
+import { ensureTraceId } from '../../../../../src/core/trace/trace_id';
 import { emitLivePageEvent, getCachedQuickModel } from '../../../../../src/core/live/liveModel';
 import { getPlayerPropsMomentum } from '../../../../../src/core/live/playerProps';
 import { evaluateHeuristicMicrostructure } from '../../../../../src/core/heuristics/microstructure';
@@ -18,7 +20,8 @@ export async function GET(request: Request, { params }: { params: { gameId: stri
   const { searchParams } = new URL(request.url);
   const registryGame = resolveGameFromRegistry(params.gameId);
   const sport = searchParams.get('sport') ?? registryGame?.league ?? 'NFL';
-  const traceId = resolveTraceId(request);
+  const requestedTraceId = resolveTraceId(request);
+  const { trace_id: traceId } = ensureTraceId(normalizeSpine({ trace_id: requestedTraceId ?? undefined }));
   const runId = `live_game_${randomUUID()}`;
 
   const snapshotResult = MarketSnapshotSchema.safeParse(await getMarketSnapshot({ sport }));

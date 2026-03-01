@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorEnvelope, resolveTraceId, successEnvelope } from '../../../../src/core/api/envelope';
+import { normalizeSpine } from '../../../../src/core/nervous/spine';
+import { ensureTraceId } from '../../../../src/core/trace/trace_id';
 import { getOrRunQuickModel } from '../../../../src/core/live/liveModel';
 import { getMarketSnapshot } from '../../../../src/core/markets/marketData';
 
@@ -13,7 +15,8 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   const body = bodySchema.parse(await request.json());
-  const traceId = resolveTraceId(request, body.traceId);
+  const requestedTraceId = resolveTraceId(request, body.traceId);
+  const { trace_id: traceId } = ensureTraceId(normalizeSpine({ trace_id: requestedTraceId ?? undefined }));
   const snapshot = await getMarketSnapshot({ sport: body.sport });
   const game = snapshot.games.find((item) => item.gameId === body.gameId);
   if (!game)

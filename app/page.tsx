@@ -1,10 +1,11 @@
-import { BettorCockpitLanding } from '@/src/components/landing/BettorCockpitLanding';
-import { NervousSystemProvider } from '@/src/components/nervous/NervousSystemContext';
+import { redirect } from 'next/navigation';
 
-export default function HomePage() {
-  return (
-    <NervousSystemProvider>
-      <BettorCockpitLanding />
-    </NervousSystemProvider>
-  );
+import { buildCockpitEntryHref } from '@/src/core/routing/cockpitEntry';
+
+export default function HomePage({
+  searchParams
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  redirect(buildCockpitEntryHref(searchParams));
 }
