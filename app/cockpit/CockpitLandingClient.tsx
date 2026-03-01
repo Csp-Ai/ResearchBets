@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
+import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { parseSlipExtractEnvelope, parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
 import type { MarketType } from '@/src/core/markets/marketType';
@@ -34,7 +35,7 @@ export default function CockpitLandingClient() {
   const router = useRouter();
   const nervous = useNervousSystem();
   const { board, neutralStatus } = useCockpitToday(nervous);
-  const { slip, addLeg, removeLeg } = useDraftSlip();
+  const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
 
   const [query, setQuery] = useState('');
   const [email, setEmail] = useState('');
@@ -50,7 +51,8 @@ export default function CockpitLandingClient() {
     stage: 'Before' as Stage
   });
   const [ui, setUi] = useState({
-    drawerOpen: false,
+    navDrawerOpen: false,
+    slipSheetOpen: false,
     pasteModalOpen: false,
     saveModalOpen: false,
     accountOpen: false,
@@ -78,7 +80,7 @@ export default function CockpitLandingClient() {
   const stressEnabled = legCount >= 2;
 
   const closeOverlays = useCallback(() => {
-    setUi((prev) => ({ ...prev, drawerOpen: false, pasteModalOpen: false, saveModalOpen: false, accountOpen: false, tzOpen: false }));
+    setUi((prev) => ({ ...prev, navDrawerOpen: false, slipSheetOpen: false, pasteModalOpen: false, saveModalOpen: false, accountOpen: false, tzOpen: false }));
   }, []);
 
   useEffect(() => {
@@ -110,6 +112,32 @@ export default function CockpitLandingClient() {
   };
 
   const onRemove = (id: string) => removeLeg(id);
+
+  const onEditLeg = (id: string, field: 'line' | 'odds', value: string) => {
+    const existing = slip.find((leg) => leg.id === id);
+    if (!existing) return;
+    updateLeg({ ...existing, [field]: value });
+  };
+
+  const compactLine = useMemo(() => {
+    const structure = buildSlipStructureReport(slip.map((leg) => ({
+      id: leg.id,
+      player: leg.player,
+      market: leg.marketType,
+      line: leg.line,
+      odds: leg.odds,
+      game: leg.game
+    })));
+    if (structure.legs.length === 0) return { hitEstimate: '—', breakEven: '—', gap: '—' };
+    const avgFragility = structure.legs.reduce((sum, leg) => sum + (leg.fragility_score ?? 50), 0) / structure.legs.length;
+    const hitEstimateValue = Math.max(5, Math.min(95, Math.round(100 - avgFragility)));
+    const breakEvenValue = 52;
+    const gapValue = hitEstimateValue - breakEvenValue;
+    const hitEstimate = `${hitEstimateValue}%`;
+    const breakEven = `${breakEvenValue}%`;
+    const gap = `${gapValue > 0 ? '+' : ''}${gapValue}%`;
+    return { hitEstimate, breakEven, gap };
+  }, [slip]);
 
   const toggleAccordion = (id: string) => {
     setUi((prev) => {
@@ -214,7 +242,7 @@ export default function CockpitLandingClient() {
               </div>
             )}
           </div>
-          <button className="hamburger" aria-label="Open navigation menu" aria-expanded={ui.drawerOpen} onClick={() => setUi((p) => ({ ...p, drawerOpen: !p.drawerOpen }))}><span /><span /><span /></button>
+          <button className="hamburger" aria-label="Open navigation menu" aria-expanded={ui.navDrawerOpen} onClick={() => setUi((p) => ({ ...p, navDrawerOpen: !p.navDrawerOpen }))}><span /><span /><span /></button>
         </div>
       </header>
 
@@ -252,7 +280,7 @@ export default function CockpitLandingClient() {
           </div>
         </div>
 
-        <div className="panel" id="ticket-panel">
+        <div className="panel desktop-ticket-panel" id="ticket-panel">
           <div id="ticket-scan-sweep" />
           <div className="panel-header">
             <span className="panel-title">Draft Ticket</span>
@@ -284,7 +312,7 @@ export default function CockpitLandingClient() {
           </div>
 
           <div className="ticket-cta-row">
-            <button className={`btn-secondary ${stressEnabled ? 'enabled' : ''}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run Stress Test</button>
+            <button className={`btn-secondary ${stressEnabled ? 'enabled' : ''}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Stress test slip</button>
             <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: true }))}>Save Analysis</button>
           </div>
           {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="btn-primary" style={{ marginTop: 10, display: 'inline-block' }}>Continue to Track</Link> : null}
@@ -309,8 +337,59 @@ export default function CockpitLandingClient() {
 
       <footer className="cockpit-footer"><button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Slip</button></footer>
 
-      <div className={`drawer-overlay ${ui.drawerOpen ? 'open' : ''}`} onClick={() => setUi((p) => ({ ...p, drawerOpen: false }))} />
-      <aside id="drawer" className={ui.drawerOpen ? 'open' : ''} aria-hidden={!ui.drawerOpen}><button className="drawer-close" onClick={() => setUi((p) => ({ ...p, drawerOpen: false }))}>Close</button><nav><a href="#hero">Hero</a><a href="#cockpit">Cockpit</a></nav></aside>
+      <section className="mobile-slip-bar" aria-label="Slip Bar" data-testid="mobile-slip-bar">
+        <div>
+          <p className="mobile-slip-count">{legCount} {legCount === 1 ? 'leg' : 'legs'}</p>
+          <p className="mobile-slip-line">Hit est {compactLine.hitEstimate} · Break-even {compactLine.breakEven} · Gap {compactLine.gap}</p>
+        </div>
+        <button className="btn-primary" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: true }))}>Open slip</button>
+      </section>
+
+      <div
+        className={`slip-sheet-overlay ${ui.slipSheetOpen ? 'open' : ''}`}
+        onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))}
+        aria-hidden={!ui.slipSheetOpen}
+      />
+      <aside className={`slip-sheet ${ui.slipSheetOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Slip drawer" data-testid="slip-sheet">
+        <div className="slip-sheet-head">
+          <h2>Draft slip</h2>
+          <button className="remove-btn" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))} aria-label="Close slip drawer">✕</button>
+        </div>
+        <div className="slip-sheet-body">
+          {legCount === 0 ? (
+            <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">Add 2–4 legs to isolate pressure.</div></div>
+          ) : (
+            <div className="ticket-legs" role="list">
+              {slip.map((leg) => (
+                <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
+                  <div>
+                    <div className="ticket-leg-main">{leg.player} · {leg.marketType}</div>
+                    <div className="ticket-leg-sub">{leg.game ?? '—'}</div>
+                    <div className="sheet-edit-row">
+                      <label>
+                        <span>Line</span>
+                        <input value={leg.line} onChange={(e) => onEditLeg(leg.id, 'line', e.target.value)} />
+                      </label>
+                      <label>
+                        <span>Odds</span>
+                        <input value={leg.odds ?? ''} onChange={(e) => onEditLeg(leg.id, 'odds', e.target.value)} />
+                      </label>
+                    </div>
+                  </div>
+                  <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="slip-sheet-actions">
+          <Link href={nervous.toHref('/stress-test', { trace_id: analysis.traceId || nervous.trace_id })} className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={(event) => { if (!stressEnabled) event.preventDefault(); }}>Stress test slip</Link>
+          <Link href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })} className="btn-secondary">Try sample slip</Link>
+        </div>
+      </aside>
+
+      <div className={`drawer-overlay ${ui.navDrawerOpen ? 'open' : ''}`} onClick={() => setUi((p) => ({ ...p, navDrawerOpen: false }))} />
+      <aside id="drawer" className={ui.navDrawerOpen ? 'open' : ''} aria-hidden={!ui.navDrawerOpen}><button className="drawer-close" onClick={() => setUi((p) => ({ ...p, navDrawerOpen: false }))}>Close</button><nav><a href="#hero">Hero</a><a href="#cockpit">Cockpit</a></nav></aside>
 
       <div className={`modal-overlay ${ui.pasteModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, pasteModalOpen: false }))}>
         <div className="modal"><h2>Paste Slip</h2><textarea ref={pasteInputRef} placeholder="Paste slips to ingest through submit + extract." /><button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: false }))}>Close</button></div>

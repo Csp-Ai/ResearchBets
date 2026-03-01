@@ -6,8 +6,12 @@ import { motion } from 'framer-motion';
 import { AgentNetworkBackground } from '@/src/legacy/landing/AgentNetworkBackground';
 import { HeroDepthLayer } from '@/src/legacy/landing/HeroDepthLayer';
 import { sectionRevealVariants, staggerGroup, staggerItem } from '@/src/legacy/landing/motionTokens';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 export function LandingHero() {
+  const nervous = useNervousSystem();
+
   return (
     <motion.section variants={sectionRevealVariants} initial="hidden" animate="visible" className="relative isolate min-h-[84vh] overflow-x-hidden px-4 py-8 sm:px-6 lg:px-10">
       <HeroDepthLayer />
@@ -20,8 +24,8 @@ export function LandingHero() {
           <motion.h1 variants={staggerItem} className="mt-2 max-w-[16ch] text-4xl font-semibold leading-tight sm:text-5xl">From slip to insight in seconds.</motion.h1>
           <motion.p variants={staggerItem} className="mt-3 max-w-xl text-sm text-slate-200">Paste a slip, get ranked leg risk, and inspect evidence only when you need it. No account required to start.</motion.p>
           <motion.div variants={staggerItem} className="mt-5 flex flex-wrap gap-3">
-            <Link href="/ingest" className="interactive-button rounded-md bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950">Start with a slip</Link>
-            <Link href="/research?demo=1" className="interactive-button rounded-md border border-slate-500 bg-slate-900/80 px-5 py-2.5 text-sm font-medium text-slate-100">Watch demo replay</Link>
+            <Link href={nervous.toHref('/slip')} className="interactive-button rounded-md bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950">Start with a slip</Link>
+            <Link href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })} className="interactive-button rounded-md border border-slate-500 bg-slate-900/80 px-5 py-2.5 text-sm font-medium text-slate-100">Watch demo replay</Link>
           </motion.div>
         </div>
 

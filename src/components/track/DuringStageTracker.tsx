@@ -139,7 +139,7 @@ export function DuringStageTracker({ trace_id, mode, compact = false }: { trace_
         <p className="text-sm font-medium text-slate-100">Attach to run</p>
         <p className="text-xs text-slate-300">Connect this view to a run to watch DURING stages update in real time.</p>
         <div className="mt-2 flex gap-2 text-xs">
-          <Link href={appendQuery(nervous.toHref('/research'), {})} className="rounded border border-cyan-300/50 px-2 py-1 text-cyan-100">Open latest run</Link>
+          <Link href={appendQuery(nervous.toHref('/stress-test'), {})} className="rounded border border-cyan-300/50 px-2 py-1 text-cyan-100">Open latest run</Link>
           <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded border border-white/20 px-2 py-1">Run sample slip</Link>
         </div>
       </section>
