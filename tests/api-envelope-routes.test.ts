@@ -120,4 +120,12 @@ describe('API envelope contract', () => {
     expect(notFoundJson.error_code).toBe('game_not_found');
     expect(notFoundJson.trace_id).toBe('t_model_nf');
   });
+
+  it('does not implicitly create trace ids when absent', async () => {
+    const response = await searchGames(new Request('http://localhost/api/games/search?q=NFL_DEMO_1'));
+    const json = (await response.json()) as Record<string, unknown>;
+
+    expectEnvelopeKeys(json);
+    expect(json.trace_id).toBeNull();
+  });
 });

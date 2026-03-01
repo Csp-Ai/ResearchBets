@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildCockpitEntryHref } from '@/src/core/routing/cockpitEntry';
+import { normalizeSpine } from '@/src/core/nervous/spine';
+import { toHref } from '@/src/core/nervous/routes';
 
 describe('cockpit canonical entry redirects', () => {
   afterEach(() => {
@@ -34,14 +36,19 @@ describe('cockpit canonical entry redirects', () => {
     expect(href).toBe('/cockpit?sport=NFL&tz=America%2FNew_York&date=2026-02-28&mode=cache&trace_id=trace_custom&foo=bar');
   });
 
-  it('home page renders landing without server redirect', async () => {
-    const redirect = vi.fn();
+  it('home page redirects to cockpit and preserves query', async () => {
+    const redirect = vi.fn((to: string) => {
+      throw new Error(`REDIRECT:${to}`);
+    });
 
     vi.doMock('next/navigation', () => ({ redirect }));
     const mod = await import('@/app/page');
 
-    expect(() => mod.default()).not.toThrow();
-    expect(redirect).not.toHaveBeenCalled();
+    expect(() => mod.default({ searchParams: { trace_id: 'trace_root', source: 'root' } })).toThrow(
+      'REDIRECT:/cockpit?sport=NBA&tz=America%2FPhoenix&date='
+    );
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace_root'));
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining('source=root'));
   });
 
   it('landing alias redirects to cockpit and preserves query', async () => {
@@ -57,5 +64,26 @@ describe('cockpit canonical entry redirects', () => {
     );
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace_legacy'));
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining('source=legacy'));
+  });
+
+  it('live alias uses canonical toHref tab redirect and preserves spine keys', async () => {
+    const redirect = vi.fn((to: string) => {
+      throw new Error(`REDIRECT:${to}`);
+    });
+
+    vi.doMock('next/navigation', () => ({ redirect }));
+    const mod = await import('@/app/(product)/live/page');
+
+    const input = {
+      trace_id: 'trace-live',
+      sport: 'nfl',
+      tz: 'UTC',
+      date: '2026-02-28',
+      mode: 'cache'
+    };
+
+    const expected = toHref('/control', normalizeSpine(input), { tab: 'live' });
+    expect(() => mod.default({ searchParams: input })).toThrow(`REDIRECT:${expected}`);
+    expect(redirect).toHaveBeenCalledWith(expected);
   });
 });
