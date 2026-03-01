@@ -1,6 +1,7 @@
 import React from 'react';
+import dynamic from 'next/dynamic';
 
-import HomeLandingClient from '@/app/HomeLandingClient';
+const HomeLandingClient = dynamic(() => import('@/app/HomeLandingClient'), { ssr: false });
 import { BoardPreviewSSR, getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
 import { BDAStrip, Credibility30s, TrustNote } from '@/src/components/landing/LandingCompactModules';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
