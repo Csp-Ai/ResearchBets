@@ -21,24 +21,24 @@ vi.mock('@/src/components/landing/BoardPreviewSSR', () => ({
   getLandingSpineFromSearch: () => ({ sport: 'NBA', tz: 'America/New_York', date: '2026-01-01', mode: 'demo', trace_id: 'trace_home' })
 }));
 
-vi.mock('@/app/HomeLandingClientV3', () => ({
-  default: () => <section aria-label="home-landing-v3-mock"><h1>Find the weakest leg before you place it.</h1><p>Build from tonight&apos;s board, run Stress Test, and review the loop.</p></section>
+vi.mock('@/app/HomeLandingClientV4', () => ({
+  default: () => <section aria-label="home-landing-v4-mock"><h1>Landing V4 cockpit</h1><p>Board + Draft Ticket + Nervous System</p></section>
 }));
 
 describe('Unified home landing', () => {
   const renderHome = () => renderWithProviders(<HomePage searchParams={{ mode: 'demo' }} />);
 
-  it('renders the v3 first fold shell', async () => {
+  it('renders the v4 first fold shell', async () => {
     renderHome();
 
-    expect(await screen.findByText('Find the weakest leg before you place it.')).toBeTruthy();
-    expect(screen.getByText('Build from tonight\'s board, run Stress Test, and review the loop.')).toBeTruthy();
+    expect(await screen.findByText('Landing V4 cockpit')).toBeTruthy();
+    expect(screen.getByText('Board + Draft Ticket + Nervous System')).toBeTruthy();
   });
 
-  it('renders landing container and v3 mount', async () => {
+  it('renders landing container and v4 mount', async () => {
     renderHome();
 
-    expect((await screen.findAllByLabelText('home-landing-v3-mock')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText('home-landing-v4-mock')).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('main').length).toBeGreaterThan(0);
   });
 });

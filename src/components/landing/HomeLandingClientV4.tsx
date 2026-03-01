@@ -7,8 +7,8 @@ import { AfterPreviewMini } from '@/src/components/landing/AfterPreviewMini';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { BoardMini, type BoardRow } from '@/src/components/landing/BoardMini';
 import { DuringPreviewMini } from '@/src/components/landing/DuringPreviewMini';
+import { NervousSystemStrip } from '@/src/components/landing/NervousSystemStrip';
 import { QuickSlipRailMini } from '@/src/components/landing/QuickSlipRailMini';
-import { RunPulseStrip } from '@/src/components/landing/RunPulseStrip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { asMarketType } from '@/src/core/markets/marketType';
 import type { QuerySpine } from '@/src/core/nervous/spine';
@@ -70,7 +70,12 @@ function weakestLegLabel(legs: SlipBuilderLeg[]): string {
   return `${weakest.player} ${weakest.line} ${weakest.marketType.toUpperCase()}`;
 }
 
-export default function HomeLandingClientV3({ spine }: { spine: QuerySpine }) {
+const SAMPLE_ROWS: BoardRow[] = [
+  { id: 'sample_1', matchup: 'NYK @ BOS', player: 'Jalen Brunson', market: 'assists', line: '6.5', odds: '-115', hitRateL10: 62, riskTag: 'watch' },
+  { id: 'sample_2', matchup: 'NYK @ BOS', player: 'Jaylen Brown', market: 'points', line: '22.5', odds: '-108', hitRateL10: 58, riskTag: 'stable' },
+];
+
+export default function HomeLandingClientV4({ spine }: { spine: QuerySpine }) {
   const nervous = useNervousSystem();
   const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
   const [payload, setPayload] = useState<TodayPayload | null>(null);
@@ -79,6 +84,8 @@ export default function HomeLandingClientV3({ spine }: { spine: QuerySpine }) {
   const [flashLegId, setFlashLegId] = useState<string | null>(null);
   const [duringOpen, setDuringOpen] = useState(false);
   const [afterOpen, setAfterOpen] = useState(false);
+  const [howOpen, setHowOpen] = useState(false);
+  const [hasOpenTickets, setHasOpenTickets] = useState(false);
 
   useEffect(() => {
     setLatestTraceId(getLatestTraceId());
@@ -99,6 +106,17 @@ export default function HomeLandingClientV3({ spine }: { spine: QuerySpine }) {
       .finally(() => {
         if (active) setLoading(false);
       });
+
+    fetch('/api/live/tickets', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json: { tickets?: unknown[] }) => {
+        if (!active) return;
+        setHasOpenTickets((json.tickets ?? []).length > 0);
+      })
+      .catch(() => {
+        if (active) setHasOpenTickets(false);
+      });
+
     return () => {
       active = false;
     };
@@ -132,45 +150,43 @@ export default function HomeLandingClientV3({ spine }: { spine: QuerySpine }) {
 
   const traceId = spine.trace_id || latestTraceId || undefined;
   const stressHref = appendQuery(nervous.toHref('/stress-test', { ...spine, trace_id: traceId }), {});
-  const buildHref = appendQuery(nervous.toHref('/stress-test', { ...spine }), { tab: 'slip' });
+  const buildHref = appendQuery(nervous.toHref('/today', { ...spine }), {});
+  const latestRunHref = traceId ? appendQuery(nervous.toHref(`/traces/${traceId}`, { ...spine, trace_id: traceId }), {}) : undefined;
+  const openTicketsHref = hasOpenTickets ? appendQuery(nervous.toHref('/track', { ...spine, trace_id: traceId }), {}) : undefined;
+
+  const appendRow = (row: BoardRow) => {
+    addLeg(toLeg(row));
+    setFlashLegId(row.id);
+  };
+
+  const addSampleSlip = () => {
+    SAMPLE_ROWS.forEach((row) => appendRow(row));
+  };
 
   return (
-    <section className="space-y-4" aria-label="home-landing-v3">
-      <header className="rounded-2xl border border-white/10 bg-slate-900/75 p-5 sm:p-6">
-        <p className="text-xs uppercase tracking-[0.18em] text-cyan-200">ResearchBets</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Find the weakest leg before you place it.</h1>
-        <p className="mt-1.5 text-sm text-slate-300">Build from tonight&apos;s board, run Stress Test, and review the loop.</p>
-      </header>
-
+    <section className="space-y-4" aria-label="home-landing-v4">
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <BoardMini
-          rows={boardRows}
-          loading={loading}
-          modeCopy={MODE_COPY[mode]}
-          onAddLeg={(row) => {
-            addLeg(toLeg(row));
-            setFlashLegId(row.id);
-          }}
-        />
+        <BoardMini rows={boardRows} loading={loading} modeCopy={MODE_COPY[mode]} onAddLeg={appendRow} />
 
-        <div className="space-y-3">
-          <QuickSlipRailMini
-            slip={slip}
-            weakestLeg={weakestLegLabel(slip)}
-            correlationLabel={correlationLabel}
-            fragility={intel.fragilityScore}
-            flashLegId={flashLegId}
-            onUpdateLeg={updateLeg}
-            onRemoveLeg={removeLeg}
-            stressHref={stressHref}
-            buildHref={buildHref}
-            onTrySampleSlip={() => undefined}
-          />
-          <RunPulseStrip traceId={traceId} spine={spine} />
-        </div>
+        <QuickSlipRailMini
+          slip={slip}
+          weakestLeg={weakestLegLabel(slip)}
+          correlationLabel={correlationLabel}
+          fragility={intel.fragilityScore}
+          flashLegId={flashLegId}
+          onUpdateLeg={updateLeg}
+          onRemoveLeg={removeLeg}
+          stressHref={stressHref}
+          buildHref={buildHref}
+          latestRunHref={latestRunHref}
+          openTicketsHref={openTicketsHref}
+          onTrySampleSlip={addSampleSlip}
+        />
       </div>
 
-      <section className="rounded-2xl border border-white/10 bg-slate-900/55 p-3 sm:p-4" aria-label="loop-previews">
+      <NervousSystemStrip traceId={traceId} spine={spine} />
+
+      <section className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/55 p-3 sm:p-4" aria-label="loop-previews">
         <button
           type="button"
           className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
@@ -180,18 +196,35 @@ export default function HomeLandingClientV3({ spine }: { spine: QuerySpine }) {
           <span>What you&apos;ll see DURING</span>
           <span aria-hidden>{duringOpen ? '▾' : '▸'}</span>
         </button>
-        {duringOpen ? <DuringPreviewMini /> : null}
+        <div className={`overflow-hidden transition-all duration-300 ${duringOpen ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <DuringPreviewMini />
+        </div>
 
         <button
           type="button"
-          className="mt-2 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+          className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
           aria-expanded={afterOpen}
           onClick={() => setAfterOpen((prev) => !prev)}
         >
           <span>AFTER preview</span>
           <span aria-hidden>{afterOpen ? '▾' : '▸'}</span>
         </button>
-        {afterOpen ? <AfterPreviewMini /> : null}
+        <div className={`overflow-hidden transition-all duration-300 ${afterOpen ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <AfterPreviewMini />
+        </div>
+
+        <button
+          type="button"
+          className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+          aria-expanded={howOpen}
+          onClick={() => setHowOpen((prev) => !prev)}
+        >
+          <span>How it works</span>
+          <span aria-hidden>{howOpen ? '▾' : '▸'}</span>
+        </button>
+        <div className={`overflow-hidden transition-all duration-300 ${howOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <p className="px-2 pb-2 text-xs text-slate-300">Before: stage legs from board. During: monitor event drift + risk. After: classify what broke and feed it back into your next ticket.</p>
+        </div>
       </section>
     </section>
   );
