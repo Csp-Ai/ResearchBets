@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+const HARD_RESET_COMMENT = 'continuity-hard-reset-ok';
+
 const targets = [
   'app/(home)/page.tsx',
   'app/HomeLandingClient.tsx',
@@ -8,10 +10,25 @@ const targets = [
   'app/(product)/slip/SlipPageClient.tsx',
   'app/(product)/track/page.tsx',
   'app/(product)/track/TrackPageClient.tsx',
+  'app/(product)/control/ControlPageClient.tsx',
   'src/components/track/DuringStageTracker.tsx',
+  'src/components/bettor/GuidedActionsCard.tsx',
+  'src/components/bettor/BettorFirstBlocks.tsx',
+  'src/components/landing/PostmortemPreviewCard.tsx',
+  'src/components/landing/VerdictMock.tsx',
+  'src/components/landing/RiskGauge.tsx',
+  'src/components/landing/LandingPageClient.tsx',
 ];
 
 const allowlistRaw = new Set();
+
+function isCommentAllowlisted(source, index) {
+  const lineStart = source.lastIndexOf('\n', index) + 1;
+  const lineEndIdx = source.indexOf('\n', index);
+  const lineEnd = lineEndIdx === -1 ? source.length : lineEndIdx;
+  const line = source.slice(lineStart, lineEnd);
+  return line.includes(HARD_RESET_COMMENT);
+}
 const violations = [];
 
 for (const file of targets) {
@@ -28,8 +45,8 @@ for (const file of targets) {
       const rawPath = (match[3] ?? match[2] ?? '').trim();
       if (!rawPath.startsWith('/')) continue;
       const key = `${file}:${rawPath}`;
-      if (allowlistRaw.has(key)) continue;
-      violations.push(`${file}: raw navigation "${rawPath}"`);
+      if (allowlistRaw.has(key) || isCommentAllowlisted(text, match.index ?? 0)) continue;
+      violations.push(`${file}: raw navigation "${rawPath}" (add ${HARD_RESET_COMMENT} comment if intentional hard reset)`);
     }
   }
 

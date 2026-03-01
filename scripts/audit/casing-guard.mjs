@@ -8,7 +8,14 @@ const targets = [
   'app/(product)/slip/SlipPageClient.tsx',
   'app/(product)/track/page.tsx',
   'app/(product)/track/TrackPageClient.tsx',
+  'app/(product)/control/ControlPageClient.tsx',
   'src/components/track/DuringStageTracker.tsx',
+  'src/components/bettor/GuidedActionsCard.tsx',
+  'src/components/bettor/BettorFirstBlocks.tsx',
+  'src/components/landing/PostmortemPreviewCard.tsx',
+  'src/components/landing/VerdictMock.tsx',
+  'src/components/landing/RiskGauge.tsx',
+  'src/components/landing/LandingPageClient.tsx',
 ];
 
 const violations = [];

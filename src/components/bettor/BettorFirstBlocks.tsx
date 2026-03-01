@@ -3,6 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+
 import { Button } from '@/src/components/ui/button';
 import { Chip } from '@/src/components/ui/chip';
 import { Surface } from '@/src/components/ui/surface';
@@ -317,13 +319,14 @@ export function SlipActionsBar({ onRemoveWeakest, onRerun, canTrack }: { onRemov
 }
 
 export function AdvancedDrawer({ children, developerMode }: { children: React.ReactNode; developerMode: boolean }) {
+  const nervous = useNervousSystem();
   const label = developerMode ? 'Run details (optional) (trace/provenance)' : 'Run details (optional)';
 
   return (
     <details className="ui-shell-drawer px-3 py-2" data-testid="advanced-drawer">
       <summary className="cursor-pointer text-xs font-semibold tracking-wide text-muted">{label}</summary>
       <div className="mt-3 space-y-2 text-xs text-subtle">{children}
-        {developerMode ? <Link href="/traces" className="text-link underline">Open run details</Link> : null}
+        {developerMode ? <Link href={nervous.toHref('/traces')} className="text-link underline">Open run details</Link> : null}
       </div>
     </details>
   );

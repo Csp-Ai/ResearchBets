@@ -19,6 +19,14 @@ const inferPhase = (eventName: string): 'BEFORE' | 'DURING' | 'AFTER' => {
   return 'DURING';
 };
 
+
+const filterSince = (events: z.infer<typeof EventEnvelopeSchema>[], since?: string | null) => {
+  if (!since) return events;
+  const sinceTs = Date.parse(since);
+  if (!Number.isFinite(sinceTs)) return events;
+  return events.filter((event) => Date.parse(event.timestamp) > sinceTs);
+};
+
 const asEnvelope = (event: Record<string, unknown>) => EventEnvelopeSchema.parse({
   trace_id: String(event.trace_id ?? event.traceId ?? ''),
   phase: inferPhase(String(event.event_name ?? 'unknown')),
@@ -59,27 +67,29 @@ export async function POST(request: Request) {
     const responseTraceId = 'trace_id' in payload && typeof payload.trace_id === 'string' && payload.trace_id.length > 0
       ? payload.trace_id
       : trace.trace_id;
-    return NextResponse.json({ ok: true, trace_id: responseTraceId, traceId: responseTraceId });
+    return NextResponse.json({ ok: true, trace_id: responseTraceId });
   } catch {
-    return NextResponse.json({ ok: false, error: 'Failed to process event', trace_id: trace.trace_id, traceId: trace.trace_id }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Failed to process event', trace_id: trace.trace_id }, { status: 500 });
   }
 }
 
 export async function GET(request: Request) {
   const trace = getTraceContext(request);
   const { searchParams } = new URL(request.url);
-  const traceId = searchParams.get('trace_id') ?? trace.trace_id;
+  const traceId = searchParams.get('trace_id') ?? searchParams.get('traceId') ?? trace.trace_id;
   const limit = Number(searchParams.get('limit') ?? 25);
+  const since = searchParams.get('since');
 
   try {
     const events = await getRuntimeStore().listEvents({ traceId, limit: Number.isFinite(limit) ? limit : 25 });
     const envelopes = z.array(EventEnvelopeSchema).parse(events.map((event) => asEnvelope(event as Record<string, unknown>)));
-    return NextResponse.json({ ok: true, trace_id: traceId, traceId: traceId, events: envelopes });
+    const filtered = filterSince(envelopes, since);
+    return NextResponse.json({ ok: true, trace_id: traceId, events: filtered });
   } catch (error) {
     if (isMissingAnalyticsSchemaError(error)) {
       logAnalyticsSchemaDegradationOnce('/api/events GET', error);
-      return NextResponse.json({ ok: true, trace_id: traceId, traceId: traceId, events: [] });
+      return NextResponse.json({ ok: true, trace_id: traceId, events: [] });
     }
-    return NextResponse.json({ ok: false, trace_id: traceId, traceId: traceId, events: [], error: 'Failed to list events' }, { status: 500 });
+    return NextResponse.json({ ok: false, trace_id: traceId, events: [], error: 'Failed to list events' }, { status: 500 });
   }
 }

@@ -3,6 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+
 type GuidedActionsCardProps = {
   legsCount: number;
   canSaveBet?: boolean;
@@ -26,6 +28,8 @@ export function GuidedActionsCard({
   onOpenTrace,
   saveBetHref,
 }: GuidedActionsCardProps) {
+  const nervous = useNervousSystem();
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
       <h2 className="text-sm font-semibold text-slate-100">Guided workflow</h2>
@@ -34,7 +38,7 @@ export function GuidedActionsCard({
           <p className="font-medium text-slate-100">Step 1 · Add legs</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" onClick={onPasteSlip} className={actionClass(true)}>Paste slip</button>
-            <Link href="/dashboard" className={actionClass(false)}>Go to Discover</Link>
+            <Link href={nervous.toHref('/dashboard')} className={actionClass(false)}>Go to Discover</Link>
           </div>
         </li>
         <li className="rounded border border-slate-800 bg-slate-950/60 p-3">

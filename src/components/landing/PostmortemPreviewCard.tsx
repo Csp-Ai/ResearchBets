@@ -1,8 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 
+import { appendQuery } from './navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import styles from './landing.module.css';
 
 export function PostmortemPreviewCard() {
+  const nervous = useNervousSystem();
+
   return (
     <section className={styles.postmortemSection}>
       <div className={styles.postmortemInner}>
@@ -17,10 +23,10 @@ export function PostmortemPreviewCard() {
             Control Room and designed for calibration, not hindsight hype.
           </p>
           <div className={styles.postmortemActions}>
-            <Link href="/control?tab=review" className={styles.btnPrimary}>
+            <Link href={appendQuery(nervous.toHref('/control'), { tab: 'review' })} className={styles.btnPrimary}>
               Review results
             </Link>
-            <Link href="/control?tab=review&sample=1" className={styles.btnSecondary}>
+            <Link href={appendQuery(nervous.toHref('/control'), { tab: 'review', sample: 1 })} className={styles.btnSecondary}>
               Try a sample review
             </Link>
           </div>
