@@ -23,7 +23,7 @@ export function RunStatusPill({ traceId, mode, providerHealth, generatedAt, seed
         <span className="rounded-full border border-white/20 px-2 py-1">{modePresentation.label}</span>
         <span>Providers {healthy}/{total || 1}</span>
         <span>{freshness(generatedAt)}</span>
-        <button type="button" onClick={() => { if (traceId && navigator?.clipboard) void navigator.clipboard.writeText(traceId); }} className="text-slate-400">trace_id {traceId?.slice(0, 12) ?? '—'}</button>
+        <button type="button" onClick={() => { if (traceId && navigator?.clipboard) void navigator.clipboard.writeText(traceId); }} className="text-slate-400">Run {traceId?.slice(0, 12) ?? '—'}</button>
         <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded border border-white/20 px-2 py-1">{expanded ? 'Hide details' : 'Expand details'}</button>
       </div>
       <p className="mt-1 text-[11px] text-slate-400">{mode === 'live' ? 'Live board connected.' : mode === 'cache' ? 'Cache board active while feeds recover.' : `Demo board active for ${seedHint ?? 'this spine'}.`}</p>

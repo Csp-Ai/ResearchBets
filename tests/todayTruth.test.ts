@@ -21,4 +21,12 @@ describe('today truth resolver', () => {
     expect(payload.status).toBeDefined();
     expect((payload.board ?? []).length).toBeGreaterThanOrEqual(MIN_BOARD_ROWS);
   });
+
+  it('returns explicit strict_live_empty reason when strict_live requests have no board', async () => {
+    const payload = await resolveToday({ forceRefresh: true, mode: 'live', strictLive: true, sport: 'NBA', date: '1999-01-01', tz: 'America/Phoenix' });
+    if ((payload.board ?? []).length === 0) {
+      expect(payload.reason).toBe('strict_live_empty');
+      expect(payload.mode).toBe('live');
+    }
+  });
 });

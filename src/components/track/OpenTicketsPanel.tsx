@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { DuringCoach } from '@/src/components/track/DuringCoach';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { buildOpenTickets, computeExposureSummary, type LiveCoverageMap, type LiveLegState, type LiveLegUpdate, type OpenTicket } from '@/src/core/live/openTickets';
 import { settleTicket } from '@/src/core/review/settlement';
 import type { TicketSettlementStatus } from '@/src/core/review/types';
@@ -20,6 +22,7 @@ const statusTone: Record<LiveLegState['status'], string> = {
 };
 
 export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) {
+  const nervous = useNervousSystem();
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [autoRefresh, setAutoRefresh] = useState(mode === 'live');
@@ -143,8 +146,8 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
           <p className="font-medium">No open tickets</p>
           <p className="mt-1 text-slate-300">Track a ticket to unlock live pace, kill-risk cues, and cashout context in one strip.</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <Link href="/slip" className="ui-button ui-button-primary min-h-0 px-3 py-1.5">Track a ticket</Link>
-            <Link href="/today" className="ui-button ui-button-ghost min-h-0 px-3 py-1.5">Build from Board</Link>
+            <Link href={appendQuery(nervous.toHref('/slip'), {})} className="ui-button ui-button-primary min-h-0 px-3 py-1.5">Track a ticket</Link>
+            <Link href={appendQuery(nervous.toHref('/today'), {})} className="ui-button ui-button-ghost min-h-0 px-3 py-1.5">Build from Board</Link>
           </div>
         </div>
       ) : (

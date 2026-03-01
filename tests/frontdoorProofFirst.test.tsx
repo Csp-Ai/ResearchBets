@@ -27,5 +27,9 @@ describe('frontdoor proof-first', () => {
     expect(screen.queryByText(/No upcoming slates posted yet/i)).toBeNull();
     const addButtons = screen.getAllByRole('button', { name: /add|added/i });
     expect(addButtons.length).toBeGreaterThanOrEqual(6);
+    expect(document.body.textContent).not.toMatch(/provider_unavailable/i);
+    expect(document.body.textContent).not.toMatch(/trace_id:/i);
+    expect(document.body.textContent).not.toMatch(/unknown leg/i);
+    expect(document.body.textContent).not.toMatch(/trace inspector|developer mode/i);
   });
 });

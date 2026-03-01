@@ -17,7 +17,7 @@ const cleanFlag = (value?: string | null) => (value ? value : 'Unknown');
 const buildLegBullet = (run: Run, extractedLegId: string): string => {
   const extracted = run.extractedLegs.find((leg) => leg.id === extractedLegId);
   const enriched = run.enrichedLegs.find((leg) => leg.extractedLegId === extractedLegId);
-  if (!extracted || !enriched) return '- Unknown leg — data unavailable';
+  if (!extracted || !enriched) return '- Leg details unavailable right now';
 
   const flags = [
     `Injury ${cleanFlag(enriched.flags.injury)}`,

@@ -18,6 +18,7 @@ import { createTrackingFromDraft, loadSlip, saveSlip } from '@/src/core/slips/st
 import { withTraceId } from '@/src/core/trace/queryTrace';
 import { deriveRunHeader, deriveSlipLearningHighlights } from '@/src/core/ui/deriveTruth';
 import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
+import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
 import type { TodayPayload } from '@/src/core/today/types';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
@@ -33,7 +34,7 @@ export function TrackPageClient() {
   const router = useRouter();
   const nervous = useNervousSystem();
   const params = useSearchParams();
-  const slipId = params.get('slipId') ?? '';
+  const slipId = params.get('slip_id') ?? params.get('slipId') ?? '';
   const [state, setState] = useState<SlipTrackingState | null>(null);
   const [saved, setSaved] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
@@ -82,7 +83,7 @@ export function TrackPageClient() {
     }
     const tracking = createTrackingFromDraft(draft, 'demo');
     saveSlip(tracking);
-    router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slipId: tracking.slipId }));
+    router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slip_id: tracking.slipId }));
   };
 
   const onTracked = () => {
@@ -135,7 +136,7 @@ export function TrackPageClient() {
       DraftSlipStore.setSlip(legs);
       const tracking = createTrackingFromDraft(legs, payload.data.mode);
       saveSlip(tracking);
-      router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slipId: tracking.slipId }));
+      router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slip_id: tracking.slipId }));
     } finally {
       setSampleLoading(false);
     }
@@ -151,6 +152,7 @@ export function TrackPageClient() {
     return (
       <section className="mx-auto max-w-6xl space-y-4 pb-20">
         <OpenTicketsPanel mode={surfaceMode} />
+        <DuringStageTracker trace_id={nervous.trace_id} mode={surfaceMode} />
         {showTrackedToast ? <p className="text-xs text-emerald-200">Slip tracked.</p> : null}
         <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
           {isHydratingTicket ? (
@@ -172,6 +174,7 @@ export function TrackPageClient() {
   return (
     <section className="mx-auto max-w-6xl space-y-4 pb-20">
       <OpenTicketsPanel mode={surfaceMode} />
+      <DuringStageTracker trace_id={nervous.trace_id} mode={surfaceMode} />
       <header className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
         {isHydratingTicket ? (
           <div className="space-y-2" aria-label="Ticket loading">

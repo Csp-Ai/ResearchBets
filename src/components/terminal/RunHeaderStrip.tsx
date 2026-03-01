@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 
 import type { ControlPlaneEvent } from '@/src/components/AgentNodeGraph';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 import { EmptyState } from './AsyncState';
 import { copyToClipboard } from './copyToast';
@@ -21,10 +23,11 @@ export function RunHeaderStrip({
   onRefresh?: () => void;
   viewTraceHref?: string;
 }) {
+  const nervous = useNervousSystem();
   if (!traceId) {
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
-        <EmptyState title="No active run" description="Start an ingest + research run to populate terminal telemetry." action={<Link href="/ingest" className="rounded border border-cyan-700/70 px-2 py-1 text-cyan-200">Go to Ingest</Link>} />
+        <EmptyState title="No active run" description="Start an ingest + research run to populate terminal telemetry." action={<Link href={appendQuery(nervous.toHref('/ingest'), {})} className="rounded border border-cyan-700/70 px-2 py-1 text-cyan-200">Go to Ingest</Link>} />
       </div>
     );
   }

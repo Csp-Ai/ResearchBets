@@ -250,7 +250,21 @@ export async function resolveTodayTruth(options?: {
   }
 
   if (options?.strictLive) {
-    return livePayload ?? getDemoFallback('provider_unavailable');
+    if (livePayload && (livePayload.board?.length ?? 0) > 0) return livePayload;
+    return {
+      ...(livePayload ?? getDemoFallback('provider_unavailable')),
+      mode: 'live',
+      reason: 'strict_live_empty',
+      board: [],
+      games: [],
+      providerErrors: ['strict_live_empty'],
+      landing: {
+        mode: 'live',
+        reason: 'provider_unavailable',
+        gamesCount: 0,
+        lastUpdatedAt: new Date().toISOString(),
+      },
+    };
   }
 
   if (cache?.key === key && (cache.payload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
