@@ -24,7 +24,7 @@ describe('ProBuildPanel', () => {
     expect(screen.getByText(/Hit est:/i)).toBeTruthy();
     fireEvent.click(screen.getByText('Apply 2-leg Pro'));
     expect(onApply).toHaveBeenCalledTimes(1);
-    const picked = onApply.mock.calls[0][0] as typeof legs;
+    const picked = onApply.mock.calls[0]?.[0] as typeof legs;
     expect(picked).toHaveLength(2);
     expect(picked[0]?.id).toBe('1');
   });
@@ -43,7 +43,7 @@ describe('ProBuildPanel', () => {
     render(<ProBuildPanel legs={assistHeavyLegs} onApply={onApply} />);
     fireEvent.click(screen.getAllByText('Apply 3-leg Pro').at(-1)!);
 
-    const picked = onApply.mock.calls[0][0] as typeof assistHeavyLegs;
+    const picked = onApply.mock.calls[0]?.[0] as typeof assistHeavyLegs;
     const assistCount = picked.filter((leg) => leg.marketType === 'assists').length;
     expect(assistCount).toBeLessThanOrEqual(1);
   });

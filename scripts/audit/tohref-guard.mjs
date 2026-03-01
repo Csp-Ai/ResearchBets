@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const HARD_RESET_COMMENT = 'continuity-hard-reset-ok';
 
@@ -32,6 +32,7 @@ function isCommentAllowlisted(source, index) {
 const violations = [];
 
 for (const file of targets) {
+  if (!existsSync(file)) continue;
   const text = readFileSync(file, 'utf8');
 
   const rawNavPatterns = [

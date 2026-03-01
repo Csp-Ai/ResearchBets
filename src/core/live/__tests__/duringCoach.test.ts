@@ -32,7 +32,7 @@ function ticket(legs: LiveLegState[], overrides?: Partial<OpenTicket>): OpenTick
     mode: 'live',
     legs,
     onPaceCount: legs.filter((item) => item.status === 'ahead' || item.status === 'on_pace').length,
-    weakestLeg: legs[0],
+    weakestLeg: legs[0] ?? leg({}),
     coverage: { coverage: 'full', coveredLegs: legs.length, totalLegs: legs.length },
     ...overrides
   };
