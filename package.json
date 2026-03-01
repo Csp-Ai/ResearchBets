@@ -40,7 +40,8 @@
     "audit:ui-regression": "node scripts/audit/ui-regression-guard.mjs",
     "audit:fonts": "node scripts/audit/font-import-guard.mjs",
     "audit:bundle-budget": "node scripts/audit/bundle-budget.mjs",
-    "check:casing": "node scripts/audit/casing-guard.mjs"
+    "check:casing": "node scripts/audit/casing-guard.mjs",
+    "audit:shared-chunk-owners": "node scripts/audit/shared-chunk-owners.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.8",
