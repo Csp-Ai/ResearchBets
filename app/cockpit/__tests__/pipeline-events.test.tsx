@@ -7,7 +7,8 @@ import CockpitLandingClient from '@/app/cockpit/CockpitLandingClient';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn() })
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  usePathname: () => '/cockpit'
 }));
 
 vi.mock('@/src/core/events/useRunEvents', () => ({

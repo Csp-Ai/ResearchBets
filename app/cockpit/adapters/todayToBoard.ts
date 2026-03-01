@@ -21,23 +21,32 @@ const toRisk = (tag?: string): Risk => {
   return 'stable';
 };
 
-export function todayToBoard(payload: TodayPayload): CockpitBoardLeg[] {
-  const boardRows = (payload.board ?? []).map((row) => ({
-    id: row.id,
-    player: row.player,
-    market: row.market,
-    line: row.line ?? '—',
-    odds: row.odds ?? '—',
-    hitRateL10: typeof row.hitRateL10 === 'number' ? row.hitRateL10 : null,
-    riskTag: toRisk(row.riskTag),
-    gameId: row.gameId,
-    matchup: row.matchup ?? row.gameId,
-    startTime: row.startTime ?? 'TBD'
-  }));
+export function todayToBoard(payload: TodayPayload, selectedSport?: string): CockpitBoardLeg[] {
+  const sport = selectedSport?.toUpperCase();
+
+  const boardRows = (payload.board ?? [])
+    .filter((row) => {
+      if (!sport) return true;
+      const game = payload.games.find((entry) => entry.id === row.gameId);
+      if (!game?.league) return true;
+      return game.league.toUpperCase() === sport;
+    })
+    .map((row) => ({
+      id: row.id,
+      player: row.player,
+      market: row.market,
+      line: row.line ?? '—',
+      odds: row.odds ?? '—',
+      hitRateL10: typeof row.hitRateL10 === 'number' ? row.hitRateL10 : null,
+      riskTag: toRisk(row.riskTag),
+      gameId: row.gameId,
+      matchup: row.matchup ?? row.gameId,
+      startTime: row.startTime ?? 'TBD'
+    }));
 
   if (boardRows.length > 0) return boardRows;
 
-  return createDemoTodayPayload().games.flatMap((game) => game.propsPreview.map((prop, index) => ({
+  return createDemoTodayPayload(sport).games.flatMap((game) => game.propsPreview.map((prop, index) => ({
     id: `${game.id}-${prop.id}-${index}`,
     player: prop.player,
     market: prop.market,

@@ -83,8 +83,8 @@ function ensureBoard(payload: TodayPayload): TodayPayload {
   return { ...payload, board };
 }
 
-function getDemoFallback(reason: string): TodayPayload {
-  const demo = createDemoTodayPayload();
+function getDemoFallback(reason: string, sport?: BoardSport): TodayPayload {
+  const demo = createDemoTodayPayload(sport);
   const withBoard = ensureBoard({
     ...demo,
     reason,
@@ -223,7 +223,7 @@ export async function resolveTodayTruth(options?: {
   const key = `${sport}:${tz}:${date}`;
 
   if (mode === 'demo') {
-    return getDemoFallback('demo_requested');
+    return getDemoFallback('demo_requested', sport);
   }
 
   if (!options?.forceRefresh && cache && cache.key === key && cache.expiresAt > Date.now()) {
@@ -252,7 +252,7 @@ export async function resolveTodayTruth(options?: {
   if (options?.strictLive) {
     if (livePayload && (livePayload.board?.length ?? 0) > 0) return livePayload;
     return {
-      ...(livePayload ?? getDemoFallback('provider_unavailable')),
+      ...(livePayload ?? getDemoFallback('provider_unavailable', sport)),
       mode: 'live',
       reason: 'strict_live_empty',
       board: [],
@@ -276,7 +276,7 @@ export async function resolveTodayTruth(options?: {
     });
   }
 
-  return getDemoFallback(livePayload?.reason ?? 'provider_unavailable');
+  return getDemoFallback(livePayload?.reason ?? 'provider_unavailable', sport);
 }
 
 export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?: BoardSport; date?: string; tz?: string; mode?: TodayPayload['mode']; strictLive?: boolean }): Promise<TodayPayload> {
