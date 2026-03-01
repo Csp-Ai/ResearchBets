@@ -3,7 +3,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import ReviewPage from '@/app/review/page';
+import ReviewPage from '@/app/(product)/review/page';
 import { GUARDRAILS_STORAGE_KEY } from '@/src/core/guardrails/localGuardrails';
 
 describe('/review page', () => {

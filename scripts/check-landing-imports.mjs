@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-const targets = ['app/page.tsx', 'app/HomeLandingClient.tsx'];
+const targets = ['app/(home)/page.tsx', 'app/HomeLandingClient.tsx'];
 const blocked = [
   'server-only',
   '@/src/core/pipeline/runSlip',

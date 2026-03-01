@@ -5,13 +5,10 @@ export type QuerySpine = {
   tz: string;
   date: string;
   mode: SpineMode;
-  gameId?: string;
-  propId?: string;
-  slipId?: string;
   trace_id?: string;
 };
 
-export const SPINE_KEYS = ['sport', 'tz', 'date', 'mode', 'gameId', 'propId', 'slipId', 'trace_id'] as const;
+export const SPINE_KEYS = ['sport', 'tz', 'date', 'mode', 'trace_id'] as const;
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -33,9 +30,6 @@ export function normalizeSpine(input?: Record<string, string | null | undefined>
     tz,
     date,
     mode,
-    gameId: input?.gameId || undefined,
-    propId: input?.propId || undefined,
-    slipId: input?.slipId || undefined,
     trace_id: trace_id || undefined
   };
 }
@@ -52,9 +46,6 @@ export function serializeSpine(spine: QuerySpine): URLSearchParams {
   params.set('tz', normalized.tz);
   params.set('date', normalized.date);
   params.set('mode', normalized.mode);
-  if (normalized.gameId) params.set('gameId', normalized.gameId);
-  if (normalized.propId) params.set('propId', normalized.propId);
-  if (normalized.slipId) params.set('slipId', normalized.slipId);
   if (normalized.trace_id) params.set('trace_id', normalized.trace_id);
   return params;
 }

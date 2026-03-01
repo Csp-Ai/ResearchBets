@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs';
 
 const targets = [
-  'app/page.tsx',
+  'app/(home)/page.tsx',
   'app/HomeLandingClient.tsx',
-  'app/today/page.tsx',
-  'app/slip/page.tsx',
-  'app/slip/SlipPageClient.tsx',
-  'app/track/page.tsx',
-  'app/track/TrackPageClient.tsx',
+  'app/(product)/today/page.tsx',
+  'app/(product)/slip/page.tsx',
+  'app/(product)/slip/SlipPageClient.tsx',
+  'app/(product)/track/page.tsx',
+  'app/(product)/track/TrackPageClient.tsx',
   'src/components/track/DuringStageTracker.tsx',
 ];
 

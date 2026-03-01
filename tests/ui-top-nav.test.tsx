@@ -8,14 +8,17 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() })
 }));
 
-import { AppShell } from '../src/components/terminal/AppShell';
+import { NervousSystemProvider } from '@/src/components/nervous/NervousSystemContext';
+import { AppShellProduct } from '@/src/components/terminal/AppShellProduct';
 
-describe('AppShell top nav', () => {
+describe('AppShellProduct top nav', () => {
   it('renders bettor-first navigation labels', async () => {
     render(
-      <AppShell>
-        <div>content</div>
-      </AppShell>
+      <NervousSystemProvider>
+        <AppShellProduct>
+          <div>content</div>
+        </AppShellProduct>
+      </NervousSystemProvider>
     );
 
     expect((await screen.findAllByText('Board')).length).toBeGreaterThan(0);
