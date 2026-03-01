@@ -1,0 +1,214 @@
+{
+  "generatedAt": "2026-03-01T04:36:39.119Z",
+  "manifests": {
+    "appBuildManifest": ".next/app-build-manifest.json",
+    "buildManifest": ".next/build-manifest.json"
+  },
+  "totals": {
+    "routesObserved": 39,
+    "appRoutesObserved": 37,
+    "pagesManifestRoutesObserved": 2
+  },
+  "targetChunkOwners": {
+    "2117": {
+      "pattern": "2117",
+      "chunkFiles": [
+        "static/chunks/2117-830198a307f2900b.js"
+      ],
+      "routeCount": 37,
+      "routeCoverageRatio": 0.9487179487179487,
+      "topRouteOwners": [
+        "/(home)/page",
+        "/(product)/agents/page",
+        "/(product)/bettor-os/page",
+        "/(product)/community/page",
+        "/(product)/control/page",
+        "/(product)/dashboard/page",
+        "/(product)/dev/dashboard/page",
+        "/(product)/dev/governor/page",
+        "/(product)/dev/mirror/page",
+        "/(product)/discover/page",
+        "/(product)/game/[gameId]/page",
+        "/(product)/history/page",
+        "/(product)/ingest/page",
+        "/(product)/journal/[entryId]/page",
+        "/(product)/journal/page"
+      ],
+      "owners": [
+        "/(home)/page",
+        "/(product)/agents/page",
+        "/(product)/bettor-os/page",
+        "/(product)/community/page",
+        "/(product)/control/page",
+        "/(product)/dashboard/page",
+        "/(product)/dev/dashboard/page",
+        "/(product)/dev/governor/page",
+        "/(product)/dev/mirror/page",
+        "/(product)/discover/page",
+        "/(product)/game/[gameId]/page",
+        "/(product)/history/page",
+        "/(product)/ingest/page",
+        "/(product)/journal/[entryId]/page",
+        "/(product)/journal/page",
+        "/(product)/landing/page",
+        "/(product)/layout",
+        "/(product)/live/[gameId]/page",
+        "/(product)/live/page",
+        "/(product)/login/page",
+        "/(product)/pending-bets/page",
+        "/(product)/profile/page",
+        "/(product)/research/page",
+        "/(product)/research/snapshot/[snapshotId]/page",
+        "/(product)/review/page",
+        "/(product)/settings/page",
+        "/(product)/slip/page",
+        "/(product)/slips/new/page",
+        "/(product)/stress-test/page",
+        "/(product)/today/page",
+        "/(product)/tonight/page",
+        "/(product)/traces/[trace_id]/page",
+        "/(product)/traces/page",
+        "/(product)/track/page",
+        "/(product)/u/[username]/page",
+        "/_not-found/page",
+        "/layout"
+      ]
+    },
+    "fd9d1056": {
+      "pattern": "fd9d1056",
+      "chunkFiles": [
+        "static/chunks/fd9d1056-a81371f087f4d64b.js"
+      ],
+      "routeCount": 37,
+      "routeCoverageRatio": 0.9487179487179487,
+      "topRouteOwners": [
+        "/(home)/page",
+        "/(product)/agents/page",
+        "/(product)/bettor-os/page",
+        "/(product)/community/page",
+        "/(product)/control/page",
+        "/(product)/dashboard/page",
+        "/(product)/dev/dashboard/page",
+        "/(product)/dev/governor/page",
+        "/(product)/dev/mirror/page",
+        "/(product)/discover/page",
+        "/(product)/game/[gameId]/page",
+        "/(product)/history/page",
+        "/(product)/ingest/page",
+        "/(product)/journal/[entryId]/page",
+        "/(product)/journal/page"
+      ],
+      "owners": [
+        "/(home)/page",
+        "/(product)/agents/page",
+        "/(product)/bettor-os/page",
+        "/(product)/community/page",
+        "/(product)/control/page",
+        "/(product)/dashboard/page",
+        "/(product)/dev/dashboard/page",
+        "/(product)/dev/governor/page",
+        "/(product)/dev/mirror/page",
+        "/(product)/discover/page",
+        "/(product)/game/[gameId]/page",
+        "/(product)/history/page",
+        "/(product)/ingest/page",
+        "/(product)/journal/[entryId]/page",
+        "/(product)/journal/page",
+        "/(product)/landing/page",
+        "/(product)/layout",
+        "/(product)/live/[gameId]/page",
+        "/(product)/live/page",
+        "/(product)/login/page",
+        "/(product)/pending-bets/page",
+        "/(product)/profile/page",
+        "/(product)/research/page",
+        "/(product)/research/snapshot/[snapshotId]/page",
+        "/(product)/review/page",
+        "/(product)/settings/page",
+        "/(product)/slip/page",
+        "/(product)/slips/new/page",
+        "/(product)/stress-test/page",
+        "/(product)/today/page",
+        "/(product)/tonight/page",
+        "/(product)/traces/[trace_id]/page",
+        "/(product)/traces/page",
+        "/(product)/track/page",
+        "/(product)/u/[username]/page",
+        "/_not-found/page",
+        "/layout"
+      ]
+    }
+  },
+  "commonChunkSet": [
+    "static/chunks/webpack-c89ccf645ad3d101.js"
+  ],
+  "nearUniversalChunks": [
+    {
+      "chunk": "static/chunks/webpack-c89ccf645ad3d101.js",
+      "count": 39,
+      "ratio": 1
+    },
+    {
+      "chunk": "static/chunks/2117-830198a307f2900b.js",
+      "count": 37,
+      "ratio": 0.9487179487179487
+    },
+    {
+      "chunk": "static/chunks/fd9d1056-a81371f087f4d64b.js",
+      "count": 37,
+      "ratio": 0.9487179487179487
+    },
+    {
+      "chunk": "static/chunks/main-app-4c39b7983b4d92e3.js",
+      "count": 37,
+      "ratio": 0.9487179487179487
+    }
+  ],
+  "universalRootCauseGuess": {
+    "candidate": "app/layout.tsx (and Next app runtime) appears in all target chunk owner sets via /layout route entry.",
+    "supportingSegments": [
+      {
+        "segment": "page",
+        "count": 35
+      },
+      {
+        "segment": "(product)",
+        "count": 34
+      },
+      {
+        "segment": "dev",
+        "count": 3
+      },
+      {
+        "segment": "dashboard",
+        "count": 2
+      },
+      {
+        "segment": "[gameId]",
+        "count": 2
+      },
+      {
+        "segment": "journal",
+        "count": 2
+      },
+      {
+        "segment": "layout",
+        "count": 2
+      },
+      {
+        "segment": "live",
+        "count": 2
+      },
+      {
+        "segment": "research",
+        "count": 2
+      },
+      {
+        "segment": "traces",
+        "count": 2
+      }
+    ],
+    "ownerIntersectionCount": 37,
+    "totalRoutesObserved": 39
+  }
+}
