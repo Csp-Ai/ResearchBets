@@ -11,6 +11,7 @@ import '@fontsource/dm-mono/500.css';
 
 import { AppShell } from '@/src/components/terminal/AppShell';
 
+
 import './globals.css';
 
 export const metadata: Metadata = {

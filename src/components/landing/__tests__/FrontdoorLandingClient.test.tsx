@@ -42,7 +42,9 @@ describe('FrontdoorLandingClient live modes', () => {
 
     await waitFor(() => expect(screen.getByTestId('quick-slip-rail')).toBeTruthy());
     expect(screen.getByTestId('quick-slip-empty-state')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Paste slip' })).toBeTruthy();
+    const pasteSlip = screen.getByRole('link', { name: 'Paste slip' });
+    expect(pasteSlip).toBeTruthy();
+    expect(pasteSlip.getAttribute('href')).not.toBe('/slips/new');
     expect(screen.getByRole('link', { name: 'Try sample slip' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Build from Board' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Auto-build 3 safe' })).toBeTruthy();
