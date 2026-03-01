@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { appendQuery } from '@/src/components/landing/navigation';
 import { toHref } from '@/src/core/nervous/routes';
 import { normalizeSpine } from '@/src/core/nervous/spine';
 
@@ -21,6 +22,11 @@ export default function GameContextPage({ params, searchParams }: GamePageProps)
     tab: readFirst(searchParams?.tab)
   });
 
+  const controlHref = appendQuery(toHref('/control', spine, { tab: 'live' }), {
+    gameId: params.gameId,
+    highlight
+  });
+
   return (
     <main style={{ padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
       <h1 style={{ margin: 0 }}>Game context: {params.gameId}</h1>
@@ -30,7 +36,7 @@ export default function GameContextPage({ params, searchParams }: GamePageProps)
           Highlighted prop: <strong>{highlight}</strong>
         </div>
       ) : null}
-      <Link href={toHref('/control', spine, { tab: 'live' })}>Open full live board</Link>
+      <Link href={controlHref}>Open full live board</Link>
     </main>
   );
 }

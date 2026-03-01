@@ -102,6 +102,77 @@ describe('cockpit route integration', () => {
     expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining('mode=demo'));
   });
 
+
+
+  it('shows live credibility strip chips with provenance mode and freshness', async () => {
+    const generatedAt = new Date(Date.now() - 12_000).toISOString();
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      headers: { get: () => null },
+      json: async () => ({
+        ok: true,
+        trace_id: 'trace-1',
+        data: { mode: 'live', generatedAt, leagues: ['NBA'], games: [], board: [] },
+        provenance: { mode: 'live', generatedAt, reason: 'live_ok' }
+      })
+    }) as Response));
+
+    renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
+
+    expect(await screen.findByLabelText('Live credibility strip')).toBeTruthy();
+    expect(screen.getByText('Mode Live')).toBeTruthy();
+    expect(screen.getByText(/Updated \d+s ago/)).toBeTruthy();
+  });
+
+  it('polls /api/today only when served mode is live', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const liveFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({
+        ok: true,
+        trace_id: 'trace-1',
+        data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] },
+        provenance: { mode: 'live', generatedAt: new Date().toISOString(), reason: 'live_ok' }
+      })
+    }) as Response);
+    vi.stubGlobal('fetch', liveFetch);
+
+    renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
+    await screen.findByLabelText('Live credibility strip');
+
+    await waitFor(() => {
+      expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 25000);
+    });
+  });
+
+  it('does not poll /api/today in demo mode and refresh adds refresh=1', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({
+        ok: true,
+        trace_id: 'trace-1',
+        data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] },
+        provenance: { mode: 'demo', generatedAt: new Date().toISOString(), reason: 'provider_unavailable' }
+      })
+    }) as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWithProviders(<CockpitLandingClient />, { mode: 'demo' });
+    await screen.findByLabelText('Live credibility strip');
+
+    expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 25000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('refresh=1'), expect.any(Object));
+    });
+  });
+
   it('renders mobile slip bar and opens drawer', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
