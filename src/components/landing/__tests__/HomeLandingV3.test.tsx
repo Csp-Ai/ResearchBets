@@ -103,7 +103,7 @@ describe('HomeLandingClientV4', () => {
   });
 
   it('renders NervousSystemStrip dormant vs active state', async () => {
-    mockGetLatestTraceId.mockReturnValue(null);
+    mockGetLatestTraceId.mockReturnValue('');
     const { rerender } = renderWithProviders(
       <HomeLandingClientV4 spine={{ sport: 'NBA', tz: 'America/New_York', date: '2026-03-01', mode: 'demo', trace_id: '' }} />,);
 

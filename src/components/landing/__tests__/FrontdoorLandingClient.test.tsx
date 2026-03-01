@@ -179,7 +179,9 @@ describe('FrontdoorLandingClient live modes', () => {
     const pipelinePanel = screen.getByTestId('pipeline-hero-panel');
     const boardContainer = boardTitle.parentElement;
     expect(boardContainer).toBeTruthy();
-    expect(boardContainer?.compareDocumentPosition(pipelinePanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(boardContainer).toBeTruthy();
+    if (!boardContainer) throw new Error('Board container missing');
+    expect((boardContainer.compareDocumentPosition(pipelinePanel) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
     expect(screen.getByRole('link', { name: 'Build from Board' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Try sample slip' })).toBeTruthy();
     expect(screen.getByLabelText('Slip text')).toBeTruthy();

@@ -34,16 +34,14 @@ describe('cockpit canonical entry redirects', () => {
     expect(href).toBe('/cockpit?sport=NFL&tz=America%2FNew_York&date=2026-02-28&mode=cache&trace_id=trace_custom&foo=bar');
   });
 
-  it('home page issues a server redirect to cockpit', async () => {
-    const redirect = vi.fn((to: string) => {
-      throw new Error(`REDIRECT:${to}`);
-    });
+  it('home page renders landing without server redirect', async () => {
+    const redirect = vi.fn();
 
     vi.doMock('next/navigation', () => ({ redirect }));
-    const mod = await import('@/app/(home)/page');
+    const mod = await import('@/app/page');
 
-    expect(() => mod.default({ searchParams: { sport: 'NBA', mode: 'demo' } })).toThrow('REDIRECT:/cockpit?sport=NBA&tz=America%2FPhoenix&date=');
-    expect(redirect).toHaveBeenCalledTimes(1);
+    expect(() => mod.default()).not.toThrow();
+    expect(redirect).not.toHaveBeenCalled();
   });
 
   it('landing alias redirects to cockpit and preserves query', async () => {
