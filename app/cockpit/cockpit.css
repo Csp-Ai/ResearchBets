@@ -72,3 +72,67 @@
 .target-lock { outline: 1px solid rgba(0, 229, 200, 0.65); }
 .heat { box-shadow: 0 0 18px rgba(0, 229, 200, 0.2); }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+.cockpit-page {
+  padding-bottom: 90px;
+}
+.desktop-ticket-panel { display: none; }
+.mobile-slip-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  background: rgba(7, 10, 16, 0.96);
+  padding: 10px 12px;
+}
+.mobile-slip-count { margin: 0; font-size: 11px; color: #e8edf5; text-transform: uppercase; }
+.mobile-slip-line { margin: 2px 0 0; font-size: 11px; color: #8a96a8; }
+.slip-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 86;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.slip-sheet-overlay.open { opacity: 1; pointer-events: auto; }
+.slip-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 87;
+  border-top: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+  background: #0c1420;
+  transform: translateY(102%);
+  transition: transform 0.25s ease;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+.slip-sheet.open { transform: translateY(0); }
+.slip-sheet-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.slip-sheet-head h2 { margin: 0; font-size: 14px; text-transform: uppercase; }
+.slip-sheet-body { overflow: auto; padding: 10px 12px; }
+.sheet-edit-row { margin-top: 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sheet-edit-row label { display: grid; gap: 4px; font-size: 10px; color: #8a96a8; text-transform: uppercase; }
+.sheet-edit-row input { width: 100%; background: #09101a; color: var(--text); border: 1px solid var(--border); padding: 6px; font-family: inherit; font-size: 11px; }
+.slip-sheet-actions { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+.slip-sheet-actions .btn-primary,
+.slip-sheet-actions .btn-secondary { text-align: center; text-decoration: none; }
+.slip-sheet-actions .disabled { opacity: 0.45; pointer-events: none; }
+@media (min-width: 768px) {
+  .cockpit-page { padding-bottom: 0; }
+  .desktop-ticket-panel { display: block; }
+  .mobile-slip-bar,
+  .slip-sheet,
+  .slip-sheet-overlay { display: none; }
+}

@@ -35,6 +35,36 @@ describe('cockpit route integration', () => {
     expect(await screen.findByText(/J. Tatum/)).toBeTruthy();
   });
 
+
+
+  it('renders mobile slip bar and opens drawer', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/today')) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
+            { id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }
+          ] } })
+        } as Response;
+      }
+      return { ok: true, json: async () => ({ ok: true }) } as Response;
+    }));
+
+    window.sessionStorage.setItem('rb:draft-slip:v1', JSON.stringify([
+      { id: 'p1', player: 'J. Tatum', marketType: 'points', line: '28.5', odds: '-110', game: 'LAL @ BOS' }
+    ]));
+
+    renderWithProviders(<CockpitLandingClient />);
+    await screen.findAllByText(/J. Tatum/);
+
+    expect(screen.getByTestId('mobile-slip-bar')).toBeTruthy();
+    expect(screen.getByTestId('slip-sheet').className).not.toContain('open');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open slip' }));
+    expect(screen.getByTestId('slip-sheet').className).toContain('open');
+  });
+
   it('runs stress test via submit and populates analysis', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -70,7 +100,7 @@ describe('cockpit route integration', () => {
     renderWithProviders(<CockpitLandingClient />);
     await screen.findAllByText(/J. Tatum/);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Run Stress Test' })[0]!);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Stress test slip' })[0]!);
 
     await waitFor(() => {
       expect(screen.getByText('trace-live')).toBeTruthy();

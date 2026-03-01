@@ -4,6 +4,8 @@ import React from 'react';
 import type { ControlPlaneEvent } from '@/src/components/AgentNodeGraph';
 import { asRecord, formatAgeLabel } from '@/src/components/terminal/eventDerivations';
 import { EmptyStateCard } from '@/src/components/shared/EmptyStateCard';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 function hasWarning(event: ControlPlaneEvent): boolean {
   const payload = asRecord(event.payload);
@@ -27,12 +29,13 @@ function deriveStatus(events: ControlPlaneEvent[]): 'No evidence' | 'Running' | 
 }
 
 export function ProgressStrip({ events }: { events: ControlPlaneEvent[] }) {
+  const nervous = useNervousSystem();
   if (events.length === 0) {
     return (
       <EmptyStateCard
         title="No evidence"
         guidance="No evidence yet — run research to generate a trace."
-        primaryCta={{ label: 'Run Research', href: '/research' }}
+        primaryCta={{ label: 'Run research', href: appendQuery(nervous.toHref('/stress-test'), {}) }}
       />
     );
   }

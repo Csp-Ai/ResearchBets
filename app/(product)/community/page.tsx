@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { FeedCard, type FeedCardPost } from '@/src/components/bettor-os/FeedCard';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { Button } from '@/src/components/ui/button';
 
 export default function CommunityPage() {
   const router = useRouter();
+  const nervous = useNervousSystem();
   const [posts, setPosts] = useState<FeedCardPost[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
 
@@ -36,7 +39,7 @@ export default function CommunityPage() {
             post={post}
             onCloned={(_postId, legs) => {
               const prefill = legs.map((leg) => leg.text).join('\n');
-              router.push(`/research?tab=analyze&prefill=${encodeURIComponent(prefill)}`);
+              router.push(appendQuery(nervous.toHref('/stress-test'), { tab: 'analyze', prefill }));
             }}
           />
         ))}

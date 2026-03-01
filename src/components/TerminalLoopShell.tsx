@@ -196,7 +196,7 @@ export function TerminalLoopShell({ traceId }: { traceId?: string }) {
                 void navigateWithAction(
                   'open_research_result',
                   buildNavigationHref({
-                    pathname: '/research',
+                    pathname: '/stress-test',
                     traceId: snapshot.traceId || chainTraceId,
                     params: { snapshotId: snapshot.reportId }
                   })
