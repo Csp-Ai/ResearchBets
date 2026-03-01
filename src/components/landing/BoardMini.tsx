@@ -12,8 +12,8 @@ type BoardRow = {
 };
 
 function riskLabel(riskTag: string) {
-  if (riskTag === 'watch') return 'minutes';
-  return riskTag || 'pace';
+  if (riskTag === 'watch') return 'minutes watch';
+  return riskTag || 'pace flag';
 }
 
 export function BoardMini({
@@ -40,7 +40,7 @@ export function BoardMini({
         <h2 className="text-base font-semibold text-white sm:text-lg">Tonight&apos;s Board</h2>
         <span data-testid="today-mode-chip" className="rounded-full border border-white/15 bg-slate-950/40 px-2 py-0.5 text-[11px] text-slate-200">{modeCopy}</span>
       </div>
-      <p className="mt-1 text-xs text-slate-400">Add 2–4 legs, then run Stress Test.</p>
+      <p className="mt-1 text-xs text-slate-400">Scan fast. Stage 2–4 legs, then isolate pressure.</p>
 
       <div className="mt-3 space-y-2">
         {loading ? <p className="text-sm text-slate-400">Loading board…</p> : null}
@@ -57,6 +57,7 @@ export function BoardMini({
                 <button
                   type="button"
                   onClick={() => onAddLeg(row)}
+                  aria-label={`Add ${row.player} ${row.market} ${row.line}`}
                   className="min-h-8 rounded-md border border-cyan-300/40 px-2.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
                 >
                   Add
