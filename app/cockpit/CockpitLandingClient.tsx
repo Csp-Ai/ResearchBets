@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
+import { LiveCredibilityStrip } from '@/app/cockpit/components/LiveCredibilityStrip';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
@@ -38,7 +39,15 @@ export default function CockpitLandingClient() {
   const nervous = useNervousSystem();
   const [selectedSport, setSelectedSport] = useState<'NBA' | 'NFL'>(() => (nervous.sport === 'NFL' ? 'NFL' : 'NBA'));
   const [selectedMode, setSelectedMode] = useState<'live' | 'demo'>(() => (nervous.mode === 'demo' ? 'demo' : 'live'));
-  const { board, neutralStatus } = useCockpitToday({ ...nervous, sport: selectedSport, mode: selectedMode });
+  const {
+    board,
+    today,
+    provenance,
+    neutralStatus,
+    strictLiveUnavailable,
+    boardUpdateTick,
+    refreshToday
+  } = useCockpitToday({ ...nervous, sport: selectedSport, mode: selectedMode });
   const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
 
   const [query, setQuery] = useState('');
@@ -99,6 +108,40 @@ export default function CockpitLandingClient() {
       return acc;
     }, {});
   }, [board, query]);
+
+  const [recentlyChangedLegIds, setRecentlyChangedLegIds] = useState<Set<string>>(new Set());
+  const [recentlyChangedGroups, setRecentlyChangedGroups] = useState<Set<string>>(new Set());
+  const boardByIdRef = useRef(new Map<string, string>());
+
+  useEffect(() => {
+    const nextMap = new Map<string, string>();
+    const changed = new Set<string>();
+    const changedGroups = new Set<string>();
+
+    board.forEach((leg) => {
+      const fingerprint = [leg.player, leg.market, leg.line, leg.odds, leg.startTime, leg.matchup].join('|');
+      nextMap.set(leg.id, fingerprint);
+      const previous = boardByIdRef.current.get(leg.id);
+      if ((previous && previous !== fingerprint) || (!previous && boardByIdRef.current.size > 0)) {
+        changed.add(leg.id);
+        changedGroups.add(`${leg.matchup} • ${leg.startTime}`);
+      }
+    });
+
+    boardByIdRef.current = nextMap;
+
+    if (changed.size === 0) return;
+
+    setRecentlyChangedLegIds(changed);
+    setRecentlyChangedGroups(changedGroups);
+
+    const timer = window.setTimeout(() => {
+      setRecentlyChangedLegIds(new Set());
+      setRecentlyChangedGroups(new Set());
+    }, 2_000);
+
+    return () => window.clearTimeout(timer);
+  }, [board, boardUpdateTick]);
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const legCount = slip.length;
@@ -282,17 +325,27 @@ export default function CockpitLandingClient() {
       </section>
 
       <section id="cockpit" ref={cockpitRef} aria-label="Bettor cockpit: board and draft ticket">
+        <LiveCredibilityStrip
+          provenance={provenance}
+          today={today}
+          strictLiveUnavailable={strictLiveUnavailable}
+          boardUpdateTick={boardUpdateTick}
+          onRefresh={refreshToday}
+        />
         <div className="panel" id="board-panel">
           <div className="panel-header"><span className="panel-title">Tonight&apos;s Board</span></div>
           <div className="search-wrap"><input type="search" className="search-input" placeholder="Search props…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search player props" /></div>
           <div className="board-list" role="list">
             {Object.entries(groupedGames).map(([group, legs]) => (
               <div className="board-group" key={group}>
-                <div className="group-label">{group}</div>
+                <div className="group-label">
+                  {group}
+                  {recentlyChangedGroups.has(group) ? <span className="group-updated">Updated</span> : null}
+                </div>
                 {legs.map((leg) => {
                   const added = slipIds.has(leg.id);
                   return (
-                    <div key={leg.id} className="board-row" role="listitem" onClick={() => onOpenLeg(leg)}>
+                    <div key={leg.id} className={`board-row ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''}`} role="listitem" onClick={() => onOpenLeg(leg)}>
                       <div>
                         <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
                         <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
@@ -317,6 +370,19 @@ export default function CockpitLandingClient() {
             <span className="panel-title">Draft Ticket</span>
             <span className="leg-count-badge" aria-live="polite">{legCount} {legCount === 1 ? 'leg' : 'legs'}</span>
           </div>
+
+          <section className="pipeline-strip ticket-pipeline" aria-label="Run trace strip">
+            <span id="trace-chip">{analysis.traceId || 'trace pending'}</span>
+            <div className="stage-row">
+              {(['Before', 'Analyze', 'During', 'After'] as Stage[]).map((stage) => {
+                const active = (stage === 'Before' && latestStage === 'created')
+                  || (stage === 'Analyze' && (latestStage === 'analyzing' || latestStage === 'ready'))
+                  || (stage === 'During' && latestStage === 'complete')
+                  || (stage === 'After' && latestStage === 'complete');
+                return <div key={stage} className={`stage ${active ? 'active' : ''}`}>{stage}{stage === 'During' || stage === 'After' ? ' (preview)' : ''}</div>;
+              })}
+            </div>
+          </section>
           <div className="ticket-body">
             {legCount === 0 ? (
               <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded. Add 2–4 legs to isolate pressure.</div></div>
@@ -351,18 +417,6 @@ export default function CockpitLandingClient() {
         </div>
       </section>
 
-      <section className="pipeline-strip" aria-label="Run trace strip">
-        <span id="trace-chip">{analysis.traceId}</span>
-        <div className="stage-row">
-          {(['Before', 'Analyze', 'During', 'After'] as Stage[]).map((stage) => {
-            const active = (stage === 'Before' && latestStage === 'created')
-              || (stage === 'Analyze' && (latestStage === 'analyzing' || latestStage === 'ready'))
-              || (stage === 'During' && latestStage === 'complete')
-              || (stage === 'After' && latestStage === 'complete');
-            return <div key={stage} className={`stage ${active ? 'active' : ''}`}>{stage}{stage === 'During' || stage === 'After' ? ' (preview)' : ''}</div>;
-          })}
-        </div>
-      </section>
 
       <section className="accordions" aria-label="Cockpit details">
         {ACCORDIONS.map((item) => {

@@ -26,5 +26,7 @@ describe('cockpit pipeline strip', () => {
   it('reflects analyzing stage text from realtime events hook', async () => {
     renderWithProviders(<CockpitLandingClient />, { sport: 'NBA', tz: 'UTC', date: '2026-01-20', mode: 'demo', trace_id: 'trace-ui-1234' });
     expect(await screen.findByText('Analyzing slip')).toBeTruthy();
+    const strip = screen.getByLabelText('Run trace strip');
+    expect(strip.textContent).toContain('Analyze');
   });
 });

@@ -153,3 +153,40 @@
 @media (max-width: 900px) {
   #cockpit { grid-template-columns: 1fr; }
 }
+
+.live-credibility-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.cred-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #b9c6d8;
+  background: rgba(255, 255, 255, 0.03);
+}
+.cred-chip.mode-live { color: var(--cyan); }
+.cred-chip.updated,
+.cred-updated { border-color: rgba(0, 229, 200, 0.6); color: var(--cyan); }
+.credibility-refresh { padding: 6px 10px; font-size: 10px; }
+
+.group-updated {
+  margin-left: 8px;
+  border: 1px solid rgba(0, 229, 200, 0.35);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 9px;
+  color: var(--cyan);
+}
+.row-updated {
+  border-color: rgba(0, 229, 200, 0.45);
+  box-shadow: 0 0 0 1px rgba(0, 229, 200, 0.2) inset;
+}
+.ticket-pipeline {
+  margin: 10px 12px 0;
+}
