@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const fileArgIndex = args.findIndex((arg) => arg === '--file');
 const file = fileArgIndex >= 0 ? args[fileArgIndex + 1] : process.env.BUNDLE_BUILD_OUTPUT_FILE;
+const fingerprintPath = process.env.BUNDLE_FINGERPRINT_FILE ?? 'docs/audit/chunk-fingerprint.md';
 
 if (!file) {
   console.error('[bundle-budget] missing build output file. Pass --file <path> or BUNDLE_BUILD_OUTPUT_FILE.');
@@ -36,6 +37,11 @@ if (rootKb > ROOT_LIMIT_KB) failures.push(`/ route first-load ${rootKb.toFixed(1
 
 if (failures.length > 0) {
   console.error(`[bundle-budget] failed: ${failures.join('; ')}`);
+  if (existsSync(fingerprintPath)) {
+    console.error(`[bundle-budget] fingerprint report: ${fingerprintPath}`);
+  } else {
+    console.error(`[bundle-budget] fingerprint report not found at ${fingerprintPath}. Run \`npm run audit:chunk-fingerprint\`.`);
+  }
   process.exit(1);
 }
 
