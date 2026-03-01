@@ -4,6 +4,7 @@ import { normalizeSpine } from '@/src/core/nervous/spine';
 import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { resolveToday } from '@/src/core/today/resolveToday.server';
+import type { TodayPayload } from '@/src/core/today/types';
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     const forceRefresh = searchParams.get('refresh') === '1';
     const strictLive = searchParams.get('strict_live') === '1';
 
-    let payload;
+    let payload: TodayPayload;
     try {
       payload = await resolveToday({
         forceRefresh,
@@ -23,8 +24,27 @@ export async function GET(request: Request) {
         date: spine.date,
         mode: spine.mode
       });
-    } catch {
-      payload = await resolveToday({ sport: spine.sport.toUpperCase() as 'NBA', tz: spine.tz, date: spine.date, mode: 'demo' });
+    } catch (error) {
+      if (spine.mode === 'demo') {
+        payload = await resolveToday({ sport: spine.sport.toUpperCase() as 'NBA', tz: spine.tz, date: spine.date, mode: 'demo' });
+      } else if (strictLive) {
+        const generatedAt = new Date().toISOString();
+        payload = {
+          mode: 'live',
+          generatedAt,
+          leagues: [],
+          games: [],
+          board: [],
+          reason: 'provider_unavailable',
+          provenance: {
+            mode: 'live',
+            reason: 'provider_unavailable',
+            generatedAt
+          }
+        };
+      } else {
+        throw error;
+      }
     }
 
     const board = {
@@ -32,7 +52,7 @@ export async function GET(request: Request) {
       props: Array.isArray(payload.board) ? payload.board : []
     };
 
-    const responseSpine = { ...spine, mode: payload.mode };
+    const responseSpine = { ...spine };
 
     return NextResponse.json({
       ok: true,
@@ -40,7 +60,7 @@ export async function GET(request: Request) {
       trace_id: responseSpine.trace_id,
       landing: payload.landing,
       spine: responseSpine,
-      provenance: payload.provenance ?? { mode: payload.mode, reason: payload.reason },
+      provenance: payload.provenance ?? { mode: payload.mode, reason: payload.reason, generatedAt: payload.generatedAt },
       board
     });
   } catch {
@@ -62,7 +82,7 @@ export async function GET(request: Request) {
       data: demoPayload,
       trace_id: fallbackSpine.trace_id,
       landing: demoPayload.landing,
-      spine: { ...fallbackSpine, mode: 'demo' },
+      spine: fallbackSpine,
       provenance: {
         mode: 'demo',
         reason: 'hard_error',

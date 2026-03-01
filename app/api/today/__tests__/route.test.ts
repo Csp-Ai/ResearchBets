@@ -6,7 +6,32 @@ beforeEach(() => {
 });
 
 describe('/api/today GET', () => {
-  it('degrades to demo/cache envelope with spine + provenance and non-empty board', async () => {
+  it('preserves live intent and returns live-unavailable envelope when strict live is requested and providers fail', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => {
+        throw new Error('provider unavailable');
+      })
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live&strict_live=1'));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as {
+      spine: { sport: string; tz: string; date: string; mode: string };
+      provenance: { mode: string; reason?: string };
+      board: { props: unknown[]; games: unknown[] };
+    };
+
+    expect(payload.spine).toMatchObject({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
+    expect(payload.spine.mode).toBe('live');
+    expect(payload.provenance.mode).toBe('live');
+    expect(payload.provenance.reason).toBe('provider_unavailable');
+    expect(Array.isArray(payload.board.props)).toBe(true);
+    expect(Array.isArray(payload.board.games)).toBe(true);
+  });
+
+  it('returns demo intent + provenance when demo is requested', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => ({
         mode: 'demo',
@@ -14,19 +39,24 @@ describe('/api/today GET', () => {
         leagues: ['NBA'],
         games: [{ id: 'g1', matchup: 'A @ B', startTime: '7:00 PM', propsPreview: [] }],
         board: [{ id: 'p1', player: 'Player 1', market: 'points', line: '22.5', odds: '-110' }],
-        reason: 'provider_unavailable',
-        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+        reason: 'demo_requested',
+        provenance: { mode: 'demo', reason: 'demo_requested', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
     }));
 
     const { GET } = await import('../route');
-    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=demo'));
 
     expect(response.status).toBe(200);
-    const payload = await response.json() as { provenance: { mode: 'cache' | 'demo' | 'live' }; spine: { sport: string; tz: string; date: string }; board: { props: unknown[] } };
-    expect(payload.provenance.mode).toMatch(/cache|demo/);
+    const payload = await response.json() as {
+      spine: { sport: string; tz: string; date: string; mode: string };
+      provenance: { mode: string; reason?: string };
+      board: { props: unknown[] };
+    };
+
     expect(payload.spine).toMatchObject({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
-    expect(Array.isArray(payload.board.props)).toBe(true);
+    expect(payload.spine.mode).toBe('demo');
+    expect(payload.provenance.mode).toBe('demo');
     expect(payload.board.props.length).toBeGreaterThan(0);
   });
 
@@ -50,7 +80,7 @@ describe('/api/today GET', () => {
     expect(payload.provenance.mode).toBe('demo');
     expect(payload.provenance.reason).toBe('hard_error');
     expect(payload.spine).toMatchObject({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
-    expect(payload.spine.mode).toBe('demo');
+    expect(payload.spine.mode).toBe('live');
     expect(payload.board.props.length).toBeGreaterThan(0);
     expect(payload.board.games.length).toBeGreaterThan(0);
   });
