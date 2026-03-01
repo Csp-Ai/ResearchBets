@@ -23,21 +23,28 @@ const EMPTY_PROVENANCE: TodayProvenance = {
   generatedAt: new Date(0).toISOString()
 };
 
+const resolveIntentMode = (mode: QuerySpine['mode']) => {
+  if (!mode || mode.length === 0) return process.env.NODE_ENV === 'production' ? 'live' : 'demo';
+  return mode;
+};
+
 export function useCockpitToday(spine: Pick<QuerySpine, 'sport' | 'tz' | 'date' | 'mode' | 'trace_id'>) {
   const [today, setToday] = useState<TodayPayload>(EMPTY_TODAY);
   const [provenance, setProvenance] = useState<TodayProvenance>(EMPTY_PROVENANCE);
   const [loading, setLoading] = useState(true);
+  const intentMode = resolveIntentMode(spine.mode);
 
   useEffect(() => {
     const controller = new AbortController();
 
     const load = async () => {
+      setLoading(true);
       try {
         const href = appendQuery('/api/today', {
           sport: spine.sport,
           tz: spine.tz,
           date: spine.date,
-          mode: spine.mode,
+          mode: intentMode,
           trace_id: spine.trace_id
         });
         const response = await fetch(href, { cache: 'no-store', signal: controller.signal });
@@ -59,9 +66,9 @@ export function useCockpitToday(spine: Pick<QuerySpine, 'sport' | 'tz' | 'date' 
 
     void load();
     return () => controller.abort();
-  }, [spine.date, spine.mode, spine.sport, spine.tz, spine.trace_id]);
+  }, [spine.date, intentMode, spine.sport, spine.tz, spine.trace_id]);
 
-  const board = useMemo(() => todayToBoard(today), [today]);
+  const board = useMemo(() => todayToBoard(today, spine.sport), [today, spine.sport]);
 
   const neutralStatus = useMemo(() => {
     if (provenance.mode === 'demo') return 'Demo mode (live feeds off)';
@@ -70,5 +77,5 @@ export function useCockpitToday(spine: Pick<QuerySpine, 'sport' | 'tz' | 'date' 
     return 'Live slate';
   }, [provenance.mode, provenance.reason, today.games.length]);
 
-  return { today, board: board as CockpitBoardLeg[], loading, neutralStatus };
+  return { today, board: board as CockpitBoardLeg[], loading, neutralStatus, intentMode };
 }

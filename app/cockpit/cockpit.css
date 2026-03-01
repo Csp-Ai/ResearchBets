@@ -17,23 +17,24 @@
 .chip, .btn-primary, .btn-secondary, .hamburger, .add-btn, .remove-btn, .accordion-trigger { font-family: inherit; }
 .hamburger { width: 32px; height: 32px; border: 1px solid var(--border); background: transparent; display: inline-flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0; }
 .hamburger span { width: 14px; height: 2px; background: #8a96a8; margin: 0 auto; }
-#hero { padding: 36px 16px 28px; text-align: center; }
+#hero { padding: 18px 16px 14px; text-align: center; }
 .hero-headline { font-size: clamp(24px, 5.5vw, 42px); text-transform: uppercase; line-height: 1.1; }
 .hero-headline-accent { color: var(--cyan); }
-.hero-sub { color: #8a96a8; max-width: 540px; margin: 10px auto; }
-.cta-row { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.hero-sub { color: #8a96a8; max-width: 540px; margin: 8px auto; }
+.cta-row { display: flex; justify-content: center; gap: 10px; margin-top: 8px; }
 .btn-primary { background: var(--cyan); color: #071018; border: 0; padding: 10px 18px; border-radius: 4px; text-transform: uppercase; font-size: 12px; font-weight: 700; }
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 4px; text-transform: uppercase; font-size: 12px; }
 .btn-secondary.enabled { border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(0, 229, 200, 0.35) inset; }
-#cockpit { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; padding: 0 16px; align-items: start; }
+.btn-primary.disabled { opacity: 0.45; pointer-events: none; }
+#cockpit { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 14px; padding: 0 16px; align-items: start; }
 .panel { border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); border-radius: 6px; overflow: hidden; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--border); }
 .panel-title { color: #e8edf5; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
 .search-wrap { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .search-input { width: 100%; background: #0c1420; border: 1px solid var(--border); color: var(--text); padding: 8px; }
-.board-list { max-height: 420px; overflow: auto; padding: 10px 12px; }
-.group-label { color: #8a96a8; margin: 8px 0; font-size: 11px; text-transform: uppercase; }
-.board-row, .ticket-leg, .moat-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+.board-list { max-height: 520px; overflow: auto; padding: 8px 12px; }
+.group-label { color: #8a96a8; margin: 6px 0; font-size: 10px; text-transform: uppercase; position: sticky; top: 0; background: #0c1420; padding: 4px 0; z-index: 1; }
+.board-row, .ticket-leg, .moat-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 4px; padding: 8px; margin-bottom: 6px; }
 .board-main, .ticket-leg-main { color: #e8edf5; font-size: 12px; }
 .board-sub, .ticket-leg-sub { color: #8a96a8; font-size: 11px; }
 .add-btn, .remove-btn { width: 28px; height: 28px; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 4px; }
@@ -135,4 +136,20 @@
   .mobile-slip-bar,
   .slip-sheet,
   .slip-sheet-overlay { display: none; }
+}
+
+
+.hero-controls { display: flex; justify-content: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.segment { border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--text); padding: 6px 10px; font-size: 11px; text-transform: uppercase; }
+.segment:last-child { border-right: 0; }
+.segment.active { background: rgba(0, 229, 200, 0.12); color: var(--cyan); }
+.board-row { cursor: pointer; }
+.board-row:hover { border-color: rgba(0, 229, 200, 0.45); background: rgba(0, 229, 200, 0.06); }
+.board-meta { display: flex; align-items: center; gap: 6px; }
+.board-chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 10px; color: #8a96a8; }
+.board-open { color: #a7b2c1; font-size: 11px; }
+.ticket-empty-text { font-weight: 700; color: #c8d0dc; }
+@media (max-width: 900px) {
+  #cockpit { grid-template-columns: 1fr; }
 }

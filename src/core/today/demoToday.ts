@@ -101,7 +101,7 @@ function buildBoardFromGames(payload: TodayPayload): TodayPayload['board'] {
   })));
 }
 
-export function createDemoTodayPayload(): TodayPayload {
+export function createDemoTodayPayload(selectedSport?: string): TodayPayload {
   const payload = {
     ...DEMO_TODAY_PAYLOAD,
     leagues: [...DEMO_TODAY_PAYLOAD.leagues],
@@ -111,5 +111,31 @@ export function createDemoTodayPayload(): TodayPayload {
       propsPreview: game.propsPreview.map((prop) => ({ ...prop, rationale: [...prop.rationale] }))
     }))
   };
-  return { ...payload, board: buildBoardFromGames(payload) };
+  const normalizedSport = selectedSport?.toUpperCase();
+  const games = normalizedSport
+    ? payload.games.filter((game) => game.league.toUpperCase() === normalizedSport)
+    : payload.games;
+  const leagues = normalizedSport
+    ? payload.leagues.filter((league) => league.toUpperCase() === normalizedSport)
+    : payload.leagues;
+  const scopedPayload = { ...payload, leagues, games };
+  const board = buildBoardFromGames(scopedPayload) ?? [];
+  if (normalizedSport && board.length > 0 && board.length < 6) {
+    const padded = [...board];
+    let cursor = 0;
+    while (padded.length < 6) {
+      const template = board[cursor % board.length];
+      if (!template) break;
+      padded.push({
+        ...template,
+        id: `${template.id}-pad-${cursor}`,
+        gameId: template.gameId ?? scopedPayload.games[0]?.id ?? 'demo-game',
+        player: template.player ?? 'Demo Player',
+        market: template.market ?? 'points'
+      });
+      cursor += 1;
+    }
+    return { ...scopedPayload, board: padded };
+  }
+  return { ...scopedPayload, board };
 }

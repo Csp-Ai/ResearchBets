@@ -71,7 +71,7 @@ export async function GET(request: Request) {
       fallbackSpine = normalizeSpine({});
     }
 
-    const demoPayload = createDemoTodayPayload();
+    const demoPayload = createDemoTodayPayload(fallbackSpine.sport);
     const board = {
       games: demoPayload.games,
       props: Array.isArray(demoPayload.board) ? demoPayload.board : []

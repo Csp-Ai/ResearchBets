@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
 import { appendQuery } from '@/src/components/landing/navigation';
@@ -34,8 +34,11 @@ export default function CockpitLandingClient() {
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
   const saveInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const nervous = useNervousSystem();
-  const { board, neutralStatus } = useCockpitToday(nervous);
+  const [selectedSport, setSelectedSport] = useState<'NBA' | 'NFL'>(() => (nervous.sport === 'NFL' ? 'NFL' : 'NBA'));
+  const [selectedMode, setSelectedMode] = useState<'live' | 'demo'>(() => (nervous.mode === 'demo' ? 'demo' : 'live'));
+  const { board, neutralStatus } = useCockpitToday({ ...nervous, sport: selectedSport, mode: selectedMode });
   const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
 
   const [query, setQuery] = useState('');
@@ -59,8 +62,29 @@ export default function CockpitLandingClient() {
     accountOpen: false,
     tzOpen: false,
     tz: 'ET',
-    openAccordionIds: new Set<string>(['what'])
+    openAccordionIds: new Set<string>()
   });
+
+
+  const onSetMode = (mode: 'live' | 'demo') => {
+    setSelectedMode(mode);
+    const href = nervous.toHref(pathname || '/cockpit', { mode });
+    router.replace(href);
+  };
+
+  const onSetSport = (sport: 'NBA' | 'NFL') => {
+    setSelectedSport(sport);
+    const href = nervous.toHref(pathname || '/cockpit', { sport });
+    router.replace(href);
+  };
+
+  const onOpenLeg = (leg: (typeof board)[number]) => {
+    const href = nervous.toHref(`/game/${encodeURIComponent(leg.gameId)}`, {
+      tab: 'live',
+      highlight: leg.id
+    });
+    router.push(href);
+  };
 
   const groupedGames = useMemo(() => {
     const filtered = board.filter((leg) => {
@@ -240,6 +264,17 @@ export default function CockpitLandingClient() {
       <section id="hero" aria-labelledby="hero-headline">
         <h1 className="hero-headline" id="hero-headline">One leg breaks.<br /><span className="hero-headline-accent">Find it first.</span></h1>
         <p className="hero-sub">Most slips don&apos;t fail randomly. They fail predictably. Isolate the pressure point before you submit.</p>
+        <div className="hero-controls">
+          <div className="segmented" role="tablist" aria-label="Mode">
+            <button className={`segment ${selectedMode === 'live' ? 'active' : ''}`} onClick={() => onSetMode('live')} aria-pressed={selectedMode === 'live'}>Live</button>
+            <button className={`segment ${selectedMode === 'demo' ? 'active' : ''}`} onClick={() => onSetMode('demo')} aria-pressed={selectedMode === 'demo'}>Demo</button>
+          </div>
+          <div className="segmented" role="tablist" aria-label="Sport">
+            {(['NBA', 'NFL'] as const).map((sport) => (
+              <button key={sport} className={`segment ${selectedSport === sport ? 'active' : ''}`} onClick={() => onSetSport(sport)} aria-pressed={selectedSport === sport}>{sport}</button>
+            ))}
+          </div>
+        </div>
         <div className="cta-row">
           <button className="btn-primary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
           <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Slip</button>
@@ -257,12 +292,17 @@ export default function CockpitLandingClient() {
                 {legs.map((leg) => {
                   const added = slipIds.has(leg.id);
                   return (
-                    <div key={leg.id} className="board-row" role="listitem">
+                    <div key={leg.id} className="board-row" role="listitem" onClick={() => onOpenLeg(leg)}>
                       <div>
                         <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
-                        <div className="board-sub">Odds {leg.odds} · L10 {leg.hitRateL10 ?? '—'}/10</div>
+                        <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
                       </div>
-                      <button className={`add-btn ${added ? 'added' : ''}`} onClick={() => onAdd(leg)} disabled={added} aria-pressed={added}>+</button>
+                      <div className="board-meta">
+                        <span className="board-chip">Odds {leg.odds}</span>
+                        <span className="board-chip">L10 {leg.hitRateL10 ?? '—'}/10</span>
+                        <span className="board-open">Open ›</span>
+                        <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg); }} disabled={added} aria-pressed={added}>+</button>
+                      </div>
                     </div>
                   );
                 })}
@@ -279,7 +319,7 @@ export default function CockpitLandingClient() {
           </div>
           <div className="ticket-body">
             {legCount === 0 ? (
-              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">Add 2–4 legs to isolate pressure.</div></div>
+              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded. Add 2–4 legs to isolate pressure.</div></div>
             ) : (
               <div className="ticket-legs" role="list">
                 {slip.map((leg) => (
@@ -304,7 +344,7 @@ export default function CockpitLandingClient() {
           </div>
 
           <div className="ticket-cta-row">
-            <button className={`btn-secondary ${stressEnabled ? 'enabled' : ''}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Stress test slip</button>
+            <button className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run stress test</button>
             <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: true }))}>Save Analysis</button>
           </div>
           {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="btn-primary" style={{ marginTop: 10, display: 'inline-block' }}>Continue to Track</Link> : null}
@@ -353,7 +393,7 @@ export default function CockpitLandingClient() {
         </div>
         <div className="slip-sheet-body">
           {legCount === 0 ? (
-            <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">Add 2–4 legs to isolate pressure.</div></div>
+            <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded. Add 2–4 legs to isolate pressure.</div></div>
           ) : (
             <div className="ticket-legs" role="list">
               {slip.map((leg) => (
@@ -379,7 +419,7 @@ export default function CockpitLandingClient() {
           )}
         </div>
         <div className="slip-sheet-actions">
-          <Link href={nervous.toHref('/stress-test', { trace_id: analysis.traceId || nervous.trace_id })} className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={(event) => { if (!stressEnabled) event.preventDefault(); }}>Stress test slip</Link>
+          <Link href={nervous.toHref('/stress-test', { trace_id: analysis.traceId || nervous.trace_id })} className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={(event) => { if (!stressEnabled) event.preventDefault(); }}>Run stress test</Link>
           <Link href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })} className="btn-secondary">Try sample slip</Link>
         </div>
       </aside>
