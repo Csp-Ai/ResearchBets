@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 
 import { getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
 
-const HomeLandingClientV2 = dynamic(() => import('@/app/HomeLandingClientV2'), { ssr: false });
+const HomeLandingClientV3 = dynamic(() => import('@/app/HomeLandingClientV3'), { ssr: false });
 
 type HomePageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -15,7 +15,7 @@ export default function HomePage({ searchParams }: HomePageProps) {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8">
       <div className="mx-auto w-full max-w-7xl">
-        <HomeLandingClientV2 spine={spine} />
+        <HomeLandingClientV3 spine={spine} />
       </div>
     </main>
   );
