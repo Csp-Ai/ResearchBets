@@ -28,5 +28,6 @@ describe('/api/today GET', () => {
     expect(payload.data.mode).toBe('live');
     expect(payload.data.status).toBe('market_closed');
     expect(payload.data.providerHealth?.[0]?.provider).toBe('the-odds-api');
+    expect(JSON.stringify(payload)).not.toContain('traceId');
   });
 });

@@ -13,3 +13,10 @@
 - Added compact tracker volatility-driver chip heuristics (blowout/minutes/pace/foul/unknown) without adding providers.
 - Removed dead `/slips/new` continuity break by adding a redirect route to canonical `/slip` and replacing stale CTA wiring.
 - Expanded landing import guard coverage to block pipeline-heavy modules on first fold entry points.
+
+
+## v1.0 continuity + contract + DURING efficiency
+
+- Continuity hardening: home + bettor/landing CTAs now route through nervous-system `toHref` pathways with canonical spine preservation.
+- Boundary contract normalization: external API responses on core bettor paths emit snake_case IDs (`trace_id`/`slip_id`) only; camelCase aliases remain read-compatible inbound where required.
+- DURING efficiency: `/api/events` supports incremental `since` retrieval and `useTraceEvents` now polls deltas with append/dedupe ordering, hidden-tab slowdown, and no-new-event backoff.

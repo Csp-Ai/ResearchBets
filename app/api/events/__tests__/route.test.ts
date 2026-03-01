@@ -20,35 +20,40 @@ describe('/api/events GET', () => {
     const response = await GET(new Request('http://localhost:3000/api/events?trace_id=t-1&limit=10'));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, trace_id: 't-1', traceId: 't-1', events: [] });
+    const payload = await response.json() as Record<string, unknown>;
+    expect(payload).toEqual({ ok: true, trace_id: 't-1', events: [] });
+    expect(JSON.stringify(payload)).not.toContain('traceId');
   });
 
-  it('returns canonical and legacy trace aliases on success', async () => {
+  it('supports since filtering and emits snake_case only', async () => {
     vi.doMock('@/src/core/persistence/runtimeStoreProvider', () => ({
       getRuntimeStore: vi.fn(() => ({
         listEvents: vi.fn(async () => ([
-          { trace_id: 't-2', event_name: 'slip_submitted', timestamp: '2026-01-01T00:00:00.000Z' }
+          { trace_id: 't-2', event_name: 'slip_submitted', timestamp: '2026-01-01T00:00:01.000Z' },
+          { trace_id: 't-2', event_name: 'run_started', timestamp: '2026-01-01T00:00:00.000Z' }
         ]))
       }))
     }));
 
     const { GET } = await import('../route');
 
-    const response = await GET(new Request('http://localhost:3000/api/events?trace_id=t-2&limit=10'));
-    await expect(response.json()).resolves.toEqual({
+    const response = await GET(new Request('http://localhost:3000/api/events?trace_id=t-2&limit=10&since=2026-01-01T00:00:00.500Z'));
+    const payload = await response.json() as { events: Array<{ type: string }> };
+
+    expect(payload).toEqual({
       ok: true,
       trace_id: 't-2',
-      traceId: 't-2',
       events: [
         {
           trace_id: 't-2',
           phase: 'BEFORE',
           type: 'slip_submitted',
-          payload: { trace_id: 't-2', event_name: 'slip_submitted', timestamp: '2026-01-01T00:00:00.000Z' },
-          timestamp: '2026-01-01T00:00:00.000Z'
+          payload: { trace_id: 't-2', event_name: 'slip_submitted', timestamp: '2026-01-01T00:00:01.000Z' },
+          timestamp: '2026-01-01T00:00:01.000Z'
         }
       ]
     });
+    expect(JSON.stringify(payload)).not.toContain('traceId');
   });
 
   it('returns a 500 for non-schema errors', async () => {
@@ -64,12 +69,13 @@ describe('/api/events GET', () => {
 
     const response = await GET(new Request('http://localhost:3000/api/events?trace_id=t-1&limit=10'));
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
+    const payload = await response.json() as Record<string, unknown>;
+    expect(payload).toEqual({
       ok: false,
       trace_id: 't-1',
-      traceId: 't-1',
       events: [],
       error: 'Failed to list events'
     });
+    expect(JSON.stringify(payload)).not.toContain('traceId');
   });
 });

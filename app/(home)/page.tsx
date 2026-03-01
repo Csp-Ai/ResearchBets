@@ -5,6 +5,8 @@ const HomeLandingClient = dynamic(() => import('@/app/HomeLandingClient'), { ssr
 import { BoardPreviewSSR, getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
 import { BDAStrip, Credibility30s, TrustNote } from '@/src/components/landing/LandingCompactModules';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { toHref } from '@/src/core/nervous/routes';
 
 type HomePageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -20,9 +22,9 @@ export default function HomePage({ searchParams }: HomePageProps) {
           title="Home"
           subtitle="Decision loop: Build → Analyze (Stress Test) → Track → Review."
           actions={[
-            { label: 'Build from Board', href: `/today?sport=${spine.sport}&tz=${spine.tz}&date=${spine.date}&mode=${spine.mode}`, tone: 'primary' },
-            { label: 'Analyze (Stress Test)', href: `/stress-test?sport=${spine.sport}&tz=${spine.tz}&date=${spine.date}&mode=${spine.mode}` },
-            { label: 'Review', href: `/control?tab=review&sport=${spine.sport}&tz=${spine.tz}&date=${spine.date}&mode=${spine.mode}` }
+            { label: 'Build from Board', href: toHref('/today', spine), tone: 'primary' },
+            { label: 'Analyze (Stress Test)', href: toHref('/stress-test', spine) },
+            { label: 'Review', href: appendQuery(toHref('/control', spine), { tab: 'review' }) }
           ]}
           traceId={spine.trace_id}
         />

@@ -251,3 +251,11 @@ See: `.tmp-audit/07_governance_guards.txt`
 - `npm run check:governor` → passes with tolerated known boundary violations
 - `npm run check:landing-imports` → ok
 - `npm run audit:ui-primitives-import-guard` → ok
+
+## v1.0 continuity + contract + DURING efficiency sprint (codex)
+
+- Hardened home and landing/bettor CTA continuity so bettor-facing product navigation now resolves through canonical nervous-system helpers and preserves canonical spine keys (`sport`, `tz`, `date`, `mode`, optional `trace_id`).
+- Enforced snake_case boundary contracts on `/api/today` and `/api/events` responses by removing camelCase ID emissions (`traceId`) while preserving inbound alias reads for compatibility.
+- Added incremental DURING retrieval path to `/api/events` via `since=<ISO>` filtering and updated polling to request deltas, dedupe append behavior, and apply simple hidden-tab/backoff polling hygiene.
+- Expanded guardrail coverage in `tohref-guard` and `casing-guard` for home + bettor + landing high-impact surfaces.
+- Added focused tests covering snake_case-only event/today responses and incremental merge behavior for trace event polling.

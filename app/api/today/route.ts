@@ -39,10 +39,10 @@ export async function GET(request: Request) {
     const data = TodayPayloadSchema.parse(normalizeTodayPayload(payload));
     const source: Source = data.mode;
     const degraded = requestedMode === 'live' && source !== 'live';
-    return NextResponse.json({ ok: true, data, source, degraded, provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, traceId: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
+    return NextResponse.json({ ok: true, data, source, degraded, provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
   } catch {
     const payload = await resolveToday({ sport, tz, date, mode: 'demo' });
     const data = TodayPayloadSchema.parse(normalizeTodayPayload(payload));
-    return NextResponse.json({ ok: true, data, source: 'demo', degraded: requestedMode === 'live', provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, traceId: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
+    return NextResponse.json({ ok: true, data, source: 'demo', degraded: requestedMode === 'live', provenance: data.provenance, trace_id: data.trace_id ?? trace.trace_id, spine: withSpine(data), landing: payload.landing });
   }
 }
