@@ -23,10 +23,8 @@ export function NervousSystemProvider({ children }: { children: React.ReactNode 
     const sync = () => setSpine(readFromSearch());
     sync();
     window.addEventListener('popstate', sync);
-    window.addEventListener('hashchange', sync);
     return () => {
       window.removeEventListener('popstate', sync);
-      window.removeEventListener('hashchange', sync);
     };
   }, []);
 

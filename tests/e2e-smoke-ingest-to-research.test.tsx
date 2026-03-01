@@ -4,7 +4,7 @@ import React from 'react';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import IngestionPage from '@/app/ingest/page';
+import IngestionPage from '@/app/(product)/ingest/page';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 
 const push = vi.fn();

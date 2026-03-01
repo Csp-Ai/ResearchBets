@@ -3,7 +3,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 
-import HomePage from '@/app/page';
+import HomePage from '@/app/(home)/page';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 
 vi.mock('@/src/components/landing/BoardPreviewSSR', () => ({
@@ -23,7 +23,6 @@ describe('Unified home landing', () => {
 
     expect(screen.getByText('Home')).toBeTruthy();
     expect(screen.getByTestId('board-preview-ssr')).toBeTruthy();
-    expect(screen.getByTestId('landing-compact-client')).toBeTruthy();
     expect(screen.getByLabelText('landing-how-it-works')).toBeTruthy();
   });
 

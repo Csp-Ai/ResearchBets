@@ -9,9 +9,6 @@ import '@fontsource/dm-mono/300.css';
 import '@fontsource/dm-mono/400.css';
 import '@fontsource/dm-mono/500.css';
 
-import { AppShell } from '@/src/components/terminal/AppShell';
-
-
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -22,9 +19,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

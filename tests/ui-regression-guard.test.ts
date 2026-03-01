@@ -7,7 +7,7 @@ const read = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), 'ut
 
 describe('v1.0.0 UI regression guards', () => {
   it('does not leak raw JSX snippets on home route source', () => {
-    const home = read('app/page.tsx');
+    const home = read('app/(home)/page.tsx');
     expect(home).not.toContain('<PostmortemUploadWedge />');
   });
 

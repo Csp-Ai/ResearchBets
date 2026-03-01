@@ -33,9 +33,9 @@ export function spineFromRequest(req: Request): Partial<ContextSpine> {
     date: params.get('date') ?? params.get('dateISO') ?? undefined,
     mode: params.get('mode') ?? undefined,
     trace_id: params.get('trace_id') ?? params.get('trace') ?? params.get('traceId') ?? undefined,
-    slipId: params.get('slip_id') ?? params.get('slipId') ?? undefined,
   });
 
+  const slipId = params.get('slip_id') ?? params.get('slipId') ?? undefined;
   const anonSessionId = params.get('anon_session_id') ?? params.get('anon_id') ?? params.get('session_id') ?? undefined;
   const reason = params.get('reason') ?? undefined;
 
@@ -45,7 +45,7 @@ export function spineFromRequest(req: Request): Partial<ContextSpine> {
     date: normalized.date,
     mode: normalized.mode,
     trace_id: normalized.trace_id,
-    slip_id: normalized.slipId,
+    slip_id: slipId,
     anon_session_id: anonSessionId,
     reason,
   };

@@ -3,7 +3,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-import { ReviewPanel } from '@/app/control/ReviewPanel';
+import { ReviewPanel } from '@/app/(product)/control/ReviewPanel';
 
 describe('ReviewPanel', () => {
   it('renders share button for run review workflow', () => {
