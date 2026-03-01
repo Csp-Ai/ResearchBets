@@ -1,30 +1,29 @@
 import 'server-only';
 
-import { randomUUID } from 'node:crypto';
+import { normalizeSpine, parseSpineFromSearch } from '@/src/core/nervous/spine';
+import { ensureTraceId, resolveTraceId } from '@/src/core/trace/trace_id';
 
-import { TraceContextSchema } from '@/src/core/contracts/envelopes';
-import { runtimeFlags } from '@/src/core/env/runtime.server';
-
-const read = (request: Request, key: string): string | null => {
+export function getTraceContext(request: Request, options?: { requireTraceId?: boolean; body?: unknown }) {
   const url = new URL(request.url);
-  return url.searchParams.get(key) ?? request.headers.get(key);
-};
+  const parsed = parseSpineFromSearch(url.searchParams);
+  const body = options?.body && typeof options.body === 'object' ? bodyToRecord(options.body) : {};
 
-export function getTraceContext(request: Request) {
-  const modeParam = read(request, 'mode');
-  const mode = modeParam === 'live' || modeParam === 'demo'
-    ? modeParam
-    : runtimeFlags.liveModeEnabled
-      ? 'live'
-      : 'demo';
+  const normalized = normalizeSpine({
+    ...body,
+    ...(body.spine && typeof body.spine === 'object' ? body.spine as Record<string, unknown> : {}),
+    ...parsed,
+    trace_id: resolveTraceId({ search: url.searchParams, body, headers: request.headers }) ?? parsed.trace_id
+  });
 
-  const candidate = {
-    trace_id: read(request, 'trace_id') ?? read(request, 'x-trace-id') ?? randomUUID(),
-    sport: read(request, 'sport') ?? 'NBA',
-    tz: read(request, 'tz') ?? 'America/Phoenix',
-    date: read(request, 'date') ?? new Date().toISOString().slice(0, 10),
-    mode,
+  const ensured = ensureTraceId(normalized);
+  return {
+    ...ensured.spine,
+    spine: ensured.spine,
+    trace_id: ensured.trace_id
   };
+}
 
-  return TraceContextSchema.parse(candidate);
+function bodyToRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  return value as Record<string, unknown>;
 }

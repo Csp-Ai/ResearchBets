@@ -8,9 +8,10 @@ type NervousOptions = {
   tz?: string;
   date?: string;
   mode?: 'live' | 'demo' | 'cache';
+  trace_id?: string;
 };
 
-const DEFAULTS: Required<NervousOptions> = {
+const DEFAULTS: Required<Omit<NervousOptions, 'trace_id'>> = {
   sport: 'NBA',
   tz: 'America/Phoenix',
   date: '2026-02-26',
@@ -29,6 +30,7 @@ export function renderWithNervousSystem(
     date: spine.date,
     mode: spine.mode
   });
+  if (nervous.trace_id) params.set('trace_id', nervous.trace_id);
 
   if (typeof window !== 'undefined') {
     window.history.replaceState({}, '', `/?${params.toString()}`);

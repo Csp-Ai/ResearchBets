@@ -3,22 +3,23 @@ import { describe, expect, it } from 'vitest';
 import { normalizeSpine, parseSpineFromSearch, serializeSpine } from '@/src/core/nervous/spine';
 
 describe('spine normalization', () => {
-  it('normalizes legacy trace aliases to trace_id', () => {
-    const spine = normalizeSpine({ sport: 'nba', trace: 't-1' });
+  it('fills required defaults', () => {
+    const spine = normalizeSpine({});
     expect(spine.sport).toBe('NBA');
-    expect(spine.trace_id).toBe('t-1');
+    expect(spine.tz).toBe('America/Phoenix');
+    expect(spine.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(spine.mode).toBe('live');
   });
 
-  it('parses legacy traceId alias', () => {
-    const spine = parseSpineFromSearch('sport=NFL&traceId=abc');
-    expect(spine.trace_id).toBe('abc');
-    expect(spine.sport).toBe('NFL');
+  it('serializeSpine emits known keys only', () => {
+    const params = serializeSpine(normalizeSpine({ sport: 'NFL', traceId: 'trace-12345678', tab: 'board' }));
+    expect(Object.keys(params).sort()).toEqual(['date', 'mode', 'sport', 'tab', 'trace_id', 'tz'].sort());
   });
 
-  it('serializes canonical keys only', () => {
-    const params = serializeSpine(normalizeSpine({ sport: 'NBA', tz: 'America/Phoenix', date: '2026-01-01', mode: 'live', trace: 'x' }));
-    expect(params.get('trace_id')).toBe('x');
-    expect(params.get('trace')).toBeNull();
-    expect(params.get('traceId')).toBeNull();
+  it('parse + normalize roundtrip is stable', () => {
+    const parsed = parseSpineFromSearch(new URLSearchParams('sport=MLB&tz=UTC&date=2026-02-01&mode=demo&trace_id=trace-abcdef12&tab=analyze'));
+    const normalized = normalizeSpine(parsed);
+    const roundtrip = normalizeSpine(serializeSpine(normalized));
+    expect(roundtrip).toEqual(normalized);
   });
 });
