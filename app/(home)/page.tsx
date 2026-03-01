@@ -1,12 +1,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-const HomeLandingClient = dynamic(() => import('@/app/HomeLandingClient'), { ssr: false });
-import { BoardPreviewSSR, getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
-import { BDAStrip, Credibility30s, TrustNote } from '@/src/components/landing/LandingCompactModules';
-import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
-import { appendQuery } from '@/src/components/landing/navigation';
-import { toHref } from '@/src/core/nervous/routes';
+import { getLandingSpineFromSearch } from '@/src/components/landing/BoardPreviewSSR';
+
+const HomeLandingClientV2 = dynamic(() => import('@/app/HomeLandingClientV2'), { ssr: false });
 
 type HomePageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -17,38 +14,8 @@ export default function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
-        <TruthSpineHeader
-          title="Home"
-          subtitle="Decision loop: Build → Analyze (Stress Test) → Track → Review."
-          actions={[
-            { label: 'Build from Board', href: toHref('/today', spine), tone: 'primary' },
-            { label: 'Analyze (Stress Test)', href: toHref('/stress-test', spine) },
-            { label: 'Review', href: appendQuery(toHref('/control', spine), { tab: 'review' }) }
-          ]}
-          traceId={spine.trace_id}
-        />
-        <BoardPreviewSSR spine={spine} />
-        <HomeLandingClient spine={spine} />
-
-        <section className="border-t border-white/10 pt-4 pb-6" aria-label="landing-how-it-works">
-          <details className="rounded-xl border border-white/10 bg-slate-900/35 p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">More</summary>
-            <div className="mt-4 grid gap-4">
-              <BDAStrip spine={spine} />
-              <Credibility30s spine={spine} />
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-3">
-                <h3 className="text-sm font-semibold text-slate-100">Latest run</h3>
-                <p className="mt-1 text-sm text-slate-300">No live run opened yet. Demo sample stays available so the loop always has a starting point.</p>
-              </section>
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-3">
-                <h3 className="text-sm font-semibold text-slate-100">Learned today</h3>
-                <p className="mt-1 text-sm text-slate-300">Process note: avoid stacking highly correlated legs without a volatility check.</p>
-              </section>
-              <TrustNote spine={spine} />
-            </div>
-          </details>
-        </section>
+      <div className="mx-auto w-full max-w-7xl">
+        <HomeLandingClientV2 spine={spine} />
       </div>
     </main>
   );
