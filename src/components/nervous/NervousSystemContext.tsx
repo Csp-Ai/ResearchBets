@@ -41,7 +41,10 @@ export function NervousSystemProvider({ children }: { children: React.ReactNode 
 export const useNervousSystem = () => {
   const ctx = useContext(NervousSystemContext);
   if (!ctx) {
-    throw new Error('useNervousSystem must be used inside NervousSystemProvider');
+    return {
+      ...DEFAULT_SPINE,
+      toHref: (path: string, overrides?: Partial<QuerySpine> & Record<string, string | number | undefined>) => buildHref(path, DEFAULT_SPINE, overrides)
+    };
   }
   return ctx;
 };

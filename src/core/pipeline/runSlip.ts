@@ -200,6 +200,40 @@ type ExtractApiResult = {
   requestId?: string;
 };
 
+async function emitPipelineEvent(input: {
+  trace_id: string;
+  slip_id?: string;
+  event_name: 'slip_enrich_started' | 'slip_enrich_done' | 'slip_scored' | 'slip_verdict_ready' | 'slip_persisted';
+  stage: 'enrich' | 'score' | 'verdict' | 'saved';
+  reason: string;
+}) {
+  try {
+    await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_name: input.event_name,
+        timestamp: new Date().toISOString(),
+        request_id: createClientRequestId(),
+        trace_id: input.trace_id,
+        session_id: ensureAnonSessionId(),
+        user_id: null,
+        agent_id: 'slip_pipeline',
+        model_version: 'runtime-deterministic-v1',
+        reason: input.reason,
+        properties: {
+          stage: input.stage,
+          generatedAt: new Date().toISOString(),
+          slip_id: input.slip_id,
+          reason: input.reason,
+        },
+      }),
+    });
+  } catch {
+    // Keep pipeline deterministic even when event storage is unavailable.
+  }
+}
+
 async function extractWithApi(slipText: string, initialTraceId: string): Promise<ExtractApiResult> {
   try {
     const anonSessionId = ensureAnonSessionId();
@@ -353,6 +387,14 @@ export async function runSlip(
     coverageAgentEnabled: options?.coverageAgentEnabled
   });
 
+  await emitPipelineEvent({
+    trace_id: resolvedTraceId,
+    slip_id: apiResult.slipId,
+    event_name: 'slip_enrich_started',
+    stage: 'enrich',
+    reason: 'Enriching legs with latest stats and injury context.'
+  });
+
   const enrichedLegs: EnrichedLeg[] = [];
   for (const leg of extracted) {
     const [stats, injuries, odds] = await Promise.all([enrichStats(leg), enrichInjuries(leg), enrichOdds(leg)]);
@@ -391,8 +433,30 @@ export async function runSlip(
     });
   }
 
+  await emitPipelineEvent({
+    trace_id: resolvedTraceId,
+    slip_id: apiResult.slipId,
+    event_name: 'slip_enrich_done',
+    stage: 'enrich',
+    reason: 'Leg enrichment complete.'
+  });
+
   const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries, trustedContext.unverifiedItems ?? []);
+  await emitPipelineEvent({
+    trace_id: resolvedTraceId,
+    slip_id: apiResult.slipId,
+    event_name: 'slip_scored',
+    stage: 'score',
+    reason: 'Scoring downside and concentration risk.'
+  });
   const report = mapReportLegsFromRun(extracted, enrichedLegs, analysis, sources, resolvedTraceId, apiResult.slipId);
+  await emitPipelineEvent({
+    trace_id: resolvedTraceId,
+    slip_id: apiResult.slipId,
+    event_name: 'slip_verdict_ready',
+    stage: 'verdict',
+    reason: 'Verdict prepared with weakest-leg rationale.'
+  });
 
   await runStore.updateRun(resolvedTraceId, {
     status: 'complete',
@@ -407,6 +471,14 @@ export async function runSlip(
       inferredSport
     },
     updatedAt: new Date().toISOString()
+  });
+
+  await emitPipelineEvent({
+    trace_id: resolvedTraceId,
+    slip_id: apiResult.slipId,
+    event_name: 'slip_persisted',
+    stage: 'saved',
+    reason: 'Run saved to history.'
   });
 
   return resolvedTraceId;

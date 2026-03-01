@@ -20,6 +20,7 @@ import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
+import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
 
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
@@ -111,7 +112,7 @@ export default function SlipPageClient() {
     if (dedupedLegs.length === 0) return;
     const tracking = createTrackingFromDraft(dedupedLegs, boardMode);
     saveSlip(tracking);
-    router.push(appendQuery(nervous.toHref('/track'), { slipId: tracking.slipId }));
+    router.push(appendQuery(nervous.toHref('/track'), { slip_id: tracking.slipId }));
   };
 
   const onCopyLegs = async () => {
@@ -148,6 +149,7 @@ export default function SlipPageClient() {
         ]}
       />
       <SlipIntelBar legs={dedupedLegs} />
+      <DuringStageTracker trace_id={nervous.trace_id} mode={boardMode} compact />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
           {games.length === 0 ? (

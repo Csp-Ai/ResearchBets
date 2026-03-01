@@ -2,11 +2,14 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { appendQuery } from '@/src/components/landing/navigation';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 import { useMotionVariants } from './motion';
 
 export function LandingPageClient({ hasRecentRun }: { hasRecentRun: boolean }) {
   const { fadeUp, stagger } = useMotionVariants();
+  const nervous = useNervousSystem();
 
   return (
     <motion.section initial="hidden" animate="show" variants={stagger} className="space-y-8">
@@ -15,9 +18,9 @@ export function LandingPageClient({ hasRecentRun }: { hasRecentRun: boolean }) {
         <h1 className="mt-2 text-4xl font-semibold leading-tight">Clearer slip calls, smarter props, and live context in seconds.</h1>
         <p className="mt-3 max-w-2xl text-sm text-slate-300">Paste your slip, get a verdict first, then quickly see the weakest leg and why it matters.</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/ingest" className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Analyze a slip</Link>
-          <Link href="/research?tab=scout" className="rounded-xl border border-white/20 px-4 py-2 text-sm">Scout props</Link>
-          {hasRecentRun ? <Link href="/research" className="rounded-xl border border-white/20 px-4 py-2 text-sm">Continue last analysis</Link> : null}
+          <Link href={appendQuery(nervous.toHref('/ingest'), {})} className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Analyze a slip</Link>
+          <Link href={appendQuery(nervous.toHref('/research'), { tab: 'scout' })} className="rounded-xl border border-white/20 px-4 py-2 text-sm">Scout props</Link>
+          {hasRecentRun ? <Link href={appendQuery(nervous.toHref('/research'), {})} className="rounded-xl border border-white/20 px-4 py-2 text-sm">Continue last analysis</Link> : null}
         </div>
       </motion.div>
 

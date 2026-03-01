@@ -272,6 +272,14 @@ export function FrontdoorLandingClient() {
             <SectionTitle className="mb-2">Tonight&apos;s Board</SectionTitle>
             <div className="space-y-2" data-testid="board-section" id="board-section">
               {loading ? <p className="text-xs text-slate-400">Loading board…</p> : null}
+              {today.reason === 'strict_live_empty' ? (
+                <div className="rounded-lg border border-slate-600 bg-slate-900/70 p-2 text-xs text-slate-200">
+                  Live feeds returned no active board right now. You can keep going with cached context.
+                  <div className="mt-2">
+                    <Link href={appendQuery(spineHref('/today'), { mode: 'cache' })} className="rounded border border-cyan-300/50 px-2 py-1 text-cyan-100">Use cached slate</Link>
+                  </div>
+                </div>
+              ) : null}
 
               {board.slice(0, 6).map((prop) => (
                 <SlipRow

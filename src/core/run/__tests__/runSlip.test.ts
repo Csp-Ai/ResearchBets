@@ -21,7 +21,8 @@ describe('runSlip pipeline', () => {
   });
 
   it('produces a persisted run with legs and analysis', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const emittedEvents: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('/api/slips/submit')) {
         return new Response(JSON.stringify({ slip_id: '00000000-0000-0000-0000-000000000001' }), { status: 200 });
@@ -29,6 +30,12 @@ describe('runSlip pipeline', () => {
 
       if (url.includes('/api/slips/extract')) {
         return new Response(JSON.stringify({ extracted_legs: [{ selection: 'Jayson Tatum over 29.5 points (-110)', market: 'points', odds: '-110' }] }), { status: 200 });
+      }
+
+      if (url.includes('/api/events')) {
+        const payload = JSON.parse(String(init?.body ?? '{}')) as { event_name?: string };
+        if (payload.event_name) emittedEvents.push(payload.event_name);
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
       }
 
       return new Response('{}', { status: 404 });
@@ -47,6 +54,7 @@ describe('runSlip pipeline', () => {
     expect(run?.report?.legs.length).toBeGreaterThan(0);
     expect(run?.report?.weakest_leg_id).toBeTruthy();
     expect(run?.trustedContext?.fallbackReason).toBe('No verified update from trusted sources.');
+    expect(emittedEvents).toEqual(['slip_enrich_started', 'slip_enrich_done', 'slip_scored', 'slip_verdict_ready', 'slip_persisted']);
   });
 
 

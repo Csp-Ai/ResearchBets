@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ControlPlaneEvent } from '@/src/components/AgentNodeGraph';
 
 type UseTraceEventsArgs = {
+  trace_id?: string;
   traceId?: string;
   limit?: number;
   pollIntervalMs?: number;
@@ -29,17 +30,20 @@ type ApiEvent = {
   properties?: Record<string, unknown>;
   payload?: Record<string, unknown>;
   checksum?: string;
+  type?: string;
 };
 
 function toNormalizedEvent(row: ApiEvent): ControlPlaneEvent | null {
-  if (!row.event_name) return null;
+  const payload = (row.payload ?? row.properties ?? {}) as Record<string, unknown>;
+  const eventName = row.event_name ?? row.type ?? (typeof payload.event_name === 'string' ? payload.event_name : undefined);
+  if (!eventName) return null;
   return {
     id: row.id,
-    event_name: String(row.event_name),
-    trace_id: String(row.trace_id ?? ''),
+    event_name: String(eventName),
+    trace_id: String(row.trace_id ?? payload.trace_id ?? ''),
     request_id: row.request_id ? String(row.request_id) : undefined,
-    created_at: String(row.created_at ?? row.timestamp ?? ''),
-    payload: (row.payload ?? row.properties ?? {}) as Record<string, unknown>,
+    created_at: String(row.created_at ?? row.timestamp ?? payload.timestamp ?? ''),
+    payload,
   };
 }
 
@@ -49,16 +53,17 @@ function dedupeKey(event: ControlPlaneEvent): string {
   return `${event.event_name}|${event.created_at ?? ''}|${payloadKey}`;
 }
 
-export function useTraceEvents({ traceId, limit = 120, pollIntervalMs = 2000, enabled = true }: UseTraceEventsArgs): UseTraceEventsResult {
+export function useTraceEvents({ trace_id, traceId, limit = 120, pollIntervalMs = 2000, enabled = true }: UseTraceEventsArgs): UseTraceEventsResult {
+  const activeTraceId = trace_id ?? traceId;
   const [events, setEvents] = useState<ControlPlaneEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const isLive = Boolean(enabled && traceId);
+  const isLive = Boolean(enabled && activeTraceId);
 
   const refresh = useCallback(async () => {
-    if (!traceId) {
+    if (!activeTraceId) {
       setEvents([]);
       return;
     }
@@ -69,7 +74,7 @@ export function useTraceEvents({ traceId, limit = 120, pollIntervalMs = 2000, en
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/events?trace_id=${encodeURIComponent(traceId)}&limit=${limit}`, {
+      const response = await fetch(`/api/events?trace_id=${encodeURIComponent(activeTraceId)}&limit=${limit}`, {
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -95,7 +100,7 @@ export function useTraceEvents({ traceId, limit = 120, pollIntervalMs = 2000, en
     } finally {
       setLoading(false);
     }
-  }, [limit, traceId]);
+  }, [activeTraceId, limit]);
 
   useEffect(() => {
     if (!isLive) return;
@@ -111,12 +116,12 @@ export function useTraceEvents({ traceId, limit = 120, pollIntervalMs = 2000, en
   }, [isLive, pollIntervalMs, refresh]);
 
   useEffect(() => {
-    if (!traceId) {
+    if (!activeTraceId) {
       setEvents([]);
       setError(null);
       setLoading(false);
     }
-  }, [traceId]);
+  }, [activeTraceId]);
 
   return useMemo(
     () => ({
