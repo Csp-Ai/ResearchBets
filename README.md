@@ -2,9 +2,22 @@
 
 **Anonymous-first sports betting research app with a bettor loop: Board → Ingest → Stress Test → Settle/History. Deterministic agents parse slips and shared texts, explain weakest legs, track outcomes, and surface next-slate ideas with demo/live fallbacks and optional Supabase persistence.**
 
+## Start here: Bettor Cockpit (`/cockpit`)
+
+ResearchBets is now cockpit-first for onboarding and canonical entry.
+
+- `/` server-redirects to `/cockpit` and preserves spine/query continuity.
+- `/landing` server-redirects to `/cockpit` and preserves spine/query continuity.
+- Use `buildCockpitEntryHref` (`src/core/routing/cockpitEntry.ts`) for deterministic cockpit entry defaults.
+
+Canonical local URL examples:
+
+- `http://localhost:3000/cockpit?sport=NBA&tz=America/Phoenix&date=YYYY-MM-DD&mode=demo`
+- `http://localhost:3000/cockpit?sport=NFL&tz=America/New_York&date=YYYY-MM-DD&mode=cache`
+
 ## Lifecycle OS (canonical flow)
 
-1. **Landing** (`/`) — rendered by App Router at `app/page.tsx` using `HomeLandingClient` → `src/components/landing/HomeLandingPage.tsx`.
+1. **Cockpit** (`/cockpit`) — canonical front door with board, slip rail, and intelligence handoff.
 2. **Slip** (`/slip`) — build a draft slip and see live fragility/correlation intelligence.
 3. **Stress Test** (`/stress-test`) — run deterministic extraction + risk analysis before placing.
 4. **Control** (`/control`) — monitor live risk and run review mode for settled slips.
@@ -18,8 +31,8 @@ Legacy aliases are preserved for continuity:
 
 ## New user journey in 60 seconds (guest)
 
-1. Open `/` and pick a prop from the today board.
-2. Add it to draft and jump to `/slip`.
+1. Open `/cockpit` (or `/`, which redirects to `/cockpit`).
+2. Add legs from the board and jump to `/slip`.
 3. Build your slip and check `SlipIntelBar` for correlation + volatility warnings.
 4. Hit **Stress Test** to run analysis on `/stress-test`.
 5. Open `/control` to monitor live risk deltas.
@@ -27,19 +40,15 @@ Legacy aliases are preserved for continuity:
 
 No account is required for this loop; draft and recent postmortem state are stored locally first.
 
-## Demo vs Live modes
+## Modes
 
 ResearchBets is deterministic-first and degrades safely.
 
-- **Demo mode (default):**
-  - `LIVE_MODE` is unset/false.
-  - `/api/today` serves deterministic slate data and can return `mode: demo` or cached payloads.
-  - Live market APIs and outcome APIs use demo-first snapshots and deterministic fallbacks.
-- **Live mode:**
-  - In production, live mode now defaults on when any canonical live key exists (`SPORTSDATA_API_KEY`, `ODDS_API_KEY`, `THEODDSAPI_KEY`).
-  - `LIVE_MODE=true|false` still overrides explicitly.
-  - `src/core/live/modeResolver.server.ts` is the single resolver for `live | demo`, reason code, and public label.
-  - In production runtimes, landing routes stay live-first when keys exist; on provider failure they fall back to deterministic demo safely.
+- **demo** (default): deterministic payloads and safe fallbacks.
+- **cache**: cached/provider-backed payload when available, with neutral degradation messaging.
+- **live**: provider-backed attempts when keys exist; safe fallback to cache/demo on failure.
+
+`/api/today` returns `mode: live | cache | demo` with optional reason text.
 
 ## Local development
 
@@ -99,7 +108,7 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 ## Repo Grounding
 
-- Canonical home routing chain is `app/page.tsx` (server wrapper with `Suspense`) → `app/HomeLandingClient.tsx` → `src/components/landing/HomeLandingPage.tsx`.
+- Canonical entry routing chain is `app/(home)/page.tsx` (server redirect) and `app/landing/page.tsx` (alias redirect), both using `buildCockpitEntryHref` from `src/core/routing/cockpitEntry.ts`.
 - Keep one spine for internal navigation: `nervous.toHref()` + `appendQuery()` on route transitions.
 
 ### Key routes (BEFORE / DURING / AFTER)
@@ -124,12 +133,7 @@ npm run build
 
 ### Release checklist
 
-- `npm run verify:landing`
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- Apply Supabase migrations when Supabase-backed persistence is enabled (`npm run supabase:push`).
-- Smoke flow: `/login` → `/profile` → `/ingest` → `/history` → `/today`.
+Use `docs/RELEASE.md` for the current step-by-step release runbook (v0.2.0+).
 
 ### Sprint 6 focus
 
@@ -139,16 +143,17 @@ npm run build
 
 ## Landing page wiring
 
-- Canonical home route is `/`, served by App Router in `app/page.tsx` and rendered by `HomeLandingClient` + `HomeLandingPage`.
-- `public/landing.html` is optional legacy/reference content and is **not** the canonical home route.
-- Run `npm run verify:landing` to enforce this contract in local/CI checks.
-- No placeholder routes were added: `/ingest`, `/research?demo=1`, `/ingest?mode=screenshot`, and `/control` already exist in the app router.
+- Canonical entry routes are `/` and `/landing`, and both server-redirect to `/cockpit` through `buildCockpitEntryHref`.
+- `public/landing.html` is optional legacy/reference content and is **not** the canonical product front door.
+- Run `npm run verify:landing` to enforce no drift back to legacy root redirects.
+- No placeholder routes were added: `/ingest`, `/cockpit`, `/slip`, and `/control` already exist in the app router.
 
 ## Key routes
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Canonical App Router home route rendered by `app/page.tsx` (`HomeLandingClient` → `HomeLandingPage`). |
+| `/` | Canonical redirect entry that server-redirects to `/cockpit` while preserving spine/query. |
+| `/cockpit` | Canonical front door: board + slip rail + intelligence handoff with deterministic fallbacks. |
 | `/today` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
 | `/slip` | Draft slip builder with `useDraftSlip`, `DraftSlipStore`, and `SlipIntelBar`. |
 | `/stress-test` | Suspense-wrapped stress-test workspace using `ResearchPageContent`. |

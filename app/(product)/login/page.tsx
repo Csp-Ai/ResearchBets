@@ -46,7 +46,7 @@ export default function LoginPage() {
         <span>•</span>
         <Link href={appendQuery(nervous.toHref('/today'), { tab: 'board' })}>Tonight&apos;s Board</Link>
         <span>•</span>
-        <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/research'), { demo: 1 }))}>Try sample slip</button>
+        <button type="button" onClick={() => router.push(appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' }))}>Try sample slip</button>
       </div>
     </div>
   );
