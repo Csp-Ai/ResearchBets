@@ -1,57 +1,53 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
+import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { parseSlipExtractEnvelope, parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
+import type { MarketType } from '@/src/core/markets/marketType';
+import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 import './cockpit.css';
 
-type Risk = 'danger' | 'watch' | 'stable';
-
-type BoardLeg = {
-  id: string;
-  league: 'NBA' | 'NFL' | 'NHL';
-  game: string;
-  player: string;
-  market: string;
-  line: string;
-  odds: string;
-  l10: number;
-  risk: Risk;
-};
-
-const BOARD_DATA: BoardLeg[] = [
-  { id: 'nba-1', league: 'NBA', game: 'LAL @ BOS', player: 'J. Tatum', market: 'Points', line: 'O 28.5', odds: '-110', l10: 8, risk: 'watch' },
-  { id: 'nba-2', league: 'NBA', game: 'LAL @ BOS', player: 'L. James', market: 'Assists', line: 'O 8.5', odds: '-105', l10: 6, risk: 'stable' },
-  { id: 'nba-3', league: 'NBA', game: 'PHX @ DEN', player: 'N. Jokic', market: 'Rebounds', line: 'O 12.5', odds: '-118', l10: 7, risk: 'danger' },
-  { id: 'nfl-1', league: 'NFL', game: 'KC @ BUF', player: 'P. Mahomes', market: 'Pass Yds', line: 'O 289.5', odds: '-112', l10: 5, risk: 'watch' },
-  { id: 'nfl-2', league: 'NFL', game: 'KC @ BUF', player: 'J. Allen', market: 'Rush Yds', line: 'O 39.5', odds: '-108', l10: 7, risk: 'stable' },
-  { id: 'nhl-1', league: 'NHL', game: 'EDM @ VAN', player: 'C. McDavid', market: 'Shots', line: 'O 3.5', odds: '+105', l10: 6, risk: 'watch' },
-  { id: 'nhl-2', league: 'NHL', game: 'NYR @ TOR', player: 'A. Matthews', market: 'Goals', line: 'O 0.5', odds: '+125', l10: 4, risk: 'danger' }
-];
-
 const ACCORDIONS = [
   { id: 'what', title: 'What this engine flags', content: 'Correlation pressure, fragility concentration, and weakest-leg breakdown in a deterministic simulation pass.' },
-  { id: 'how', title: 'How simulation works', content: 'Board data remains local in this prototype port. Stress test stages move through Before → Analyze → During → After.' },
-  { id: 'limits', title: 'Mode limitations', content: 'No backend wiring in this route yet. Results are deterministic and designed only to mirror prototype behavior.' }
+  { id: 'how', title: 'How simulation works', content: 'Stress test stages move through Before → Analyze → During → After with run continuity on trace_id.' },
+  { id: 'limits', title: 'Mode limitations', content: 'Live endpoints can degrade to cache/demo while keeping board and ticket usable.' }
 ];
 
-const RISK_ORDER: Record<Risk, number> = { danger: 0, watch: 1, stable: 2 };
+type Stage = 'Before' | 'Analyze' | 'During' | 'After';
+
+const COCKPIT_MARKETS: MarketType[] = ['spread', 'total', 'moneyline', 'ra', 'points', 'threes', 'rebounds', 'assists', 'pra'];
+const toMarketType = (market: string): MarketType => {
+  const normalized = market.toLowerCase();
+  return (COCKPIT_MARKETS.includes(normalized as MarketType) ? normalized : 'points') as MarketType;
+};
 
 export default function CockpitLandingClient() {
   const cockpitRef = useRef<HTMLElement | null>(null);
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
   const saveInputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+  const nervous = useNervousSystem();
+  const { board, neutralStatus } = useCockpitToday(nervous);
+  const { slip, addLeg, removeLeg } = useDraftSlip();
 
   const [query, setQuery] = useState('');
-  const [addedIds, setAddedIds] = useState<string[]>([]);
-  const [ticketLegs, setTicketLegs] = useState<BoardLeg[]>([]);
-  const [stressState, setStressState] = useState({
+  const [email, setEmail] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [analysis, setAnalysis] = useState({
     running: false,
     weakestId: '',
-    traceId: 'trace_idle',
+    weakestLabel: '—',
+    traceId: nervous.trace_id,
     corrLabel: '—',
-    corrValue: 0,
-    fragility: 0,
-    stage: 'Before'
+    fragility: null as number | null,
+    reasons: [] as string[],
+    stage: 'Before' as Stage
   });
   const [ui, setUi] = useState({
     drawerOpen: false,
@@ -64,20 +60,21 @@ export default function CockpitLandingClient() {
   });
 
   const groupedGames = useMemo(() => {
-    const filtered = BOARD_DATA.filter((leg) => {
-      const hay = `${leg.league} ${leg.game} ${leg.player} ${leg.market}`.toLowerCase();
+    const filtered = board.filter((leg) => {
+      const hay = `${leg.matchup} ${leg.player} ${leg.market}`.toLowerCase();
       return hay.includes(query.toLowerCase());
     });
 
-    return filtered.reduce<Record<string, BoardLeg[]>>((acc, leg) => {
-      const key = `${leg.league} • ${leg.game}`;
+    return filtered.reduce<Record<string, typeof board>>((acc, leg) => {
+      const key = `${leg.matchup} • ${leg.startTime}`;
       if (!acc[key]) acc[key] = [];
-      acc[key].push(leg);
+      acc[key]?.push(leg);
       return acc;
     }, {});
-  }, [query]);
+  }, [board, query]);
 
-  const legCount = ticketLegs.length;
+  const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
+  const legCount = slip.length;
   const stressEnabled = legCount >= 2;
 
   const closeOverlays = useCallback(() => {
@@ -86,9 +83,7 @@ export default function CockpitLandingClient() {
 
   useEffect(() => {
     const onEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeOverlays();
-      }
+      if (event.key === 'Escape') closeOverlays();
     };
     document.addEventListener('keydown', onEsc);
     return () => document.removeEventListener('keydown', onEsc);
@@ -102,16 +97,19 @@ export default function CockpitLandingClient() {
     if (ui.saveModalOpen) saveInputRef.current?.focus();
   }, [ui.saveModalOpen]);
 
-  const onAdd = (leg: BoardLeg) => {
-    if (addedIds.includes(leg.id) || ticketLegs.length >= 6) return;
-    setAddedIds((prev) => [...prev, leg.id]);
-    setTicketLegs((prev) => [...prev, leg]);
+  const onAdd = (leg: (typeof board)[number]) => {
+    if (slipIds.has(leg.id) || slip.length >= 6) return;
+    addLeg({
+      id: leg.id,
+      player: leg.player,
+      marketType: toMarketType(leg.market),
+      line: leg.line,
+      odds: leg.odds,
+      game: leg.matchup
+    });
   };
 
-  const onRemove = (id: string) => {
-    setAddedIds((prev) => prev.filter((item) => item !== id));
-    setTicketLegs((prev) => prev.filter((leg) => leg.id !== id));
-  };
+  const onRemove = (id: string) => removeLeg(id);
 
   const toggleAccordion = (id: string) => {
     setUi((prev) => {
@@ -122,44 +120,89 @@ export default function CockpitLandingClient() {
     });
   };
 
-  const runStressTest = () => {
-    if (!stressEnabled || stressState.running) return;
-    const sorted = [...ticketLegs].sort((a, b) => {
-      const riskDiff = RISK_ORDER[a.risk] - RISK_ORDER[b.risk];
-      if (riskDiff !== 0) return riskDiff;
-      return a.l10 - b.l10;
-    });
-    const weakest = sorted[0];
-    if (!weakest) return;
-    const corrLabel = legCount >= 4 ? 'High' : legCount === 3 ? 'Medium' : 'Low';
-    const corrTarget = corrLabel === 'High' ? 7.9 : corrLabel === 'Medium' ? 4.7 : 1.4;
-    const fragilityTarget = legCount >= 4 ? 7.4 : legCount === 3 ? 5.8 : 3.2;
-    const traceId = `trace_${Math.random().toString(36).slice(2, 8)}`;
+  const runStressTest = async () => {
+    if (!stressEnabled || analysis.running) return;
+    setAnalysis((prev) => ({ ...prev, running: true, stage: 'Analyze' }));
 
-    setStressState((prev) => ({ ...prev, running: true, weakestId: weakest.id, traceId, stage: 'Analyze', corrLabel }));
+    try {
+      const submitResponse = await fetch('/api/slips/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'paste',
+          raw_text: slip.map((leg) => `${leg.player} ${leg.marketType} ${leg.line} ${leg.odds ?? ''}`.trim()).join('\n'),
+          trace_id: nervous.trace_id,
+          spine: { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode },
+          legs: slip
+        })
+      });
+      const submitPayload = await submitResponse.json();
+      const submitEnvelope = parseSlipSubmitEnvelope(submitPayload);
+      if (!submitEnvelope.success || !submitEnvelope.data.ok) {
+        setAnalysis((prev) => ({ ...prev, running: false, stage: 'Before' }));
+        return;
+      }
 
-    const started = performance.now();
-    const duration = 900;
-    const frame = (now: number) => {
-      const t = Math.min((now - started) / duration, 1);
-      const eased = 1 - (1 - t) ** 3;
-      setStressState((prev) => ({ ...prev, corrValue: Number((corrTarget * eased).toFixed(1)), fragility: Number((fragilityTarget * eased).toFixed(1)) }));
-      if (t < 1) requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
+      const traceId = submitEnvelope.data.data.trace_id;
+      if (traceId && traceId !== nervous.trace_id) {
+        router.replace(nervous.toHref('/cockpit', { trace_id: traceId }));
+      }
 
-    window.setTimeout(() => setStressState((prev) => ({ ...prev, stage: 'Before' })), 120);
-    window.setTimeout(() => setStressState((prev) => ({ ...prev, stage: 'Analyze' })), 520);
-    window.setTimeout(() => setStressState((prev) => ({ ...prev, stage: 'During' })), 980);
-    window.setTimeout(() => setStressState((prev) => ({ ...prev, stage: 'After' })), 1460);
-    window.setTimeout(() => setStressState((prev) => ({ ...prev, running: false })), 1900);
+      const extractResponse = await fetch('/api/slips/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slip_id: submitEnvelope.data.data.slip_id, anon_session_id: submitEnvelope.data.data.anon_id, request_id: crypto.randomUUID() })
+      });
+      const extractPayload = await extractResponse.json();
+      const extractEnvelope = parseSlipExtractEnvelope(extractPayload);
+
+      const report = buildSlipStructureReport(slip.map((leg) => ({
+        id: leg.id,
+        player: leg.player,
+        market: leg.marketType,
+        line: leg.line,
+        odds: leg.odds,
+        game: leg.game
+      })));
+
+      const weakestLeg = report.legs.find((leg) => leg.leg_id === report.weakest_leg_id);
+      const corrLabel = report.script_clusters.some((cluster) => cluster.severity === 'high') ? 'High' : report.script_clusters.some((cluster) => cluster.severity === 'med') ? 'Medium' : 'Low';
+
+      setAnalysis({
+        running: false,
+        weakestId: weakestLeg?.leg_id ?? '',
+        weakestLabel: weakestLeg?.player ?? '—',
+        traceId,
+        corrLabel,
+        fragility: typeof weakestLeg?.fragility_score === 'number' ? weakestLeg.fragility_score : null,
+        reasons: extractEnvelope.success && extractEnvelope.data.ok ? report.reasons.slice(0, 2) : report.reasons.slice(0, 1),
+        stage: 'Analyze'
+      });
+    } catch {
+      setAnalysis((prev) => ({ ...prev, running: false, stage: 'Before' }));
+    }
+  };
+
+  const saveAnalysis = async () => {
+    if (!analysis.traceId || !email.trim()) return;
+    setSaveState('saving');
+    await fetch('/api/analysis/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trace_id: analysis.traceId, contact: email.trim() })
+    }).catch(() => null);
+    setSaveState('saved');
+    setTimeout(() => {
+      setSaveState('idle');
+      setUi((p) => ({ ...p, saveModalOpen: false }));
+    }, 600);
   };
 
   return (
-    <div className={`cockpit-page ${stressState.running ? 'running' : ''}`}>
+    <div className={`cockpit-page ${analysis.running ? 'running' : ''}`}>
       <header id="topbar" role="banner">
         <div className="wordmark">RESEARCH<span>BETS</span></div>
-        <div className="topbar-chips"><span className="boards-label">Boards: NBA | NFL | NHL</span></div>
+        <div className="topbar-chips"><span className="boards-label">{neutralStatus}</span></div>
         <div className="topbar-right">
           <div className="tz-shell">
             <button className="chip active tz-btn" aria-expanded={ui.tzOpen} onClick={() => setUi((p) => ({ ...p, tzOpen: !p.tzOpen }))}>TZ: {ui.tz} ▾</button>
@@ -193,12 +236,12 @@ export default function CockpitLandingClient() {
               <div className="board-group" key={group}>
                 <div className="group-label">{group}</div>
                 {legs.map((leg) => {
-                  const added = addedIds.includes(leg.id);
+                  const added = slipIds.has(leg.id);
                   return (
                     <div key={leg.id} className="board-row" role="listitem">
                       <div>
                         <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
-                        <div className="board-sub">Odds {leg.odds} · L10 {leg.l10}/10</div>
+                        <div className="board-sub">Odds {leg.odds} · L10 {leg.hitRateL10 ?? '—'}/10</div>
                       </div>
                       <button className={`add-btn ${added ? 'added' : ''}`} onClick={() => onAdd(leg)} disabled={added} aria-pressed={added}>+</button>
                     </div>
@@ -217,17 +260,14 @@ export default function CockpitLandingClient() {
           </div>
           <div className="ticket-body">
             {legCount === 0 ? (
-              <div className="ticket-empty">
-                <div className="ticket-empty-icon">⬡</div>
-                <div className="ticket-empty-text">Add 2–4 legs to isolate pressure.</div>
-              </div>
+              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">Add 2–4 legs to isolate pressure.</div></div>
             ) : (
               <div className="ticket-legs" role="list">
-                {ticketLegs.map((leg) => (
-                  <div key={leg.id} className={`ticket-leg ${stressState.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
+                {slip.map((leg) => (
+                  <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
                     <div>
-                      <div className="ticket-leg-main">{leg.player} · {leg.market} {leg.line}</div>
-                      <div className="ticket-leg-sub">{leg.game} · {leg.risk.toUpperCase()}</div>
+                      <div className="ticket-leg-main">{leg.player} · {leg.marketType} {leg.line}</div>
+                      <div className="ticket-leg-sub">{leg.game ?? '—'}</div>
                     </div>
                     <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
                   </div>
@@ -236,24 +276,26 @@ export default function CockpitLandingClient() {
             )}
 
             <div className="moat-block">
-              <div className="moat-row"><span>Weakest leg</span><span>{ticketLegs.find((leg) => leg.id === stressState.weakestId)?.player ?? '—'}</span></div>
-              <div className="moat-row"><span>Correlation pressure</span><span>{stressState.corrLabel} {stressState.corrValue.toFixed(1)}</span></div>
-              <div className="moat-row"><span>Fragility index</span><span>{stressState.fragility.toFixed(1)}</span></div>
+              <div className="moat-row"><span>Weakest leg</span><span>{analysis.weakestLabel}</span></div>
+              <div className="moat-row"><span>Correlation pressure</span><span>{analysis.corrLabel}</span></div>
+              <div className="moat-row"><span>Fragility index</span><span>{analysis.fragility ?? '—'}</span></div>
             </div>
+            {analysis.reasons.length > 0 ? <p className="board-sub">{analysis.reasons.join(' · ')}</p> : null}
           </div>
 
           <div className="ticket-cta-row">
-            <button className={`btn-secondary ${stressEnabled ? 'enabled' : ''}`} onClick={runStressTest} disabled={!stressEnabled || stressState.running}>Run Stress Test</button>
+            <button className={`btn-secondary ${stressEnabled ? 'enabled' : ''}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run Stress Test</button>
             <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: true }))}>Save Analysis</button>
           </div>
+          {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="btn-primary" style={{ marginTop: 10, display: 'inline-block' }}>Continue to Track</Link> : null}
         </div>
       </section>
 
       <section className="pipeline-strip" aria-label="Run trace strip">
-        <span id="trace-chip">{stressState.traceId}</span>
+        <span id="trace-chip">{analysis.traceId}</span>
         <div className="stage-row">
-          {['Before', 'Analyze', 'During', 'After'].map((stage) => (
-            <div key={stage} className={`stage ${stressState.stage === stage ? 'active' : ''}`}>{stage}</div>
+          {(['Before', 'Analyze', 'During', 'After'] as Stage[]).map((stage) => (
+            <div key={stage} className={`stage ${analysis.stage === stage ? 'active' : ''}`}>{stage}{stage === 'During' || stage === 'After' ? ' (preview)' : ''}</div>
           ))}
         </div>
       </section>
@@ -261,39 +303,21 @@ export default function CockpitLandingClient() {
       <section className="accordions" aria-label="Cockpit details">
         {ACCORDIONS.map((item) => {
           const open = ui.openAccordionIds.has(item.id);
-          return (
-            <article className={`accordion ${open ? 'open' : ''}`} key={item.id}>
-              <button className="accordion-trigger" aria-expanded={open} onClick={() => toggleAccordion(item.id)}>{item.title}</button>
-              {open && <div className="accordion-content">{item.content}</div>}
-            </article>
-          );
+          return (<article className={`accordion ${open ? 'open' : ''}`} key={item.id}><button className="accordion-trigger" aria-expanded={open} onClick={() => toggleAccordion(item.id)}>{item.title}</button>{open && <div className="accordion-content">{item.content}</div>}</article>);
         })}
       </section>
 
-      <footer className="cockpit-footer">
-        <button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Slip</button>
-      </footer>
+      <footer className="cockpit-footer"><button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Slip</button></footer>
 
       <div className={`drawer-overlay ${ui.drawerOpen ? 'open' : ''}`} onClick={() => setUi((p) => ({ ...p, drawerOpen: false }))} />
-      <aside id="drawer" className={ui.drawerOpen ? 'open' : ''} aria-hidden={!ui.drawerOpen}>
-        <button className="drawer-close" onClick={() => setUi((p) => ({ ...p, drawerOpen: false }))}>Close</button>
-        <nav><a href="#hero">Hero</a><a href="#cockpit">Cockpit</a></nav>
-      </aside>
+      <aside id="drawer" className={ui.drawerOpen ? 'open' : ''} aria-hidden={!ui.drawerOpen}><button className="drawer-close" onClick={() => setUi((p) => ({ ...p, drawerOpen: false }))}>Close</button><nav><a href="#hero">Hero</a><a href="#cockpit">Cockpit</a></nav></aside>
 
       <div className={`modal-overlay ${ui.pasteModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, pasteModalOpen: false }))}>
-        <div className="modal">
-          <h2>Paste Slip</h2>
-          <textarea ref={pasteInputRef} placeholder="Demo only: backend wiring comes later." />
-          <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: false }))}>Close</button>
-        </div>
+        <div className="modal"><h2>Paste Slip</h2><textarea ref={pasteInputRef} placeholder="Paste slips to ingest through submit + extract." /><button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: false }))}>Close</button></div>
       </div>
 
       <div className={`modal-overlay ${ui.saveModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, saveModalOpen: false }))}>
-        <div className="modal">
-          <h2>Save Analysis</h2>
-          <input ref={saveInputRef} placeholder="Email (demo)" />
-          <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: false }))}>Done</button>
-        </div>
+        <div className="modal"><h2>Save Analysis</h2><input ref={saveInputRef} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" /><button className="btn-secondary" onClick={saveAnalysis} disabled={saveState === 'saving' || !email.trim()}>{saveState === 'saved' ? 'Saved' : 'Done'}</button></div>
       </div>
     </div>
   );
