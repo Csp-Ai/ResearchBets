@@ -29,12 +29,12 @@ if (missingExact.length > 0 || missingGroups.length > 0) {
   }
 
   if (relaxedMode) {
-    console.warn('⚠️  Environment check warning (offline/demo mode enabled).');
+    console.warn('⚠️  Offline/demo mode enabled. /cockpit will run with demo/cached data.');
     console.warn(`Missing keys: ${missing.join(', ')}`);
     if (allowOffline) {
       console.warn('DEV_ALLOW_OFFLINE is set; continuing without Supabase public keys.');
     }
-    console.warn('Supabase-backed persistence/community/research features will be disabled or degraded.');
+    console.warn('Persistence (save analysis, community, research history) will be degraded until Supabase keys are set.');
     console.warn('To enable full mode, set NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY.');
     console.warn('Or explicitly run full mode with LIVE_MODE=true and real keys configured.');
     console.warn('Copy/paste template for full mode:');

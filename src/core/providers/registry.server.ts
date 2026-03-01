@@ -115,9 +115,39 @@ const warn = (code: string, details: Record<string, unknown>) => {
   console.warn(JSON.stringify({ level: 'warn', scope: 'provider_registry', code, ...details }));
 };
 
+let missingProviderKeyWarningSent = false;
+
+const isLiveModeEnabled = (value: string | undefined) => ['1', 'true', 'yes'].includes((value ?? '').toLowerCase());
+
+const warnMissingProviderKeys = (env: Record<string, string | undefined>, missingKeys: string[]) => {
+  if (missingKeys.length === 0 || missingProviderKeyWarningSent) return;
+
+  const liveMode = isLiveModeEnabled(env.LIVE_MODE);
+  const keyList = missingKeys.join(', ');
+  if (liveMode) {
+    warn('provider_keys_missing_live_mode', {
+      message: `LIVE_MODE=true and provider keys are missing: ${keyList}. Demo/cache fallback providers remain active where needed.`,
+      live_mode: true,
+      missing_keys: missingKeys
+    });
+  } else {
+    warn('provider_keys_missing_demo_mode', {
+      message: `Provider keys missing (demo/cache ok): ${keyList}`,
+      live_mode: false,
+      missing_keys: missingKeys
+    });
+  }
+
+  missingProviderKeyWarningSent = true;
+};
+
 export const createProviderRegistry = (env: Record<string, string | undefined> = process.env): ProviderRegistry => {
   const hasSportsDataKey = Boolean(env.SPORTSDATA_API_KEY);
   const hasOddsKey = Boolean(env.ODDS_API_KEY);
+  const missingKeys = [
+    hasSportsDataKey ? null : 'SPORTSDATA_API_KEY',
+    hasOddsKey ? null : 'ODDS_API_KEY'
+  ].filter((key): key is string => Boolean(key));
 
   const statsProvider: StatsProvider = hasSportsDataKey
     ? (createSportsDataIoProvider({ apiKey: env.SPORTSDATA_API_KEY, baseUrl: env.SPORTSDATAIO_BASE_URL }) as SportsDataIoProvider)
@@ -127,8 +157,7 @@ export const createProviderRegistry = (env: Record<string, string | undefined> =
     ? (createTheOddsApiProvider({ apiKey: env.ODDS_API_KEY, baseUrl: env.ODDS_API_BASE_URL }) as TheOddsApiProvider)
     : mockOddsProvider('odds-demo');
 
-  if (!hasSportsDataKey) warn('stats_provider_fallback', { provider: 'stats-demo', reason: 'SPORTSDATA_API_KEY missing' });
-  if (!hasOddsKey) warn('odds_provider_fallback', { provider: 'odds-demo', reason: 'ODDS_API_KEY missing' });
+  warnMissingProviderKeys(env, missingKeys);
 
   return { statsProvider, oddsProvider };
 };
