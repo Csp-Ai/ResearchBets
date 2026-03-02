@@ -10,7 +10,9 @@ export const ensureAnonSessionId = (): string => {
   const existing = getStoredAnonSessionId();
   if (existing) return existing;
   const generated = crypto.randomUUID();
-  window.localStorage.setItem(ANON_SESSION_STORAGE_KEY, generated);
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(ANON_SESSION_STORAGE_KEY, generated);
+  }
   return generated;
 };
 

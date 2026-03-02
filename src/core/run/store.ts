@@ -6,6 +6,7 @@ import type { Run } from './types';
 
 const STORAGE_KEY = 'rb:runs:v1';
 const SUPABASE_TABLE = 'research_runs';
+const serverRuns: Run[] = [];
 
 const runIdOf = (run: Pick<Run, 'trace_id' | 'traceId'>): string => run.trace_id ?? run.traceId ?? '';
 
@@ -17,7 +18,7 @@ export interface RunStore {
 }
 
 const readRuns = (): Run[] => {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return [...serverRuns];
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
 
@@ -56,7 +57,10 @@ function fallbackLatestTraceIdFromRaw(): string | null {
 }
 
 const writeRuns = (runs: Run[]) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {
+    serverRuns.splice(0, serverRuns.length, ...runs);
+    return;
+  }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
 };
 

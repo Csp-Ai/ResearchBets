@@ -253,17 +253,28 @@ export default function CockpitLandingClient() {
 
       const weakestLeg = report.legs.find((leg) => leg.player === payload?.analysis?.weakest_leg?.player) ?? report.legs.find((leg) => leg.leg_id === report.weakest_leg_id);
       const corrLabel = report.script_clusters.some((cluster) => cluster.severity === 'high') ? 'High' : report.script_clusters.some((cluster) => cluster.severity === 'med') ? 'Medium' : 'Low';
+      const runDto = payload?.run;
+      const runTraceId = typeof payload?.trace_id === 'string' ? payload.trace_id : traceId;
+      const weakestFromRun = typeof runDto?.verdict?.weakest_leg_id === 'string'
+        ? report.legs.find((leg) => leg.leg_id === runDto.verdict.weakest_leg_id)
+        : undefined;
 
       setAnalysis({
         running: false,
-        weakestId: weakestLeg?.leg_id ?? '',
-        weakestLabel: weakestLeg?.player ?? '—',
-        traceId,
+        weakestId: weakestFromRun?.leg_id ?? weakestLeg?.leg_id ?? '',
+        weakestLabel: weakestFromRun?.player ?? weakestLeg?.player ?? '—',
+        traceId: runTraceId,
         corrLabel,
-        fragility: typeof payload?.analysis?.fragility_score === 'number' ? payload.analysis.fragility_score : (typeof weakestLeg?.fragility_score === 'number' ? weakestLeg.fragility_score : null),
-        reasons: Array.isArray(payload?.analysis?.reasons) ? payload.analysis.reasons : report.reasons.slice(0, 2),
+        fragility: typeof runDto?.verdict?.fragility_score === 'number'
+          ? runDto.verdict.fragility_score
+          : (typeof payload?.analysis?.fragility_score === 'number' ? payload.analysis.fragility_score : (typeof weakestLeg?.fragility_score === 'number' ? weakestLeg.fragility_score : null)),
+        reasons: Array.isArray(runDto?.verdict?.reasons)
+          ? runDto.verdict.reasons
+          : (Array.isArray(payload?.analysis?.reasons) ? payload.analysis.reasons : report.reasons.slice(0, 2)),
         stage: 'Analyze'
       });
+
+      router.push(nervous.toHref('/stress-test', { trace_id: runTraceId, tab: 'analyze' }));
     } catch {
       setAnalysis((prev) => ({ ...prev, running: false, stage: 'Before' }));
     }
