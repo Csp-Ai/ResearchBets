@@ -1,3 +1,4 @@
+import { normalizeLineage } from '@/src/core/lineage/lineage';
 import type { TrackedTicket } from '@/src/core/track/types';
 
 const STORE_KEY = 'rb:tracked-tickets:v1';
@@ -6,6 +7,32 @@ type TrackedTicketStore = {
   version: 1;
   tickets: TrackedTicket[];
 };
+
+function migrateTicket(ticket: TrackedTicket): TrackedTicket {
+  if (!ticket.trace_id) return ticket;
+  const lineage = normalizeLineage({
+    trace_id: ticket.trace_id,
+    slip_id: ticket.slip_id,
+    ticketId: ticket.ticketId,
+    anon_session_id: ticket.anon_session_id,
+    sport: ticket.sport,
+    tz: ticket.tz,
+    date: ticket.date,
+    mode: ticket.mode,
+  });
+
+  return {
+    ...ticket,
+    trace_id: lineage.trace_id,
+    run_id: lineage.run_id,
+    slip_id: lineage.slip_id,
+    anon_session_id: lineage.anon_session_id,
+    sport: lineage.sport,
+    tz: lineage.tz,
+    date: lineage.date,
+    mode: lineage.mode,
+  };
+}
 
 function readStore(): TrackedTicketStore {
   if (typeof window === 'undefined') return { version: 1, tickets: [] };
@@ -19,7 +46,9 @@ function readStore(): TrackedTicketStore {
     }
     return {
       version: 1,
-      tickets: parsed.tickets.filter((ticket) => ticket && Array.isArray(ticket.legs) && typeof ticket.ticketId === 'string')
+      tickets: parsed.tickets
+        .filter((ticket) => ticket && Array.isArray(ticket.legs) && typeof ticket.ticketId === 'string')
+        .map((ticket) => migrateTicket(ticket as TrackedTicket))
     };
   } catch {
     return { version: 1, tickets: [] };
@@ -53,14 +82,15 @@ export function listTrackedTickets(): TrackedTicket[] {
 }
 
 export function saveTrackedTicket(ticket: TrackedTicket, options?: { replaceTicketId?: string }) {
+  const migrated = migrateTicket(ticket);
   const store = readStore();
-  const signature = normalizeLegSignature(ticket);
+  const signature = normalizeLegSignature(migrated);
   const deduped = store.tickets.filter((item) => {
     if (options?.replaceTicketId && item.ticketId === options.replaceTicketId) return false;
-    if (item.ticketId === ticket.ticketId) return false;
+    if (item.ticketId === migrated.ticketId) return false;
     return normalizeLegSignature(item) !== signature;
   });
-  deduped.unshift(ticket);
+  deduped.unshift(migrated);
   writeStore({ version: 1, tickets: deduped.slice(0, 20) });
 }
 

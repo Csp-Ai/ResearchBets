@@ -1,3 +1,4 @@
+import type { Lineage } from '@/src/core/lineage/lineage';
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { CoverageLevel } from '@/src/core/review/missTagger';
 import type { NextTimeRule } from '@/src/core/guardrails/localGuardrails';
@@ -11,6 +12,8 @@ export type DraftPostmortemSnapshot = {
   reasons: string[];
   fragilityScore: number;
   coverageSummary: string;
+  trace_id?: Lineage['trace_id'];
+  run_id?: Lineage['run_id'];
 };
 
 export type PostmortemLegRecord = {
@@ -28,6 +31,9 @@ export type PostmortemLegRecord = {
 
 export type PostmortemRecord = {
   ticketId: string;
+  trace_id?: Lineage['trace_id'];
+  run_id?: Lineage['run_id'];
+  slip_id?: Lineage['slip_id'];
   createdAt: string;
   settledAt: string;
   status: TicketSettlementStatus;

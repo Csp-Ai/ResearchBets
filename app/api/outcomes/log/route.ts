@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { normalizeLineage } from '@/src/core/lineage/lineage';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
@@ -18,6 +19,8 @@ const OutcomeLogSchema = z.object({
   user_id: z.string().min(1).optional(),
   selection_key: z.string().min(1),
   result: z.enum(['win', 'loss', 'push']),
+  ticketId: z.string().min(1).optional(),
+  slip_id: z.string().min(1).optional(),
   expected_confidence: z.number().min(0).max(100).optional(),
   verdict_internal: z.enum(['KEEP', 'MODIFY', 'PASS']).optional(),
   verdict_presented: z.enum(['TAKE', 'MODIFY', 'PASS']).optional(),
@@ -45,6 +48,12 @@ export async function POST(request: Request) {
   }
 
   const body = parsed.data;
+  const lineage = normalizeLineage({
+    trace_id: body.trace_id ?? trace.trace_id,
+    run_id: body.run_id,
+    ticketId: body.ticketId,
+    slip_id: body.slip_id,
+  });
   const settledAt = body.settled_at ?? new Date().toISOString();
   const outcomeId = randomUUID();
   const learning = updateWeights(body.selection_key, body.result);
@@ -71,8 +80,10 @@ export async function POST(request: Request) {
   try {
     await store.saveSlipOutcome({
       id: outcomeId,
-      traceId: body.trace_id ?? trace.trace_id,
-      runId: body.run_id,
+      traceId: lineage.trace_id,
+      runId: lineage.run_id,
+      ticketId: lineage.ticketId,
+      slipId: lineage.slip_id,
       userId: body.user_id ?? null,
       verdictInternal,
       verdictPresented,
@@ -91,8 +102,8 @@ export async function POST(request: Request) {
       const supabase = await getSupabaseServerClient();
       await supabase.from('outcomes').insert({
         id: outcomeId,
-        run_id: body.run_id,
-        trace_id: body.trace_id ?? trace.trace_id,
+        run_id: lineage.run_id,
+        trace_id: lineage.trace_id,
         selection_key: body.selection_key,
         result: body.result,
         actual_value: body.actual_value ?? null,
@@ -107,8 +118,8 @@ export async function POST(request: Request) {
     event_name: 'learning_update',
     timestamp: new Date().toISOString(),
     request_id: randomUUID(),
-    trace_id: body.trace_id ?? trace.trace_id,
-    run_id: body.run_id,
+    trace_id: lineage.trace_id,
+    run_id: lineage.run_id,
     session_id: 'outcomes_log',
     user_id: null,
     agent_id: 'learning_loop',
@@ -116,6 +127,8 @@ export async function POST(request: Request) {
     properties: {
       selection_key: body.selection_key,
       result: body.result,
+      ticketId: lineage.ticketId,
+      slip_id: lineage.slip_id,
       verdict_internal: verdictInternal,
       verdict_presented: verdictPresented,
       expected_confidence: expectedConfidence,
@@ -128,5 +141,5 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ ok: true, trace_id: body.trace_id ?? trace.trace_id, outcome_id: outcomeId, learning });
+  return NextResponse.json({ ok: true, trace_id: lineage.trace_id, run_id: lineage.run_id, outcome_id: outcomeId, learning });
 }

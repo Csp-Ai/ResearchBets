@@ -20,4 +20,22 @@ describe('tracked ticket store', () => {
     saveTrackedTicket({ ...base, ticketId: 'ticket-2' });
     expect(listTrackedTickets()).toHaveLength(1);
   });
+
+  it('preserves lineage fields on roundtrip', () => {
+    saveTrackedTicket({
+      ticketId: 'ticket-trace',
+      createdAt: '2026-02-26T10:00:00.000Z',
+      sourceHint: 'paste',
+      rawSlipText: 'lineage',
+      trace_id: 'trace-99',
+      run_id: 'mismatch-will-be-normalized',
+      slip_id: 'slip-99',
+      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player A', marketType: 'points', threshold: 20.5, direction: 'over', source: 'paste', parseConfidence: 'high' }]
+    });
+
+    const [stored] = listTrackedTickets();
+    expect(stored?.trace_id).toBe('trace-99');
+    expect(stored?.run_id).toBe('trace-99');
+    expect(stored?.slip_id).toBe('slip-99');
+  });
 });

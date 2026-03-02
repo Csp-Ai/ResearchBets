@@ -193,6 +193,8 @@ export interface SlipOutcomeRecord {
   id: string;
   traceId: string;
   runId: string;
+  ticketId?: string;
+  slipId?: string;
   userId: string | null;
   verdictInternal: 'KEEP' | 'MODIFY' | 'PASS';
   verdictPresented: 'TAKE' | 'MODIFY' | 'PASS';

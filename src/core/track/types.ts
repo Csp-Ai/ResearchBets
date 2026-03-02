@@ -1,3 +1,4 @@
+import type { Lineage } from '@/src/core/lineage/lineage';
 import type { MarketType } from '@/src/core/markets/marketType';
 
 export type ParseConfidence = 'high' | 'medium' | 'low';
@@ -32,4 +33,12 @@ export type TrackedTicket = {
   cashoutAvailable?: boolean;
   cashoutValue?: number;
   legs: TrackedTicketLeg[];
+  trace_id?: Lineage['trace_id'];
+  run_id?: Lineage['run_id'];
+  slip_id?: Lineage['slip_id'];
+  anon_session_id?: Lineage['anon_session_id'];
+  sport?: Lineage['sport'];
+  tz?: Lineage['tz'];
+  date?: Lineage['date'];
+  mode?: Lineage['mode'];
 };

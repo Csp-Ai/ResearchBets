@@ -52,7 +52,11 @@ export function TrackSlipInput({ onTracked, onOpenDraft, onTrySample, sampleLoad
       const response = await fetch('/api/slips/parseText', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, sourceHint })
+        body: JSON.stringify({
+          text,
+          sourceHint,
+          trace_id: nervous.trace_id,
+        })
       });
       const payload = await response.json() as { ok?: boolean; data?: TrackedTicket; error?: { message?: string } };
       if (!response.ok || !payload.ok || !payload.data) {

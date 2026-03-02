@@ -33,4 +33,18 @@ describe('/api/slips/parseText', () => {
     expect(payload.data.legs[0]?.rawText).toContain('weird line');
     expect(payload.data.legs[0]?.parseConfidence).toBe('low');
   });
+
+  it('attaches trace lineage when trace_id is provided', async () => {
+    const response = await POST(new Request('http://localhost:3000/api/slips/parseText', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'OVER 5.5 ASSISTS', sourceHint: 'paste', trace_id: 'trace-track-1' })
+    }));
+
+    const payload = await response.json() as { ok: boolean; data: { trace_id?: string; run_id?: string } };
+    expect(payload.ok).toBe(true);
+    expect(payload.data.trace_id).toBe('trace-track-1');
+    expect(payload.data.run_id).toBe('trace-track-1');
+  });
+
 });
