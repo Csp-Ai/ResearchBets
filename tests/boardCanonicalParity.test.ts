@@ -1,15 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
+import { getBoardData } from '@/src/core/board/boardService.server';
 import { resolveToday } from '@/src/core/today/resolveToday.server';
+import { MIN_BOARD_ROWS, selectBoardViewFromToday } from '@/src/core/today/service.server';
 
 describe('board canonical parity', () => {
-  it('returns same canonical board ids for same spine seed', async () => {
+  it('same spine returns matching served mode and reason for today and board adapter', async () => {
     const spine = { sport: 'NBA' as const, date: '2026-01-15', tz: 'America/Phoenix', mode: 'demo' as const };
-    const homePayload = await resolveToday(spine);
     const todayPayload = await resolveToday(spine);
-    const homeIds = (homePayload.board ?? []).map((row) => row.id).sort();
-    const todayIds = (todayPayload.board ?? []).map((row) => row.id).sort();
-    expect(homeIds.length).toBe(todayIds.length);
-    expect(homeIds).toEqual(todayIds);
+    const boardPayload = await getBoardData({ sport: spine.sport, date: spine.date, tz: spine.tz, demoRequested: spine.mode === 'demo' });
+    const boardView = selectBoardViewFromToday(todayPayload);
+
+    expect(boardPayload.mode).toBe(boardView.mode);
+    expect(boardPayload.reason).toBe(boardView.reason);
+    expect(boardPayload.generatedAt).toBeTruthy();
+    expect(boardPayload.games.length).toBe(boardView.games.length);
+  });
+
+  it('demo fallback keeps stable board density via canonical today spine', async () => {
+    const spine = { sport: 'NBA' as const, date: '2026-01-15', tz: 'America/Phoenix', mode: 'demo' as const };
+    const todayPayload = await resolveToday(spine);
+    const boardPayload = await getBoardData({ sport: spine.sport, date: spine.date, tz: spine.tz, demoRequested: true });
+
+    expect((todayPayload.board ?? []).length).toBeGreaterThanOrEqual(MIN_BOARD_ROWS);
+    expect(boardPayload.mode).toBe(todayPayload.mode);
+    expect(boardPayload.reason).toBe(todayPayload.reason);
+    expect(boardPayload.scouts.length).toBeGreaterThan(0);
   });
 });

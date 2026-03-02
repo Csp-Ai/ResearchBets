@@ -10,6 +10,16 @@ const TTL_MS = 120_000;
 const MARKETS = ['points', 'rebounds', 'assists'] as const;
 export const MIN_BOARD_ROWS = 6;
 
+export type CanonicalBoardView = {
+  mode: TodayPayload['mode'];
+  reason?: TodayPayload['reason'];
+  generatedAt: string;
+  games: TodayPayload['games'];
+  board: NonNullable<TodayPayload['board']>;
+  providerErrors?: string[];
+  userSafeReason?: string;
+};
+
 let cache: { key: string; expiresAt: number; payload: TodayPayload } | null = null;
 
 const toLocal = (iso: string, tz: string) =>
@@ -281,4 +291,16 @@ export async function resolveTodayTruth(options?: {
 
 export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?: BoardSport; date?: string; tz?: string; mode?: TodayPayload['mode']; strictLive?: boolean }): Promise<TodayPayload> {
   return resolveTodayTruth(options);
+}
+
+export function selectBoardViewFromToday(payload: TodayPayload): CanonicalBoardView {
+  return {
+    mode: payload.mode,
+    reason: payload.reason,
+    generatedAt: payload.generatedAt,
+    games: payload.games,
+    board: payload.board ?? [],
+    providerErrors: payload.providerErrors,
+    userSafeReason: payload.userSafeReason
+  };
 }

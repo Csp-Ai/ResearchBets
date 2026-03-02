@@ -2,9 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 
-import { resolveRuntimeMode, type ModeReason } from '@/src/core/live/modeResolver.server';
-import { getProviderRegistry } from '@/src/core/providers/registry.server';
-import { createDemoTodayPayload } from '@/src/core/today/demoToday';
+import { resolveTodayTruth, selectBoardViewFromToday } from '@/src/core/today/service.server';
 
 export type BoardSport = 'NBA' | 'NFL' | 'NHL' | 'MLB' | 'UFC';
 export type BoardDataMode = 'live' | 'cache' | 'demo';
@@ -33,7 +31,8 @@ export type BoardScout = {
 
 export type BoardData = {
   mode: BoardDataMode;
-  reason?: ModeReason;
+  reason?: string;
+  generatedAt: string;
   freshnessLabel: string;
   sport: BoardSport;
   tz: string;
@@ -44,22 +43,6 @@ export type BoardData = {
   providerErrors?: string[];
   userSafeReason?: string;
 };
-
-const SPORT_MAP: Record<BoardSport, string> = {
-  NBA: 'basketball_nba',
-  NFL: 'americanfootball_nfl',
-  NHL: 'icehockey_nhl',
-  MLB: 'baseball_mlb',
-  UFC: 'mma_mixed_martial_arts'
-};
-
-const toLocal = (iso: string, tz: string) => new Intl.DateTimeFormat('en-US', {
-  timeZone: tz,
-  month: 'short',
-  day: '2-digit',
-  hour: 'numeric',
-  minute: '2-digit'
-}).format(new Date(iso));
 
 const seeded = (seed: string) => Number.parseInt(createHash('sha1').update(seed).digest('hex').slice(0, 8), 16);
 
@@ -86,34 +69,17 @@ const toScouts = (games: BoardGame[], sport: BoardSport, tz: string, dateISO: st
   };
 });
 
-const mapDemo = (sport: BoardSport, tz: string, dateISO: string): BoardData => {
-  const demo = createDemoTodayPayload();
-  const games = demo.games.filter((game) => game.league === sport).map((game) => {
-    const startTimeUTC = new Date().toISOString();
-    return {
-      gameId: game.id,
-      league: sport,
-      home: game.teams[1] ?? 'HOME',
-      away: game.teams[0] ?? 'AWAY',
-      startTimeUTC,
-      startTimeLocal: game.startTime,
-      venue: `${game.teams[1] ?? 'Home'} Arena`,
-      status: game.status
-    };
-  });
-
+const toBoardGame = (sport: BoardSport) => (game: ReturnType<typeof selectBoardViewFromToday>['games'][number]): BoardGame => {
+  const [away = 'AWAY', home = 'HOME'] = game.teams;
   return {
-    mode: 'demo',
-    reason: 'provider_unavailable',
-    freshnessLabel: 'Demo dataset',
-    sport,
-    tz,
-    dateISO,
-    games,
-    scouts: toScouts(games, sport, tz, dateISO, 'demo'),
-    modeFallbackApplied: true,
-    providerErrors: ['provider_unavailable'],
-    userSafeReason: 'Live provider data is temporarily unavailable, so deterministic demo data is shown.'
+    gameId: game.id,
+    league: sport,
+    home,
+    away,
+    startTimeUTC: game.lastUpdated,
+    startTimeLocal: game.startTime,
+    venue: `${home} Arena`,
+    status: game.status
   };
 };
 
@@ -121,52 +87,29 @@ export async function getBoardData(options?: { sport?: BoardSport; date?: string
   const sport = options?.sport ?? 'NBA';
   const tz = options?.tz ?? 'America/Phoenix';
   const dateISO = options?.date ?? new Date().toISOString().slice(0, 10);
-  const resolved = resolveRuntimeMode({ demoRequested: options?.demoRequested });
 
-  if (resolved.mode !== 'live') {
-    return {
-      ...mapDemo(sport, tz, dateISO),
-      reason: resolved.reason,
-      freshnessLabel: resolved.dataFreshnessLabel
-    };
-  }
+  const today = await resolveTodayTruth({
+    sport,
+    tz,
+    date: dateISO,
+    mode: options?.demoRequested ? 'demo' : 'live'
+  });
 
-  try {
-    const registry = getProviderRegistry();
-    const live = await registry.oddsProvider.fetchEvents({ sport: SPORT_MAP[sport] });
-    if (live.events.length === 0) {
-      return mapDemo(sport, tz, dateISO);
-    }
+  const boardView = selectBoardViewFromToday(today);
+  const games = boardView.games.map(toBoardGame(sport));
 
-    const games: BoardGame[] = live.events.slice(0, 8).map((event, idx) => {
-      const eventRecord = event as { id: string; commence_time?: string; home_team?: string; away_team?: string };
-      const startTimeUTC = eventRecord.commence_time ?? new Date(Date.now() + idx * 3_600_000).toISOString();
-      return {
-        gameId: eventRecord.id,
-        league: sport,
-        home: eventRecord.home_team ?? `HOME-${idx + 1}`,
-        away: eventRecord.away_team ?? `AWAY-${idx + 1}`,
-        startTimeUTC,
-        startTimeLocal: toLocal(startTimeUTC, tz),
-        venue: `${eventRecord.home_team ?? 'Home'} Arena`,
-        status: idx === 0 ? 'live' : 'upcoming'
-      };
-    });
-
-    return {
-      mode: 'live',
-      reason: resolved.reason,
-      freshnessLabel: resolved.dataFreshnessLabel,
-      sport,
-      tz,
-      dateISO,
-      games,
-      scouts: toScouts(games, sport, tz, dateISO, 'live')
-    };
-  } catch (error) {
-    return {
-      ...mapDemo(sport, tz, dateISO),
-      providerErrors: [error instanceof Error ? error.message : 'provider_unavailable']
-    };
-  }
+  return {
+    mode: boardView.mode,
+    reason: boardView.reason,
+    generatedAt: boardView.generatedAt,
+    freshnessLabel: boardView.mode === 'live' ? 'Live updates' : boardView.mode === 'cache' ? 'Cached live slate' : 'Demo dataset',
+    sport,
+    tz,
+    dateISO,
+    games,
+    scouts: toScouts(games, sport, tz, dateISO, boardView.mode === 'live' ? 'live' : 'demo'),
+    modeFallbackApplied: boardView.mode !== 'live',
+    providerErrors: boardView.providerErrors,
+    userSafeReason: boardView.userSafeReason
+  };
 }
