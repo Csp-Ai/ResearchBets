@@ -33,7 +33,7 @@ const statusLabelFromToday = (today: TodayPayload) => {
 };
 
 export function LiveCredibilityStrip({ provenance, today, strictLiveUnavailable, boardUpdateTick, onRefresh }: LiveCredibilityStripProps) {
-  const [nowTick, setNowTick] = useState(0);
+  const [, setNowTick] = useState(0);
   const [showUpdatedTick, setShowUpdatedTick] = useState(false);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export function LiveCredibilityStrip({ provenance, today, strictLiveUnavailable,
   }, [boardUpdateTick]);
 
   const freshnessSource = provenance.generatedAt || today.generatedAt;
-  const freshness = useMemo(() => agoLabel(freshnessSource), [freshnessSource, nowTick]);
+  const freshness = agoLabel(freshnessSource);
   const boardStatus = useMemo(() => statusLabelFromToday(today), [today]);
 
   const feedsChip = strictLiveUnavailable || provenance.mode !== 'live'

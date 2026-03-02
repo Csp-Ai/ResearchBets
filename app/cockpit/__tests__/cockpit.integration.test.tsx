@@ -149,7 +149,7 @@ describe('cockpit route integration', () => {
 
   it('does not poll /api/today in demo mode and refresh adds refresh=1', async () => {
     const setIntervalSpy = vi.spyOn(window, 'setInterval');
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
+    const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
       headers: { get: () => null },
