@@ -45,6 +45,19 @@
 .leg-count-badge { font-size: 11px; color: #8a96a8; }
 .ticket-cta-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
 .moat-block { margin-top: 12px; }
+
+.run-integrity-panel {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+.run-integrity-panel a {
+  color: var(--cyan);
+  text-decoration: underline;
+  width: fit-content;
+}
 .pipeline-strip { margin: 14px 16px; border: 1px solid var(--border); padding: 10px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
 .stage-row { display: flex; gap: 6px; }
 .stage { border: 1px solid var(--border); padding: 4px 8px; font-size: 11px; }
