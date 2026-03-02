@@ -201,7 +201,7 @@ describe('cockpit route integration', () => {
     expect(screen.getByTestId('slip-sheet').className).toContain('open');
   });
 
-  it('runs cockpit draft through canonical endpoint and navigates with trace continuity', async () => {
+  it('runs cockpit draft through canonical endpoint and renders integrity signals', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/api/today')) {
@@ -217,6 +217,12 @@ describe('cockpit route integration', () => {
         return {
           ok: true,
           json: async () => ({ trace_id: 'trace-live', spine: { sport: 'NBA', tz: 'America/Phoenix', date: '2026-02-26', mode: 'demo', trace_id: 'trace-live' }, run: { run_id: 'trace-live', verdict: { weakest_leg_id: 'p1', fragility_score: 58, reasons: ['deterministic reason'] } }, events_written: true })
+        } as Response;
+      }
+      if (url.includes('/api/metrics/calibration')) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, data: { runs_analyzed: 0, take_accuracy: 0, weakest_leg_accuracy: 0, last_updated: null } })
         } as Response;
       }
       return { ok: true, json: async () => ({ ok: true }) } as Response;
@@ -236,10 +242,11 @@ describe('cockpit route integration', () => {
     await waitFor(() => {
       expect(screen.getByText('deterministic reason')).toBeTruthy();
       expect(screen.getAllByText(/Correlation pressure/).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Calibration: not enough outcomes yet/)).toBeTruthy();
     });
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/run/stress-test'), expect.any(Object));
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/stress-test?'));
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace-live'));
+    expect(fetchMock).toHaveBeenCalledWith('/api/metrics/calibration', expect.any(Object));
+    expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/stress-test?'));
   });
 });

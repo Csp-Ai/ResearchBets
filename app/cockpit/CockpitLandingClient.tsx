@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
 import { LiveCredibilityStrip } from '@/app/cockpit/components/LiveCredibilityStrip';
+import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
@@ -13,6 +14,7 @@ import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useRunEvents } from '@/src/core/events/useRunEvents';
 import { ensureTraceId } from '@/src/core/trace/trace_id';
+import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
 
 import './cockpit.css';
 
@@ -61,7 +63,8 @@ export default function CockpitLandingClient() {
     corrLabel: '—',
     fragility: null as number | null,
     reasons: [] as string[],
-    stage: 'Before' as Stage
+    stage: 'Before' as Stage,
+    runProvenance: undefined as ResearchProvenance | undefined
   });
   const [ui, setUi] = useState({
     navDrawerOpen: false,
@@ -271,12 +274,11 @@ export default function CockpitLandingClient() {
         reasons: Array.isArray(runDto?.verdict?.reasons)
           ? runDto.verdict.reasons
           : (Array.isArray(payload?.analysis?.reasons) ? payload.analysis.reasons : report.reasons.slice(0, 2)),
-        stage: 'Analyze'
+        stage: 'Analyze',
+        runProvenance: runDto?.provenance
       });
-
-      router.push(nervous.toHref('/stress-test', { trace_id: runTraceId, tab: 'analyze' }));
     } catch {
-      setAnalysis((prev) => ({ ...prev, running: false, stage: 'Before' }));
+      setAnalysis((prev) => ({ ...prev, running: false, stage: 'Before', runProvenance: undefined }));
     }
   };
 
@@ -418,6 +420,14 @@ export default function CockpitLandingClient() {
             </div>
             {analysis.reasons.length > 0 ? <p className="board-sub">{analysis.reasons.join(' · ')}</p> : null}
             {analysis.traceId ? <p className="board-sub">{statusText}</p> : null}
+            {analysis.traceId && analysis.stage !== 'Before' && !analysis.running ? (
+              <RunIntegrityPanel
+                traceId={analysis.traceId}
+                runProvenance={analysis.runProvenance}
+                boardProvenance={provenance}
+                traceHref={nervous.toHref(`/traces/${encodeURIComponent(analysis.traceId)}`)}
+              />
+            ) : null}
           </div>
 
           <div className="ticket-cta-row">
