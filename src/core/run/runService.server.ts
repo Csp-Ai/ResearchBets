@@ -1,24 +1,15 @@
 import 'server-only';
 
-import { z } from 'zod';
-
 import type { Spine } from '@/src/core/nervous/spine';
 import { emitRunEvents } from '@/src/core/events/eventEmitter.server';
 
-const RunLegSchema = z.object({
-  player: z.string().min(1),
-  market: z.string().min(1),
-  line: z.string().min(1),
-  odds: z.string().min(1),
-  game_id: z.string().min(1)
-});
-
-export const RunInputSchema = z.object({
-  trace_id: z.string().optional(),
-  traceId: z.string().optional(),
-  spine: z.record(z.unknown()).optional(),
-  legs: z.array(RunLegSchema).min(1)
-});
+type RunLeg = {
+  player: string;
+  market: string;
+  line: string;
+  odds: string;
+  game_id: string;
+};
 
 const impliedProbability = (odds: string) => {
   const parsed = Number(odds.replace('+', '').trim());
@@ -27,7 +18,7 @@ const impliedProbability = (odds: string) => {
   return Math.abs(parsed) / (Math.abs(parsed) + 100);
 };
 
-export async function runStressTest(input: { trace_id: string; spine: Spine; legs: Array<z.infer<typeof RunLegSchema>> }) {
+export async function runStressTest(input: { trace_id: string; spine: Spine; legs: RunLeg[] }) {
   const weakest = input.legs
     .map((leg) => ({ ...leg, implied: impliedProbability(leg.odds) }))
     .sort((a, b) => b.implied - a.implied)[0];

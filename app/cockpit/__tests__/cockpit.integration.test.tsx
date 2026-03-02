@@ -201,8 +201,8 @@ describe('cockpit route integration', () => {
     expect(screen.getByTestId('slip-sheet').className).toContain('open');
   });
 
-  it('runs stress test via submit and populates analysis', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+  it('runs cockpit draft through canonical endpoint and navigates with trace continuity', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/api/today')) {
         return {
@@ -216,11 +216,12 @@ describe('cockpit route integration', () => {
       if (url.includes('/api/run/stress-test')) {
         return {
           ok: true,
-          json: async () => ({ trace_id: 'trace-live', spine: { sport: 'NBA', tz: 'America/Phoenix', date: '2026-02-26', mode: 'demo', trace_id: 'trace-live' }, analysis: { weakest_leg: { player: 'J. Tatum' }, correlation_pressure: 0.4, fragility_score: 58, reasons: ['deterministic reason'] }, events_written: true })
+          json: async () => ({ trace_id: 'trace-live', spine: { sport: 'NBA', tz: 'America/Phoenix', date: '2026-02-26', mode: 'demo', trace_id: 'trace-live' }, run: { run_id: 'trace-live', verdict: { weakest_leg_id: 'p1', fragility_score: 58, reasons: ['deterministic reason'] } }, events_written: true })
         } as Response;
       }
       return { ok: true, json: async () => ({ ok: true }) } as Response;
-    }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
     window.sessionStorage.setItem('rb:draft-slip:v1', JSON.stringify([
       { id: 'p1', player: 'J. Tatum', marketType: 'points', line: '28.5', odds: '-110', game: 'LAL @ BOS' },
@@ -236,5 +237,9 @@ describe('cockpit route integration', () => {
       expect(screen.getByText('deterministic reason')).toBeTruthy();
       expect(screen.getAllByText(/Correlation pressure/).length).toBeGreaterThan(0);
     });
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/run/stress-test'), expect.any(Object));
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/stress-test?'));
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace-live'));
   });
 });

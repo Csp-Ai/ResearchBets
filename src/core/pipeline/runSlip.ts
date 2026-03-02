@@ -200,15 +200,21 @@ type ExtractApiResult = {
   requestId?: string;
 };
 
+const resolveApiUrl = (path: string, baseUrl?: string): string => {
+  if (!baseUrl) return path;
+  return new URL(path, baseUrl).toString();
+};
+
 async function emitPipelineEvent(input: {
   trace_id: string;
   slip_id?: string;
   event_name: 'slip_enrich_started' | 'slip_enrich_done' | 'slip_scored' | 'slip_verdict_ready' | 'slip_persisted';
   stage: 'enrich' | 'score' | 'verdict' | 'saved';
   reason: string;
+  baseUrl?: string;
 }) {
   try {
-    await fetch('/api/events', {
+    await fetch(resolveApiUrl('/api/events', input.baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -234,11 +240,11 @@ async function emitPipelineEvent(input: {
   }
 }
 
-async function extractWithApi(slipText: string, initialTraceId: string): Promise<ExtractApiResult> {
+async function extractWithApi(slipText: string, initialTraceId: string, baseUrl?: string): Promise<ExtractApiResult> {
   try {
     const anonSessionId = ensureAnonSessionId();
     const requestId = createClientRequestId();
-    const submitPayload = await fetch('/api/slips/submit', {
+    const submitPayload = await fetch(resolveApiUrl('/api/slips/submit', baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source: 'paste', raw_text: slipText, anon_session_id: anonSessionId, request_id: requestId, trace_id: initialTraceId })
@@ -249,7 +255,7 @@ async function extractWithApi(slipText: string, initialTraceId: string): Promise
     const traceId = submitRes.data.data.trace_id || initialTraceId;
     const slipId = submitRes.data.data.slip_id;
 
-    const extractPayload = await fetch('/api/slips/extract', {
+    const extractPayload = await fetch(resolveApiUrl('/api/slips/extract', baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slip_id: slipId, request_id: createClientRequestId(), anon_session_id: anonSessionId })
@@ -319,7 +325,7 @@ const mapReportLegsFromRun = (
 };
 export async function runSlip(
   slipText: string,
-  options?: { coverageAgentEnabled?: boolean; trace_id?: string; traceId?: string; requestTraceId?: string; existingTraceId?: string }
+  options?: { coverageAgentEnabled?: boolean; trace_id?: string; traceId?: string; requestTraceId?: string; existingTraceId?: string; baseUrl?: string }
 ): Promise<string> {
   const normalizedSlipText = normalizeSlipText(slipText);
   const initialTraceId = canonicalTraceId({
@@ -359,7 +365,7 @@ export async function runSlip(
 
   await runStore.saveRun(initial);
 
-  const apiResult = await extractWithApi(normalizedSlipText, initialTraceId);
+  const apiResult = await extractWithApi(normalizedSlipText, initialTraceId, options?.baseUrl);
   const resolvedTraceId = canonicalTraceId({
     explicitTraceId: options?.trace_id ?? options?.traceId,
     existingEntityTraceId: options?.existingTraceId,
@@ -392,7 +398,8 @@ export async function runSlip(
     slip_id: apiResult.slipId,
     event_name: 'slip_enrich_started',
     stage: 'enrich',
-    reason: 'Enriching legs with latest stats and injury context.'
+    reason: 'Enriching legs with latest stats and injury context.',
+    baseUrl: options?.baseUrl
   });
 
   const enrichedLegs: EnrichedLeg[] = [];
@@ -438,7 +445,8 @@ export async function runSlip(
     slip_id: apiResult.slipId,
     event_name: 'slip_enrich_done',
     stage: 'enrich',
-    reason: 'Leg enrichment complete.'
+    reason: 'Leg enrichment complete.',
+    baseUrl: options?.baseUrl
   });
 
   const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries, trustedContext.unverifiedItems ?? []);
@@ -447,7 +455,8 @@ export async function runSlip(
     slip_id: apiResult.slipId,
     event_name: 'slip_scored',
     stage: 'score',
-    reason: 'Scoring downside and concentration risk.'
+    reason: 'Scoring downside and concentration risk.',
+    baseUrl: options?.baseUrl
   });
   const report = mapReportLegsFromRun(extracted, enrichedLegs, analysis, sources, resolvedTraceId, apiResult.slipId);
   await emitPipelineEvent({
@@ -455,7 +464,8 @@ export async function runSlip(
     slip_id: apiResult.slipId,
     event_name: 'slip_verdict_ready',
     stage: 'verdict',
-    reason: 'Verdict prepared with weakest-leg rationale.'
+    reason: 'Verdict prepared with weakest-leg rationale.',
+    baseUrl: options?.baseUrl
   });
 
   await runStore.updateRun(resolvedTraceId, {
@@ -478,7 +488,8 @@ export async function runSlip(
     slip_id: apiResult.slipId,
     event_name: 'slip_persisted',
     stage: 'saved',
-    reason: 'Run saved to history.'
+    reason: 'Run saved to history.',
+    baseUrl: options?.baseUrl
   });
 
   return resolvedTraceId;
