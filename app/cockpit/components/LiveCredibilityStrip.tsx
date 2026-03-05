@@ -10,6 +10,7 @@ type LiveCredibilityStripProps = {
   strictLiveUnavailable: boolean;
   boardUpdateTick: number;
   onRefresh: () => void;
+  pulseToken?: number;
 };
 
 const agoLabel = (timestamp: string) => {
@@ -32,15 +33,23 @@ const statusLabelFromToday = (today: TodayPayload) => {
   return hasFutureGame ? 'Market open' : 'Market closed';
 };
 
-export function LiveCredibilityStrip({ provenance, today, strictLiveUnavailable, boardUpdateTick, onRefresh }: LiveCredibilityStripProps) {
+export function LiveCredibilityStrip({ provenance, today, strictLiveUnavailable, boardUpdateTick, onRefresh, pulseToken = 0 }: LiveCredibilityStripProps) {
   const [, setNowTick] = useState(0);
   const [showUpdatedTick, setShowUpdatedTick] = useState(false);
+  const [pulseDot, setPulseDot] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick((tick) => tick + 1), 1_000);
     return () => window.clearInterval(timer);
   }, []);
 
+
+  useEffect(() => {
+    if (pulseToken <= 0) return;
+    setPulseDot(true);
+    const timer = window.setTimeout(() => setPulseDot(false), 390);
+    return () => window.clearTimeout(timer);
+  }, [pulseToken]);
   useEffect(() => {
     if (boardUpdateTick <= 0) return;
     setShowUpdatedTick(true);
@@ -61,7 +70,7 @@ export function LiveCredibilityStrip({ provenance, today, strictLiveUnavailable,
       <span className={`cred-chip mode-${provenance.mode}`}>Mode {provenance.mode === 'live' ? 'Live' : provenance.mode === 'cache' ? 'Cache' : 'Demo'}</span>
       <span className={`cred-chip freshness ${showUpdatedTick ? 'updated' : ''}`}>{freshness}</span>
       <span className="cred-chip">{boardStatus}</span>
-      <span className="cred-chip" title={feedsChip.reason}>{feedsChip.label}</span>
+      <span className="cred-chip" title={feedsChip.reason}>{feedsChip.label} <span className={`alive-dot ${pulseDot ? "pulse" : ""}`} /></span>
       {showUpdatedTick ? <span className="cred-chip cred-updated">Updated</span> : null}
       <button className="btn-secondary credibility-refresh" onClick={onRefresh} type="button">Refresh</button>
     </div>
