@@ -36,22 +36,19 @@ describe('cockpit canonical entry redirects', () => {
     expect(href).toBe('/cockpit?sport=NFL&tz=America%2FNew_York&date=2026-02-28&mode=cache&trace_id=trace_custom&foo=bar');
   });
 
-  it('home page redirects to cockpit and preserves query', async () => {
-    const redirect = vi.fn((to: string) => {
-      throw new Error(`REDIRECT:${to}`);
-    });
-
-    vi.doMock('next/navigation', () => ({ redirect }));
+  it('home page renders canonical landing composition (no redirect)', async () => {
     const mod = await import('@/app/page');
+    const element = mod.default({ searchParams: { trace_id: 'trace_root', source: 'root' } }) as {
+      type?: { name?: string };
+      props?: { searchParams?: { trace_id?: string; source?: string } };
+    };
 
-    expect(() => mod.default({ searchParams: { trace_id: 'trace_root', source: 'root' } })).toThrow(
-      'REDIRECT:/cockpit?sport=NBA&tz=America%2FPhoenix&date='
-    );
-    expect(redirect).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace_root'));
-    expect(redirect).toHaveBeenCalledWith(expect.stringContaining('source=root'));
+    expect(element.type?.name).toBe('CanonicalLanding');
+    expect(element.props?.searchParams?.trace_id).toBe('trace_root');
+    expect(element.props?.searchParams?.source).toBe('root');
   });
 
-  it('landing alias redirects to cockpit and preserves query', async () => {
+  it('landing alias redirects to / and preserves query', async () => {
     const redirect = vi.fn((to: string) => {
       throw new Error(`REDIRECT:${to}`);
     });
@@ -60,7 +57,7 @@ describe('cockpit canonical entry redirects', () => {
     const mod = await import('@/app/landing/page');
 
     expect(() => mod.default({ searchParams: { trace_id: 'trace_legacy', source: 'legacy' } })).toThrow(
-      'REDIRECT:/cockpit?sport=NBA&tz=America%2FPhoenix&date='
+      'REDIRECT:/?trace_id=trace_legacy&source=legacy'
     );
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace_legacy'));
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining('source=legacy'));

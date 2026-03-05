@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation';
 
-import { buildCockpitEntryHref } from '@/src/core/routing/cockpitEntry';
+import { buildRedirectWithQuery } from '@/src/core/routing/preserveQueryRedirect';
 
 export default function LandingPage({
   searchParams
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  redirect(buildCockpitEntryHref(searchParams));
+  redirect(buildRedirectWithQuery('/', searchParams));
 }

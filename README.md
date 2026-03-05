@@ -2,22 +2,22 @@
 
 **Anonymous-first sports betting research app with a bettor loop: Board → Ingest → Stress Test → Settle/History. Deterministic agents parse slips and shared texts, explain weakest legs, track outcomes, and surface next-slate ideas with demo/live fallbacks and optional Supabase persistence.**
 
-## Start here: Bettor Cockpit (`/cockpit`)
+## Start here: Universal Landing (`/`)
 
-ResearchBets is now cockpit-first for onboarding and canonical entry.
+ResearchBets uses `/` as the canonical home landing entrypoint.
 
-- `/` server-redirects to `/cockpit` and preserves spine/query continuity.
-- `/landing` server-redirects to `/cockpit` and preserves spine/query continuity.
-- Use `buildCockpitEntryHref` (`src/core/routing/cockpitEntry.ts`) for deterministic cockpit entry defaults.
+- `/` is the canonical landing route and renders the shared landing composition.
+- `/cockpit` is a thin route alias that renders the same landing composition.
+- `/landing` is a compatibility alias that redirects to `/` while preserving query continuity.
 
 Canonical local URL examples:
 
-- `http://localhost:3000/cockpit?sport=NBA&tz=America/Phoenix&date=YYYY-MM-DD&mode=demo`
-- `http://localhost:3000/cockpit?sport=NFL&tz=America/New_York&date=YYYY-MM-DD&mode=cache`
+- `http://localhost:3000/?sport=NBA&tz=America/Phoenix&date=YYYY-MM-DD&mode=live`
+- `http://localhost:3000/cockpit?sport=NFL&tz=America/New_York&date=YYYY-MM-DD&mode=demo`
 
 ## Lifecycle OS (canonical flow)
 
-1. **Cockpit** (`/cockpit`) — canonical front door with board, slip rail, and intelligence handoff.
+1. **Landing** (`/`) — canonical front door with board preview, slip rail, and intelligence handoff.
 2. **Slip** (`/slip`) — build a draft slip and see live fragility/correlation intelligence.
 3. **Stress Test** (`/stress-test`) — run deterministic extraction + risk analysis before placing.
 4. **Control** (`/control`) — monitor live risk and run review mode for settled slips.
@@ -31,7 +31,7 @@ Legacy aliases are preserved for continuity:
 
 ## New user journey in 60 seconds (guest)
 
-1. Open `/cockpit` (or `/`, which redirects to `/cockpit`).
+1. Open `/` (or `/cockpit`, which is the shared alias route).
 2. Add legs from the board and jump to `/slip`.
 3. Build your slip and check `SlipIntelBar` for correlation + volatility warnings.
 4. Hit **Stress Test** to run analysis on `/stress-test`.
@@ -108,7 +108,7 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 ## Repo Grounding
 
-- Canonical entry routing chain is `app/(home)/page.tsx` (server redirect) and `app/landing/page.tsx` (alias redirect), both using `buildCockpitEntryHref` from `src/core/routing/cockpitEntry.ts`.
+- Canonical entry routing chain is `app/page.tsx` (canonical landing render), `app/cockpit/page.tsx` (shared alias render), and `app/landing/page.tsx` (compatibility redirect to `/`).
 - Keep one spine for internal navigation: `nervous.toHref()` + `appendQuery()` on route transitions.
 
 ### Key routes (BEFORE / DURING / AFTER)
@@ -126,10 +126,10 @@ Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_UR
 
 ```bash
 npm run verify:landing
-npm run typecheck
-npm run lint
-npm run build
+npm run check
 ```
+
+`npm run check` is the canonical pre-PR gate (lint + typecheck + test + build).
 
 ### Release checklist
 
@@ -143,7 +143,7 @@ Use `docs/RELEASE.md` for the current step-by-step release runbook (v0.2.0+).
 
 ## Landing page wiring
 
-- Canonical entry routes are `/` and `/landing`, and both server-redirect to `/cockpit` through `buildCockpitEntryHref`.
+- Canonical entry route is `/`; `/cockpit` reuses the same landing composition and `/landing` redirects to `/`.
 - `public/landing.html` is optional legacy/reference content and is **not** the canonical product front door.
 - Run `npm run verify:landing` to enforce no drift back to legacy root redirects.
 - No placeholder routes were added: `/ingest`, `/cockpit`, `/slip`, and `/control` already exist in the app router.
@@ -152,8 +152,8 @@ Use `docs/RELEASE.md` for the current step-by-step release runbook (v0.2.0+).
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Canonical redirect entry that server-redirects to `/cockpit` while preserving spine/query. |
-| `/cockpit` | Canonical front door: board + slip rail + intelligence handoff with deterministic fallbacks. |
+| `/` | Canonical front door: shared landing composition with board preview + cockpit surface. |
+| `/cockpit` | Alias route that renders the same landing composition as `/`. |
 | `/today` | Board: today slate aggregation, filtering, add-to-draft, quick analyze handoff. |
 | `/slip` | Draft slip builder with `useDraftSlip`, `DraftSlipStore`, and `SlipIntelBar`. |
 | `/stress-test` | Suspense-wrapped stress-test workspace using `ResearchPageContent`. |

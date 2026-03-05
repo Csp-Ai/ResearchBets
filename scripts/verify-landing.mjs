@@ -14,8 +14,8 @@ if (!existsSync(appPagePath)) {
 }
 
 const appPageContent = readFileSync(appPagePath, 'utf8');
-if (!appPageContent.includes('HomeLandingClient')) {
-  fail('app/page.tsx must reference HomeLandingClient wrapped in Suspense.');
+if (!appPageContent.includes('CanonicalLanding')) {
+  fail('app/page.tsx must render the shared CanonicalLanding entrypoint.');
 }
 if (appPageContent.includes('/landing.html')) {
   fail('app/page.tsx must not redirect or route to /landing.html.');
@@ -66,4 +66,14 @@ if (existsSync(legacyFeaturePath)) {
   fail('features/landing must be archived under src/legacy/landing to avoid parallel landing drift.');
 }
 
-console.log('Landing verification passed: app/page.tsx is canonical and no root redirect to /landing.html exists.');
+console.log('Landing verification passed: app/page.tsx is canonical, /landing redirects to /, and no root redirect to /landing.html exists.');
+
+const landingAliasPath = resolve(root, 'app/landing/page.tsx');
+if (!existsSync(landingAliasPath)) {
+  fail('Missing required file: app/landing/page.tsx');
+}
+
+const landingAliasContent = readFileSync(landingAliasPath, 'utf8');
+if (!landingAliasContent.includes("redirect(buildRedirectWithQuery('/', searchParams))")) {
+  fail("app/landing/page.tsx must redirect to '/'.");
+}

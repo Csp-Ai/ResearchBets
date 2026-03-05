@@ -9,7 +9,7 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
-import { buildCanonicalBoard, buildCoreCandidates, buildTopSpotScouts } from '@/src/core/today/boardModel';
+import { buildCanonicalBoard, buildTopSpotScouts } from '@/src/core/today/boardModel';
 import type { NormalizedToday } from '@/src/core/today/normalize';
 
 import { TopSpotsPanel } from './TopSpotsPanel';

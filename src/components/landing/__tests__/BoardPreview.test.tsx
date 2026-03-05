@@ -21,7 +21,14 @@ describe('BoardPreviewServer', () => {
     render(el);
     const labels = screen.getAllByText(/PRA|PTS|REB|AST|3PM/).map((n) => n.textContent);
     expect(labels[0]).toBe('PRA');
+    expect(screen.getByText("Tonight’s Board Preview")).toBeTruthy();
     expect(screen.getAllByText(/Role volatility/).length).toBeLessThanOrEqual(4);
     expect(screen.getAllByText(/heuristic/).length).toBeGreaterThan(0);
+    const boardHref = screen.getByRole('link', { name: 'Build from Board' }).getAttribute('href') ?? '';
+    expect(boardHref).toContain('/today?');
+    expect(boardHref).toContain('sport=NBA');
+    expect(boardHref).toContain('tz=UTC');
+    const landingHtml = document.body.textContent?.toLowerCase() ?? '';
+    expect(landingHtml).not.toMatch(/\bdemo\b|\bbeta\b|\bprototype\b|\bexperimental\b/);
   });
 });

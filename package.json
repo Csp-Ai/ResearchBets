@@ -43,7 +43,8 @@
     "check:casing": "node scripts/audit/casing-guard.mjs",
     "audit:shared-chunk-owners": "node scripts/audit/shared-chunk-owners.mjs",
     "audit:chunk-fingerprint": "node scripts/audit/chunk-fingerprint.mjs",
-    "audit:ui-primitives-import-guard": "node scripts/audit/ui-primitives-import-guard.mjs"
+    "audit:ui-primitives-import-guard": "node scripts/audit/ui-primitives-import-guard.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.8",
