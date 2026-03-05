@@ -2,33 +2,31 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-import { createTheOddsApiProvider, fetchJsonOrThrow, parsePlatformLines } from '../theoddsapi';
+import { buildEventOddsUrl, createTheOddsApiProvider, fetchJsonOrThrow, parsePlatformLines } from '../theoddsapi';
 
 describe('theoddsapi provider mapping', () => {
   it('maps odds response into platform facts and consensus/divergence', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      text: vi.fn().mockResolvedValue(JSON.stringify([
-        {
-          id: 'evt-1',
-          commence_time: '2025-01-10T00:00:00Z',
-          home_team: 'LAL',
-          away_team: 'BOS',
-          bookmakers: [
-            {
-              key: 'fanduel',
-              title: 'FanDuel',
-              markets: [{ key: 'player_points', outcomes: [{ name: 'LeBron James', point: 25.5, price: -110 }] }]
-            },
-            {
-              key: 'draftkings',
-              title: 'DraftKings',
-              markets: [{ key: 'player_points', outcomes: [{ name: 'LeBron James', point: 27.5, price: -105 }] }]
-            }
-          ]
-        }
-      ]))
+      text: vi.fn().mockResolvedValue(JSON.stringify({
+        id: 'evt-1',
+        commence_time: '2025-01-10T00:00:00Z',
+        home_team: 'LAL',
+        away_team: 'BOS',
+        bookmakers: [
+          {
+            key: 'fanduel',
+            title: 'FanDuel',
+            markets: [{ key: 'player_points', outcomes: [{ name: 'LeBron James', point: 25.5, price: -110 }] }]
+          },
+          {
+            key: 'draftkings',
+            title: 'DraftKings',
+            markets: [{ key: 'player_points', outcomes: [{ name: 'LeBron James', point: 27.5, price: -105 }] }]
+          }
+        ]
+      }))
     }));
 
     const provider = createTheOddsApiProvider({ apiKey: 'x', baseUrl: 'https://odds' });
@@ -38,6 +36,20 @@ describe('theoddsapi provider mapping', () => {
     const consensus = provider.computeConsensus(result.platformLines);
     expect(consensus.consensusLine).toBe(26.5);
     expect(consensus.divergence.warning).toBe(true);
+  });
+
+  it('builds today odds event endpoint with canonical query keys', () => {
+    const url = new URL(buildEventOddsUrl({
+      baseUrl: 'https://api.the-odds-api.com/v4',
+      sport: 'NBA',
+      eventId: 'evt-1',
+      apiKey: 'secret',
+      market: 'player_points'
+    }));
+
+    expect(url.pathname).toBe('/v4/sports/basketball_nba/events/evt-1/odds');
+    expect([...url.searchParams.keys()].sort()).toEqual(['apiKey', 'dateFormat', 'markets', 'oddsFormat', 'regions']);
+    expect(url.searchParams.get('markets')).toBe('player_points');
   });
 
   it('throws typed Error with status/url metadata for non-ok responses', async () => {

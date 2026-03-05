@@ -358,6 +358,25 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
         });
       }
 
+      if (statusCode === 422) {
+        const cachedPayload = cache?.payload;
+        if (cachedPayload && (cachedPayload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
+          return withLandingSummary({
+            ...cachedPayload,
+            mode: 'cache',
+            reason: 'odds_request_invalid',
+            providerWarnings: [...(cachedPayload.providerWarnings ?? []), 'odds_request_invalid'],
+            debug: createDebug('odds_fetch', error, 'request_invalid'),
+            provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
+          });
+        }
+
+        return getDemoFallback('odds_request_invalid', sport, {
+          providerWarnings: ['odds_request_invalid', ...createLiveHardErrorWarning('odds_fetch', error)],
+          debug: createDebug('odds_fetch', error, 'request_invalid'),
+        });
+      }
+
       return getDemoFallback('provider_unavailable', sport, {
         providerWarnings: createLiveHardErrorWarning('odds_fetch', error),
         debug: createDebug('odds_fetch', error, 'provider_unavailable'),

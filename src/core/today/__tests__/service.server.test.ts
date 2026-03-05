@@ -134,6 +134,23 @@ describe('resolveTodayTruth', () => {
 
 
 
+
+  it('classifies odds 422 as request_invalid instead of provider_unavailable', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockRejectedValue(Object.assign(new Error('unprocessable'), { name: 'HttpError', status: 422 }));
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.reason).toBe('odds_request_invalid');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['odds_request_invalid', 'live_hard_error:odds_fetch']));
+    expect(payload.debug).toMatchObject({ step: 'odds_fetch', hint: 'request_invalid', statusCode: 422 });
+    expect(payload.reason).not.toBe('provider_unavailable');
+  });
+
   it('returns demo with events fetch diagnostics and auth warning for 401/403', async () => {
     const authError = Object.assign(new Error('forbidden'), { name: 'HttpError', status: 403, url: 'https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=secret' });
     fetchEvents.mockRejectedValue(authError);

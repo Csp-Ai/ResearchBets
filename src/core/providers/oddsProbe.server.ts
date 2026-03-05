@@ -3,12 +3,16 @@ import 'server-only';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString, resolveWithAliases } from '@/src/core/env/read.server';
 
-import { fetchJsonOrThrow, resolveOddsApiBaseUrl, type ProviderHttpError } from './theoddsapi';
+import { createTheOddsApiProvider, fetchJsonOrThrow, resolveOddsApiBaseUrl, sportToKey, type ProviderHttpError } from './theoddsapi';
+
+export type OddsProbeTarget = 'sports_list' | 'today_odds_fetch';
 
 export type OddsReasonCode =
   | 'http_401'
   | 'http_403'
+  | 'http_422'
   | 'http_429'
+  | 'request_invalid'
   | 'timeout'
   | 'dns'
   | 'tls'
@@ -20,10 +24,11 @@ export type OddsReasonCode =
 export type OddsProbeResult = {
   ok: boolean;
   runtime: 'nodejs';
+  target: OddsProbeTarget;
   reason: OddsReasonCode | null;
   resolvedBaseHost: string | null;
-  urlPath: '/v4/sports';
-  queryKeys: ['apiKey'];
+  urlPath: string;
+  queryKeys: string[];
   status: number | null;
   statusText: string | null;
   contentType: string | null;
@@ -88,11 +93,12 @@ const classifyError = (error: unknown): Pick<OddsProbeResult, 'reason' | 'errorN
 const mapHttpReason = (status: number): OddsReasonCode | null => {
   if (status === 401) return 'http_401';
   if (status === 403) return 'http_403';
+  if (status === 422) return 'http_422';
   if (status === 429) return 'http_429';
   return null;
 };
 
-const buildProbeRequest = (): { url: string; host: string | null; apiKey: string } | { error: OddsProbeResult } => {
+const buildProbeRequest = (): { baseUrl: string; host: string | null; apiKey: string } | { error: OddsProbeResult } => {
   const apiKey = resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
   const baseUrl = resolveOddsApiBaseUrl(readString(CANONICAL_KEYS.ODDS_API_BASE_URL));
 
@@ -101,6 +107,7 @@ const buildProbeRequest = (): { url: string; host: string | null; apiKey: string
       error: {
         ok: false,
         runtime: 'nodejs',
+        target: 'sports_list',
         reason: 'unknown',
         resolvedBaseHost: null,
         urlPath: '/v4/sports',
@@ -118,17 +125,13 @@ const buildProbeRequest = (): { url: string; host: string | null; apiKey: string
 
   try {
     const parsed = new URL(baseUrl);
-    const path = parsed.pathname.replace(/\/+$/, '');
-    const withoutVersion = path.endsWith('/v4') ? path.slice(0, -3) : path;
-    parsed.pathname = `${withoutVersion}/v4/sports`.replace(/\/+/g, '/');
-    parsed.search = '';
-    parsed.searchParams.set('apiKey', apiKey);
-    return { url: parsed.toString(), host: parsed.hostname || null, apiKey };
+    return { baseUrl, host: parsed.hostname || null, apiKey };
   } catch {
     return {
       error: {
         ok: false,
         runtime: 'nodejs',
+        target: 'sports_list',
         reason: 'bad_base_url',
         resolvedBaseHost: null,
         urlPath: '/v4/sports',
@@ -145,27 +148,85 @@ const buildProbeRequest = (): { url: string; host: string | null; apiKey: string
   }
 };
 
-export async function runOddsProbe(): Promise<OddsProbeResult> {
-  const request = buildProbeRequest();
-  if ('error' in request) return request.error;
+const buildSportsListUrl = (baseUrl: string, apiKey: string): string => {
+  const parsed = new URL(baseUrl);
+  const path = parsed.pathname.replace(/\/+$/, '');
+  const withoutVersion = path.endsWith('/v4') ? path.slice(0, -3) : path;
+  parsed.pathname = `${withoutVersion}/v4/sports`.replace(/\/+/g, '/');
+  parsed.search = '';
+  parsed.searchParams.set('apiKey', apiKey);
+  return parsed.toString();
+};
 
-  const { url, host, apiKey } = request;
+export async function runOddsProbe(input: { target?: OddsProbeTarget; sport?: string } = {}): Promise<OddsProbeResult> {
+  const target = input.target ?? 'today_odds_fetch';
+  const sport = input.sport ?? 'NBA';
+
+  const request = buildProbeRequest();
+  if ('error' in request) return { ...request.error, target };
+
+  const { baseUrl, host, apiKey } = request;
+
   try {
-    await fetchJsonOrThrow<unknown[]>(url, { method: 'GET' });
+    if (target === 'sports_list') {
+      const url = buildSportsListUrl(baseUrl, apiKey);
+      await fetchJsonOrThrow<unknown[]>(url, { method: 'GET' });
+      return {
+        ok: true,
+        runtime: 'nodejs',
+        target,
+        reason: null,
+        resolvedBaseHost: host,
+        urlPath: '/v4/sports',
+        queryKeys: ['apiKey'],
+        status: 200,
+        statusText: 'OK',
+        contentType: 'application/json',
+        bodySnippet: null,
+        errorName: null,
+        errorCode: null,
+        safeMessage: 'Odds provider reachable'
+      };
+    }
+
+    const provider = createTheOddsApiProvider({ apiKey, baseUrl });
+    const events = await provider.fetchEvents({ sport: sportToKey(sport) });
+    const eventId = events.events.find((event) => Boolean(event.id))?.id;
+    if (!eventId) {
+      return {
+        ok: false,
+        runtime: 'nodejs',
+        target,
+        reason: 'unknown',
+        resolvedBaseHost: host,
+        urlPath: `/v4/sports/${sportToKey(sport)}/events/{eventId}/odds`,
+        queryKeys: ['apiKey', 'regions', 'markets', 'oddsFormat', 'dateFormat'],
+        status: null,
+        statusText: null,
+        contentType: null,
+        bodySnippet: null,
+        errorName: null,
+        errorCode: null,
+        safeMessage: 'No probe event available for today odds fetch'
+      };
+    }
+
+    await provider.fetchEventOdds({ sport: sportToKey(sport), eventIds: [eventId], marketType: 'points' });
     return {
       ok: true,
       runtime: 'nodejs',
+      target,
       reason: null,
       resolvedBaseHost: host,
-      urlPath: '/v4/sports',
-      queryKeys: ['apiKey'],
+      urlPath: `/v4/sports/${sportToKey(sport)}/events/{eventId}/odds`,
+      queryKeys: ['apiKey', 'regions', 'markets', 'oddsFormat', 'dateFormat'],
       status: 200,
       statusText: 'OK',
       contentType: 'application/json',
       bodySnippet: null,
       errorName: null,
       errorCode: null,
-      safeMessage: 'Odds provider reachable'
+      safeMessage: 'Today odds fetch shape reachable'
     };
   } catch (error) {
     if (error instanceof Error) {
@@ -175,17 +236,18 @@ export async function runOddsProbe(): Promise<OddsProbeResult> {
         return {
           ok: false,
           runtime: 'nodejs',
-          reason: mapHttpReason(status),
+          target,
+          reason: status === 422 ? 'request_invalid' : mapHttpReason(status),
           resolvedBaseHost: host,
-          urlPath: '/v4/sports',
-          queryKeys: ['apiKey'],
+          urlPath: target === 'sports_list' ? '/v4/sports' : `/v4/sports/${sportToKey(sport)}/events/{eventId}/odds`,
+          queryKeys: target === 'sports_list' ? ['apiKey'] : ['apiKey', 'regions', 'markets', 'oddsFormat', 'dateFormat'],
           status,
           statusText: null,
           contentType: null,
           bodySnippet: typedError.bodyExcerpt ? sanitizeSnippet(typedError.bodyExcerpt, apiKey) : null,
           errorName: null,
           errorCode: null,
-          safeMessage: `Odds provider returned HTTP ${status}`
+          safeMessage: status === 422 ? 'Today odds fetch request is invalid (HTTP 422)' : `Odds provider returned HTTP ${status}`
         };
       }
     }
@@ -194,10 +256,11 @@ export async function runOddsProbe(): Promise<OddsProbeResult> {
     return {
       ok: false,
       runtime: 'nodejs',
+      target,
       reason: classified.reason,
       resolvedBaseHost: host,
-      urlPath: '/v4/sports',
-      queryKeys: ['apiKey'],
+      urlPath: target === 'sports_list' ? '/v4/sports' : `/v4/sports/${sportToKey(sport)}/events/{eventId}/odds`,
+      queryKeys: target === 'sports_list' ? ['apiKey'] : ['apiKey', 'regions', 'markets', 'oddsFormat', 'dateFormat'],
       status: null,
       statusText: null,
       contentType: null,

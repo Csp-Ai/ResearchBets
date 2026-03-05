@@ -54,6 +54,8 @@ export const sportToKey = (sport: string): string => {
   return sport.toLowerCase();
 };
 
+const normalizeSportKey = (sport: string): string => sportToKey(sport);
+
 export const buildOddsEventsUrl = (input: { baseUrl: string; sport: string; apiKey: string }): string => {
   const url = new URL(`${input.baseUrl.replace(/\/+$/, '')}/sports/${sportToKey(input.sport)}/events`);
   url.searchParams.set('apiKey', input.apiKey);
@@ -92,6 +94,10 @@ export const fetchJsonOrThrow = async <T>(url: string, init?: RequestInit): Prom
 
 const marketToOddsApi = (marketType: MarketType): string => {
   switch (marketType) {
+    case 'pra':
+      return 'player_points_rebounds_assists';
+    case 'ra':
+      return 'player_rebounds_assists';
     case 'points':
       return 'player_points';
     case 'rebounds':
@@ -107,6 +113,10 @@ const marketToOddsApi = (marketType: MarketType): string => {
 
 const toMarketType = (marketKey: string): MarketType | null => {
   switch (marketKey) {
+    case 'player_points_rebounds_assists':
+      return 'pra';
+    case 'player_rebounds_assists':
+      return 'ra';
     case 'player_points':
       return 'points';
     case 'player_rebounds':
@@ -118,6 +128,25 @@ const toMarketType = (marketKey: string): MarketType | null => {
     default:
       return null;
   }
+};
+
+export const buildEventOddsUrl = (input: {
+  baseUrl: string;
+  sport: string;
+  eventId: string;
+  apiKey: string;
+  market: string;
+  regions?: string;
+  oddsFormat?: 'american' | 'decimal';
+  dateFormat?: 'iso' | 'unix';
+}): string => {
+  const url = new URL(`${input.baseUrl.replace(/\/+$/, '')}/sports/${normalizeSportKey(input.sport)}/events/${input.eventId}/odds`);
+  url.searchParams.set('apiKey', input.apiKey);
+  url.searchParams.set('regions', input.regions ?? 'us');
+  url.searchParams.set('markets', input.market);
+  url.searchParams.set('oddsFormat', input.oddsFormat ?? 'american');
+  url.searchParams.set('dateFormat', input.dateFormat ?? 'iso');
+  return url.toString();
 };
 
 const parsePlatformLines = (input: {
@@ -188,17 +217,24 @@ export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
       if (eventIds.length === 0) return { platformLines: [], provenance: buildProvenance([]), fallbackReason: 'event_ids_missing' };
 
       const market = marketToOddsApi(input.marketType);
-      const refreshedUrl = new URL(`${baseUrl}/sports/${sportToKey(input.sport)}/odds`);
-      refreshedUrl.searchParams.set('apiKey', apiKey);
-      refreshedUrl.searchParams.set('regions', 'us');
-      refreshedUrl.searchParams.set('markets', market);
-      refreshedUrl.searchParams.set('eventIds', eventIds.join(','));
-      const refreshed = await fetchJsonOrThrow<OddsResponseEvent[]>(refreshedUrl.toString());
+      const firstEventId = eventIds[0];
+      const refreshed: OddsResponseEvent[] = [];
+      for (const eventId of eventIds) {
+        const eventOddsUrl = buildEventOddsUrl({
+          baseUrl,
+          sport: input.sport,
+          eventId,
+          apiKey,
+          market,
+        });
+        const eventOdds = await fetchJsonOrThrow<OddsResponseEvent>(eventOddsUrl);
+        if (eventOdds && typeof eventOdds === 'object') refreshed.push(eventOdds);
+      }
 
       const lines = parsePlatformLines({ events: Array.isArray(refreshed) ? refreshed : [], marketType: input.marketType });
       return {
         platformLines: lines,
-        provenance: buildProvenance([{ provider: SOURCE, url: refreshedUrl.toString(), retrievedAt: new Date().toISOString() }])
+        provenance: buildProvenance([{ provider: SOURCE, url: buildEventOddsUrl({ baseUrl, sport: input.sport, eventId: firstEventId!, apiKey, market }), retrievedAt: new Date().toISOString() }])
       };
     },
 
