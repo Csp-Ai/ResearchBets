@@ -33,7 +33,10 @@ interface OddsResponseEvent extends OddsEvent {
 }
 
 const SOURCE = 'the-odds-api';
-const DEFAULT_BASE_URL = 'https://api.the-odds-api.com/v4';
+export const DEFAULT_ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4';
+
+export const resolveOddsApiBaseUrl = (baseUrlOverride?: string | null): string =>
+  (baseUrlOverride ?? readString(CANONICAL_KEYS.ODDS_API_BASE_URL) ?? DEFAULT_ODDS_API_BASE_URL).replace(/\/$/, '');
 
 const sportToKey = (sport: string): string => {
   const normalized = sport.toUpperCase();
@@ -114,7 +117,7 @@ const ttlForEventSet = (events: OddsEvent[]): number => {
 
 export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
   const apiKey = options.apiKey ?? resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
-  const baseUrl = (options.baseUrl ?? readString(CANONICAL_KEYS.ODDS_API_BASE_URL) ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+  const baseUrl = resolveOddsApiBaseUrl(options.baseUrl);
 
   return {
     id: SOURCE,
