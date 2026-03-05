@@ -1,6 +1,6 @@
 import 'server-only';
 
-const LIVE_PROVIDER_KEYS = ['THEODDSAPI_KEY', 'ODDS_API_KEY', 'SPORTSDATA_API_KEY', 'SPORTSDATAIO_API_KEY'] as const;
+export const LIVE_PROVIDER_KEYS = ['THEODDSAPI_KEY', 'ODDS_API_KEY', 'SPORTSDATA_API_KEY', 'SPORTSDATAIO_API_KEY'] as const;
 
 const readBoolean = (value: string | undefined): boolean | null => {
   if (typeof value !== 'string') return null;

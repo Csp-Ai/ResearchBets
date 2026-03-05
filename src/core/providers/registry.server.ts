@@ -142,19 +142,21 @@ const warnMissingProviderKeys = (env: Record<string, string | undefined>, missin
 };
 
 export const createProviderRegistry = (env: Record<string, string | undefined> = process.env): ProviderRegistry => {
-  const hasSportsDataKey = Boolean(env.SPORTSDATA_API_KEY);
-  const hasOddsKey = Boolean(env.ODDS_API_KEY);
+  const sportsDataKey = env.SPORTSDATA_API_KEY ?? env.SPORTSDATAIO_API_KEY;
+  const oddsKey = env.ODDS_API_KEY ?? env.THEODDSAPI_KEY;
+  const hasSportsDataKey = Boolean(sportsDataKey);
+  const hasOddsKey = Boolean(oddsKey);
   const missingKeys = [
-    hasSportsDataKey ? null : 'SPORTSDATA_API_KEY',
-    hasOddsKey ? null : 'ODDS_API_KEY'
+    hasSportsDataKey ? null : 'SPORTSDATA_API_KEY|SPORTSDATAIO_API_KEY',
+    hasOddsKey ? null : 'ODDS_API_KEY|THEODDSAPI_KEY'
   ].filter((key): key is string => Boolean(key));
 
   const statsProvider: StatsProvider = hasSportsDataKey
-    ? (createSportsDataIoProvider({ apiKey: env.SPORTSDATA_API_KEY, baseUrl: env.SPORTSDATAIO_BASE_URL }) as SportsDataIoProvider)
+    ? (createSportsDataIoProvider({ apiKey: sportsDataKey, baseUrl: env.SPORTSDATAIO_BASE_URL }) as SportsDataIoProvider)
     : mockStatsProvider('stats-demo');
 
   const oddsProvider: OddsProvider = hasOddsKey
-    ? (createTheOddsApiProvider({ apiKey: env.ODDS_API_KEY, baseUrl: env.ODDS_API_BASE_URL }) as TheOddsApiProvider)
+    ? (createTheOddsApiProvider({ apiKey: oddsKey, baseUrl: env.ODDS_API_BASE_URL }) as TheOddsApiProvider)
     : mockOddsProvider('odds-demo');
 
   warnMissingProviderKeys(env, missingKeys);

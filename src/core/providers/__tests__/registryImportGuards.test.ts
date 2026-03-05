@@ -43,6 +43,28 @@ describe('provider registry client import guards', () => {
     expect(violations).toEqual([]);
   });
 
+
+  it('keeps provider env key reads aligned with LIVE_PROVIDER_KEYS', async () => {
+    const { LIVE_PROVIDER_KEYS } = await import('@/src/core/env/runtime.server');
+    const allowed = new Set<string>(LIVE_PROVIDER_KEYS);
+    const providerFiles = listFiles('rg --files src/core/providers');
+    const envKeyPattern = /process\.env\.([A-Z0-9_]+)/g;
+
+    const usedKeys = new Set<string>();
+    for (const file of providerFiles) {
+      const source = read(file);
+      let match = envKeyPattern.exec(source);
+      while (match) {
+        if (match[1]) usedKeys.add(match[1]);
+        match = envKeyPattern.exec(source);
+      }
+    }
+
+    const providerLiveKeys = [...usedKeys].filter((key) => key.includes('API_KEY'));
+    const violations = providerLiveKeys.filter((key) => !allowed.has(key));
+    expect(violations).toEqual([]);
+  });
+
   it('ensures no source file imports legacy provider registry path', () => {
     const files = listFiles('rg --files src app');
     const violations = files.flatMap((file) => {

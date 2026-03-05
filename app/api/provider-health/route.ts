@@ -29,7 +29,7 @@ export async function GET() {
   const keyStatus = getLiveKeyStatus();
   const checks = {
     odds: 'unknown' as 'ok' | 'error' | 'unknown',
-    stats: process.env.SPORTSDATA_API_KEY ? 'configured' : 'missing',
+    stats: process.env.SPORTSDATA_API_KEY || process.env.SPORTSDATAIO_API_KEY ? 'configured' : 'missing',
     liveModeEnv: process.env.LIVE_MODE ?? 'unset'
   };
 
