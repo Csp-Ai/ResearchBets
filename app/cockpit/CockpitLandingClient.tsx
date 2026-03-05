@@ -89,6 +89,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     tz: 'ET'
   });
   const [ticketHeaderPulse, setTicketHeaderPulse] = useState(false);
+  const [runtimeContext, setRuntimeContext] = useState<{ vercelEnv?: string; nodeEnv?: string } | null>(null);
 
 
   const onSetMode = (mode: 'live' | 'demo') => {
@@ -190,6 +191,22 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     const timer = window.setTimeout(() => setTicketHeaderPulse(false), 550);
     return () => window.clearTimeout(timer);
   }, [ticketHeaderPulse]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadRuntimeContext = async () => {
+      try {
+        const response = await fetch('/api/provider-health', { signal: controller.signal });
+        if (!response.ok) return;
+        const payload = await response.json() as { vercelEnv?: string; nodeEnv?: string; runtimeContext?: { vercelEnv?: string; nodeEnv?: string } };
+        setRuntimeContext(payload.runtimeContext ?? { vercelEnv: payload.vercelEnv, nodeEnv: payload.nodeEnv });
+      } catch {
+        setRuntimeContext(null);
+      }
+    };
+    void loadRuntimeContext();
+    return () => controller.abort();
+  }, []);
 
   const onAdd = (leg: (typeof board)[number], triggerEl?: HTMLElement | null) => {
     if (slipIds.has(leg.id) || slip.length >= 6) return;
@@ -382,6 +399,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             statusCode: today.debug.statusCode,
           } : undefined}
           providerHealth={today.providerHealth}
+          runtimeContext={runtimeContext}
         />
         <ProofStack
           board={board}
@@ -589,3 +607,4 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     </div>
   );
 }
+

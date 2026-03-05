@@ -6,6 +6,10 @@ type PipelineStripProps = {
   providerWarnings?: string[];
   debug?: { step: TodayLiveStep; hint: string; statusCode?: number };
   providerHealth?: ProviderHealth[];
+  runtimeContext?: {
+    vercelEnv?: string;
+    nodeEnv?: string;
+  } | null;
 };
 
 const PHASES: Array<{ key: TodayLiveStep; label: string }> = [
@@ -35,10 +39,20 @@ function summaryLabel(input: Pick<PipelineStripProps, 'mode' | 'landingReason' |
   return 'Live OK';
 }
 
-export function PipelineStrip({ mode, landingReason, providerWarnings, debug, providerHealth }: PipelineStripProps) {
+function runtimeBadge(context?: PipelineStripProps['runtimeContext']): string | null {
+  if (!context?.vercelEnv) return null;
+  if (context.vercelEnv === 'preview') {
+    return context.nodeEnv === 'production' ? 'Preview deploy (prod build)' : 'Preview deploy';
+  }
+  if (context.vercelEnv === 'production') return 'Production deploy';
+  return null;
+}
+
+export function PipelineStrip({ mode, landingReason, providerWarnings, debug, providerHealth, runtimeContext }: PipelineStripProps) {
   const activeStep = debug?.step ?? deriveStepFromWarnings(providerWarnings) ?? (mode === 'live' ? 'live_viability' : 'resolve_context');
   const summary = summaryLabel({ mode, landingReason, providerWarnings });
   const healthyCount = providerHealth?.filter((item) => item.ok).length ?? 0;
+  const deployLabel = runtimeBadge(runtimeContext);
 
   return (
     <section className="pipeline-strip-shell" aria-label="Pipeline strip" data-testid="pipeline-strip">
@@ -52,6 +66,7 @@ export function PipelineStrip({ mode, landingReason, providerWarnings, debug, pr
       <p className="pipeline-strip-summary">
         {summary}
         {providerHealth ? <span className="pipeline-strip-health"> · Providers {healthyCount}/{providerHealth.length}</span> : null}
+        {deployLabel ? <span className="pipeline-strip-health"> · {deployLabel}</span> : null}
       </p>
     </section>
   );

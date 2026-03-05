@@ -173,17 +173,54 @@ function sanitizeErrorMessage(error: Error): string {
   return compact.slice(0, 160) || 'unknown_error';
 }
 
-function createLiveHardErrorWarning(step: TodayLiveStep, error: unknown): string[] {
-  if (!(error instanceof Error)) {
-    return [`live_unavailable:non_error_throw:${step}`];
+function redactHost(rawUrl: string | undefined): string {
+  if (!rawUrl) return 'unknown';
+  try {
+    return new URL(rawUrl).host || 'unknown';
+  } catch {
+    return 'unknown';
   }
+}
+
+function toErrorWithMeta(step: TodayLiveStep, provider: string, error: unknown, meta: { statusCode?: number; host?: string; durationMs?: number }): Error {
+  if (error instanceof Error) {
+    const typedError = error as Error & { status?: number; provider?: string; host?: string; hint?: string; durationMs?: number };
+    typedError.provider = provider;
+    typedError.host = meta.host;
+    typedError.durationMs = meta.durationMs;
+    typedError.hint = step;
+    if (typeof meta.statusCode === 'number' && !Number.isFinite((typedError as { status?: number }).status ?? NaN)) {
+      typedError.status = meta.statusCode;
+    }
+    return typedError;
+  }
+
+  const wrapped = new Error('events_fetch_non_error_throw') as Error & { status?: number; provider?: string; host?: string; hint?: string; durationMs?: number };
+  wrapped.provider = provider;
+  wrapped.host = meta.host;
+  wrapped.durationMs = meta.durationMs;
+  wrapped.hint = step;
+  if (typeof meta.statusCode === 'number') wrapped.status = meta.statusCode;
+  return wrapped;
+}
+
+function createLiveHardErrorWarning(step: TodayLiveStep, error: unknown): string[] {
+  if (!(error instanceof Error)) return [`live_hard_error:${step}`];
+  const typedError = error as Error & { provider?: string; host?: string; durationMs?: number };
   const statusCode = getStatusCode(error);
-  return [
+  const warnings = [
     `live_hard_error:${step}`,
     `live_hard_error_name:${getErrorName(error)}`,
     `live_hard_error_msg:${sanitizeErrorMessage(error)}`,
     `live_hard_error_code:${typeof statusCode === 'number' ? String(statusCode) : 'none'}`,
   ];
+  if (step === 'events_fetch') {
+    warnings.push(`events_fetch_status:${typeof statusCode === 'number' ? String(statusCode) : 'none'}`);
+    warnings.push(`events_fetch_provider:${typedError.provider ?? 'unknown'}`);
+    warnings.push(`events_fetch_host:${typedError.host ?? 'unknown'}`);
+    warnings.push(`events_fetch_ms:${typeof typedError.durationMs === 'number' ? String(Math.max(0, Math.round(typedError.durationMs))) : 'unknown'}`);
+  }
+  return warnings;
 }
 
 function createDebug(step: TodayLiveStep, error: unknown, hintOverride?: string): LiveDiagnostic {
@@ -212,13 +249,20 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
   let status: TodayPayload['status'] = 'market_closed';
   let debug: LiveDiagnostic | undefined;
 
+  const eventsStartedAt = Date.now();
   try {
     const result = await registry.oddsProvider.fetchEvents({ sport: toSportKey(sport) });
     events = (result.events ?? []) as Array<{ id: string; commence_time?: string; home_team?: string; away_team?: string }>;
     if (result.fallbackReason) warnings.push(result.fallbackReason);
   } catch (error) {
-    const providerWarnings = createLiveHardErrorWarning('events_fetch', error);
-    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('events_fetch', error, 'provider_unavailable') });
+    const statusCode = getStatusCode(error);
+    const wrapped = toErrorWithMeta('events_fetch', registry.oddsProvider.id, error, {
+      statusCode,
+      host: redactHost((error as { url?: string } | undefined)?.url),
+      durationMs: Date.now() - eventsStartedAt,
+    });
+    const providerWarnings = createLiveHardErrorWarning('events_fetch', wrapped);
+    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('events_fetch', wrapped, 'provider_unavailable') });
   }
 
   const active = events.filter((event) => {
