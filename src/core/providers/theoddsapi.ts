@@ -110,7 +110,7 @@ const ttlForEventSet = (events: OddsEvent[]): number => {
 };
 
 export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
-  const apiKey = options.apiKey ?? process.env.ODDS_API_KEY;
+  const apiKey = options.apiKey ?? process.env.ODDS_API_KEY ?? process.env.THEODDSAPI_KEY;
   const baseUrl = (options.baseUrl ?? process.env.ODDS_API_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
 
   return {

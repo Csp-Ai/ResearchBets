@@ -29,7 +29,7 @@ export const getServerEnv = (): ServerEnv => {
       const rawLive = (trimEnv('LIVE_MODE') ?? '').toLowerCase();
       if (rawLive === 'true') return true;
       if (rawLive === 'false') return false;
-      const hasAnyLiveKey = Boolean(trimEnv('ODDS_API_KEY') || trimEnv('SPORTSDATA_API_KEY') || trimEnv('THEODDSAPI_KEY'));
+      const hasAnyLiveKey = Boolean(trimEnv('ODDS_API_KEY') || trimEnv('THEODDSAPI_KEY') || trimEnv('SPORTSDATA_API_KEY') || trimEnv('SPORTSDATAIO_API_KEY'));
       return nodeEnv === 'production' ? hasAnyLiveKey : false;
     })(),
     supabaseUrl: trimEnv('NEXT_PUBLIC_SUPABASE_URL'),
