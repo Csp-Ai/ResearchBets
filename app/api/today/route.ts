@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     const providerHealth = await computeProviderHealth({ sport: spine.sport });
     const resolvedMode = resolveRuntimeMode({ urlIntent, providerHealth });
 
-    const forceRefresh = searchParams.get('refresh') === '1';
+    const forceRefresh = searchParams.get('refresh') === '1' || searchParams.get('force') === '1';
     const strictLive = searchParams.get('strict_live') === '1';
     const debugEnabled = searchParams.get('debug') === '1';
 

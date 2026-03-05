@@ -11,6 +11,7 @@ vi.mock('@/src/core/today/cache.server', () => ({
   readLastGoodToday,
   writeLastGoodToday,
   getTodayCacheKey: ({ sport, tz, date }: { sport: string; tz: string; date: string }) => `today:${sport}:${tz}:${date}`,
+  TODAY_CACHE_TTL_MS: 10 * 60_000,
 }));
 
 vi.mock('@/src/core/providers/registry.server', () => ({
@@ -190,6 +191,132 @@ describe('resolveTodayTruth', () => {
     expect(payload.providerWarnings).toContain('live_unavailable:provider_events_unavailable');
     expect(payload.providerWarnings?.some((warning) => warning.includes('live_hard_error:resolve_context'))).toBe(false);
     expect(payload.debug).toMatchObject({ step: 'live_viability', hint: 'provider_events_unavailable' });
+  });
+
+
+  it('returns cache-first payload and skips odds provider when cache is fresh', async () => {
+    const cachedAt = '2026-01-20T11:55:00.000Z';
+    readLastGoodToday.mockResolvedValue({
+      savedAt: cachedAt,
+      payload: {
+        mode: 'live',
+        generatedAt: cachedAt,
+        leagues: ['NBA'],
+        games: [{
+          id: 'evt-1',
+          league: 'NBA',
+          status: 'upcoming',
+          startTime: 'Jan 20, 6:00 PM',
+          matchup: 'LAL @ BOS',
+          teams: ['LAL', 'BOS'],
+          bookContext: 'cached',
+          propsPreview: [],
+          provenance: 'the-odds-api',
+          lastUpdated: cachedAt,
+        }],
+        board: Array.from({ length: 6 }).map((_, idx) => ({
+          id: `row-${idx + 1}`,
+          gameId: 'evt-1',
+          player: `Player ${idx + 1}`,
+          market: 'points',
+          line: '20.5',
+          odds: '-110',
+          hitRateL10: 60,
+          marketImpliedProb: 0.52,
+          modelProb: 0.56,
+          edgeDelta: 0.04,
+          riskTag: 'stable',
+        })),
+      },
+    });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
+
+    expect(payload.mode).toBe('cache');
+    expect(payload.reason).toBe('cache_fresh');
+    expect(payload.effective).toEqual({ mode: 'cache', reason: 'cache_fresh' });
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['today_cache_hit']));
+    expect(payload.userSafeReason).toBe('Using cached slate');
+    expect(fetchEvents).not.toHaveBeenCalled();
+    expect(fetchEventOdds).not.toHaveBeenCalled();
+  });
+
+  it('force refresh bypasses cache-first and performs live fetch', async () => {
+    const cachedAt = '2026-01-20T11:55:00.000Z';
+    readLastGoodToday.mockResolvedValue({
+      savedAt: cachedAt,
+      payload: {
+        mode: 'live',
+        generatedAt: cachedAt,
+        leagues: ['NBA'],
+        games: [{
+          id: 'evt-1',
+          league: 'NBA',
+          status: 'upcoming',
+          startTime: 'Jan 20, 6:00 PM',
+          matchup: 'LAL @ BOS',
+          teams: ['LAL', 'BOS'],
+          bookContext: 'cached',
+          propsPreview: [],
+          provenance: 'the-odds-api',
+          lastUpdated: cachedAt,
+        }],
+        board: Array.from({ length: 6 }).map((_, idx) => ({
+          id: `row-${idx + 1}`,
+          gameId: 'evt-1',
+          player: `Player ${idx + 1}`,
+          market: 'points',
+          line: '20.5',
+          odds: '-110',
+          hitRateL10: 60,
+          marketImpliedProb: 0.52,
+          modelProb: 0.56,
+          edgeDelta: 0.04,
+          riskTag: 'stable',
+        })),
+      },
+    });
+
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockResolvedValue({
+      platformLines: Array.from({ length: 6 }).map((_, idx) => ({ platform: 'book', player: `Player ${idx + 1}`, line: 20.5 + idx, odds: -110 })),
+    });
+    fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('live');
+    expect(fetchEvents).toHaveBeenCalledTimes(1);
+    expect(fetchEventOdds).toHaveBeenCalled();
+  });
+
+  it('coalesces concurrent refresh requests into one live odds fetch', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+
+    fetchEventOdds.mockResolvedValue({
+      platformLines: Array.from({ length: 6 }).map((_, idx) => ({ platform: 'book', player: `Player ${idx + 1}`, line: 20.5 + idx, odds: -110 })),
+    });
+    fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
+
+    const { resolveTodayTruth } = await import('../service.server');
+
+    const [p1, p2, p3] = await Promise.all([
+      resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true }),
+      resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true }),
+      resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true }),
+    ]);
+
+    expect(fetchEvents).toHaveBeenCalledTimes(1);
+    expect(fetchEventOdds).toHaveBeenCalledTimes(5);
+    expect(p1.mode).toBe('live');
+    expect(p2.mode).toBe('live');
+    expect(p3.mode).toBe('live');
   });
 
   it('429 returns cached payload when last-good cache exists', async () => {

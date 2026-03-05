@@ -6,11 +6,11 @@ import type { BoardSport } from '@/src/core/board/boardService.server';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
 import { createDemoTodayPayload } from './demoToday';
-import { readLastGoodToday, writeLastGoodToday } from './cache.server';
+import { TODAY_CACHE_TTL_MS, readLastGoodToday, writeLastGoodToday } from './cache.server';
 import { TODAY_LEAGUES, type ProviderHealth, type TodayLiveStep, type TodayPayload, type TodayPropKey } from './types';
 import { computeAttemptMetrics, computeFeaturedBucketAveragesFromLogs, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
 
-const TTL_MS = 120_000;
+const IN_MEMORY_TTL_MS = 120_000;
 const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
 export const MIN_BOARD_ROWS = 6;
 
@@ -38,6 +38,27 @@ export type CanonicalBoardView = {
 
 let cache: { key: string; expiresAt: number; payload: TodayPayload } | null = null;
 
+
+
+const inFlightRefreshes = new Map<string, Promise<TodayPayload>>();
+
+function withCacheFreshHit(cachedPayload: TodayPayload, savedAt: string): TodayPayload {
+  return withLandingSummary({
+    ...cachedPayload,
+    mode: 'cache',
+    reason: 'cache_fresh',
+    effective: { mode: 'cache', reason: 'cache_fresh' },
+    providerWarnings: [...new Set([...(cachedPayload.providerWarnings ?? []), 'today_cache_hit'])],
+    userSafeReason: 'Using cached slate',
+    provenance: { mode: 'cache', reason: 'cache_fresh', generatedAt: savedAt },
+  });
+}
+
+function isFreshCacheRecord(savedAt: string, nowMs: number = Date.now()): boolean {
+  const saved = new Date(savedAt).getTime();
+  if (!Number.isFinite(saved)) return false;
+  return nowMs - saved <= TODAY_CACHE_TTL_MS;
+}
 const toLocal = (iso: string, tz: string) =>
   new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
 
@@ -513,70 +534,112 @@ export async function resolveTodayTruth(options?: {
   const mode = options?.mode ?? 'live';
   const key = `${sport}:${tz}:${date}`;
   const cacheKey = { sport, tz, date };
+  const forceRefresh = Boolean(options?.forceRefresh);
 
   if (mode === 'demo') {
     return getDemoFallback('demo_requested', sport);
   }
 
-  if (!options?.forceRefresh && cache && cache.key === key && cache.expiresAt > Date.now()) {
-    return withLandingSummary({ ...cache.payload, mode: 'cache', reason: cache.payload.reason ?? 'cache_hit', effective: { mode: 'cache', reason: cache.payload.reason ?? 'cache_hit' }, provenance: { mode: 'cache', reason: 'cache_hit', generatedAt: cache.payload.generatedAt } });
+  if (!forceRefresh) {
+    const durableCache = await readLastGoodToday(cacheKey, { includeStale: true });
+    if (durableCache) {
+      if (isFreshCacheRecord(durableCache.savedAt)) {
+        return withCacheFreshHit(durableCache.payload, durableCache.savedAt);
+      }
+    } else {
+      cache = null;
+    }
+
+    if (cache && cache.key === key && cache.expiresAt > Date.now()) {
+      return withCacheFreshHit(cache.payload, cache.payload.generatedAt);
+    }
   }
 
-  let livePayload: TodayPayload | null = null;
+  const refreshKey = `today_refresh:${sport}:${tz}:${date}:${forceRefresh ? '1' : '0'}`;
+  const existingRefresh = inFlightRefreshes.get(refreshKey);
+  if (existingRefresh) {
+    return existingRefresh;
+  }
+
+  const refreshPromise = (async () => {
+    let livePayload: TodayPayload | null = null;
+    try {
+      livePayload = ensureBoard(await fetchLiveToday({ sport, tz, date }));
+    } catch {
+      livePayload = null;
+    }
+
+    const shouldFallback = !livePayload
+      || livePayload.mode === 'demo'
+      || (livePayload.board?.length ?? 0) < MIN_BOARD_ROWS
+      || livePayload.games.length === 0
+      || livePayload.status === 'market_closed';
+
+    if (livePayload && !shouldFallback) {
+      cache = { key, expiresAt: Date.now() + IN_MEMORY_TTL_MS, payload: livePayload };
+      await writeLastGoodToday(cacheKey, livePayload);
+      return livePayload;
+    }
+
+    if (options?.strictLive) {
+      if (livePayload && (livePayload.board?.length ?? 0) > 0) return livePayload;
+      return {
+        ...(livePayload ?? getDemoFallback('provider_unavailable', sport)),
+        mode: 'live' as const,
+        reason: 'strict_live_empty',
+        effective: { mode: 'live' as const, reason: 'strict_live_empty' },
+        board: [],
+        games: [],
+        providerErrors: ['strict_live_empty'],
+        providerWarnings: [],
+        providerHealth: providerHealth(['strict_live_empty'], { mode: 'live' }),
+        landing: {
+          mode: 'live' as const,
+          reason: 'provider_unavailable' as const,
+          gamesCount: 0,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    if (livePayload?.mode === 'demo') {
+      return livePayload;
+    }
+
+    const staleCache = await readLastGoodToday(cacheKey, { includeStale: true });
+    if (staleCache?.payload && isUsableCachedPayload(staleCache.payload)) {
+      return withLandingSummary({
+        ...staleCache.payload,
+        mode: 'cache',
+        reason: livePayload?.reason ?? 'provider_unavailable',
+        effective: { mode: 'cache', reason: livePayload?.reason ?? 'provider_unavailable' },
+        providerWarnings: [...new Set([...(staleCache.payload.providerWarnings ?? []), 'today_cache_hit'])],
+        userSafeReason: 'Using cached slate',
+        provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: staleCache.savedAt },
+      });
+    }
+
+    if (cache?.key === key && (cache.payload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
+      return withLandingSummary({
+        ...cache.payload,
+        mode: 'cache',
+        reason: livePayload?.reason ?? 'provider_unavailable',
+        effective: { mode: 'cache', reason: livePayload?.reason ?? 'provider_unavailable' },
+        providerWarnings: [...new Set([...(cache.payload.providerWarnings ?? []), 'today_cache_hit'])],
+        userSafeReason: 'Using cached slate',
+        provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cache.payload.generatedAt }
+      });
+    }
+
+    return getDemoFallback(livePayload?.reason ?? 'provider_unavailable', sport, { providerWarnings: ['today_cache_miss'] });
+  })();
+
+  inFlightRefreshes.set(refreshKey, refreshPromise);
   try {
-    livePayload = ensureBoard(await fetchLiveToday({ sport, tz, date }));
-  } catch {
-    livePayload = null;
+    return await refreshPromise;
+  } finally {
+    inFlightRefreshes.delete(refreshKey);
   }
-
-  const shouldFallback = !livePayload
-    || livePayload.mode === 'demo'
-    || (livePayload.board?.length ?? 0) < MIN_BOARD_ROWS
-    || livePayload.games.length === 0
-    || livePayload.status === 'market_closed';
-
-  if (livePayload && !shouldFallback) {
-    cache = { key, expiresAt: Date.now() + TTL_MS, payload: livePayload };
-    await writeLastGoodToday(cacheKey, livePayload);
-    return livePayload;
-  }
-
-  if (options?.strictLive) {
-    if (livePayload && (livePayload.board?.length ?? 0) > 0) return livePayload;
-    return {
-      ...(livePayload ?? getDemoFallback('provider_unavailable', sport)),
-      mode: 'live',
-      reason: 'strict_live_empty',
-      effective: { mode: 'live', reason: 'strict_live_empty' },
-      board: [],
-      games: [],
-      providerErrors: ['strict_live_empty'],
-      providerWarnings: [],
-      providerHealth: providerHealth(['strict_live_empty'], { mode: 'live' }),
-      landing: {
-        mode: 'live',
-        reason: 'provider_unavailable',
-        gamesCount: 0,
-        lastUpdatedAt: new Date().toISOString(),
-      },
-    };
-  }
-
-  if (livePayload?.mode === 'demo') {
-    return livePayload;
-  }
-
-  if (cache?.key === key && (cache.payload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
-    return withLandingSummary({
-      ...cache.payload,
-      mode: 'cache',
-      reason: livePayload?.reason ?? 'provider_unavailable',
-      effective: { mode: 'cache', reason: livePayload?.reason ?? 'provider_unavailable' },
-      provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cache.payload.generatedAt }
-    });
-  }
-
-  return getDemoFallback(livePayload?.reason ?? 'provider_unavailable', sport);
 }
 
 export async function getTodayPayload(options?: { forceRefresh?: boolean; sport?: BoardSport; date?: string; tz?: string; mode?: TodayPayload['mode']; strictLive?: boolean }): Promise<TodayPayload> {

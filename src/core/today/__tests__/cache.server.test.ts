@@ -37,6 +37,22 @@ describe('today cache server module', () => {
     expect(result).toBeNull();
   });
 
+
+  it('can return stale durable cache entries when includeStale is enabled', async () => {
+    maybeSingle.mockResolvedValue({
+      data: {
+        payload: { mode: 'live', generatedAt: '2026-01-20T11:30:00.000Z', leagues: [], games: [] },
+        saved_at: '2026-01-20T11:30:00.000Z',
+      },
+      error: null,
+    });
+
+    const { readLastGoodToday } = await import('../cache.server');
+    const result = await readLastGoodToday({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' }, { includeStale: true });
+
+    expect(result?.savedAt).toBe('2026-01-20T11:30:00.000Z');
+  });
+
   it('writes cache records to durable storage', async () => {
     upsert.mockResolvedValue({ error: null });
 
