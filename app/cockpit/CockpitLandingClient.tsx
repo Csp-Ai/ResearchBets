@@ -6,23 +6,24 @@ import { useRouter, usePathname } from 'next/navigation';
 
 import { LiveCredibilityStrip } from '@/app/cockpit/components/LiveCredibilityStrip';
 import { AttemptsChips } from '@/src/components/landing/AttemptsChips';
-import { NervousPulse } from '@/src/components/landing/NervousPulse';
 import { PreviewStrip } from '@/src/components/landing/PreviewStrip';
-import { ProofStack } from '@/src/components/landing/ProofStack';
 import { TicketEmptyCoach } from '@/src/components/landing/TicketEmptyCoach';
-import { PipelineStrip } from '@/src/components/landing/PipelineStrip';
 import { flyToTicket } from '@/src/components/landing/flyToTicket';
 import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { CockpitHeader } from '@/src/components/cockpit/CockpitHeader';
+import { CockpitShell } from '@/src/components/cockpit/CockpitShell';
+import { Chip as LandingChip, Panel, PanelHeader } from '@/src/components/landing/ui';
 import { spineHref } from '@/src/core/nervous/spineNavigation';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
+import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
+import { Button } from '@/src/components/ui/button';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useRunEvents } from '@/src/core/events/useRunEvents';
 import { ensureTraceId } from '@/src/core/trace/trace_id';
 import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
-import type { TodayLiveStep } from '@/src/core/today/types';
 
 import './cockpit.css';
 
@@ -89,7 +90,6 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     tz: 'ET'
   });
   const [ticketHeaderPulse, setTicketHeaderPulse] = useState(false);
-  const [runtimeContext, setRuntimeContext] = useState<{ vercelEnv?: string; nodeEnv?: string } | null>(null);
 
 
   const onSetMode = (mode: 'live' | 'demo') => {
@@ -192,22 +192,6 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     return () => window.clearTimeout(timer);
   }, [ticketHeaderPulse]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const loadRuntimeContext = async () => {
-      try {
-        const response = await fetch('/api/provider-health', { signal: controller.signal });
-        if (!response.ok) return;
-        const payload = await response.json() as { vercelEnv?: string; nodeEnv?: string; runtimeContext?: { vercelEnv?: string; nodeEnv?: string } };
-        setRuntimeContext(payload.runtimeContext ?? { vercelEnv: payload.vercelEnv, nodeEnv: payload.nodeEnv });
-      } catch {
-        setRuntimeContext(null);
-      }
-    };
-    void loadRuntimeContext();
-    return () => controller.abort();
-  }, []);
-
   const onAdd = (leg: (typeof board)[number], triggerEl?: HTMLElement | null) => {
     if (slipIds.has(leg.id) || slip.length >= 6) return;
     addLeg({
@@ -255,7 +239,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     return { hitEstimate, breakEven, gap };
   }, [slip]);
 
-  const { latestStage, statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
+  const { statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
 
   const runStressTest = async () => {
     if (!stressEnabled || analysis.running) return;
@@ -343,268 +327,250 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
   };
 
   return (
-    <div className={`cockpit-page ${analysis.running ? 'running' : ''}`}>
-      <header id="topbar" role="banner">
-        <div className="wordmark">RESEARCH<span>BETS</span></div>
-        <div className="topbar-chips"><span className="boards-label">{neutralStatus}</span></div>
-        <div className="topbar-right">
-          <div className="tz-shell">
-            <button className="chip active tz-btn" aria-expanded={ui.tzOpen} onClick={() => setUi((p) => ({ ...p, tzOpen: !p.tzOpen }))}>TZ: {ui.tz} ▾</button>
-            {ui.tzOpen && (
-              <div className="tz-dropdown open" role="listbox">
-                {['ET', 'CT', 'MT', 'PT'].map((tz) => (
-                  <button key={tz} className={`tz-option ${ui.tz === tz ? 'active' : ''}`} role="option" aria-selected={ui.tz === tz} onClick={() => setUi((p) => ({ ...p, tz, tzOpen: false }))}>{tz}</button>
+    <CockpitShell>
+      <div className={`cockpit-page ${analysis.running ? 'running' : ''}`}>
+        <CockpitHeader
+          title="Tonight's Board"
+          purpose="Scan active props, shape a ticket, then run deterministic stress diagnostics before lock."
+          ctas={(
+            <>
+              <Button intent="primary" onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run analysis</Button>
+              <Button intent="secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste slip</Button>
+              <Link href={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} className="ui-button ui-button-secondary focus-glow">Try sample</Link>
+            </>
+          )}
+          strip={{
+            mode: today.mode,
+            reason: provenance.reason ?? today.reason,
+            updatedAt: provenance.generatedAt ?? today.generatedAt,
+            providerSummary: {
+              okCount: today.providerHealth?.filter((provider) => provider.ok).length ?? 0,
+              total: today.providerHealth?.length ?? 0,
+              degraded: Boolean(today.reason) || Boolean(today.providerHealth?.some((provider) => !provider.ok))
+            },
+            traceId: analysis.traceId || nervous.trace_id
+          }}
+        />
+
+        <section id="cockpit" ref={cockpitRef} aria-label="Bettor cockpit: board and draft ticket" className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)] lg:items-start">
+          <Panel id="board-panel" className="space-y-3">
+            <PanelHeader
+              title="Tonight's Board"
+              subtitle={neutralStatus}
+              action={(
+                <div className="flex items-center gap-2">
+                  <Button intent="secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste slip</Button>
+                  <Button intent="secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from tonight</Button>
+                </div>
+              )}
+            />
+
+            <div className="hero-controls">
+              <div className="segmented" role="tablist" aria-label="Mode">
+                <button className={`segment ${selectedMode === 'live' ? 'active' : ''}`} onClick={() => onSetMode('live')} aria-pressed={selectedMode === 'live'}>Live</button>
+                <button className={`segment ${selectedMode === 'demo' ? 'active' : ''}`} onClick={() => onSetMode('demo')} aria-pressed={selectedMode === 'demo'}>Demo</button>
+              </div>
+              <div className="segmented" role="tablist" aria-label="Sport">
+                {(['NBA', 'NFL'] as const).map((sport) => (
+                  <button key={sport} className={`segment ${selectedSport === sport ? 'active' : ''}`} onClick={() => onSetSport(sport)} aria-pressed={selectedSport === sport}>{sport}</button>
                 ))}
               </div>
-            )}
-          </div>
-          <button className="hamburger" aria-label="Open navigation menu" aria-expanded={ui.navDrawerOpen} onClick={() => setUi((p) => ({ ...p, navDrawerOpen: !p.navDrawerOpen }))}><span /><span /><span /></button>
-        </div>
-      </header>
-
-      <section id="hero" aria-labelledby="hero-headline">
-        <NervousPulse burstToken={pulseToken} />
-        <PreviewStrip
-          rows={board}
-          statusLabel={neutralStatus}
-          buildHref={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
-          pasteHref={spineHref('/ingest', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
-          onPaste={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}
-        />
-        <h1 className="hero-headline" id="hero-headline">One leg breaks.<br /><span className="hero-headline-accent">Find it first.</span></h1>
-        <p className="hero-sub">Stress your ticket before lock. Spot fragility, correlation pressure, and weakest-leg risk while the board is still moving.</p>
-        <div className="hero-controls">
-          <div className="segmented" role="tablist" aria-label="Mode">
-            <button className={`segment ${selectedMode === 'live' ? 'active' : ''}`} onClick={() => onSetMode('live')} aria-pressed={selectedMode === 'live'}>Live</button>
-            <button className={`segment ${selectedMode === 'demo' ? 'active' : ''}`} onClick={() => onSetMode('demo')} aria-pressed={selectedMode === 'demo'}>Demo</button>
-          </div>
-          <div className="segmented" role="tablist" aria-label="Sport">
-            {(['NBA', 'NFL'] as const).map((sport) => (
-              <button key={sport} className={`segment ${selectedSport === sport ? 'active' : ''}`} onClick={() => onSetSport(sport)} aria-pressed={selectedSport === sport}>{sport}</button>
-            ))}
-          </div>
-        </div>
-        <div className="cta-row">
-          <button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Bet Slip</button>
-          <button className="btn-secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
-          <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
-        </div>
-        <PipelineStrip
-          mode={today.mode}
-          landingReason={today.landing?.reason}
-          providerWarnings={today.providerWarnings}
-          debug={today.debug && typeof today.debug.step === 'string' ? {
-            step: today.debug.step as TodayLiveStep,
-            hint: today.debug.hint,
-            statusCode: today.debug.statusCode,
-          } : undefined}
-          providerHealth={today.providerHealth}
-          runtimeContext={runtimeContext}
-        />
-        <ProofStack
-          board={board}
-          slip={slip}
-          feedsOk={provenance.mode === 'live' && !strictLiveUnavailable}
-          logMode={provenance.mode === 'cache' ? 'cached' : provenance.mode === 'live' ? 'live' : 'heuristic'}
-          reasons={analysis.reasons}
-          runProvenance={analysis.runProvenance}
-        />
-      </section>
-
-      <section id="cockpit" ref={cockpitRef} aria-label="Bettor cockpit: board and draft ticket">
-        <LiveCredibilityStrip
-          provenance={provenance}
-          today={today}
-          strictLiveUnavailable={strictLiveUnavailable}
-          boardUpdateTick={boardUpdateTick}
-          onRefresh={refreshToday}
-          pulseToken={pulseToken}
-        />
-        <div className="panel" id="board-panel">
-          <div className="panel-header"><span className="panel-title">Tonight&apos;s Board</span></div>
-          <div className="search-wrap"><input type="search" className="search-input" placeholder="Search props…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search player props" /></div>
-          <div className="board-list" role="list">
-            {Object.entries(groupedGames).map(([group, legs]) => (
-              <div className="board-group" key={group}>
-                <div className="group-label">
-                  {group}
-                  {recentlyChangedGroups.has(group) ? <span className="group-updated">Updated</span> : null}
-                </div>
-                {legs.map((leg) => {
-                  const added = slipIds.has(leg.id);
-                  return (
-                    <div key={leg.id} className={`board-row ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''}`} role="listitem" onClick={() => onOpenLeg(leg)}>
-                      <div>
-                        <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
-                        <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
-                        <AttemptsChips leg={leg} />
-                      </div>
-                      <div className="board-meta">
-                        <span className="board-chip">Odds {leg.odds}</span>
-                        <span className="board-chip">L10 {leg.hitRateL10 ?? '—'}/10</span>
-                        <span className="board-open">Open ›</span>
-                        <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg, event.currentTarget); }} disabled={added} aria-pressed={added}>+</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel desktop-ticket-panel" id="ticket-panel">
-          <div id="ticket-scan-sweep" />
-          <div className="panel-header">
-            <span className="panel-title">Draft Ticket</span>
-            <span ref={ticketBadgeRef} className="leg-count-badge" aria-live="polite">{legCount} {legCount === 1 ? 'leg' : 'legs'}</span>
-          </div>
-
-          <section className="pipeline-strip ticket-pipeline" aria-label="Run trace strip">
-            <span id="trace-chip">{analysis.traceId || 'trace pending'}</span>
-            <div className="stage-row">
-              {(['Before', 'Analyze', 'During', 'After'] as Stage[]).map((stage) => {
-                const active = (stage === 'Before' && latestStage === 'created')
-                  || (stage === 'Analyze' && (latestStage === 'analyzing' || latestStage === 'ready'))
-                  || (stage === 'During' && latestStage === 'complete')
-                  || (stage === 'After' && latestStage === 'complete');
-                return <div key={stage} className={`stage ${active ? 'active' : ''}`}>{stage}{stage === 'During' || stage === 'After' ? ' (preview)' : ''}</div>;
-              })}
             </div>
-          </section>
-          <div className="ticket-body">
+
+            <div className="search-wrap"><input type="search" className="search-input" placeholder="Search props…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search player props" /></div>
+            <div className="board-list max-h-[68vh] overflow-y-auto pr-1" role="list">
+              {Object.entries(groupedGames).map(([group, legs]) => (
+                <div className="board-group" key={group}>
+                  <div className="group-label">
+                    {group}
+                    {recentlyChangedGroups.has(group) ? <span className="group-updated">Updated</span> : null}
+                  </div>
+                  {legs.map((leg) => {
+                    const added = slipIds.has(leg.id);
+                    return (
+                      <div key={leg.id} className={`board-row ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''}`} role="listitem" onClick={() => onOpenLeg(leg)}>
+                        <div>
+                          <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
+                          <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
+                          <AttemptsChips leg={leg} />
+                        </div>
+                        <div className="board-meta">
+                          <LandingChip>Odds {leg.odds}</LandingChip>
+                          <LandingChip>L10 {leg.hitRateL10 ?? '—'}/10</LandingChip>
+                          <span className="board-open">Open ›</span>
+                          <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg, event.currentTarget); }} disabled={added} aria-pressed={added}>+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel className="desktop-ticket-panel space-y-3 lg:sticky lg:top-3" id="ticket-panel">
+            <PanelHeader
+              title="Draft Ticket"
+              subtitle={analysis.traceId ? statusText : 'Ready to run'}
+              action={<span ref={ticketBadgeRef} className="leg-count-badge" aria-live="polite">{legCount} {legCount === 1 ? 'leg' : 'legs'}</span>}
+            />
+
+            <div className="ticket-body">
+              {legCount === 0 ? (
+                <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded.</div><TicketEmptyCoach sampleHref={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
+              ) : (
+                <div className="ticket-legs" role="list">
+                  {slip.map((leg) => (
+                    <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
+                      <div>
+                        <div className="ticket-leg-main">{leg.player} · {leg.marketType} {leg.line}</div>
+                        <div className="ticket-leg-sub">{leg.game ?? '—'}</div>
+                      </div>
+                      <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <SlipIntelBar
+                legs={slip.map((leg) => ({ id: leg.id, player: leg.player, marketType: leg.marketType, line: leg.line, odds: leg.odds, game: leg.game }))}
+                className="mt-3"
+              />
+
+              <div className="moat-block">
+                <div className="moat-row"><span>Weakest leg</span><span>{analysis.weakestLabel}</span></div>
+                <div className="moat-row"><span>Correlation pressure</span><span>{analysis.corrLabel}</span></div>
+                <div className="moat-row"><span>Fragility index</span><span>{analysis.fragility ?? '—'}</span></div>
+              </div>
+              {analysis.reasons.length > 0 ? <p className="board-sub">{analysis.reasons.join(' · ')}</p> : null}
+              {analysis.traceId && analysis.stage !== 'Before' && !analysis.running ? (
+                <RunIntegrityPanel
+                  traceId={analysis.traceId}
+                  runProvenance={analysis.runProvenance}
+                  boardProvenance={provenance}
+                  traceHref={nervous.toHref(`/traces/${encodeURIComponent(analysis.traceId)}`)}
+                />
+              ) : null}
+            </div>
+
+            <div className="ticket-cta-row">
+              <Button intent="primary" onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run analysis</Button>
+              <Button intent="secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: true }))}>Save analysis</Button>
+            </div>
+            {phaseStep ? <p className="phase-strip" data-testid="phase-strip">{`Phase: ${phaseStep}`}</p> : null}
+            {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="ui-button ui-button-secondary focus-glow" style={{ marginTop: 10, display: 'inline-block' }}>Continue to track</Link> : null}
+          </Panel>
+        </section>
+
+        <details className="rounded-2xl border border-white/10 bg-slate-950/50 p-3" data-testid="cockpit-details-disclosure">
+          <summary className="cursor-pointer text-sm text-slate-200">Details and diagnostics</summary>
+          <div className="mt-3 space-y-3">
+            <PreviewStrip
+              rows={board}
+              buildHref={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
+              pasteHref={spineHref('/ingest', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
+              onPaste={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}
+            />
+            <LiveCredibilityStrip
+              provenance={provenance}
+              today={today}
+              strictLiveUnavailable={strictLiveUnavailable}
+              boardUpdateTick={boardUpdateTick}
+              onRefresh={refreshToday}
+              pulseToken={pulseToken}
+            />
+          </div>
+        </details>
+
+        <section className="how-it-works" aria-label="How it works">
+          <article>
+            <h3>Tonight&apos;s Board</h3>
+            <ul>
+              <li>Scan active props with odds and recent attempts context.</li>
+              <li>Add candidate legs directly into the draft ticket.</li>
+            </ul>
+            <Link href={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}>Open</Link>
+          </article>
+          <article>
+            <h3>Stress Test</h3>
+            <ul>
+              <li>Run deterministic fragility + correlation diagnostics.</li>
+              <li>Expose the weakest leg before lock.</li>
+            </ul>
+            <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })}>Open</Link>
+          </article>
+          <article>
+            <h3>Track Outcomes</h3>
+            <ul>
+              <li>Follow run continuity by trace_id.</li>
+              <li>Review outcome events and postmortem-ready notes.</li>
+            </ul>
+            <Link href={spineHref('/track', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })}>Open</Link>
+          </article>
+        </section>
+
+        <section className="mobile-slip-bar" aria-label="Slip Bar" data-testid="mobile-slip-bar">
+          <div>
+            <p className="mobile-slip-count">{legCount} {legCount === 1 ? 'leg' : 'legs'}</p>
+            <p className="mobile-slip-line">Hit est {compactLine.hitEstimate} · Break-even {compactLine.breakEven} · Gap {compactLine.gap}</p>
+          </div>
+          <button ref={mobileTicketCtaRef} className="ui-button ui-button-primary focus-glow" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: true }))}>Open slip</button>
+        </section>
+
+        <div
+          className={`slip-sheet-overlay ${ui.slipSheetOpen ? 'open' : ''}`}
+          onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))}
+          aria-hidden={!ui.slipSheetOpen}
+        />
+        <aside className={`slip-sheet ${ui.slipSheetOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Slip drawer" data-testid="slip-sheet">
+          <div className="slip-sheet-head">
+            <h2>Draft slip</h2>
+            <button className="remove-btn" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))} aria-label="Close slip drawer">✕</button>
+          </div>
+          <div className="slip-sheet-body">
             {legCount === 0 ? (
-              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded.</div><TicketEmptyCoach sampleHref={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
+              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded. Add 2–4 legs to isolate pressure.</div></div>
             ) : (
               <div className="ticket-legs" role="list">
                 {slip.map((leg) => (
                   <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
                     <div>
-                      <div className="ticket-leg-main">{leg.player} · {leg.marketType} {leg.line}</div>
+                      <div className="ticket-leg-main">{leg.player} · {leg.marketType}</div>
                       <div className="ticket-leg-sub">{leg.game ?? '—'}</div>
+                      <div className="sheet-edit-row">
+                        <label>
+                          <span>Line</span>
+                          <input value={leg.line} onChange={(e) => onEditLeg(leg.id, 'line', e.target.value)} />
+                        </label>
+                        <label>
+                          <span>Odds</span>
+                          <input value={leg.odds ?? ''} onChange={(e) => onEditLeg(leg.id, 'odds', e.target.value)} />
+                        </label>
+                      </div>
                     </div>
                     <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
                   </div>
                 ))}
               </div>
             )}
-
-            <div className="moat-block">
-              <div className="moat-row"><span>Weakest leg</span><span>{analysis.weakestLabel}</span></div>
-              <div className="moat-row"><span>Correlation pressure</span><span>{analysis.corrLabel}</span></div>
-              <div className="moat-row"><span>Fragility index</span><span>{analysis.fragility ?? '—'}</span></div>
-            </div>
-            {analysis.reasons.length > 0 ? <p className="board-sub">{analysis.reasons.join(' · ')}</p> : null}
-            {analysis.traceId ? <p className="board-sub">{statusText}</p> : null}
-            {analysis.traceId && analysis.stage !== 'Before' && !analysis.running ? (
-              <RunIntegrityPanel
-                traceId={analysis.traceId}
-                runProvenance={analysis.runProvenance}
-                boardProvenance={provenance}
-                traceHref={nervous.toHref(`/traces/${encodeURIComponent(analysis.traceId)}`)}
-              />
-            ) : null}
           </div>
-
-          <div className="ticket-cta-row">
-            <button className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run analysis</button>
-            <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: true }))}>Save Analysis</button>
+          <div className="slip-sheet-actions">
+            <Link href={nervous.toHref('/stress-test', { trace_id: analysis.traceId || nervous.trace_id })} className={`ui-button ui-button-primary focus-glow ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={(event) => { if (!stressEnabled) event.preventDefault(); }}>Run stress test</Link>
+            <Link href={spineHref('/cockpit', nervous, { mode: 'demo' })} className="ui-button ui-button-secondary focus-glow">Try sample slip</Link>
           </div>
-          {phaseStep ? <p className="phase-strip" data-testid="phase-strip">{`Phase: ${phaseStep}`}</p> : null}
-          {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="btn-primary" style={{ marginTop: 10, display: 'inline-block' }}>Continue to Track</Link> : null}
+        </aside>
+
+        <div className={`drawer-overlay ${ui.navDrawerOpen ? 'open' : ''}`} onClick={() => setUi((p) => ({ ...p, navDrawerOpen: false }))} />
+        <aside id="drawer" className={ui.navDrawerOpen ? 'open' : ''} aria-hidden={!ui.navDrawerOpen}><button className="drawer-close" onClick={() => setUi((p) => ({ ...p, navDrawerOpen: false }))}>Close</button><nav><a href="#cockpit">Cockpit</a></nav></aside>
+
+        <div className={`modal-overlay ${ui.pasteModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, pasteModalOpen: false }))}>
+          <div className="modal"><h2>Paste Slip</h2><textarea ref={pasteInputRef} placeholder="Paste slips to ingest through submit + extract." /><button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: false }))}>Close</button></div>
         </div>
-      </section>
 
-
-      <section className="how-it-works" aria-label="How it works">
-        <article>
-          <h3>Tonight&apos;s Board</h3>
-          <ul>
-            <li>Scan active props with odds and recent attempts context.</li>
-            <li>Add candidate legs directly into the draft ticket.</li>
-          </ul>
-          <Link href={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}>Open</Link>
-        </article>
-        <article>
-          <h3>Stress Test</h3>
-          <ul>
-            <li>Run deterministic fragility + correlation diagnostics.</li>
-            <li>Expose the weakest leg before lock.</li>
-          </ul>
-          <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })}>Open</Link>
-        </article>
-        <article>
-          <h3>Track Outcomes</h3>
-          <ul>
-            <li>Follow run continuity by trace_id.</li>
-            <li>Review outcome events and postmortem-ready notes.</li>
-          </ul>
-          <Link href={spineHref('/track', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })}>Open</Link>
-        </article>
-      </section>
-
-      <section className="mobile-slip-bar" aria-label="Slip Bar" data-testid="mobile-slip-bar">
-        <div>
-          <p className="mobile-slip-count">{legCount} {legCount === 1 ? 'leg' : 'legs'}</p>
-          <p className="mobile-slip-line">Hit est {compactLine.hitEstimate} · Break-even {compactLine.breakEven} · Gap {compactLine.gap}</p>
+        <div className={`modal-overlay ${ui.saveModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, saveModalOpen: false }))}>
+          <div className="modal"><h2>Save Analysis</h2><input ref={saveInputRef} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" /><button className="btn-secondary" onClick={saveAnalysis} disabled={saveState === 'saving' || !email.trim()}>{saveState === 'saved' ? 'Saved' : 'Done'}</button></div>
         </div>
-        <button ref={mobileTicketCtaRef} className="btn-primary" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: true }))}>Open slip</button>
-      </section>
-
-      <div
-        className={`slip-sheet-overlay ${ui.slipSheetOpen ? 'open' : ''}`}
-        onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))}
-        aria-hidden={!ui.slipSheetOpen}
-      />
-      <aside className={`slip-sheet ${ui.slipSheetOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Slip drawer" data-testid="slip-sheet">
-        <div className="slip-sheet-head">
-          <h2>Draft slip</h2>
-          <button className="remove-btn" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))} aria-label="Close slip drawer">✕</button>
-        </div>
-        <div className="slip-sheet-body">
-          {legCount === 0 ? (
-            <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded. Add 2–4 legs to isolate pressure.</div></div>
-          ) : (
-            <div className="ticket-legs" role="list">
-              {slip.map((leg) => (
-                <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
-                  <div>
-                    <div className="ticket-leg-main">{leg.player} · {leg.marketType}</div>
-                    <div className="ticket-leg-sub">{leg.game ?? '—'}</div>
-                    <div className="sheet-edit-row">
-                      <label>
-                        <span>Line</span>
-                        <input value={leg.line} onChange={(e) => onEditLeg(leg.id, 'line', e.target.value)} />
-                      </label>
-                      <label>
-                        <span>Odds</span>
-                        <input value={leg.odds ?? ''} onChange={(e) => onEditLeg(leg.id, 'odds', e.target.value)} />
-                      </label>
-                    </div>
-                  </div>
-                  <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="slip-sheet-actions">
-          <Link href={nervous.toHref('/stress-test', { trace_id: analysis.traceId || nervous.trace_id })} className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={(event) => { if (!stressEnabled) event.preventDefault(); }}>Run stress test</Link>
-          <Link href={spineHref('/cockpit', nervous, { mode: 'demo' })} className="btn-secondary">Try sample slip</Link>
-        </div>
-      </aside>
-
-      <div className={`drawer-overlay ${ui.navDrawerOpen ? 'open' : ''}`} onClick={() => setUi((p) => ({ ...p, navDrawerOpen: false }))} />
-      <aside id="drawer" className={ui.navDrawerOpen ? 'open' : ''} aria-hidden={!ui.navDrawerOpen}><button className="drawer-close" onClick={() => setUi((p) => ({ ...p, navDrawerOpen: false }))}>Close</button><nav><a href="#hero">Hero</a><a href="#cockpit">Cockpit</a></nav></aside>
-
-      <div className={`modal-overlay ${ui.pasteModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, pasteModalOpen: false }))}>
-        <div className="modal"><h2>Paste Slip</h2><textarea ref={pasteInputRef} placeholder="Paste slips to ingest through submit + extract." /><button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: false }))}>Close</button></div>
       </div>
-
-      <div className={`modal-overlay ${ui.saveModalOpen ? 'open' : ''}`} onClick={(e) => e.currentTarget === e.target && setUi((p) => ({ ...p, saveModalOpen: false }))}>
-        <div className="modal"><h2>Save Analysis</h2><input ref={saveInputRef} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" /><button className="btn-secondary" onClick={saveAnalysis} disabled={saveState === 'saving' || !email.trim()}>{saveState === 'saved' ? 'Saved' : 'Done'}</button></div>
-      </div>
-    </div>
+    </CockpitShell>
   );
 }
-
