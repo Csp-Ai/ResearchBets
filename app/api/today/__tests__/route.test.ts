@@ -89,7 +89,8 @@ describe('/api/today GET', () => {
         board: [],
         reason: 'provider_unavailable',
         providerErrors: [],
-        providerWarnings: ['provider_unavailable'],
+        providerWarnings: ['live_unavailable:provider_events_unavailable'],
+        debug: { step: 'live_viability', hint: 'provider_events_unavailable' },
         landing: { mode: 'demo', reason: 'demo', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
         provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
@@ -98,15 +99,19 @@ describe('/api/today GET', () => {
     const { GET } = await import('../route');
     const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
     const payload = await response.json() as {
-      data: { mode: string; providerErrors?: string[] };
+      data: { mode: string; providerErrors?: string[]; providerWarnings?: string[]; debug?: { step?: string } };
       landing?: { reason?: string };
       spine: { mode: string };
+      debug?: { step?: string };
     };
 
     expect(payload.data.mode).toBe('demo');
     expect(payload.spine.mode).toBe('live');
     expect(payload.landing?.reason).toBe('demo');
     expect(payload.data.providerErrors).toEqual([]);
+    expect(payload.data.providerWarnings).toContain('live_unavailable:provider_events_unavailable');
+    expect(payload.data.providerWarnings?.some((warning) => warning.includes('live_hard_error:resolve_context'))).toBe(false);
+    expect(payload.debug).toBeUndefined();
   });
 
 
@@ -121,7 +126,8 @@ describe('/api/today GET', () => {
         board: [],
         reason: 'provider_unavailable',
         providerErrors: [],
-        providerWarnings: ['provider_unavailable'],
+        providerWarnings: ['live_unavailable:provider_events_unavailable'],
+        debug: { step: 'live_viability', hint: 'provider_events_unavailable' },
         landing: { mode: 'demo', reason: 'demo', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
         provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
@@ -139,6 +145,35 @@ describe('/api/today GET', () => {
     expect(payload.data.mode).toBe('demo');
     expect(payload.data.providerWarnings).toContain('tz_invalid:ET->America/New_York');
     expect(payload.data.providerWarnings?.some((warning) => warning.includes('live_hard_error:resolve_context'))).toBe(false);
+  });
+
+
+  it('keeps live fallback diagnostics in live_viability stage for debug live requests', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'demo',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'provider_unavailable',
+        providerErrors: [],
+        providerWarnings: ['live_unavailable:provider_events_unavailable'],
+        debug: { step: 'live_viability', hint: 'provider_events_unavailable' },
+        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?mode=live&sport=NBA&debug=1'));
+    const payload = await response.json() as {
+      data: { providerWarnings?: string[] };
+      debug?: { step?: string; hint?: string };
+    };
+
+    expect(payload.data.providerWarnings).toContain('live_unavailable:provider_events_unavailable');
+    expect(payload.data.providerWarnings?.some((warning) => warning.includes('live_hard_error:resolve_context'))).toBe(false);
+    expect(payload.debug?.step).toBe('live_viability');
   });
 
   it('returns attempts and provenance fields from resolver payload', async () => {

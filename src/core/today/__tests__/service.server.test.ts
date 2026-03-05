@@ -65,6 +65,7 @@ describe('resolveTodayTruth', () => {
     expect(payload.providerWarnings).toEqual(expect.arrayContaining([
       'live_hard_error:resolve_context',
       'live_hard_error_name:TypeError',
+      'live_hard_error_msg:failed to fetch',
       'live_hard_error_code:none',
     ]));
   });
@@ -73,7 +74,8 @@ describe('resolveTodayTruth', () => {
     fetchEvents.mockResolvedValue({
       events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
     });
-    fetchEventOdds.mockRejectedValue({ name: 'HttpError', status: 403 });
+    const authError = Object.assign(new Error('forbidden'), { name: 'HttpError', status: 403 });
+    fetchEventOdds.mockRejectedValue(authError);
 
     const { resolveTodayTruth } = await import('../service.server');
     const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
@@ -82,9 +84,26 @@ describe('resolveTodayTruth', () => {
     expect(payload.providerWarnings).toEqual(expect.arrayContaining([
       'odds_plan_restricted_or_key_invalid',
       'live_hard_error:odds_fetch',
-      'live_hard_error_name:Error',
+      'live_hard_error_name:HttpError',
+      'live_hard_error_msg:forbidden',
       'live_hard_error_code:403',
     ]));
+  });
+
+
+
+  it('classifies non-exception live fallback as live_unavailable viability warning', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [],
+    });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.providerWarnings).toContain('live_unavailable:provider_events_unavailable');
+    expect(payload.providerWarnings?.some((warning) => warning.includes('live_hard_error:resolve_context'))).toBe(false);
+    expect(payload.debug).toMatchObject({ step: 'live_viability', hint: 'provider_events_unavailable' });
   });
 
   it('uses cached slate on 429 odds rate limiting', async () => {
