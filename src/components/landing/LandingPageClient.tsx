@@ -21,6 +21,7 @@ import { appendQuery } from './navigation';
 import { getModeFromSearchParams } from './mode';
 import { useLandingTelemetry } from './useLandingTelemetry';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { NervousSystemStrip, mapProviderHealthToNervousSteps } from '@/src/components/nervous/NervousSystemStrip';
 import styles from './landing.module.css';
 
 export function LandingPageClient() {
@@ -76,6 +77,7 @@ export function LandingPageClient() {
   };
 
   const effectiveMode = today?.mode ?? summary.mode;
+  const heroMode = effectiveMode === 'demo' ? 'demo' : 'live';
   const modeReason = today?.reason ?? summary.reason;
   const reasonLabel = getModeReasonText(modeReason);
   const updatedLabel = getTelemetryUpdatedLabel(effectiveMode, freshnessMinutes);
@@ -122,6 +124,12 @@ export function LandingPageClient() {
 
       <LoopRow />
 
+      <NervousSystemStrip
+        mode={effectiveMode}
+        steps={mapProviderHealthToNervousSteps(providerHealth)}
+        collapsedByDefault
+      />
+
       <section className={styles.proofStack}>
         <div className={styles.phaseStack}>
           <section className={styles.boardDisclosureSection}>
@@ -129,7 +137,7 @@ export function LandingPageClient() {
               <summary>See slip risk &amp; research steps</summary>
               <RiskGauge />
               <Tracker
-                mode={effectiveMode}
+                mode={heroMode}
                 autoRunToken={runToken}
                 reason={reasonLabel}
                 updatedLabel={updatedLabel}
@@ -145,7 +153,7 @@ export function LandingPageClient() {
             providerHealth={providerHealth}
           />
           <OddsMovement
-            mode={effectiveMode}
+            mode={heroMode}
             reason={reasonLabel}
             updatedLabel={updatedLabel}
           />
@@ -173,7 +181,7 @@ export function LandingPageClient() {
       <FAQ />
       <BottomCTA
         stickyVisible={stickyVisible}
-        mode={effectiveMode}
+        mode={heroMode}
         reason={reasonLabel}
       />
       <Footer />

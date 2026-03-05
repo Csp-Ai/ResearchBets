@@ -3,6 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
+  vi.doMock('@/src/core/health/providerHealth.server', () => ({
+    computeProviderHealth: vi.fn(async () => ({
+      ok: true,
+      mode: 'live',
+      reason: 'live_ok',
+      checks: { odds: { ok: true }, events: { ok: true }, stats: 'configured' },
+      keyStatus: { requiredKeysPresent: true, liveModeEnabled: true, isProduction: false },
+      providerErrors: [],
+      messages: []
+    }))
+  }));
 });
 
 describe('/api/today GET', () => {
@@ -31,6 +42,50 @@ describe('/api/today GET', () => {
     expect(Array.isArray(payload.board.games)).toBe(true);
   });
 
+
+  it('defaults to live mode from provider-health when mode is omitted', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async ({ mode }: { mode: string }) => ({
+        mode,
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'live_ok',
+        landing: { mode, reason: 'live_ok', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
+        provenance: { mode, reason: 'live_ok', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20'));
+    const payload = await response.json() as { data: { mode: string }, spine: { mode: string } };
+
+    expect(payload.data.mode).toBe('live');
+    expect(payload.spine.mode).toBe('live');
+  });
+
+  it('keeps explicit demo mode even when provider-health is live_ok', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async ({ mode }: { mode: string }) => ({
+        mode: mode === 'demo' ? 'demo' : 'live',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: mode === 'demo' ? 'demo_requested' : 'live_ok',
+        landing: { mode: mode === 'demo' ? 'demo' : 'live', reason: 'demo', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
+        provenance: { mode: mode === 'demo' ? 'demo' : 'live', reason: mode === 'demo' ? 'demo_requested' : 'live_ok', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=demo'));
+    const payload = await response.json() as { data: { mode: string }, spine: { mode: string } };
+
+    expect(payload.data.mode).toBe('demo');
+    expect(payload.spine.mode).toBe('demo');
+  });
   it('returns demo semantics for /api/today?mode=demo', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => ({

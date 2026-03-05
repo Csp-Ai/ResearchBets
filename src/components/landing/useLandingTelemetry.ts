@@ -9,7 +9,7 @@ type ProviderHealth = { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: s
 
 type LandingSnapshotResponse = {
   landing?: {
-    mode: 'live' | 'demo';
+    mode: 'live' | 'cache' | 'demo';
     reason: 'live_ok' | 'demo_requested' | 'live_mode_disabled' | 'missing_keys' | 'provider_unavailable';
     gamesCount: number;
     lastUpdatedAt: string;
