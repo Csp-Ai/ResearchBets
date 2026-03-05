@@ -183,16 +183,16 @@ describe('/api/today GET', () => {
         board: [],
         reason: 'provider_unavailable',
         providerErrors: [],
-        providerWarnings: ['live_hard_error:fetch_odds', 'live_hard_error_name:HttpError', 'live_hard_error_code:429'],
-        debug: { step: 'fetch_odds', errorName: 'HttpError', statusCode: 429, hint: 'fetch_odds:status:429' },
+        providerWarnings: ['live_hard_error:odds_fetch', 'live_hard_error_name:HttpError', 'live_hard_error_code:429'],
+        debug: { step: 'odds_fetch', statusCode: 429, hint: 'rate_limited' },
         provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
     }));
 
     const { GET } = await import('../route');
     const debugResponse = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live&debug=1'));
-    const debugPayload = await debugResponse.json() as { debug?: { step: string; errorName: string; statusCode?: number; hint: string } };
-    expect(debugPayload.debug).toEqual({ step: 'fetch_odds', errorName: 'HttpError', statusCode: 429, hint: 'fetch_odds:status:429' });
+    const debugPayload = await debugResponse.json() as { debug?: { step: string; statusCode?: number; hint: string } };
+    expect(debugPayload.debug).toEqual({ step: 'odds_fetch', statusCode: 429, hint: 'rate_limited' });
     expect(JSON.stringify(debugPayload.debug)).not.toContain('http');
     expect(JSON.stringify(debugPayload.debug)).not.toContain('apiKey');
     expect(JSON.stringify(debugPayload.debug)).not.toContain('stack');

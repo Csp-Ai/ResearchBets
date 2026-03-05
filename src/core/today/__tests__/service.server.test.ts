@@ -81,7 +81,7 @@ describe('resolveTodayTruth', () => {
     expect(payload.mode).toBe('demo');
     expect(payload.providerWarnings).toEqual(expect.arrayContaining([
       'odds_plan_restricted_or_key_invalid',
-      'live_hard_error:fetch_odds',
+      'live_hard_error:odds_fetch',
       'live_hard_error_name:Error',
       'live_hard_error_code:403',
     ]));

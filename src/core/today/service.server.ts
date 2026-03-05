@@ -13,11 +13,10 @@ const TTL_MS = 120_000;
 const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
 export const MIN_BOARD_ROWS = 6;
 
-type LiveStep = 'resolve_context' | 'fetch_odds' | 'fetch_stats_enrichment' | 'normalize' | 'build_board' | 'min_board_rows';
+type LiveStep = 'resolve_context' | 'odds_fetch' | 'stats_fetch' | 'normalize' | 'board_build' | 'min_row_checks';
 
 type LiveDiagnostic = {
   step: LiveStep;
-  errorName: string;
   statusCode?: number;
   hint: string;
 };
@@ -178,14 +177,12 @@ function createLiveHardErrorWarning(step: LiveStep, error: unknown): string[] {
   ];
 }
 
-function createDebug(step: LiveStep, error: unknown): LiveDiagnostic {
+function createDebug(step: LiveStep, error: unknown, hintOverride?: string): LiveDiagnostic {
   const statusCode = getStatusCode(error);
-  const statusHint = statusCode ? `status:${statusCode}` : 'status:none';
   return {
     step,
-    errorName: getErrorName(error),
     statusCode,
-    hint: `${step}:${statusHint}`,
+    hint: hintOverride ?? 'provider_unavailable',
   };
 }
 
@@ -208,7 +205,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     if (result.fallbackReason) warnings.push(result.fallbackReason);
   } catch (error) {
     const providerWarnings = createLiveHardErrorWarning('resolve_context', error);
-    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('resolve_context', error) });
+    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('resolve_context', error, 'provider_unavailable') });
   }
 
   const active = events.filter((event) => {
@@ -286,26 +283,26 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
             mode: 'cache',
             reason: 'provider_unavailable',
             providerWarnings: [...(cachedPayload.providerWarnings ?? []), 'odds_rate_limited'],
-            debug: createDebug('fetch_odds', error),
+            debug: createDebug('odds_fetch', error, 'rate_limited'),
             provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
           });
         }
         return getDemoFallback('provider_unavailable', sport, {
-          providerWarnings: ['odds_rate_limited', ...createLiveHardErrorWarning('fetch_odds', error)],
-          debug: createDebug('fetch_odds', error),
+          providerWarnings: ['odds_rate_limited', ...createLiveHardErrorWarning('odds_fetch', error)],
+          debug: createDebug('odds_fetch', error, 'rate_limited'),
         });
       }
 
       if (statusCode === 401 || statusCode === 403) {
         return getDemoFallback('provider_unavailable', sport, {
-          providerWarnings: ['odds_plan_restricted_or_key_invalid', ...createLiveHardErrorWarning('fetch_odds', error)],
-          debug: createDebug('fetch_odds', error),
+          providerWarnings: ['odds_plan_restricted_or_key_invalid', ...createLiveHardErrorWarning('odds_fetch', error)],
+          debug: createDebug('odds_fetch', error, 'auth_or_plan_restricted'),
         });
       }
 
       return getDemoFallback('provider_unavailable', sport, {
-        providerWarnings: createLiveHardErrorWarning('fetch_odds', error),
-        debug: createDebug('fetch_odds', error),
+        providerWarnings: createLiveHardErrorWarning('odds_fetch', error),
+        debug: createDebug('odds_fetch', error, 'provider_unavailable'),
       });
     }
   }
@@ -349,7 +346,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
       });
     } catch (error) {
       warnings.push('stats_degraded');
-      debug = createDebug('fetch_stats_enrichment', error);
+      debug = createDebug('stats_fetch', error, 'stats_unavailable');
     }
   }
 
@@ -361,7 +358,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
   } catch (error) {
     return getDemoFallback('provider_unavailable', sport, {
       providerWarnings: createLiveHardErrorWarning('normalize', error),
-      debug: createDebug('normalize', error),
+      debug: createDebug('normalize', error, 'normalize_failed'),
     });
   }
 
@@ -373,13 +370,20 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     });
   } catch (error) {
     return getDemoFallback('provider_unavailable', sport, {
-      providerWarnings: createLiveHardErrorWarning('build_board', error),
-      debug: createDebug('build_board', error),
+      providerWarnings: createLiveHardErrorWarning('board_build', error),
+      debug: createDebug('board_build', error, 'board_build_failed'),
     });
   }
 
   try {
     if (events.length === 0 || games.length === 0 || status === 'market_closed' || board.length < MIN_BOARD_ROWS) {
+      const hint = events.length === 0
+        ? 'provider_events_unavailable'
+        : games.length === 0
+          ? 'no_games'
+          : status === 'market_closed'
+            ? 'market_closed'
+            : 'board_too_sparse';
       return getDemoFallback('provider_unavailable', sport, {
         providerWarnings: events.length === 0
           ? ['provider_events_unavailable']
@@ -388,12 +392,13 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
             : status === 'market_closed'
               ? ['market_closed']
               : ['board_too_sparse'],
+        debug: { step: 'min_row_checks', hint },
       });
     }
   } catch (error) {
     return getDemoFallback('provider_unavailable', sport, {
-      providerWarnings: createLiveHardErrorWarning('min_board_rows', error),
-      debug: createDebug('min_board_rows', error),
+      providerWarnings: createLiveHardErrorWarning('min_row_checks', error),
+      debug: createDebug('min_row_checks', error, 'min_row_checks_failed'),
     });
   }
 
