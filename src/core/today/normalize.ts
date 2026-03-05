@@ -69,7 +69,16 @@ const buildBoardRow = (entry: Record<string, unknown>, index: number): BoardRow 
     book_count: typeof entry.book_count === 'number' ? entry.book_count : undefined,
     source: typeof entry.source === 'string' ? entry.source : undefined,
     degraded: Boolean(entry.degraded),
-    mode: entry.mode === 'cache' ? 'cache' : entry.mode === 'demo' ? 'demo' : 'live'
+    mode: entry.mode === 'cache' ? 'cache' : entry.mode === 'demo' ? 'demo' : 'live',
+    minutesL1: typeof entry.minutesL1 === 'number' ? entry.minutesL1 : undefined,
+    minutesL3Avg: typeof entry.minutesL3Avg === 'number' ? entry.minutesL3Avg : undefined,
+    l5Avg: typeof entry.l5Avg === 'number' ? entry.l5Avg : undefined,
+    l5Source: entry.l5Source === 'live' || entry.l5Source === 'cached' || entry.l5Source === 'demo' ? entry.l5Source : entry.l5Source === 'heuristic' ? 'heuristic' : undefined,
+    minutesSource: entry.minutesSource === 'live' || entry.minutesSource === 'cached' || entry.minutesSource === 'demo' ? entry.minutesSource : entry.minutesSource === 'heuristic' ? 'heuristic' : undefined,
+    roleConfidence: entry.roleConfidence === 'high' || entry.roleConfidence === 'med' || entry.roleConfidence === 'low' ? entry.roleConfidence : undefined,
+    roleReasons: Array.isArray(entry.roleReasons) ? entry.roleReasons.map(String) : undefined,
+    deadLegRisk: entry.deadLegRisk === 'high' || entry.deadLegRisk === 'med' || entry.deadLegRisk === 'low' ? entry.deadLegRisk : undefined,
+    deadLegReasons: Array.isArray(entry.deadLegReasons) ? entry.deadLegReasons.map(String) : undefined
   };
 };
 

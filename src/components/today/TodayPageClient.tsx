@@ -19,6 +19,7 @@ import { SlipDrawer } from './SlipDrawer';
 import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { appendQuery } from '@/src/components/landing/navigation';
+import { FEATURED_STAT_CATEGORY_ORDER, FEATURED_STAT_LABEL, type FeaturedStatCategory, mapMarketToFeaturedStatCategory } from '@/src/core/markets/statCategory';
 
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
@@ -54,6 +55,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const [marketFilter, setMarketFilter] = useState<string>('all');
   const [riskFilter, setRiskFilter] = useState<'all' | 'stable' | 'watch'>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [viewTab, setViewTab] = useState<'grouped'|'all'>('grouped');
   const [selectedLegs, setSelectedLegs] = useState<SlipBuilderLeg[]>([]);
   const [highlightedRowId, setHighlightedRowId] = useState<string | undefined>(undefined);
   const [recentAddedRowId, setRecentAddedRowId] = useState<string | null>(null);
@@ -93,7 +95,16 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     marketImpliedProb: row.marketImpliedProb,
     modelProb: row.modelProb,
     edgeDelta: row.edgeDelta,
-    riskTag: row.riskTag
+    riskTag: row.riskTag,
+    minutesL1: row.minutesL1,
+    minutesL3Avg: row.minutesL3Avg,
+    minutesSource: row.minutesSource,
+    l5Avg: row.l5Avg,
+    l5Source: row.l5Source,
+    roleConfidence: row.roleConfidence,
+    roleReasons: row.roleReasons,
+    deadLegRisk: row.deadLegRisk,
+    deadLegReasons: row.deadLegReasons
   })), [payload]);
 
   const filteredRows = useMemo(() => allRows.filter((row) => {
@@ -114,6 +125,22 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     return sortBoardRows(filtered, sortKey);
   }, [filteredRows, marketFilter, riskFilter, sortKey, teamFilter]);
 
+  const groupedRows = useMemo(() => {
+    const byGame = new Map<string, { matchup: string; startTime: string; categories: Record<FeaturedStatCategory, TerminalBoardRow[]> }>();
+    for (const row of visibleRows) {
+      const category = mapMarketToFeaturedStatCategory(row.market);
+      if (!category) continue;
+      const current = byGame.get(row.gameId) ?? {
+        matchup: row.matchup,
+        startTime: row.startTime,
+        categories: { pra: [], points: [], rebounds: [], assists: [], threes: [] }
+      };
+      current.categories[category].push(row);
+      byGame.set(row.gameId, current);
+    }
+    return Array.from(byGame.entries()).map(([gameId, data]) => ({ gameId, ...data }));
+  }, [visibleRows]);
+
   const topSpotScouts = useMemo(() => buildTopSpotScouts(payload).map((row) => ({ ...row, rationale: row.rationale ?? ['Canonical board signal'], provenance: row.provenance ?? 'today.board', lastUpdated: row.lastUpdated ?? payload.generatedAt })), [payload]);
 
   const onToggleLeg = (row: TerminalBoardRow) => {
@@ -122,8 +149,9 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
       if (exists) return prev.filter((leg) => leg.id !== row.id);
       setRecentAddedRowId(row.id);
       window.setTimeout(() => setRecentAddedRowId(null), 700);
-      if (prev.length >= 3) return [...prev.slice(1), { id: row.id, player: row.player, marketType: row.market, line: row.line ?? 'TBD', odds: row.odds, volatility: row.riskTag === 'stable' ? 'low' : 'high', game: row.matchup }];
-      return [...prev, { id: row.id, player: row.player, marketType: row.market, line: row.line ?? 'TBD', odds: row.odds, volatility: row.riskTag === 'stable' ? 'low' : 'high', game: row.matchup }];
+      const nextLeg: SlipBuilderLeg = { id: row.id, player: row.player, marketType: row.market, line: row.line ?? 'TBD', odds: row.odds, volatility: row.riskTag === 'stable' ? 'low' : 'high', game: row.matchup, deadLegRisk: row.deadLegRisk, deadLegReasons: row.deadLegReasons };
+      if (prev.length >= 3) return [...prev.slice(1), nextLeg];
+      return [...prev, nextLeg];
     });
   };
 
@@ -143,76 +171,19 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
 
   const selectedLegIds = useMemo(() => new Set(selectedLegs.map((leg) => leg.id)), [selectedLegs]);
 
-  const boardSkeleton = (
-    <section className="space-y-2" aria-label="Board loading">
-      {Array.from({ length: 8 }).map((_, index) => (
-        <div key={`board-skeleton-${index + 1}`} className="panel-shell p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-full" />
-            </div>
-            <Skeleton className="h-7 w-24" />
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-
-  const slipRailSkeleton = (
-    <aside className="lg:sticky lg:top-4 lg:h-fit">
-      <div className="panel-shell space-y-3 p-4">
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-      </div>
-    </aside>
-  );
-
   return (
     <section className="w-full space-y-3 pb-14">
-      <TruthSpineHeader
-        title="Board"
-        subtitle="Before loop: scout leads, check risk, and stage a slip."
-        freshness={timeAgo(payload.generatedAt)}
-        actions={[
-          { label: 'Build from Board', href: nervous.toHref('/slip'), tone: 'primary' },
-          { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) },
-          { label: 'Track', href: nervous.toHref('/track') }
-        ]}
-      />
-      <section className="panel-shell p-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-          {FILTERS.map((item) => (
-            <button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>
-          ))}
-          <span className="ml-auto text-slate-500 mono-number">{payload.mode} · {timeAgo(payload.generatedAt)}</span>
-        </div>
-      </section>
-      <section id="board-terminal" className="panel-shell p-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1" data-testid="sort-select"><option value="edge">Edge</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start</option></select>
-          <select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select>
-          <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1"><option value="all">all risk</option><option value="stable">stable</option><option value="watch">watch</option></select>
-          <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select>
-        </div>
-      </section>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-3">
-          <section className="panel-shell p-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-full border border-cyan-300/35 bg-cyan-500/10 px-2 py-1 text-cyan-100">Board → Ticket</span>
-              <span className={`mono-number rounded-full border px-2 py-1 transition-all ${recentAddedRowId ? 'scale-105 border-emerald-300/60 bg-emerald-500/10 text-emerald-100' : 'border-white/15 bg-slate-900/70 text-slate-200'}`}>{selectedLegs.length} legs staged</span>
-              {selectedLegs.length > 0 ? <p className="text-slate-300">Ready to analyze or track this ticket.</p> : <p className="text-slate-400">Add 2–3 board signals to build a ticket.</p>}
-              {selectedLegs.length >= 3 ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-2 py-1 text-amber-100">Guardrail cue: keep exposure concentrated</span> : null}
-            </div>
-          </section>
-          {isLoading ? boardSkeleton : <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} />}
-          <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} />
-        </div>
-        {isLoading ? slipRailSkeleton : <SlipDrawer legs={selectedLegs} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} />}
-      </div>
+      <TruthSpineHeader title="Board" subtitle="Before loop: scout leads, check risk, and stage a slip." freshness={timeAgo(payload.generatedAt)} actions={[{ label: 'Build from Board', href: nervous.toHref('/slip'), tone: 'primary' }, { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) }, { label: 'Track', href: nervous.toHref('/track') }]} />
+      <section className="panel-shell p-3"><div className="flex flex-wrap items-center gap-2 text-xs">{FILTERS.map((item) => (<button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>))}<span className="ml-auto text-slate-500 mono-number">{payload.mode} · {timeAgo(payload.generatedAt)}</span></div></section>
+      <section className="panel-shell p-3"><div className="flex items-center gap-2 text-xs"><button className={`rounded px-2 py-1 ${viewTab==='grouped'?'bg-cyan-500/15 text-cyan-100':'text-slate-300'}`} onClick={() => setViewTab('grouped')}>Game view</button><button className={`rounded px-2 py-1 ${viewTab==='all'?'bg-cyan-500/15 text-cyan-100':'text-slate-300'}`} onClick={() => setViewTab('all')}>All props</button></div></section>
+      <section id="board-terminal" className="panel-shell p-3"><div className="flex flex-wrap items-center gap-2 text-xs"><select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1" data-testid="sort-select"><option value="edge">Edge</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start</option></select><select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1"><option value="all">all risk</option><option value="stable">stable</option><option value="watch">watch</option></select><select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select></div></section>
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-3">
+        {viewTab === 'grouped' ? groupedRows.map((game) => (
+          <section key={game.gameId} className="panel-shell p-3" data-testid="grouped-game-section"><h3 className="text-sm font-semibold text-slate-100">{game.matchup} · {game.startTime}</h3><div className="mt-2 space-y-3">{FEATURED_STAT_CATEGORY_ORDER.map((category) => (<div key={category}><p className="mb-1 text-xs text-cyan-100" data-testid={`category-${category}`}>{FEATURED_STAT_LABEL[category]}</p><BoardTerminalTable rows={game.categories[category]} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} /></div>))}</div></section>
+        )) : <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} />}
+        <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} />
+      </div><SlipDrawer legs={selectedLegs} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} /></div>
+      {isLoading ? <Skeleton className="h-6 w-full" /> : null}
     </section>
   );
 }

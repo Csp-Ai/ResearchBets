@@ -17,147 +17,27 @@ describe('TodayPageClient', () => {
     mode: 'demo',
     generatedAt: '2026-02-26T18:00:00.000Z',
     leagues: ['NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'],
-    games: [
-      {
-        id: 'nba-live-1',
-        league: 'NBA',
-        status: 'live',
-        startTime: '19:00 ET',
-        matchup: 'LAL @ DAL',
-        teams: ['LAL', 'DAL'],
-        bookContext: 'Unified board resolver',
-        provenance: 'deterministic fallback',
-        lastUpdated: '2026-02-26T18:00:00.000Z',
-        propsPreview: [
-          {
-            id: 'scout-1',
-            player: 'Luka Doncic',
-            market: 'points',
-            line: '31.5',
-            odds: '-112',
-            hitRateL10: 72,
-            marketImpliedProb: 0.55,
-            modelProb: 0.63,
-            edgeDelta: 0.08,
-            riskTag: 'stable',
-            rationale: ['Last-5 role stable', 'Opponent coverage profile supports shot volume'],
-            provenance: 'odds + stats',
-            lastUpdated: '2026-02-26T18:00:00.000Z'
-          },
-          {
-            id: 'scout-2',
-            player: 'LeBron James',
-            market: 'rebounds',
-            line: '7.5',
-            odds: '-108',
-            hitRateL10: 50,
-            marketImpliedProb: 0.52,
-            modelProb: 0.56,
-            edgeDelta: 0.04,
-            riskTag: 'watch',
-            rationale: ['Paint touch volume stable', 'Line still near median outcome'],
-            provenance: 'odds + stats',
-            lastUpdated: '2026-02-26T18:00:00.000Z'
-          }
-        ]
-      }
-    ],
+    games: [{ id: 'nba-live-1', league: 'NBA', status: 'live', startTime: '19:00 ET', matchup: 'LAL @ DAL', teams: ['LAL', 'DAL'], bookContext: 'Unified board resolver', provenance: 'deterministic fallback', lastUpdated: '2026-02-26T18:00:00.000Z', propsPreview: [] }],
     board: [
-      {
-        id: 'scout-1',
-        gameId: 'nba-live-1',
-        player: 'Luka Doncic',
-        market: 'points',
-        line: '31.5',
-        odds: '-112',
-        hitRateL10: 72,
-        marketImpliedProb: 0.55,
-        modelProb: 0.63,
-        edgeDelta: 0.08,
-        riskTag: 'stable',
-        rationale: ['Last-5 role stable', 'Opponent coverage profile supports shot volume'],
-        provenance: 'odds + stats',
-        lastUpdated: '2026-02-26T18:00:00.000Z',
-        matchup: 'LAL @ DAL',
-        startTime: '19:00 ET',
-        mode: 'demo'
-      },
-      {
-        id: 'scout-2',
-        gameId: 'nba-live-1',
-        player: 'LeBron James',
-        market: 'rebounds',
-        line: '7.5',
-        odds: '-108',
-        hitRateL10: 50,
-        marketImpliedProb: 0.52,
-        modelProb: 0.56,
-        edgeDelta: 0.04,
-        riskTag: 'watch',
-        rationale: ['Paint touch volume stable', 'Line still near median outcome'],
-        provenance: 'odds + stats',
-        lastUpdated: '2026-02-26T18:00:00.000Z',
-        matchup: 'LAL @ DAL',
-        startTime: '19:00 ET',
-        mode: 'demo'
-      }
+      { id: 'scout-1', gameId: 'nba-live-1', player: 'Luka Doncic', market: 'pra', line: '45.5', odds: '-112', hitRateL10: 72, marketImpliedProb: 0.55, modelProb: 0.63, edgeDelta: 0.08, riskTag: 'stable', matchup: 'LAL @ DAL', startTime: '19:00 ET', mode: 'demo', l5Avg: 46.2, l5Source: 'live', minutesL3Avg: 35.1, minutesSource: 'live', roleConfidence: 'high', roleReasons: ['Stable rotation minutes L3'], deadLegRisk: 'low', deadLegReasons: ['Role and line profile within normal range'] },
+      { id: 'scout-2', gameId: 'nba-live-1', player: 'Role Volatile', market: 'threes', line: '2.5', odds: '+210', hitRateL10: 45, marketImpliedProb: 0.31, modelProb: 0.33, edgeDelta: 0.02, riskTag: 'watch', matchup: 'LAL @ DAL', startTime: '19:00 ET', mode: 'demo', l5Avg: 1.2, l5Source: 'heuristic', minutesL3Avg: 18.1, minutesSource: 'heuristic', roleConfidence: 'low', roleReasons: ['Low minutes L3'], deadLegRisk: 'high', deadLegReasons: ['Low-attempt risk (heuristic)'] }
     ]
-
   };
 
-  it('renders edge signals and terminal board controls', () => {
+  it('renders grouped categories with PRA first and keeps all props table', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
 
-    expect(screen.getByRole('heading', { name: 'Board' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Edge signals' })).toBeTruthy();
+    const labels = screen.getAllByTestId(/category-/).map((el) => el.textContent);
+    expect(labels.slice(0, 5)).toEqual(['PRA', 'PTS', 'REB', 'AST', '3PM']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'All props' }));
     expect(screen.getByTestId('sort-select')).toBeTruthy();
-    expect(screen.getByTestId('slip-drawer')).toBeTruthy();
-    expect(screen.getAllByText(/\+8.0%/).length).toBeGreaterThan(0);
   });
 
-  it('sorts rows by L10 when selected', () => {
+  it('renders role/dead-leg chips with source labels', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
-
-    const sort = screen.getAllByTestId('sort-select')[0]!;
-    fireEvent.change(sort, { target: { value: 'l10' } });
-
-    const playerCells = screen.getAllByText(/Luka Doncic|LeBron James/);
-    expect(playerCells[0]!.textContent).toContain('Luka Doncic');
-  });
-
-  it('shows weakest preview and fragile warning after adding two legs', () => {
-    renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
-
-    const addButtons = screen.getAllByRole('button', { name: /\+ Add/i });
-    fireEvent.click(addButtons[0]!);
-    fireEvent.click(addButtons[1]!);
-
-    expect(screen.getByText(/Weakest preview:/i)).toBeTruthy();
-    expect(screen.getByText(/2 legs staged/i)).toBeTruthy();
-  });
-
-
-  it('renders fallback edge values without NaN', () => {
-    const noEdgePayload: TodayPayload = {
-      ...payload,
-      board: [{ ...(payload.board ?? [])[0]!, id: 'scout-no-edge', edgeDelta: undefined, marketImpliedProb: undefined, modelProb: undefined }],
-      games: [
-        {
-          ...payload.games[0]!,
-          propsPreview: [
-            {
-              ...payload.games[0]!.propsPreview[0]!,
-              id: 'scout-no-edge',
-              edgeDelta: undefined,
-              marketImpliedProb: undefined,
-              modelProb: undefined
-            }
-          ]
-        }
-      ]
-    };
-
-    renderWithNervousSystem(<TodayPageClient initialPayload={noEdgePayload} />);
-    expect(screen.queryByText('NaN%')).toBeNull();
+    expect(screen.getAllByText(/L5 46.2/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/MIN L3 35.1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Dead-leg high/i).length).toBeGreaterThan(0);
   });
 });

@@ -18,6 +18,15 @@ export type BoardProp = {
   rationale?: string[];
   provenance?: string;
   lastUpdated?: string;
+  minutesL1?: number;
+  minutesL3Avg?: number;
+  l5Avg?: number;
+  l5Source?: 'live' | 'cached' | 'demo' | 'heuristic';
+  minutesSource?: 'live' | 'cached' | 'demo' | 'heuristic';
+  roleConfidence?: 'high' | 'med' | 'low';
+  roleReasons?: string[];
+  deadLegRisk?: 'low' | 'med' | 'high';
+  deadLegReasons?: string[];
 };
 
 type BoardInputRow = Record<string, unknown>;
@@ -46,7 +55,16 @@ export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[]
       riskTag: row.riskTag === 'stable' ? 'stable' : 'watch',
       rationale: Array.isArray(row.rationale) ? row.rationale.map(String) : undefined,
       provenance: typeof row.provenance === 'string' ? row.provenance : undefined,
-      lastUpdated: typeof row.lastUpdated === 'string' ? row.lastUpdated : undefined
+      lastUpdated: typeof row.lastUpdated === 'string' ? row.lastUpdated : undefined,
+      minutesL1: typeof row.minutesL1 === 'number' ? row.minutesL1 : undefined,
+      minutesL3Avg: typeof row.minutesL3Avg === 'number' ? row.minutesL3Avg : undefined,
+      l5Avg: typeof row.l5Avg === 'number' ? row.l5Avg : undefined,
+      l5Source: row.l5Source === 'live' || row.l5Source === 'cached' || row.l5Source === 'demo' || row.l5Source === 'heuristic' ? row.l5Source : undefined,
+      minutesSource: row.minutesSource === 'live' || row.minutesSource === 'cached' || row.minutesSource === 'demo' || row.minutesSource === 'heuristic' ? row.minutesSource : undefined,
+      roleConfidence: row.roleConfidence === 'high' || row.roleConfidence === 'med' || row.roleConfidence === 'low' ? row.roleConfidence : undefined,
+      roleReasons: Array.isArray(row.roleReasons) ? row.roleReasons.map(String) : undefined,
+      deadLegRisk: row.deadLegRisk === 'low' || row.deadLegRisk === 'med' || row.deadLegRisk === 'high' ? row.deadLegRisk : undefined,
+      deadLegReasons: Array.isArray(row.deadLegReasons) ? row.deadLegReasons.map(String) : undefined
     }));
 }
 

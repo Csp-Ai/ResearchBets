@@ -21,6 +21,7 @@ import { Button } from '@/src/components/ui/button';
 import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
+import { SlipOptimizerPanel } from '@/src/components/slips/SlipOptimizerPanel';
 
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
@@ -213,6 +214,7 @@ export default function SlipPageClient() {
             setSlip(nextLegs);
           }} />
           <ProBuildPanel legs={dedupedLegs} onApply={setSlip} />
+          <SlipOptimizerPanel legs={dedupedLegs} />
           <div className="grid grid-cols-1 gap-3">
             <Button intent="secondary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</Button>
             <Button intent="primary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</Button>

@@ -31,7 +31,7 @@ describe('cockpit route integration', () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [{ id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }] } })
-    }) as Response);
+    }) as unknown as Response);
     vi.stubGlobal('fetch', fetchMock);
     window.history.replaceState({}, '', '/cockpit?sport=NBA&tz=America%2FPhoenix&date=2026-02-26');
 
@@ -47,9 +47,9 @@ describe('cockpit route integration', () => {
         return {
           ok: true,
           json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [{ id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }] } })
-        } as Response;
+        } as unknown as Response;
       }
-      return { ok: true, json: async () => ({ ok: true }) } as Response;
+      return { ok: true, json: async () => ({ ok: true }) } as unknown as Response;
     }));
 
     renderWithProviders(<CockpitLandingClient />);
@@ -60,7 +60,7 @@ describe('cockpit route integration', () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [{ id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }] } })
-    }) as Response);
+    }) as unknown as Response);
     vi.stubGlobal('fetch', fetchMock);
 
     renderWithProviders(<CockpitLandingClient />);
@@ -75,7 +75,7 @@ describe('cockpit route integration', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
       json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [{ id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }] } })
-    }) as Response));
+    }) as unknown as Response));
 
     renderWithProviders(<CockpitLandingClient />);
     await screen.findByText(/J. Tatum/);
@@ -93,7 +93,7 @@ describe('cockpit route integration', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
       json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [{ id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }] } })
-    }) as Response));
+    }) as unknown as Response));
 
     renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
     await screen.findByText(/J. Tatum/);
@@ -115,7 +115,7 @@ describe('cockpit route integration', () => {
         data: { mode: 'live', generatedAt, leagues: ['NBA'], games: [], board: [] },
         provenance: { mode: 'live', generatedAt, reason: 'live_ok' }
       })
-    }) as Response));
+    }) as unknown as Response));
 
     renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
 
@@ -136,7 +136,7 @@ describe('cockpit route integration', () => {
         data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] },
         provenance: { mode: 'live', generatedAt: new Date().toISOString(), reason: 'live_ok' }
       })
-    }) as Response);
+    }) as unknown as Response);
     vi.stubGlobal('fetch', liveFetch);
 
     renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
@@ -159,7 +159,7 @@ describe('cockpit route integration', () => {
         data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] },
         provenance: { mode: 'demo', generatedAt: new Date().toISOString(), reason: 'provider_unavailable' }
       })
-    }) as Response);
+    }) as unknown as Response);
     vi.stubGlobal('fetch', fetchMock);
 
     renderWithProviders(<CockpitLandingClient />, { mode: 'demo' });
@@ -182,9 +182,9 @@ describe('cockpit route integration', () => {
           json: async () => ({ ok: true, trace_id: 'trace-1', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
             { id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }
           ] } })
-        } as Response;
+        } as unknown as Response;
       }
-      return { ok: true, json: async () => ({ ok: true }) } as Response;
+      return { ok: true, json: async () => ({ ok: true }) } as unknown as Response;
     }));
 
     window.sessionStorage.setItem('rb:draft-slip:v1', JSON.stringify([
@@ -211,21 +211,21 @@ describe('cockpit route integration', () => {
             { id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' },
             { id: 'p2', player: 'L. James', market: 'assists', line: '8.5', odds: '-110', hitRateL10: 6, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }
           ] } })
-        } as Response;
+        } as unknown as Response;
       }
       if (url.includes('/api/run/stress-test')) {
         return {
           ok: true,
           json: async () => ({ trace_id: 'trace-live', spine: { sport: 'NBA', tz: 'America/Phoenix', date: '2026-02-26', mode: 'demo', trace_id: 'trace-live' }, run: { run_id: 'trace-live', verdict: { weakest_leg_id: 'p1', fragility_score: 58, reasons: ['deterministic reason'] } }, events_written: true })
-        } as Response;
+        } as unknown as Response;
       }
       if (url.includes('/api/metrics/calibration')) {
         return {
           ok: true,
           json: async () => ({ ok: true, data: { runs_analyzed: 0, take_accuracy: 0, weakest_leg_accuracy: 0, last_updated: null } })
-        } as Response;
+        } as unknown as Response;
       }
-      return { ok: true, json: async () => ({ ok: true }) } as Response;
+      return { ok: true, json: async () => ({ ok: true }) } as unknown as Response;
     });
     vi.stubGlobal('fetch', fetchMock);
 
