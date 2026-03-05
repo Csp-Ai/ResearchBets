@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 
 import { LiveCredibilityStrip } from '@/app/cockpit/components/LiveCredibilityStrip';
 import { AttemptsChips } from '@/src/components/landing/AttemptsChips';
+import { BoardFragilityPreview } from '@/src/components/landing/BoardFragilityPreview';
 import { HeroProofCard } from '@/src/components/landing/HeroProofCard';
 import { NervousPulse } from '@/src/components/landing/NervousPulse';
 import { flyToTicket } from '@/src/components/landing/flyToTicket';
@@ -362,6 +363,7 @@ export default function CockpitLandingClient() {
           <button className="btn-secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
           <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
         </div>
+        {board.length > 0 ? <BoardFragilityPreview rows={board} /> : null}
         <HeroProofCard
           slip={slip}
           board={board}
