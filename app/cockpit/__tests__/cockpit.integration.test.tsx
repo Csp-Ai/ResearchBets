@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import CockpitLandingClient from '@/app/cockpit/CockpitLandingClient';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
@@ -129,6 +129,44 @@ describe('cockpit route integration', () => {
     expect(await screen.findByLabelText('Live credibility strip')).toBeTruthy();
     expect(screen.getByText('Mode Live')).toBeTruthy();
     expect(screen.getByText(/Updated \d+s ago/)).toBeTruthy();
+  });
+
+
+
+  it('renders pipeline strip neutral summary for demo fallback', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      headers: { get: () => null },
+      json: async () => ({
+        ok: true,
+        trace_id: 'trace-1',
+        data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [], landing: { mode: 'demo', reason: 'demo', gamesCount: 0, lastUpdatedAt: new Date().toISOString() } },
+        provenance: { mode: 'demo', generatedAt: new Date().toISOString(), reason: 'provider_unavailable' }
+      })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
+    const strip = await screen.findByTestId('pipeline-strip');
+    expect(strip).toBeTruthy();
+    expect(within(strip).getByText('Demo mode (live feeds off)')).toBeTruthy();
+  });
+
+  it('renders pipeline strip neutral summary for cache fallback', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      headers: { get: () => null },
+      json: async () => ({
+        ok: true,
+        trace_id: 'trace-1',
+        data: { mode: 'cache', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [], landing: { mode: 'cache', reason: 'provider_unavailable', gamesCount: 0, lastUpdatedAt: new Date().toISOString() } },
+        provenance: { mode: 'cache', generatedAt: new Date().toISOString(), reason: 'cache_fallback' }
+      })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
+    const strip = await screen.findByTestId('pipeline-strip');
+    expect(strip).toBeTruthy();
+    expect(within(strip).getByText('Using cached slate')).toBeTruthy();
   });
 
   it('polls /api/today only when served mode is live', async () => {

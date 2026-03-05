@@ -6,17 +6,15 @@ import type { BoardSport } from '@/src/core/board/boardService.server';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
 import { createDemoTodayPayload } from './demoToday';
-import { TODAY_LEAGUES, type ProviderHealth, type TodayPayload, type TodayPropKey } from './types';
+import { TODAY_LEAGUES, type ProviderHealth, type TodayLiveStep, type TodayPayload, type TodayPropKey } from './types';
 import { computeAttemptMetrics, computeFeaturedBucketAveragesFromLogs, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
 
 const TTL_MS = 120_000;
 const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
 export const MIN_BOARD_ROWS = 6;
 
-type LiveStep = 'resolve_context' | 'odds_fetch' | 'stats_fetch' | 'normalize' | 'board_build' | 'min_row_checks' | 'live_viability';
-
 type LiveDiagnostic = {
-  step: LiveStep;
+  step: TodayLiveStep;
   statusCode?: number;
   hint: string;
 };
@@ -175,7 +173,7 @@ function sanitizeErrorMessage(error: Error): string {
   return compact.slice(0, 160) || 'unknown_error';
 }
 
-function createLiveHardErrorWarning(step: LiveStep, error: unknown): string[] {
+function createLiveHardErrorWarning(step: TodayLiveStep, error: unknown): string[] {
   if (!(error instanceof Error)) {
     return [`live_unavailable:non_error_throw:${step}`];
   }
@@ -188,7 +186,7 @@ function createLiveHardErrorWarning(step: LiveStep, error: unknown): string[] {
   ];
 }
 
-function createDebug(step: LiveStep, error: unknown, hintOverride?: string): LiveDiagnostic {
+function createDebug(step: TodayLiveStep, error: unknown, hintOverride?: string): LiveDiagnostic {
   const statusCode = getStatusCode(error);
   return {
     step,
@@ -219,8 +217,8 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     events = (result.events ?? []) as Array<{ id: string; commence_time?: string; home_team?: string; away_team?: string }>;
     if (result.fallbackReason) warnings.push(result.fallbackReason);
   } catch (error) {
-    const providerWarnings = createLiveHardErrorWarning('resolve_context', error);
-    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('resolve_context', error, 'provider_unavailable') });
+    const providerWarnings = createLiveHardErrorWarning('events_fetch', error);
+    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('events_fetch', error, 'provider_unavailable') });
   }
 
   const active = events.filter((event) => {

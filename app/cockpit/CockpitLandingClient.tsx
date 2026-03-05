@@ -10,6 +10,7 @@ import { NervousPulse } from '@/src/components/landing/NervousPulse';
 import { PreviewStrip } from '@/src/components/landing/PreviewStrip';
 import { ProofStack } from '@/src/components/landing/ProofStack';
 import { TicketEmptyCoach } from '@/src/components/landing/TicketEmptyCoach';
+import { PipelineStrip } from '@/src/components/landing/PipelineStrip';
 import { flyToTicket } from '@/src/components/landing/flyToTicket';
 import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
@@ -21,6 +22,7 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useRunEvents } from '@/src/core/events/useRunEvents';
 import { ensureTraceId } from '@/src/core/trace/trace_id';
 import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
+import type { TodayLiveStep } from '@/src/core/today/types';
 
 import './cockpit.css';
 
@@ -370,6 +372,17 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
           <button className="btn-secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
           <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
         </div>
+        <PipelineStrip
+          mode={today.mode}
+          landingReason={today.landing?.reason}
+          providerWarnings={today.providerWarnings}
+          debug={today.debug && typeof today.debug.step === 'string' ? {
+            step: today.debug.step as TodayLiveStep,
+            hint: today.debug.hint,
+            statusCode: today.debug.statusCode,
+          } : undefined}
+          providerHealth={today.providerHealth}
+        />
         <ProofStack
           board={board}
           slip={slip}

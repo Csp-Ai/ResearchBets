@@ -5,6 +5,16 @@ export type TodayLeague = (typeof TODAY_LEAGUES)[number];
 
 export type TodayMode = 'live' | 'cache' | 'demo';
 
+export type TodayLiveStep =
+  | 'resolve_context'
+  | 'events_fetch'
+  | 'odds_fetch'
+  | 'stats_fetch'
+  | 'normalize'
+  | 'board_build'
+  | 'min_row_checks'
+  | 'live_viability';
+
 export type ProviderHealth = {
   provider: string;
   ok: boolean;

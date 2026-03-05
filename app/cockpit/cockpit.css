@@ -257,3 +257,43 @@
   .preview-strip-actions { flex-wrap: wrap; }
   .how-it-works { grid-template-columns: 1fr; margin-bottom: 90px; }
 }
+
+.pipeline-strip-shell {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.pipeline-strip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pipeline-chip {
+  font-size: 11px;
+  line-height: 1;
+  color: #cbd5e1;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+}
+
+.pipeline-chip.active {
+  color: #f8fafc;
+  border-color: rgba(56, 189, 248, 0.65);
+  background: rgba(14, 116, 144, 0.3);
+}
+
+.pipeline-strip-summary {
+  margin-top: 8px;
+  margin-bottom: 0;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.pipeline-strip-health {
+  color: #94a3b8;
+}

@@ -11,6 +11,15 @@ This file documents the **intelligence modules** currently active in the codebas
 - Behavior:
   - Reads `LIVE_MODE`.
   - In live mode, attempts provider-backed events via server provider registry.
+  - Pipeline step taxonomy for diagnostics/debug:
+    - `resolve_context`: true context/spine/trace resolution failures only.
+    - `events_fetch`: provider event slate fetch (`fetchEvents`).
+    - `odds_fetch`: provider market/odds fetch (`fetchEventOdds`).
+    - `stats_fetch`: stats enrichment fetch.
+    - `normalize`: row/game normalization stage.
+    - `board_build`: board construction stage.
+    - `live_viability`: non-exception live viability checks and deterministic fallback decisions.
+  - Invariant: provider failures must not be emitted as `resolve_context` warnings.
   - On provider failure (or when live mode is off), falls back to deterministic demo payload from `src/core/today/demoToday.ts`.
   - Returns `mode: live | cache | demo` and optional `reason`.
 
