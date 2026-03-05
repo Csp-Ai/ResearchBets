@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { InMemoryEventEmitter } from '@/src/core/control-plane/emitter';
 import { refreshOddsSnapshotIfStale } from '@/src/core/measurement/odds';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const gameId = searchParams.get('gameId');
