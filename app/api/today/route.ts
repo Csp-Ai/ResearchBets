@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       props: Array.isArray(payload.board) ? payload.board : []
     };
 
-    const responseSpine = { ...spine };
+    const responseSpine = { ...spine, mode: payload.provenance?.mode ?? payload.mode };
 
     return NextResponse.json({
       ok: true,
