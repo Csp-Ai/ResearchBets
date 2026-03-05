@@ -3,7 +3,7 @@ import 'server-only';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString, resolveWithAliases } from '@/src/core/env/read.server';
 
-import { buildOddsEventsUrl, resolveOddsApiBaseUrl } from './theoddsapi';
+import { buildOddsEventsUrl, fetchJsonOrThrow, resolveOddsApiBaseUrl, type ProviderHttpError } from './theoddsapi';
 
 export type EventsProbeResult = {
   ok: boolean;
@@ -48,26 +48,35 @@ export async function runEventsProbe(input: { sport: string } = { sport: 'NBA' }
   const request = buildRequest(input.sport);
   if ('error' in request) return request.error;
   try {
-    const response = await fetch(request.url, { method: 'GET' });
-    const safeDetail = response.ok
-      ? undefined
-      : sanitizeDetailSnippet(await response.text().catch(() => ''), request.apiKey) || undefined;
-
+    await fetchJsonOrThrow<unknown[]>(request.url, { method: 'GET' });
     return {
-      ok: response.ok,
-      reason: response.ok ? null : `http_${response.status}`,
-      status: response.status,
+      ok: true,
+      reason: null,
+      status: 200,
       resolvedBaseHost: request.host,
-      safeMessage: response.ok ? 'Events provider reachable' : `Events provider returned HTTP ${response.status}`,
-      ...(safeDetail ? { safeDetail } : {})
+      safeMessage: 'Events provider reachable',
     };
   } catch (error) {
+    if (error instanceof Error) {
+      const typedError = error as ProviderHttpError;
+      const status = typedError.status ?? typedError.statusCode ?? null;
+      const safeDetail = typedError.bodyExcerpt ? sanitizeDetailSnippet(typedError.bodyExcerpt, request.apiKey) || undefined : undefined;
+      return {
+        ok: false,
+        reason: typeof status === 'number' ? `http_${status}` : 'network',
+        status,
+        resolvedBaseHost: request.host,
+        safeMessage: typeof status === 'number' ? `Events provider returned HTTP ${status}` : sanitizeMessage(error.message),
+        ...(safeDetail ? { safeDetail } : {}),
+      };
+    }
+
     return {
       ok: false,
       reason: 'network',
       status: null,
       resolvedBaseHost: request.host,
-      safeMessage: sanitizeMessage(error instanceof Error ? error.message : undefined),
+      safeMessage: 'Events provider unavailable',
     };
   }
 }

@@ -3,7 +3,7 @@ import 'server-only';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString, resolveWithAliases } from '@/src/core/env/read.server';
 
-import { resolveOddsApiBaseUrl } from './theoddsapi';
+import { fetchJsonOrThrow, resolveOddsApiBaseUrl, type ProviderHttpError } from './theoddsapi';
 
 export type OddsReasonCode =
   | 'http_401'
@@ -151,27 +151,45 @@ export async function runOddsProbe(): Promise<OddsProbeResult> {
 
   const { url, host, apiKey } = request;
   try {
-    const response = await fetch(url, { method: 'GET' });
-    const reason = mapHttpReason(response.status);
-    const contentType = response.headers.get('content-type');
-    const bodySnippet = !response.ok ? sanitizeSnippet(await response.text(), apiKey) : null;
-
+    await fetchJsonOrThrow<unknown[]>(url, { method: 'GET' });
     return {
-      ok: response.ok,
+      ok: true,
       runtime: 'nodejs',
-      reason,
+      reason: null,
       resolvedBaseHost: host,
       urlPath: '/v4/sports',
       queryKeys: ['apiKey'],
-      status: response.status,
-      statusText: response.statusText || null,
-      contentType,
-      bodySnippet,
+      status: 200,
+      statusText: 'OK',
+      contentType: 'application/json',
+      bodySnippet: null,
       errorName: null,
       errorCode: null,
-      safeMessage: response.ok ? 'Odds provider reachable' : `Odds provider returned HTTP ${response.status}`
+      safeMessage: 'Odds provider reachable'
     };
   } catch (error) {
+    if (error instanceof Error) {
+      const typedError = error as ProviderHttpError;
+      const status = typedError.status ?? typedError.statusCode ?? null;
+      if (typeof status === 'number') {
+        return {
+          ok: false,
+          runtime: 'nodejs',
+          reason: mapHttpReason(status),
+          resolvedBaseHost: host,
+          urlPath: '/v4/sports',
+          queryKeys: ['apiKey'],
+          status,
+          statusText: null,
+          contentType: null,
+          bodySnippet: typedError.bodyExcerpt ? sanitizeSnippet(typedError.bodyExcerpt, apiKey) : null,
+          errorName: null,
+          errorCode: null,
+          safeMessage: `Odds provider returned HTTP ${status}`
+        };
+      }
+    }
+
     const classified = classifyError(error);
     return {
       ok: false,

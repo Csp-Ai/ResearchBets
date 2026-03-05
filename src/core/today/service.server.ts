@@ -261,7 +261,8 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
       host: redactHost((error as { url?: string } | undefined)?.url),
       durationMs: Date.now() - eventsStartedAt,
     });
-    const providerWarnings = createLiveHardErrorWarning('events_fetch', wrapped);
+    const authWarnings = statusCode === 401 || statusCode === 403 ? ['odds_plan_restricted_or_key_invalid'] : [];
+    const providerWarnings = [...authWarnings, ...createLiveHardErrorWarning('events_fetch', wrapped)];
     return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('events_fetch', wrapped, 'provider_unavailable') });
   }
 
@@ -304,7 +305,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     const eventIds = games.map((g) => g.id);
     try {
       for (const market of MARKETS) {
-        const odds = await registry.oddsProvider.fetchEventOdds({ sport, eventIds, marketType: market });
+        const odds = await registry.oddsProvider.fetchEventOdds({ sport: toSportKey(sport), eventIds, marketType: market });
         if (odds.fallbackReason) warnings.push(odds.fallbackReason);
         odds.platformLines.slice(0, 30).forEach((line, idx) => {
           const game = games[idx % games.length];
