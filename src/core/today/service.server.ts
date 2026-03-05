@@ -13,7 +13,7 @@ const TTL_MS = 120_000;
 const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
 export const MIN_BOARD_ROWS = 6;
 
-type LiveStep = 'resolve_context' | 'odds_fetch' | 'stats_fetch' | 'normalize' | 'board_build' | 'min_row_checks';
+type LiveStep = 'resolve_context' | 'odds_fetch' | 'stats_fetch' | 'normalize' | 'board_build' | 'min_row_checks' | 'live_viability';
 
 type LiveDiagnostic = {
   step: LiveStep;
@@ -168,11 +168,22 @@ function getStatusCode(error: unknown): number | undefined {
   return undefined;
 }
 
+function sanitizeErrorMessage(error: Error): string {
+  const noUrls = error.message.replace(/https?:\/\/\S+/gi, '[redacted-url]');
+  const noSecrets = noUrls.replace(/(api[_-]?key\s*[=:]\s*)[^\s,;]+/gi, '$1[redacted]');
+  const compact = noSecrets.replace(/\s+/g, ' ').trim();
+  return compact.slice(0, 160) || 'unknown_error';
+}
+
 function createLiveHardErrorWarning(step: LiveStep, error: unknown): string[] {
+  if (!(error instanceof Error)) {
+    return [`live_unavailable:non_error_throw:${step}`];
+  }
   const statusCode = getStatusCode(error);
   return [
     `live_hard_error:${step}`,
     `live_hard_error_name:${getErrorName(error)}`,
+    `live_hard_error_msg:${sanitizeErrorMessage(error)}`,
     `live_hard_error_code:${typeof statusCode === 'number' ? String(statusCode) : 'none'}`,
   ];
 }
@@ -184,6 +195,10 @@ function createDebug(step: LiveStep, error: unknown, hintOverride?: string): Liv
     statusCode,
     hint: hintOverride ?? 'provider_unavailable',
   };
+}
+
+function createLiveUnavailableWarning(reason: string): string {
+  return `live_unavailable:${reason}`;
 }
 
 async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: string }): Promise<TodayPayload> {
@@ -385,14 +400,8 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
             ? 'market_closed'
             : 'board_too_sparse';
       return getDemoFallback('provider_unavailable', sport, {
-        providerWarnings: events.length === 0
-          ? ['provider_events_unavailable']
-          : games.length === 0
-            ? ['no_games']
-            : status === 'market_closed'
-              ? ['market_closed']
-              : ['board_too_sparse'],
-        debug: { step: 'min_row_checks', hint },
+        providerWarnings: [createLiveUnavailableWarning(hint)],
+        debug: { step: 'live_viability', hint },
       });
     }
   } catch (error) {
