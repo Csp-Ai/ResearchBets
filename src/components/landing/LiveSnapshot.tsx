@@ -14,7 +14,7 @@ const reasonText: Record<string, string> = {
 
 export const getModeReasonText = (reason?: string) => reasonText[reason ?? 'provider_unavailable'] ?? reasonText.provider_unavailable;
 
-export function getTelemetryUpdatedLabel(mode: 'live' | 'demo', freshnessMinutes: number) {
+export function getTelemetryUpdatedLabel(mode: 'live' | 'cache' | 'demo', freshnessMinutes: number) {
   if (mode === 'demo') return 'Demo dataset';
   const freshness = Number.isFinite(freshnessMinutes) ? freshnessMinutes : 0;
   return `Updated ${freshness}m ago`;
@@ -31,7 +31,7 @@ export function LiveSnapshot({
   mode: LandingMode;
   onRun: () => void;
   snapshot: {
-    mode: 'live' | 'demo';
+    mode: 'live' | 'cache' | 'demo';
     reason: string;
     gamesCount: number;
     headlineMatchup?: string;
@@ -42,9 +42,8 @@ export function LiveSnapshot({
   providerHealth?: { ok: boolean; mode: 'live' | 'demo' | 'cache'; reason?: string; providerErrors?: string[] } | null;
 }) {
   const effectiveMode = snapshot?.mode ?? (mode === 'live' ? 'live' : 'demo');
-  const liveRequestedFallback = mode === 'live' && providerHealth?.ok === false;
-  const isDemo = effectiveMode !== 'live' || liveRequestedFallback;
-  const label = isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on';
+  const isDemo = effectiveMode !== 'live';
+  const label = isDemo ? 'Demo mode (live feeds off)' : 'Live feeds active';
   const reason = useMemo(() => getModeReasonText(snapshot?.reason), [snapshot?.reason]);
 
   const body = (
@@ -67,7 +66,7 @@ export function LiveSnapshot({
               <span className={styles.skeleton} style={{ width: 160, height: 22 }} />
             ) : (
               <span className={`${styles.providerChip} ${styles.neutral}`}>
-                {isDemo ? 'Demo mode (live feeds off)' : 'Live feeds on'}
+                {isDemo ? 'Demo mode (live feeds off)' : 'Live feeds active'}
               </span>
             )}
           </div>
@@ -79,7 +78,7 @@ export function LiveSnapshot({
           <div className={styles.snapshotRow}>
             <span className={styles.oddsLabel}>Why?</span>
             <span className={styles.oddsValue}>
-              {isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds on'}
+              {isDemo ? 'Mode: Demo mode (live feeds off)' : 'Mode: Live feeds active'}
               <span className={styles.reasonHelp} title={`${reason}${providerHealth?.reason ? ` (${providerHealth.reason})` : ''}`}>ⓘ</span>
             </span>
           </div>

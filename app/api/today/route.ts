@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { normalizeSpine } from '@/src/core/nervous/spine';
 import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
+import { computeProviderHealth } from '@/src/core/health/providerHealth.server';
+import { parseUrlModeIntent, resolveRuntimeMode } from '@/src/core/live/runtimeMode';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { resolveToday } from '@/src/core/today/resolveToday.server';
 import type { TodayPayload } from '@/src/core/today/types';
@@ -33,6 +35,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const { spine, warnings: contextWarnings } = getTraceContext(request);
 
+    const urlIntent = parseUrlModeIntent(searchParams);
+    const providerHealth = await computeProviderHealth({ sport: spine.sport });
+    const resolvedMode = resolveRuntimeMode({ urlIntent, providerHealth });
+
     const forceRefresh = searchParams.get('refresh') === '1';
     const strictLive = searchParams.get('strict_live') === '1';
     const debugEnabled = searchParams.get('debug') === '1';
@@ -45,10 +51,10 @@ export async function GET(request: Request) {
         sport: spine.sport.toUpperCase() as 'NBA' | 'NFL' | 'NHL' | 'MLB' | 'UFC',
         tz: spine.tz,
         date: spine.date,
-        mode: spine.mode
+        mode: resolvedMode.mode
       });
     } catch (error) {
-      if (spine.mode === 'demo') {
+      if (resolvedMode.mode === 'demo') {
         payload = await resolveToday({ sport: spine.sport.toUpperCase() as 'NBA', tz: spine.tz, date: spine.date, mode: 'demo' });
       } else if (strictLive) {
         const generatedAt = new Date().toISOString();
@@ -70,19 +76,36 @@ export async function GET(request: Request) {
       }
     }
 
-    const board = {
-      games: payload.games,
-      props: Array.isArray(payload.board) ? payload.board : []
-    };
+    const responseSpine = { ...spine, mode: resolvedMode.mode };
 
-    const responseSpine = { ...spine };
+    const modeAlignedPayload = {
+      ...payload,
+      reason: payload.reason ?? resolvedMode.reason,
+      provenance: payload.provenance ?? {
+        mode: payload.mode,
+        reason: payload.reason ?? resolvedMode.reason,
+        generatedAt: payload.generatedAt,
+      },
+      landing: payload.landing ?? {
+        mode: payload.mode,
+        reason: payload.mode === 'live' ? 'live_ok' : 'demo',
+        gamesCount: payload.games.length,
+        lastUpdatedAt: payload.generatedAt,
+      },
+    } as TodayPayload;
 
     const withContextWarnings = contextWarnings.length > 0
       ? {
-        ...payload,
-        providerWarnings: [...(payload.providerWarnings ?? []), ...contextWarnings]
+        ...modeAlignedPayload,
+        providerWarnings: [...(modeAlignedPayload.providerWarnings ?? []), ...contextWarnings]
       }
-      : payload;
+      : modeAlignedPayload;
+
+
+    const board = {
+      games: withContextWarnings.games,
+      props: Array.isArray(withContextWarnings.board) ? withContextWarnings.board : []
+    };
 
     const warningStep = parseWarningStep(withContextWarnings.providerWarnings ?? []);
     const sanitizedDebug = payload.debug
@@ -96,9 +119,9 @@ export async function GET(request: Request) {
       ok: true,
       data: withContextWarnings,
       trace_id: responseSpine.trace_id,
-      landing: payload.landing,
+      landing: withContextWarnings.landing,
       spine: responseSpine,
-      provenance: payload.provenance ?? { mode: payload.mode, reason: payload.reason, generatedAt: payload.generatedAt },
+      provenance: withContextWarnings.provenance ?? { mode: withContextWarnings.mode, reason: withContextWarnings.reason, generatedAt: withContextWarnings.generatedAt },
       board,
       ...(debugEnabled && sanitizedDebug ? { debug: sanitizedDebug } : {})
     };

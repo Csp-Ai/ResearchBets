@@ -21,7 +21,7 @@ export function Hero({
   mode: LandingMode;
   modeReason?: string;
   today: {
-    mode: 'live' | 'demo';
+    mode: 'live' | 'cache' | 'demo';
     reason: string;
     gamesCount: number;
     headlineMatchup?: string;
@@ -35,7 +35,7 @@ export function Hero({
   const effectiveMode = today?.mode ?? (mode === 'live' ? 'live' : 'demo');
   const statusText = loading
     ? 'Loading board telemetry…'
-    : `${effectiveMode === 'live' ? 'Live feeds on' : 'Demo fallback active'} · ${today?.gamesCount ?? 0} games · ${getModeReasonText(today?.reason ?? providerHealth?.reason)}`;
+    : `${effectiveMode === 'live' ? 'Live feeds active' : 'Demo mode (live feeds off)'} · ${today?.gamesCount ?? 0} games · ${getModeReasonText(today?.reason ?? providerHealth?.reason)}`;
 
   return (
     <section className={styles.hero} id="hero">
@@ -70,7 +70,7 @@ export function Hero({
             compact
             variant="landing"
             stats={{ slips: 0, riskRate: 0, accuracy: 0, correlationWarnings: 0 }}
-            mode={effectiveMode}
+            mode={effectiveMode === 'demo' ? 'demo' : 'live'}
             freshnessMinutes={freshnessMinutes}
             reason={modeReason}
           />
