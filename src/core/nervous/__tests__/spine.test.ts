@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeSpine, parseSpineFromSearch, serializeSpine } from '@/src/core/nervous/spine';
+import { normalizeSpine, normalizeSpineWithWarnings, parseSpineFromSearch, serializeSpine } from '@/src/core/nervous/spine';
 
 describe('spine normalization', () => {
   it('fills required defaults', () => {
@@ -14,6 +14,26 @@ describe('spine normalization', () => {
   it('serializeSpine emits known keys only', () => {
     const params = serializeSpine(normalizeSpine({ sport: 'NFL', traceId: 'trace-12345678', tab: 'board' }));
     expect(Object.keys(params).sort()).toEqual(['date', 'mode', 'sport', 'tab', 'trace_id', 'tz'].sort());
+  });
+
+
+
+  it('coerces ET alias to America/New_York with warning', () => {
+    const result = normalizeSpineWithWarnings({ tz: 'ET' });
+    expect(result.spine.tz).toBe('America/New_York');
+    expect(result.warnings).toContain('tz_invalid:ET->America/New_York');
+  });
+
+  it('accepts IANA timezone without warning', () => {
+    const result = normalizeSpineWithWarnings({ tz: 'America/Phoenix' });
+    expect(result.spine.tz).toBe('America/Phoenix');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('defaults invalid timezone without throwing', () => {
+    const result = normalizeSpineWithWarnings({ tz: 'garbage' });
+    expect(result.spine.tz).toBe('America/Phoenix');
+    expect(result.warnings).toContain('tz_invalid:garbage->America/Phoenix');
   });
 
   it('parse + normalize roundtrip is stable', () => {

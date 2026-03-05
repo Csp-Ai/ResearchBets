@@ -104,9 +104,41 @@ describe('/api/today GET', () => {
     };
 
     expect(payload.data.mode).toBe('demo');
-    expect(payload.spine.mode).toBe('demo');
+    expect(payload.spine.mode).toBe('live');
     expect(payload.landing?.reason).toBe('demo');
     expect(payload.data.providerErrors).toEqual([]);
+  });
+
+
+
+  it('coerces ET context without resolve_context hard error warnings', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'demo',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'provider_unavailable',
+        providerErrors: [],
+        providerWarnings: ['provider_unavailable'],
+        landing: { mode: 'demo', reason: 'demo', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
+        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?mode=live&sport=NBA&tz=ET'));
+    const payload = await response.json() as {
+      spine: { mode: string; tz: string };
+      data: { providerWarnings?: string[]; mode: string };
+    };
+
+    expect(payload.spine.mode).toBe('live');
+    expect(payload.spine.tz).toBe('America/New_York');
+    expect(payload.data.mode).toBe('demo');
+    expect(payload.data.providerWarnings).toContain('tz_invalid:ET->America/New_York');
+    expect(payload.data.providerWarnings?.some((warning) => warning.includes('live_hard_error:resolve_context'))).toBe(false);
   });
 
   it('returns attempts and provenance fields from resolver payload', async () => {
