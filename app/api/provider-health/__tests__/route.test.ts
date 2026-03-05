@@ -57,6 +57,14 @@ describe('/api/provider-health route', () => {
       statusCode: 200,
       safeMessage: 'Events provider reachable'
     });
+
+    const fetchCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([input]) => String(input));
+    const eventsCall = fetchCalls.find((url) => url.includes('/events'));
+    expect(eventsCall).toBeTruthy();
+    const eventsUrl = new URL(eventsCall!);
+    expect(eventsUrl.searchParams.get('apiKey')).toBe('test-key');
+    expect(eventsUrl.searchParams.has('dateFormat')).toBe(false);
+    expect(eventsUrl.searchParams.has('commenceTimeFrom')).toBe(false);
     expect(json.runtimeContext).toEqual({
       vercelEnv: 'preview',
       nodeEnv: 'production',
@@ -155,16 +163,16 @@ describe('/api/provider-health route', () => {
     expect(json.providerErrors.some((message: string) => message.toLowerCase().includes('reachable'))).toBe(false);
   });
 
-  it('sets degraded-events reason when odds are reachable but events are not', async () => {
+  it('sets degraded-events reason and provides sanitized safe detail for 422 events errors', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/events')) {
         return {
           ok: false,
-          status: 503,
-          statusText: 'Service Unavailable',
+          status: 422,
+          statusText: 'Unprocessable Entity',
           headers: new Headers({ 'content-type': 'application/json' }),
-          text: vi.fn().mockResolvedValue('{}')
+          text: vi.fn().mockResolvedValue('invalid request for https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=test-key apiKey=test-key')
         };
       }
       return {
@@ -184,6 +192,12 @@ describe('/api/provider-health route', () => {
     expect(json.reason).toBe('live_degraded_events');
     expect(json.checks.odds.ok).toBe(true);
     expect(json.checks.events.ok).toBe(false);
-    expect(json.providerErrors).toContain('Events provider returned HTTP 503');
+    expect(json.checks.events.reason).toBe('http_422');
+    expect(json.checks.events.safeDetail).toContain('[redacted-url]');
+    expect(json.checks.events.safeDetail).toContain('apiKey=[redacted]');
+    expect(json.checks.events.safeDetail).not.toContain('test-key');
+    expect(json.providerErrors).toContain('Events provider returned HTTP 422');
+    expect(json.providerErrors).toContain(json.checks.events.safeDetail);
+    expect(JSON.stringify(json)).not.toContain('test-key');
   });
 });
