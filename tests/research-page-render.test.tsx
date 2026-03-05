@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+/** @vitest-environment jsdom */
 
 import fs from 'node:fs';
 import path from 'node:path';

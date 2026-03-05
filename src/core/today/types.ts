@@ -172,6 +172,9 @@ export type TodayPayload = {
     step: string;
     statusCode?: number;
     hint: string;
+    cacheHit?: boolean;
+    cacheAgeMs?: number;
+    didLiveFetch?: boolean;
   };
   userSafeReason?: string;
   status?: 'active' | 'next' | 'market_closed';
