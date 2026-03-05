@@ -17,6 +17,27 @@ beforeEach(() => {
 });
 
 describe('/api/today GET', () => {
+
+  it('accepts force=1 as refresh escape hatch', async () => {
+    const resolveToday = vi.fn(async () => ({
+      mode: 'live',
+      generatedAt: '2026-01-15T19:30:00.000Z',
+      leagues: ['NBA'],
+      games: [],
+      board: [],
+      reason: 'live_ok',
+      landing: { mode: 'live', reason: 'live_ok', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
+      provenance: { mode: 'live', reason: 'live_ok', generatedAt: '2026-01-15T19:30:00.000Z' }
+    }));
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({ resolveToday }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&force=1'));
+
+    expect(response.status).toBe(200);
+    expect(resolveToday).toHaveBeenCalledWith(expect.objectContaining({ forceRefresh: true }));
+  });
+
   it('preserves live intent and returns live-unavailable envelope when strict live is requested and providers fail', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => {

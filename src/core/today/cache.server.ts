@@ -11,6 +11,11 @@ type CacheRecord = {
   savedAt: string;
 };
 
+export type TodayCacheReadOptions = {
+  includeStale?: boolean;
+  nowMs?: number;
+};
+
 const MEMORY_CACHE = new Map<string, CacheRecord>();
 
 export const TODAY_CACHE_TTL_MS = 10 * 60_000;
@@ -19,24 +24,26 @@ export function getTodayCacheKey(ctx: TodayCacheKey): string {
   return `today:${ctx.sport}:${ctx.tz}:${ctx.date}`;
 }
 
-function isFresh(savedAt: string): boolean {
+function isFresh(savedAt: string, nowMs: number = Date.now()): boolean {
   const stamp = new Date(savedAt).getTime();
   if (!Number.isFinite(stamp)) return false;
-  return Date.now() - stamp <= TODAY_CACHE_TTL_MS;
+  return nowMs - stamp <= TODAY_CACHE_TTL_MS;
 }
 
-function fromMemory(key: string): CacheRecord | null {
+function fromMemory(key: string, options?: TodayCacheReadOptions): CacheRecord | null {
   const record = MEMORY_CACHE.get(key);
   if (!record) return null;
-  if (!isFresh(record.savedAt)) {
+  const nowMs = options?.nowMs ?? Date.now();
+  if (!options?.includeStale && !isFresh(record.savedAt, nowMs)) {
     MEMORY_CACHE.delete(key);
     return null;
   }
   return record;
 }
 
-export async function readLastGoodToday(keyInput: TodayCacheKey): Promise<CacheRecord | null> {
+export async function readLastGoodToday(keyInput: TodayCacheKey, options?: TodayCacheReadOptions): Promise<CacheRecord | null> {
   const cacheKey = getTodayCacheKey(keyInput);
+  const nowMs = options?.nowMs ?? Date.now();
 
   try {
     const supabase = getSupabaseServiceClient();
@@ -46,10 +53,10 @@ export async function readLastGoodToday(keyInput: TodayCacheKey): Promise<CacheR
       .eq('cache_key', cacheKey)
       .maybeSingle();
 
-    if (error || !data) return fromMemory(cacheKey);
+    if (error || !data) return fromMemory(cacheKey, options);
 
     const savedAt = data.saved_at;
-    if (!isFresh(savedAt)) return null;
+    if (!options?.includeStale && !isFresh(savedAt, nowMs)) return null;
 
     const record: CacheRecord = {
       payload: data.payload as TodayPayload,
@@ -58,7 +65,7 @@ export async function readLastGoodToday(keyInput: TodayCacheKey): Promise<CacheR
     MEMORY_CACHE.set(cacheKey, record);
     return record;
   } catch {
-    return fromMemory(cacheKey);
+    return fromMemory(cacheKey, options);
   }
 }
 
