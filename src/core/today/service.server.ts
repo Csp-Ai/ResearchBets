@@ -43,6 +43,7 @@ let cache: { key: string; expiresAt: number; payload: TodayPayload } | null = nu
 const inFlightRefreshes = new Map<string, Promise<TodayPayload>>();
 
 function withCacheFreshHit(cachedPayload: TodayPayload, savedAt: string): TodayPayload {
+  const cacheAgeMs = Math.max(0, Date.now() - new Date(savedAt).getTime());
   return withLandingSummary({
     ...cachedPayload,
     mode: 'cache',
@@ -51,6 +52,12 @@ function withCacheFreshHit(cachedPayload: TodayPayload, savedAt: string): TodayP
     providerWarnings: [...new Set([...(cachedPayload.providerWarnings ?? []), 'today_cache_hit'])],
     userSafeReason: 'Using cached slate',
     provenance: { mode: 'cache', reason: 'cache_fresh', generatedAt: savedAt },
+    debug: {
+      ...(cachedPayload.debug ?? { step: 'live_viability', hint: 'cache_fresh' }),
+      cacheHit: true,
+      cacheAgeMs: Number.isFinite(cacheAgeMs) ? cacheAgeMs : undefined,
+      didLiveFetch: false,
+    },
   });
 }
 
@@ -576,9 +583,18 @@ export async function resolveTodayTruth(options?: {
       || livePayload.status === 'market_closed';
 
     if (livePayload && !shouldFallback) {
-      cache = { key, expiresAt: Date.now() + IN_MEMORY_TTL_MS, payload: livePayload };
-      await writeLastGoodToday(cacheKey, livePayload);
-      return livePayload;
+      const liveWithDebug: TodayPayload = {
+        ...livePayload,
+        debug: {
+          ...(livePayload.debug ?? { step: 'live_viability', hint: 'live_ok' }),
+          cacheHit: false,
+          cacheAgeMs: undefined,
+          didLiveFetch: true,
+        },
+      };
+      cache = { key, expiresAt: Date.now() + IN_MEMORY_TTL_MS, payload: liveWithDebug };
+      await writeLastGoodToday(cacheKey, liveWithDebug);
+      return liveWithDebug;
     }
 
     if (options?.strictLive) {
@@ -603,7 +619,15 @@ export async function resolveTodayTruth(options?: {
     }
 
     if (livePayload?.mode === 'demo') {
-      return livePayload;
+      return getDemoFallback(livePayload.reason ?? 'provider_unavailable', sport, {
+        providerWarnings: [...new Set([...(livePayload.providerWarnings ?? []), 'today_cache_miss'])],
+        debug: {
+          ...(livePayload.debug ?? { step: 'live_viability', hint: 'cache_miss' }),
+          cacheHit: false,
+          cacheAgeMs: undefined,
+          didLiveFetch: true,
+        },
+      });
     }
 
     const staleCache = await readLastGoodToday(cacheKey, { includeStale: true });
@@ -616,6 +640,12 @@ export async function resolveTodayTruth(options?: {
         providerWarnings: [...new Set([...(staleCache.payload.providerWarnings ?? []), 'today_cache_hit'])],
         userSafeReason: 'Using cached slate',
         provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: staleCache.savedAt },
+        debug: {
+          ...(staleCache.payload.debug ?? { step: 'live_viability', hint: 'cache_fallback' }),
+          cacheHit: true,
+          cacheAgeMs: Math.max(0, Date.now() - new Date(staleCache.savedAt).getTime()),
+          didLiveFetch: true,
+        },
       });
     }
 
@@ -627,11 +657,25 @@ export async function resolveTodayTruth(options?: {
         effective: { mode: 'cache', reason: livePayload?.reason ?? 'provider_unavailable' },
         providerWarnings: [...new Set([...(cache.payload.providerWarnings ?? []), 'today_cache_hit'])],
         userSafeReason: 'Using cached slate',
-        provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cache.payload.generatedAt }
+        provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cache.payload.generatedAt },
+        debug: {
+          ...(cache.payload.debug ?? { step: 'live_viability', hint: 'cache_fallback' }),
+          cacheHit: true,
+          cacheAgeMs: Math.max(0, Date.now() - new Date(cache.payload.generatedAt).getTime()),
+          didLiveFetch: true,
+        }
       });
     }
 
-    return getDemoFallback(livePayload?.reason ?? 'provider_unavailable', sport, { providerWarnings: ['today_cache_miss'] });
+    return getDemoFallback(livePayload?.reason ?? 'provider_unavailable', sport, {
+      providerWarnings: ['today_cache_miss'],
+      debug: {
+        ...(livePayload?.debug ?? { step: 'live_viability', hint: 'cache_miss' }),
+        cacheHit: false,
+        cacheAgeMs: undefined,
+        didLiveFetch: true,
+      },
+    });
   })();
 
   inFlightRefreshes.set(refreshKey, refreshPromise);

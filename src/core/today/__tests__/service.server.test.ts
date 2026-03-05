@@ -237,6 +237,8 @@ describe('resolveTodayTruth', () => {
     expect(payload.reason).toBe('cache_fresh');
     expect(payload.effective).toEqual({ mode: 'cache', reason: 'cache_fresh' });
     expect(payload.providerWarnings).toEqual(expect.arrayContaining(['today_cache_hit']));
+    expect(payload.debug).toMatchObject({ cacheHit: true, didLiveFetch: false });
+    expect(payload.debug?.cacheAgeMs).toBeGreaterThanOrEqual(0);
     expect(payload.userSafeReason).toBe('Using cached slate');
     expect(fetchEvents).not.toHaveBeenCalled();
     expect(fetchEventOdds).not.toHaveBeenCalled();
@@ -290,8 +292,21 @@ describe('resolveTodayTruth', () => {
     const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
 
     expect(payload.mode).toBe('live');
+    expect(payload.debug).toMatchObject({ cacheHit: false, didLiveFetch: true });
     expect(fetchEvents).toHaveBeenCalledTimes(1);
     expect(fetchEventOdds).toHaveBeenCalled();
+  });
+
+
+  it('returns cache miss warning when no cache fallback is available', async () => {
+    fetchEvents.mockRejectedValue(new Error('provider down'));
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['today_cache_miss']));
+    expect(payload.debug).toMatchObject({ cacheHit: false, didLiveFetch: true });
   });
 
   it('coalesces concurrent refresh requests into one live odds fetch', async () => {
