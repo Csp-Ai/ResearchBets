@@ -17,12 +17,23 @@ describe('/api/provider-health route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    vi.restoreAllMocks();
     process.env.LIVE_MODE = 'true';
     process.env.ODDS_API_KEY = 'test-key';
     process.env.ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4';
   });
 
-  it('returns canonical mode and reason from board adapter', async () => {
+  it('returns canonical mode and populated odds probe diagnostics', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: vi.fn().mockResolvedValue('[]')
+      })
+    );
     getBoardDataMock.mockResolvedValue({
       mode: 'cache',
       reason: 'provider_unavailable',
@@ -44,29 +55,41 @@ describe('/api/provider-health route', () => {
     expect(json.reason).toBe('provider_unavailable');
     expect(json.checks.odds).toMatchObject({
       provider: 'odds',
-      ok: false,
-      reason: 'timeout',
-      statusCode: null,
+      ok: true,
+      reason: null,
+      statusCode: 200,
       resolvedBaseHost: 'api.the-odds-api.com',
       runtime: 'nodejs',
-      errorName: 'Error',
-      safeMessage: 'Odds provider request timed out'
+      errorName: null,
+      errorCode: null,
+      safeMessage: 'Odds provider reachable'
     });
-    expect(json.providerErrors).toEqual(['Odds provider request timed out']);
   });
 
-  it('maps http status errors into reason codes without leaking secrets', async () => {
-    getBoardDataMock.mockRejectedValue(new Error('Request failed with status 401 for upstream endpoint'));
+  it('maps http status responses into reason codes without leaking secrets', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: new Headers({ 'content-type': 'text/plain' }),
+        text: vi.fn().mockResolvedValue('apiKey=test-key invalid')
+      })
+    );
 
     const { GET } = await import('../route');
     const response = await GET();
     const json = await response.json();
 
+    expect(getBoardDataMock).not.toHaveBeenCalled();
     expect(json.ok).toBe(false);
     expect(json.reason).toBe('provider_unavailable');
     expect(json.checks.odds.reason).toBe('http_401');
     expect(json.checks.odds.statusCode).toBe(401);
-    expect(json.providerErrors).toEqual(['Unauthorized response from odds provider']);
+    expect(json.checks.odds.safeMessage).toBe('Odds provider returned HTTP 401');
+    expect(JSON.stringify(json)).not.toContain('test-key');
+    expect(JSON.stringify(json)).not.toContain('apiKey=test-key');
   });
 
   it('returns bad_base_url when ODDS_API_BASE_URL is malformed', async () => {
@@ -84,20 +107,18 @@ describe('/api/provider-health route', () => {
   });
 
   it('classifies dns fetch failures via error code', async () => {
-    const dnsError = Object.assign(new Error('fetch failed'), { code: 'ENOTFOUND' });
-    getBoardDataMock.mockRejectedValue(dnsError);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(Object.assign(new Error('fetch failed'), { code: 'ENOTFOUND' })));
 
     const { GET } = await import('../route');
     const response = await GET();
     const json = await response.json();
 
     expect(json.checks.odds.reason).toBe('dns');
-    expect(json.checks.odds.errorName).toBe('Error');
+    expect(json.checks.odds.errorCode).toBe('ENOTFOUND');
   });
 
   it('classifies timeout failures via AbortError', async () => {
-    const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
-    getBoardDataMock.mockRejectedValue(abortError);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' })));
 
     const { GET } = await import('../route');
     const response = await GET();
@@ -108,8 +129,7 @@ describe('/api/provider-health route', () => {
   });
 
   it('classifies tls failures via error code', async () => {
-    const tlsError = Object.assign(new Error('fetch failed'), { code: 'CERT_HAS_EXPIRED', name: 'FetchError' });
-    getBoardDataMock.mockRejectedValue(tlsError);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(Object.assign(new Error('fetch failed'), { code: 'CERT_HAS_EXPIRED', name: 'FetchError' })));
 
     const { GET } = await import('../route');
     const response = await GET();

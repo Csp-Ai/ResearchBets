@@ -175,6 +175,7 @@ Use `docs/RELEASE.md` for the current step-by-step release runbook (v0.2.0+).
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/today` | Board payload aggregator with live→demo fallback and cache mode. |
+| `GET /api/odds/probe` | Direct The Odds API reachability probe (node runtime, safe diagnostics only). |
 | `GET /api/provider-health` | Fast provider configuration + reachability check for live mode diagnostics. |
 | `POST /api/slips/submit` | Store raw slip text + emit `slip_submitted` telemetry event. |
 | `POST /api/slips/extract` | Parse slip legs + leg insights and emit extraction events. |
@@ -289,9 +290,10 @@ Canonical names (Vercel/project settings should match exactly):
 Debug flow:
 
 1. Call `GET /api/env/status` first; expect `resolvedMode.reason=live_ok` before provider checks.
-2. Call `GET /api/provider-health`; inspect `checks.odds.reason` (`http_401`, `http_403`, `http_429`, `timeout`, `dns`, `tls`, `bad_base_url`, `edge_runtime_blocked`, `network`, `unknown`) plus safe metadata (`resolvedBaseHost`, `runtime`, `errorName`, `safeMessage`) and optional `statusCode`.
-3. If reason is `unknown`, use `errorName` + `safeMessage` to classify locally and then codify the new signature into provider-health so unknown remains a true last-resort bucket.
-4. After any Vercel env update, redeploy to apply new runtime values.
+2. Call `GET /api/odds/probe`; confirm direct `GET /v4/sports?apiKey=...` connectivity (`status`, `resolvedBaseHost`, `safeMessage`) without provider-registry indirection.
+3. Call `GET /api/provider-health`; inspect `checks.odds.reason` (`http_401`, `http_403`, `http_429`, `timeout`, `dns`, `tls`, `bad_base_url`, `edge_runtime_blocked`, `network`, `unknown`) plus safe metadata (`resolvedBaseHost`, `runtime`, `errorName`, `errorCode`, `safeMessage`) and optional `statusCode`.
+4. If reason is `unknown`, use `errorName` + `safeMessage` to classify locally and then codify the new signature into provider-health so unknown remains a true last-resort bucket.
+5. After any Vercel env update, redeploy to apply new runtime values and ensure vars exist in both Preview and Production environments when testing previews.
 
 ## Bettor account-to-settle loop (MVP)
 
