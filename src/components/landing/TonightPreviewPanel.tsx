@@ -4,8 +4,8 @@ import { getModePresentation } from '@/src/core/mode';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { spineFetch, spineHref } from '@/src/core/nervous/spineNavigation';
 import { buildSlateSummary } from '@/src/core/slate/slateEngine';
 import { generateRankedLeads, type BoardProp } from '@/src/core/slate/leadEngine';
 import { parseTodayEnvelope } from '@/src/core/today/todayApiAdapter';
@@ -42,9 +42,11 @@ export function TonightPreviewPanel() {
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
-      const href = appendQuery('/api/today', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, trace_id: nervous.trace_id });
       try {
-        const response = await fetch(href, { cache: 'no-store', signal: controller.signal });
+        const response = await spineFetch('/api/today', {
+          spine: nervous,
+          signal: controller.signal
+        });
         const payload = response.ok ? await response.json() : null;
         const parsedEnvelope = parseTodayEnvelope(payload);
         const candidate = parsedEnvelope.success && parsedEnvelope.data.ok ? parsedEnvelope.data.data : payload;
@@ -106,8 +108,8 @@ export function TonightPreviewPanel() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link href={appendQuery('/tonight', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: nervous.trace_id })} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Open Tonight</Link>
-          <Link href={appendQuery('/ingest', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: nervous.trace_id })} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Ingest Slip</Link>
+          <Link href={spineHref('/tonight', nervous)} className="rounded-xl border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Open Tonight</Link>
+          <Link href={spineHref('/ingest', nervous)} className="rounded-xl border border-white/20 px-3 py-1.5 text-sm text-slate-100">Ingest Slip</Link>
         </div>
         <p className="mt-2 text-xs text-slate-400">We surface high-probability leads; you confirm price on your book.</p>
       </div>

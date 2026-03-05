@@ -117,7 +117,7 @@ Common fix for failures: copy `.env.local.example`, set canonical keys above, th
 ## Repo Grounding
 
 - Canonical entry routing chain is `app/page.tsx` (canonical landing render), `app/cockpit/page.tsx` (shared alias render), and `app/landing/page.tsx` (compatibility redirect to `/`).
-- Keep one spine for internal navigation: `nervous.toHref()` + `appendQuery()` on route transitions.
+- Keep one spine for internal navigation: `spineHref()` / `nervous.toHref()` for links and `spineFetch()` for `/api/*` requests.
 
 ### Key routes (BEFORE / DURING / AFTER)
 
