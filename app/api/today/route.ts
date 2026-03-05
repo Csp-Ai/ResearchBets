@@ -9,7 +9,7 @@ import type { TodayPayload } from '@/src/core/today/types';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const { spine } = getTraceContext(request);
+    const { spine, warnings: contextWarnings } = getTraceContext(request);
 
     const forceRefresh = searchParams.get('refresh') === '1';
     const strictLive = searchParams.get('strict_live') === '1';
@@ -53,12 +53,16 @@ export async function GET(request: Request) {
       props: Array.isArray(payload.board) ? payload.board : []
     };
 
-    const resolvedMode = payload.provenance?.mode ?? payload.mode;
-    const responseSpine = { ...spine, mode: resolvedMode };
+    const responseSpine = { ...spine };
 
     const responseBody = {
       ok: true,
-      data: payload,
+      data: contextWarnings.length > 0
+        ? {
+          ...payload,
+          providerWarnings: [...(payload.providerWarnings ?? []), ...contextWarnings]
+        }
+        : payload,
       trace_id: responseSpine.trace_id,
       landing: payload.landing,
       spine: responseSpine,

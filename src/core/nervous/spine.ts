@@ -26,6 +26,17 @@ export const SpineSchema = z.object({
 });
 
 const DEFAULT_TZ = 'America/Phoenix';
+const MODE_VALUES: Mode[] = ['live', 'cache', 'demo'];
+
+const TZ_ALIASES: Record<string, string> = {
+  ET: 'America/New_York',
+  EST: 'America/New_York',
+  CT: 'America/Chicago',
+  MT: 'America/Denver',
+  MST: 'America/Phoenix',
+  PT: 'America/Los_Angeles',
+  PST: 'America/Los_Angeles',
+};
 
 const todayInTz = (tz: string) => {
   const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -61,17 +72,75 @@ export const DEFAULT_SPINE: Spine = {
   tab: undefined
 };
 
-export function normalizeSpine(input: unknown): Spine {
+export type SpineNormalizationResult = {
+  spine: Spine;
+  warnings: string[];
+};
+
+function resolveTz(input: string | undefined, warnings: string[]): string {
+  if (!input) return DEFAULT_SPINE.tz;
+  const direct = input.trim();
+  const alias = TZ_ALIASES[direct.toUpperCase()];
+  if (alias) {
+    warnings.push(`tz_invalid:${direct}->${alias}`);
+    return alias;
+  }
+
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: direct }).format(new Date());
+    return direct;
+  } catch {
+    warnings.push(`tz_invalid:${direct}->${DEFAULT_SPINE.tz}`);
+    return DEFAULT_SPINE.tz;
+  }
+}
+
+function resolveDate(input: string | undefined, tz: string, warnings: string[]): string {
+  const fallback = todayInTz(tz);
+  if (!input) return fallback;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
+  warnings.push(`date_invalid:${input}->${fallback}`);
+  return fallback;
+}
+
+function resolveMode(input: string | undefined, warnings: string[]): Mode {
+  if (!input) return DEFAULT_SPINE.mode;
+  const lowered = input.toLowerCase();
+  if (MODE_VALUES.includes(lowered as Mode)) return lowered as Mode;
+  warnings.push(`mode_invalid:${input}->${DEFAULT_SPINE.mode}`);
+  return DEFAULT_SPINE.mode;
+}
+
+export function normalizeSpineWithWarnings(input: unknown): SpineNormalizationResult {
   const record = asRecord(input);
+  const warnings: string[] = [];
   const trace_id = clean(record.trace_id ?? record.traceId ?? record.trace) ?? undefined;
   const sport = (clean(record.sport) ?? DEFAULT_SPINE.sport).toUpperCase();
-  const tz = clean(record.tz) ?? DEFAULT_SPINE.tz;
-  const date = clean(record.date) ?? todayInTz(tz);
-  const modeInput = clean(record.mode);
-  const mode: Mode = modeInput === 'demo' || modeInput === 'cache' || modeInput === 'live' ? modeInput : DEFAULT_SPINE.mode;
+  const tz = resolveTz(clean(record.tz), warnings);
+  const date = resolveDate(clean(record.date), tz, warnings);
+  const mode = resolveMode(clean(record.mode), warnings);
   const tab = clean(record.tab) ?? undefined;
 
-  return SpineSchema.parse({ trace_id, sport, tz, date, mode, tab });
+  const parse = SpineSchema.safeParse({ trace_id, sport, tz, date, mode, tab });
+  if (parse.success) return { spine: parse.data, warnings };
+
+  warnings.push('spine_invalid:defaulted');
+  return {
+    spine: {
+      ...DEFAULT_SPINE,
+      sport,
+      trace_id,
+      tab,
+      tz,
+      mode,
+      date,
+    },
+    warnings,
+  };
+}
+
+export function normalizeSpine(input: unknown): Spine {
+  return normalizeSpineWithWarnings(input).spine;
 }
 
 export function parseSpineFromSearch(sp: URLSearchParams): Partial<Spine> {
