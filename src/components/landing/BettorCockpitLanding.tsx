@@ -72,7 +72,7 @@ export function BettorCockpitLanding() {
     };
     void load();
     return () => controller.abort();
-  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz, nervous.trace_id]);
+  }, [nervous]);
 
   const rows = useMemo(() => toRows(today), [today]);
   const selectedIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);

@@ -60,7 +60,7 @@ export function TonightPreviewPanel() {
 
     void load();
     return () => controller.abort();
-  }, [nervous.date, nervous.sport, nervous.tz, nervous.trace_id]);
+  }, [nervous]);
 
   const slate = useMemo(() => buildSlateSummary(today), [today]);
   const leads = useMemo(() => generateRankedLeads(asBoardProps(today), slate, {

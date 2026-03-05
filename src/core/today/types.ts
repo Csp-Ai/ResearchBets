@@ -146,7 +146,6 @@ export type TodayPayload = {
   providerWarnings?: string[];
   debug?: {
     step: string;
-    errorName: string;
     statusCode?: number;
     hint: string;
   };

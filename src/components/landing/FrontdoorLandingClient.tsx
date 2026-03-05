@@ -98,7 +98,7 @@ export function FrontdoorLandingClient() {
     };
     void load();
     return () => controller.abort();
-  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz]);
+  }, [nervous]);
 
   useEffect(() => {
     setLatestTraceId(getLatestTraceId());
@@ -169,7 +169,7 @@ export function FrontdoorLandingClient() {
     return () => {
       cancelled = true;
     };
-  }, [activeTraceId, demoTraceIndex, today.mode]);
+  }, [activeTraceId, demoTraceIndex, nervous, today.mode]);
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
