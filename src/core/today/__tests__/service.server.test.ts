@@ -55,13 +55,34 @@ describe('resolveTodayTruth', () => {
     expect(payload.landing?.reason).toBe('live_ok');
   });
 
-  it('returns demo payload reason for explicit demo mode', async () => {
+  it('returns demo payload for explicit demo mode without fatal provider errors', async () => {
     const { resolveTodayTruth } = await import('../service.server');
     const payload = await resolveTodayTruth({ mode: 'demo', sport: 'NBA' });
 
     expect(payload.mode).toBe('demo');
     expect(payload.reason).toBe('demo_requested');
+    expect(payload.landing?.mode).toBe('demo');
     expect(payload.landing?.reason).toBe('demo');
+    expect(payload.providerErrors).toEqual([]);
+    expect(payload.providerWarnings).toContain('demo_requested');
+    expect(payload.providerHealth?.find((provider) => provider.provider === 'the-odds-api')?.ok).toBe(true);
+    expect(payload.providerHealth?.find((provider) => provider.provider === 'the-odds-api')?.missingKey).toBe(false);
+  });
+
+  it('falls back to demo with truthful landing reason when live board is non-viable', async () => {
+    fetchEvents.mockResolvedValue({ events: [] });
+    fetchEventOdds.mockResolvedValue({ platformLines: [] });
+    fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.reason).toBe('provider_unavailable');
+    expect(payload.landing?.mode).toBe('demo');
+    expect(payload.landing?.reason).toBe('demo');
+    expect(payload.providerErrors).toEqual([]);
+    expect(payload.providerWarnings).toContain('provider_unavailable');
   });
 
   it('returns strict live empty payload when live board is not viable', async () => {
@@ -76,5 +97,8 @@ describe('resolveTodayTruth', () => {
     expect(payload.reason).toBe('strict_live_empty');
     expect(payload.games).toEqual([]);
     expect(payload.board).toEqual([]);
+    expect(payload.providerErrors).toEqual(['strict_live_empty']);
+    expect(payload.providerWarnings).toEqual([]);
+    expect(payload.landing?.reason).toBe('provider_unavailable');
   });
 });
