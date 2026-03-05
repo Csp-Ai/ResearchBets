@@ -35,7 +35,7 @@ export function HeroProofCard({ slip, board, reasons, feedsOk, logMode }: HeroPr
   const detailReasons = (reasons && reasons.length > 0 ? reasons : report.reasons).slice(0, 2);
 
   return (
-    <aside className="hero-proof-card" data-testid="hero-proof-card" aria-live="polite">
+    <aside className={`hero-proof-card ${slip.length === 0 ? 'secondary' : ''}`} data-testid="hero-proof-card" aria-live="polite">
       {slip.length > 0 ? (
         <>
           <p className="hero-proof-eyebrow">Weakest leg (right now)</p>

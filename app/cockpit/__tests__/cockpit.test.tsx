@@ -28,8 +28,8 @@ describe('cockpit route client', () => {
     renderWithProviders(<CockpitLandingClient />);
 
     expect(screen.getByText('One leg breaks.')).toBeTruthy();
-    expect(screen.getByText("Tonight's Board")).toBeTruthy();
+    expect(screen.getAllByText("Tonight's Board").length).toBeGreaterThan(0);
     expect(screen.getByText('Draft Ticket')).toBeTruthy();
-    expect(await screen.findByText(/J. Tatum/)).toBeTruthy();
+    expect((await screen.findAllByText(/J. Tatum/)).length).toBeGreaterThan(0);
   });
 });

@@ -43,7 +43,7 @@ describe('cockpit route integration', () => {
     window.history.replaceState({}, '', '/cockpit?sport=NBA&tz=America%2FPhoenix&date=2026-02-26');
 
     render(<NervousSystemProvider><CockpitLandingClient /></NervousSystemProvider>);
-    await screen.findByText(/J. Tatum/);
+    await screen.findAllByText(/J. Tatum/);
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('mode=live'), expect.any(Object));
   });
@@ -60,7 +60,7 @@ describe('cockpit route integration', () => {
     }));
 
     renderWithProviders(<CockpitLandingClient />);
-    expect(await screen.findByText(/J. Tatum/)).toBeTruthy();
+    expect((await screen.findAllByText(/J. Tatum/)).length).toBeGreaterThan(0);
   });
 
   it('switching sport updates url and refetches board request', async () => {
@@ -71,7 +71,7 @@ describe('cockpit route integration', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     renderWithProviders(<CockpitLandingClient />);
-    await screen.findByText(/J. Tatum/);
+    await screen.findAllByText(/J. Tatum/);
 
     fireEvent.click(screen.getByRole('button', { name: 'NFL' }));
     expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining('sport=NFL'));
@@ -85,9 +85,9 @@ describe('cockpit route integration', () => {
     }) as unknown as Response));
 
     renderWithProviders(<CockpitLandingClient />);
-    await screen.findByText(/J. Tatum/);
+    await screen.findAllByText(/J. Tatum/);
 
-    fireEvent.click(screen.getByText(/J. Tatum/));
+    fireEvent.click(screen.getAllByText(/J. Tatum/)[1]!);
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/game/g1?'));
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('highlight=p1'));
 
@@ -103,7 +103,7 @@ describe('cockpit route integration', () => {
     }) as unknown as Response));
 
     renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
-    await screen.findByText(/J. Tatum/);
+    await screen.findAllByText(/J. Tatum/);
 
     fireEvent.click(screen.getByRole('button', { name: 'Demo' }));
     expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining('mode=demo'));
@@ -283,6 +283,46 @@ describe('cockpit route integration', () => {
     expect(fragilityCard.compareDocumentPosition(proofCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('renders compact preview strip with board pills', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-strip', data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
+        { id: 'p1', player: 'S. Curry', market: '3PM', line: '4.5', odds: '-115', gameId: 'g1', matchup: 'LAL @ GSW', startTime: '10:00 PM' },
+        { id: 'p2', player: 'L. James', market: 'points', line: '27.5', odds: '-110', gameId: 'g1', matchup: 'LAL @ GSW', startTime: '10:00 PM' }
+      ] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    expect(await screen.findByText("Tonight's Board Preview")).toBeTruthy();
+    expect(screen.getAllByText(/S. Curry/).length).toBeGreaterThan(0);
+  });
+
+  it('does not render orphan bottom paste slip cta', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-no-footer', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    await screen.findByTestId('hero-proof-card');
+    expect(screen.queryByRole('contentinfo')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Paste Slip$/ })).toBeNull();
+  });
+
+  it('shows TicketEmptyCoach at zero legs and hides after add', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-coach', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
+        { id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }
+      ] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    expect(await screen.findByTestId('ticket-empty-coach')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    await waitFor(() => expect(screen.queryByTestId('ticket-empty-coach')).toBeNull());
+  });
+
   it('invokes fly-to-ticket when adding a leg', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
@@ -292,7 +332,7 @@ describe('cockpit route integration', () => {
     }) as unknown as Response));
 
     renderWithProviders(<CockpitLandingClient />);
-    await screen.findByText(/J. Tatum/);
+    await screen.findAllByText(/J. Tatum/);
     fireEvent.click(screen.getByRole('button', { name: '+' }));
     expect(flyToTicketMock).toHaveBeenCalled();
   });

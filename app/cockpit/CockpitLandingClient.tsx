@@ -6,9 +6,10 @@ import { useRouter, usePathname } from 'next/navigation';
 
 import { LiveCredibilityStrip } from '@/app/cockpit/components/LiveCredibilityStrip';
 import { AttemptsChips } from '@/src/components/landing/AttemptsChips';
-import { BoardFragilityPreview } from '@/src/components/landing/BoardFragilityPreview';
-import { HeroProofCard } from '@/src/components/landing/HeroProofCard';
 import { NervousPulse } from '@/src/components/landing/NervousPulse';
+import { PreviewStrip } from '@/src/components/landing/PreviewStrip';
+import { ProofStack } from '@/src/components/landing/ProofStack';
+import { TicketEmptyCoach } from '@/src/components/landing/TicketEmptyCoach';
 import { flyToTicket } from '@/src/components/landing/flyToTicket';
 import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
@@ -23,12 +24,6 @@ import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
 
 import './cockpit.css';
 
-const ACCORDIONS = [
-  { id: 'what', title: 'What this engine flags', content: 'Correlation pressure, fragility concentration, and weakest-leg breakdown in a deterministic simulation pass.' },
-  { id: 'how', title: 'How simulation works', content: 'Stress test stages move through Before → Analyze → During → After with run continuity on trace_id.' },
-  { id: 'limits', title: 'Mode limitations', content: 'Live endpoints can degrade to cache/demo while keeping board and ticket usable.' }
-];
-
 type Stage = 'Before' | 'Analyze' | 'During' | 'After';
 
 const COCKPIT_MARKETS: MarketType[] = ['spread', 'total', 'moneyline', 'ra', 'points', 'threes', 'rebounds', 'assists', 'pra'];
@@ -37,7 +32,7 @@ const toMarketType = (market: string): MarketType => {
   return (COCKPIT_MARKETS.includes(normalized as MarketType) ? normalized : 'points') as MarketType;
 };
 
-export default function CockpitLandingClient() {
+export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const cockpitRef = useRef<HTMLElement | null>(null);
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
   const saveInputRef = useRef<HTMLInputElement | null>(null);
@@ -46,8 +41,15 @@ export default function CockpitLandingClient() {
   const router = useRouter();
   const pathname = usePathname();
   const nervous = useNervousSystem();
-  const [selectedSport, setSelectedSport] = useState<'NBA' | 'NFL'>(() => (nervous.sport === 'NFL' ? 'NFL' : 'NBA'));
-  const [selectedMode, setSelectedMode] = useState<'live' | 'demo'>(() => (nervous.mode === 'demo' ? 'demo' : 'live'));
+  const [selectedSport, setSelectedSport] = useState<'NBA' | 'NFL'>(() => {
+    const fromParams = typeof searchParams?.sport === 'string' ? searchParams.sport.toUpperCase() : '';
+    if (fromParams === 'NFL') return 'NFL';
+    return nervous.sport === 'NFL' ? 'NFL' : 'NBA';
+  });
+  const [selectedMode, setSelectedMode] = useState<'live' | 'demo'>(() => {
+    if (searchParams?.mode === 'demo') return 'demo';
+    return nervous.mode === 'demo' ? 'demo' : 'live';
+  });
   const {
     board,
     today,
@@ -82,9 +84,9 @@ export default function CockpitLandingClient() {
     saveModalOpen: false,
     accountOpen: false,
     tzOpen: false,
-    tz: 'ET',
-    openAccordionIds: new Set<string>()
+    tz: 'ET'
   });
+  const [ticketHeaderPulse, setTicketHeaderPulse] = useState(false);
 
 
   const onSetMode = (mode: 'live' | 'demo') => {
@@ -181,6 +183,12 @@ export default function CockpitLandingClient() {
     if (ui.saveModalOpen) saveInputRef.current?.focus();
   }, [ui.saveModalOpen]);
 
+  useEffect(() => {
+    if (!ticketHeaderPulse) return;
+    const timer = window.setTimeout(() => setTicketHeaderPulse(false), 550);
+    return () => window.clearTimeout(timer);
+  }, [ticketHeaderPulse]);
+
   const onAdd = (leg: (typeof board)[number], triggerEl?: HTMLElement | null) => {
     if (slipIds.has(leg.id) || slip.length >= 6) return;
     addLeg({
@@ -191,6 +199,7 @@ export default function CockpitLandingClient() {
       odds: leg.odds,
       game: leg.matchup
     });
+    setTicketHeaderPulse(true);
     setPulseToken((v) => v + 1);
     const target = ticketBadgeRef.current ?? mobileTicketCtaRef.current;
     flyToTicket({ from: triggerEl ?? null, to: target ?? null });
@@ -226,15 +235,6 @@ export default function CockpitLandingClient() {
     const gap = `${gapValue > 0 ? '+' : ''}${gapValue}%`;
     return { hitEstimate, breakEven, gap };
   }, [slip]);
-
-  const toggleAccordion = (id: string) => {
-    setUi((prev) => {
-      const next = new Set(prev.openAccordionIds);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return { ...prev, openAccordionIds: next };
-    });
-  };
 
   const { latestStage, statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
 
@@ -345,6 +345,13 @@ export default function CockpitLandingClient() {
 
       <section id="hero" aria-labelledby="hero-headline">
         <NervousPulse burstToken={pulseToken} />
+        <PreviewStrip
+          rows={board}
+          statusLabel={neutralStatus}
+          buildHref={appendQuery(nervous.toHref('/today'), { trace_id: analysis.traceId || nervous.trace_id })}
+          pasteHref={appendQuery(nervous.toHref('/ingest'), { trace_id: analysis.traceId || nervous.trace_id })}
+          onPaste={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}
+        />
         <h1 className="hero-headline" id="hero-headline">One leg breaks.<br /><span className="hero-headline-accent">Find it first.</span></h1>
         <p className="hero-sub">Stress your ticket before lock. Spot fragility, correlation pressure, and weakest-leg risk while the board is still moving.</p>
         <div className="hero-controls">
@@ -363,10 +370,9 @@ export default function CockpitLandingClient() {
           <button className="btn-secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
           <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
         </div>
-        {board.length > 0 ? <BoardFragilityPreview rows={board} /> : null}
-        <HeroProofCard
-          slip={slip}
+        <ProofStack
           board={board}
+          slip={slip}
           feedsOk={provenance.mode === 'live' && !strictLiveUnavailable}
           logMode={provenance.mode === 'cache' ? 'cached' : provenance.mode === 'live' ? 'live' : 'heuristic'}
           reasons={analysis.reasons}
@@ -437,7 +443,7 @@ export default function CockpitLandingClient() {
           </section>
           <div className="ticket-body">
             {legCount === 0 ? (
-              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded. Add 2–4 legs to isolate pressure.</div></div>
+              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded.</div><TicketEmptyCoach sampleHref={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
             ) : (
               <div className="ticket-legs" role="list">
                 {slip.map((leg) => (
@@ -479,14 +485,32 @@ export default function CockpitLandingClient() {
       </section>
 
 
-      <section className="accordions" aria-label="Cockpit details">
-        {ACCORDIONS.map((item) => {
-          const open = ui.openAccordionIds.has(item.id);
-          return (<article className={`accordion ${open ? 'open' : ''}`} key={item.id}><button className="accordion-trigger" aria-expanded={open} onClick={() => toggleAccordion(item.id)}>{item.title}</button>{open && <div className="accordion-content">{item.content}</div>}</article>);
-        })}
+      <section className="how-it-works" aria-label="How it works">
+        <article>
+          <h3>Tonight&apos;s Board</h3>
+          <ul>
+            <li>Scan active props with odds and recent attempts context.</li>
+            <li>Add candidate legs directly into the draft ticket.</li>
+          </ul>
+          <Link href={appendQuery(nervous.toHref('/today'), { trace_id: analysis.traceId || nervous.trace_id })}>Open</Link>
+        </article>
+        <article>
+          <h3>Stress Test</h3>
+          <ul>
+            <li>Run deterministic fragility + correlation diagnostics.</li>
+            <li>Expose the weakest leg before lock.</li>
+          </ul>
+          <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })}>Open</Link>
+        </article>
+        <article>
+          <h3>Track Outcomes</h3>
+          <ul>
+            <li>Follow run continuity by trace_id.</li>
+            <li>Review outcome events and postmortem-ready notes.</li>
+          </ul>
+          <Link href={appendQuery(nervous.toHref('/track'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })}>Open</Link>
+        </article>
       </section>
-
-      <footer className="cockpit-footer"><button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Slip</button></footer>
 
       <section className="mobile-slip-bar" aria-label="Slip Bar" data-testid="mobile-slip-bar">
         <div>
