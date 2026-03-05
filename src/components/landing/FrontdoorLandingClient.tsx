@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { LandingTerminalShell } from '@/src/components/landing/LandingTerminalShell';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { spineFetch, spineHref } from '@/src/core/nervous/spineNavigation';
 import { getModePresentation } from '@/src/core/mode';
@@ -19,6 +18,8 @@ import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { buildCanonicalBoard, type BoardProp } from '@/src/core/today/boardModel';
 import { computeSlipIntelligence } from '@/src/core/slips/slipIntelligence';
 import { Chip, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
+import { CockpitHeader } from '@/src/components/cockpit/CockpitHeader';
+import { CockpitShell } from '@/src/components/cockpit/CockpitShell';
 
 type TodayPayload = TodayPayloadClient;
 type SlipToggleProp = { id: string; player: string; market: string; line: string; odds: string };
@@ -64,7 +65,7 @@ export function FrontdoorLandingClient() {
   const { slip, addLeg, removeLeg, updateLeg } = useDraftSlip();
   const [today, setToday] = useState<TodayPayload>(EMPTY_TODAY);
   const [loading, setLoading] = useState(true);
-  const [activeTraceId, setActiveTraceId] = useState<string>(() => nervous.trace_id ?? crypto.randomUUID());
+  const [activeTraceId, setActiveTraceId] = useState<string>(() => nervous.trace_id ?? '');
   const [latestTraceId, setLatestTraceId] = useState<string | null>(null);
   const [slipText, setSlipText] = useState('Jayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)\nLeBron James over 6.5 rebounds (-105)');
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -74,7 +75,7 @@ export function FrontdoorLandingClient() {
   const [demoAliveIndex, setDemoAliveIndex] = useState(0);
   const [calibrationRuns, setCalibrationRuns] = useState(0);
 
-  const initialTraceIdRef = useRef<string>(nervous.trace_id ?? crypto.randomUUID());
+  const initialTraceIdRef = useRef<string | undefined>(nervous.trace_id);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -173,7 +174,7 @@ export function FrontdoorLandingClient() {
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
-  const buildSpineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => spineHref(path, nervous, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
+  const buildSpineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => spineHref(path, nervous, { ...(activeTraceId ? { trace_id: activeTraceId } : {}), ...(extras ?? {}) }), [activeTraceId, nervous]);
   const board = useMemo(() => {
     if ((today.board ?? []).length > 0) return buildCanonicalBoard(today).slice(0, 10);
     return buildCanonicalBoard(createDemoTodayPayload()).slice(0, 10);
@@ -252,14 +253,25 @@ export function FrontdoorLandingClient() {
   const modePresentation = getModePresentation(resolvedMode);
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-2 pb-6" style={{ minHeight: 720 }}>
-      <LandingTerminalShell
-        mode={resolvedMode}
-        reason={today.reason}
+    <CockpitShell>
+      <CockpitHeader
         title="Detect fragile parlays before they burn you."
-        subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
-        statusSlot={<RunStatusPill traceId={activeTraceId} mode={resolvedMode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
-      >
+        purpose={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
+        ctas={<RunStatusPill traceId={activeTraceId} mode={resolvedMode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
+        strip={{
+          mode: today.provenance?.mode ?? today.mode,
+          reason: today.provenance?.reason ?? today.reason,
+          updatedAt: today.provenance?.generatedAt ?? today.generatedAt,
+          providerSummary: {
+            okCount: today.providerHealth?.filter((provider) => provider.ok).length ?? 0,
+            total: today.providerHealth?.length ?? 0,
+            degraded: Boolean(today.reason) || Boolean(today.providerHealth?.some((provider) => !provider.ok))
+          },
+          traceId: activeTraceId
+        }}
+      />
+
+      <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-2.5 sm:p-3" style={{ minHeight: 720 }}>
         <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
           <Chip variant="neutral" title={modePresentation.tooltip}>{modePresentation.label}</Chip>
           <Chip className="text-cyan-100">Fast add · {fastAddState}</Chip>
@@ -408,7 +420,7 @@ export function FrontdoorLandingClient() {
             <textarea value={slipText} onChange={(event) => setSlipText(event.target.value)} className="mt-2 h-16 w-full rounded-xl border border-white/15 bg-slate-950/80 p-2 text-xs text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40" aria-label="Slip text" />
           </details>
         </Panel>
-      </LandingTerminalShell>
-    </section>
+      </section>
+    </CockpitShell>
   );
 }
