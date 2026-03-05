@@ -8,7 +8,7 @@ export interface GameLog {
   opponentTeamId?: string;
   eventId?: string;
   gameDate: string;
-  stats: Partial<Record<'points' | 'rebounds' | 'assists' | 'threes' | 'minutes', number>>;
+  stats: Partial<Record<'points' | 'rebounds' | 'assists' | 'threes' | 'minutes' | 'threePointAttempts' | 'fieldGoalAttempts' | 'usageRate', number>>;
 }
 
 export interface SeasonAverages {
@@ -58,12 +58,18 @@ const normalizeLog = (row: Record<string, unknown>, playerIdHint?: string): Game
   const assists = toNumber(row.Assists ?? row.assists ?? row.AST);
   const threes = toNumber(row.ThreePointersMade ?? row.threes ?? row['3PM']);
   const minutes = toNumber(row.Minutes ?? row.minutes ?? row.MinutesPlayed ?? row['MIN']);
+  const threePointAttempts = toNumber(row.ThreePointAttempts ?? row.ThreePointersAttempted ?? row.threePointAttempts ?? row['3PA']);
+  const fieldGoalAttempts = toNumber(row.FieldGoalsAttempted ?? row.FieldGoalAttempts ?? row.fieldGoalAttempts ?? row.FGA);
+  const usageRate = toNumber(row.UsageRate ?? row.usageRate ?? row.USG ?? row.USGPercent);
 
   if (points !== undefined) stats.points = points;
   if (rebounds !== undefined) stats.rebounds = rebounds;
   if (assists !== undefined) stats.assists = assists;
   if (threes !== undefined) stats.threes = threes;
   if (minutes !== undefined) stats.minutes = minutes;
+  if (threePointAttempts !== undefined) stats.threePointAttempts = threePointAttempts;
+  if (fieldGoalAttempts !== undefined) stats.fieldGoalAttempts = fieldGoalAttempts;
+  if (usageRate !== undefined) stats.usageRate = usageRate;
 
   return {
     playerId,

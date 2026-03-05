@@ -48,14 +48,22 @@ describe('normalizeTodayPayload', () => {
     const payload = normalizeTodayPayload({
       mode: 'live',
       games: [{ id: 'g1', matchup: 'A @ B', startTime: '7:00 PM' }],
-      board: [{ id: 'p1', player: 'A', market: 'pra', line: '31.5', odds: '-110', hitRateL10: 63, gameId: 'g1', minutesL1: 34, minutesL3Avg: 33.2, l5Avg: 29.7, l5Source: 'live', minutesSource: 'cached' }]
+      board: [{ id: 'p1', player: 'A', market: 'pra', line: '31.5', odds: '-110', hitRateL10: 63, gameId: 'g1', minutesL1: 34, minutesL3Avg: 33.2, l5Avg: 29.7, l10Avg: 31.2, threesAttL1: 7, threesAttL3Avg: 6.3, threesAttL5Avg: 6.6, fgaL1: 18, fgaL3Avg: 17.1, fgaL5Avg: 16.8, l5Source: 'live', minutesSource: 'cached', attemptsSource: 'heuristic' }]
     });
 
     expect(payload.board[0]?.minutesL1).toBe(34);
     expect(payload.board[0]?.minutesL3Avg).toBe(33.2);
     expect(payload.board[0]?.l5Avg).toBe(29.7);
+    expect(payload.board[0]?.l10Avg).toBe(31.2);
+    expect(payload.board[0]?.threesAttL1).toBe(7);
+    expect(payload.board[0]?.threesAttL3Avg).toBe(6.3);
+    expect(payload.board[0]?.threesAttL5Avg).toBe(6.6);
+    expect(payload.board[0]?.fgaL1).toBe(18);
+    expect(payload.board[0]?.fgaL3Avg).toBe(17.1);
+    expect(payload.board[0]?.fgaL5Avg).toBe(16.8);
     expect(payload.board[0]?.l5Source).toBe('live');
     expect(payload.board[0]?.minutesSource).toBe('cached');
+    expect(payload.board[0]?.attemptsSource).toBe('heuristic');
   });
 
   it('builds board from legacy propsPreview', () => {

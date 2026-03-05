@@ -26,10 +26,12 @@ export type TerminalBoardRow = {
   edgeDelta?: number;
   riskTag?: 'stable' | 'watch';
   l5Avg?: number;
+  threesAttL5Avg?: number;
   l5Source?: 'live' | 'cached' | 'demo' | 'heuristic';
   minutesL1?: number;
   minutesL3Avg?: number;
   minutesSource?: 'live' | 'cached' | 'demo' | 'heuristic';
+  attemptsSource?: 'live' | 'cached' | 'demo' | 'heuristic';
   roleConfidence?: 'high' | 'med' | 'low';
   roleReasons?: string[];
   deadLegRisk?: 'low' | 'med' | 'high';
@@ -87,7 +89,8 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
                   {typeof row.l5Avg === 'number' ? <Badge variant="neutral" size="sm">L5 {row.l5Avg.toFixed(1)} ({row.l5Source ?? 'heuristic'})</Badge> : null}
                   {typeof row.minutesL3Avg === 'number' ? <Badge variant="neutral" size="sm">MIN L3 {row.minutesL3Avg.toFixed(1)} ({row.minutesSource ?? 'heuristic'})</Badge> : null}
                   {row.roleConfidence ? <Badge variant={row.roleConfidence === 'high' ? 'success' : row.roleConfidence === 'med' ? 'warning' : 'danger'} size="sm" title={row.roleReasons?.join(', ')}>Role {row.roleConfidence}</Badge> : null}
-                  {row.deadLegRisk ? <Badge variant={row.deadLegRisk === 'high' ? 'danger' : row.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm" title={row.deadLegReasons?.join(', ')}>Dead-leg {row.deadLegRisk}</Badge> : null}
+                  {typeof row.threesAttL5Avg === 'number' && row.market === 'threes' ? <Badge variant="neutral" size="sm">3PA L5 {row.threesAttL5Avg.toFixed(1)} ({row.attemptsSource ?? 'heuristic'})</Badge> : null}
+                  {row.deadLegRisk ? <Badge variant={row.deadLegRisk === 'high' ? 'danger' : row.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm">Dead-leg {row.deadLegRisk}: {row.deadLegReasons?.[0] ?? 'Role volatility'}</Badge> : null}
                   {mapMarketToFeaturedStatCategory(row.market) ? <Badge variant="info" size="sm">{mapMarketToFeaturedStatCategory(row.market)?.toUpperCase()}</Badge> : null}
                 </div>
               </div>
