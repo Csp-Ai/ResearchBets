@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-import { appendQuery } from '@/src/components/landing/navigation';
 import { BelowFoldAccordions } from '@/src/components/landing/accordions/BelowFoldAccordions';
 import { SAMPLE_SLATE, SAMPLE_SLIP_IDS } from '@/src/components/landing/sampleSlate';
 import { SaveAnalysisModal } from '@/src/components/landing/modals/SaveAnalysisModal';
@@ -17,6 +16,7 @@ import { Topbar } from '@/src/components/landing/topbar/Topbar';
 import { RunTraceCompact } from '@/src/components/landing/trace/RunTraceCompact';
 import { RunTraceStrip } from '@/src/components/landing/trace/RunTraceStrip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { spineFetch, spineHref } from '@/src/core/nervous/spineNavigation';
 import type { TodayPayload } from '@/src/core/today/types';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
@@ -59,8 +59,7 @@ export function BettorCockpitLanding() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const href = appendQuery('/api/today', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: nervous.trace_id });
-        const response = await fetch(href, { signal: controller.signal, cache: 'no-store' });
+        const response = await spineFetch('/api/today', { spine: nervous, signal: controller.signal });
         const payload = (await response.json()) as { data?: TodayPayload };
         const next = payload.data ?? null;
         setToday(next);
@@ -120,7 +119,7 @@ export function BettorCockpitLanding() {
 
         <BelowFoldAccordions />
 
-        <Link href={appendQuery(nervous.toHref('/today'), { tab: 'board' })} className="text-xs text-cyan-300 underline">Open full board with current spine</Link>
+        <Link href={spineHref('/today', nervous, { tab: 'board' })} className="text-xs text-cyan-300 underline">Open full board with current spine</Link>
       </main>
 
       <MobileStickyTicketBar legCount={slip.length} onOpen={() => setSheetOpen(true)} />

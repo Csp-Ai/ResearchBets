@@ -4,10 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { appendQuery } from '@/src/components/landing/navigation';
 import { LandingTerminalShell } from '@/src/components/landing/LandingTerminalShell';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { deriveModePolicy, getModePresentation, persistMode, readPersistedMode } from '@/src/core/mode';
+import { spineFetch, spineHref } from '@/src/core/nervous/spineNavigation';
+import { getModePresentation } from '@/src/core/mode';
 import { parseEventEnvelopeClient, parseTodayEnvelopeClient, parseTodayPayloadClient, type EventEnvelopeClient, type TodayPayloadClient } from '@/src/core/contracts/clientEnvelopes';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -17,7 +17,6 @@ import { QuickSlipRail } from '@/src/components/landing/QuickSlipRail';
 import { computeInlineSlipWarnings, getLatestTraceId } from '@/src/core/run/store';
 import { RunStatusPill } from '@/src/components/trace/RunStatusPill';
 import { buildCanonicalBoard, type BoardProp } from '@/src/core/today/boardModel';
-import { withTraceId } from '@/src/core/trace/queryTrace';
 import { computeSlipIntelligence } from '@/src/core/slips/slipIntelligence';
 import { Chip, Panel, PanelHeader, SectionTitle, SlipRow } from '@/src/components/landing/ui';
 
@@ -81,9 +80,11 @@ export function FrontdoorLandingClient() {
     const controller = new AbortController();
     setLoading(true);
     const load = async () => {
-      const href = appendQuery('/api/today', { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: initialTraceIdRef.current });
       try {
-        const response = await fetch(href, { cache: 'no-store', signal: controller.signal });
+        const response = await spineFetch('/api/today', {
+          spine: { ...nervous, trace_id: initialTraceIdRef.current },
+          signal: controller.signal
+        });
         const payload = response.ok ? await response.json() : null;
         const normalized = normalizeTodayResult(payload);
         setToday(normalized);
@@ -137,8 +138,10 @@ export function FrontdoorLandingClient() {
     let cancelled = false;
     const pollFeed = async () => {
       try {
-        const href = appendQuery('/api/events', { trace_id: activeTraceId, limit: 16 });
-        const response = await fetch(href, { cache: 'no-store' });
+        const response = await spineFetch('/api/events', {
+          spine: { ...nervous, trace_id: activeTraceId },
+          query: { limit: 16 }
+        });
         const payload = response.ok ? await response.json() : null;
         const parsedFeed = Array.isArray(payload?.events)
           ? payload.events
@@ -170,7 +173,7 @@ export function FrontdoorLandingClient() {
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
   const gameById = useMemo(() => new Map(today.games.map((game) => [game.id, game])), [today.games]);
-  const spineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => nervous.toHref(path, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
+  const buildSpineHref = useCallback((path: string, extras?: Record<string, string | number | undefined>) => spineHref(path, nervous, { trace_id: activeTraceId, ...(extras ?? {}) }), [activeTraceId, nervous]);
   const board = useMemo(() => {
     if ((today.board ?? []).length > 0) return buildCanonicalBoard(today).slice(0, 10);
     return buildCanonicalBoard(createDemoTodayPayload()).slice(0, 10);
@@ -188,9 +191,9 @@ export function FrontdoorLandingClient() {
     return Array.from(map.entries()).map(([gameId, props]) => ({ gameId, props, game: gameById.get(gameId) }));
   }, [advancedOpen, board, gameById]);
 
-  const sampleSlipHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { source: 'landing_sample_slip', prefill: slipText });
-  const runAnalysisHref = appendQuery(withTraceId(spineHref('/stress-test'), activeTraceId), { tab: 'analyze' });
-  const latestRunHref = latestTraceId ? withTraceId(spineHref('/research'), latestTraceId) : null;
+  const sampleSlipHref = buildSpineHref('/stress-test', { source: 'landing_sample_slip', prefill: slipText });
+  const runAnalysisHref = buildSpineHref('/stress-test', { tab: 'analyze' });
+  const latestRunHref = latestTraceId ? buildSpineHref('/research', { trace_id: latestTraceId }) : null;
 
   const warnings = useMemo(() => computeInlineSlipWarnings(slip), [slip]);
   const fastAddState = slip.length >= 4 ? 'High-conviction cluster active' : slip.length >= 2 ? 'Lead set building' : 'Tap leads for quick add';
@@ -245,21 +248,17 @@ export function FrontdoorLandingClient() {
   }, [today.mode, traceFeed, demoAliveIndex]);
 
 
-  const modeDecision = deriveModePolicy({ requestedMode: nervous.mode ?? readPersistedMode(), envelopeMode: today.mode });
-  const modePresentation = getModePresentation(modeDecision.mode);
-
-  useEffect(() => {
-    persistMode(modeDecision.mode);
-  }, [modeDecision.mode]);
+  const resolvedMode = today.mode;
+  const modePresentation = getModePresentation(resolvedMode);
 
   return (
     <section className="mx-auto w-full max-w-6xl px-2 pb-6" style={{ minHeight: 720 }}>
       <LandingTerminalShell
-        mode={modeDecision.mode}
+        mode={resolvedMode}
         reason={today.reason}
         title="Detect fragile parlays before they burn you."
         subtitle={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
-        statusSlot={<RunStatusPill traceId={activeTraceId} mode={modeDecision.mode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
+        statusSlot={<RunStatusPill traceId={activeTraceId} mode={resolvedMode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
       >
         <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="landing-mode-chip-row">
           <Chip variant="neutral" title={modePresentation.tooltip}>{modePresentation.label}</Chip>
@@ -275,7 +274,7 @@ export function FrontdoorLandingClient() {
                 <div className="rounded-lg border border-slate-600 bg-slate-900/70 p-2 text-xs text-slate-200">
                   Live feeds returned no active board right now. You can keep going with cached context.
                   <div className="mt-2">
-                    <Link href={appendQuery(spineHref('/today'), { mode: 'cache' })} className="rounded border border-cyan-300/50 px-2 py-1 text-cyan-100">Use cached slate</Link>
+                    <Link href={buildSpineHref('/today', { mode: 'cache' })} className="rounded border border-cyan-300/50 px-2 py-1 text-cyan-100">Use cached slate</Link>
                   </div>
                 </div>
               ) : null}

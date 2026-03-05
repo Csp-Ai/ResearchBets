@@ -13,8 +13,8 @@ import { TicketEmptyCoach } from '@/src/components/landing/TicketEmptyCoach';
 import { flyToTicket } from '@/src/components/landing/flyToTicket';
 import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
-import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { spineHref } from '@/src/core/nervous/spineNavigation';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -252,7 +252,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
       window.setTimeout(() => setPhaseStep('Verdict'), 330);
       window.setTimeout(() => setPhaseStep(null), 520);
     }
-    router.replace(appendQuery(nervous.toHref('/cockpit'), { trace_id: traceId }));
+    router.replace(spineHref('/cockpit', nervous, { trace_id: traceId }));
 
     try {
       const response = await fetch('/api/run/stress-test', {
@@ -348,8 +348,8 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
         <PreviewStrip
           rows={board}
           statusLabel={neutralStatus}
-          buildHref={appendQuery(nervous.toHref('/today'), { trace_id: analysis.traceId || nervous.trace_id })}
-          pasteHref={appendQuery(nervous.toHref('/ingest'), { trace_id: analysis.traceId || nervous.trace_id })}
+          buildHref={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
+          pasteHref={spineHref('/ingest', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
           onPaste={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}
         />
         <h1 className="hero-headline" id="hero-headline">One leg breaks.<br /><span className="hero-headline-accent">Find it first.</span></h1>
@@ -368,7 +368,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
         <div className="cta-row">
           <button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Bet Slip</button>
           <button className="btn-secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
-          <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
+          <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
         </div>
         <ProofStack
           board={board}
@@ -443,7 +443,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
           </section>
           <div className="ticket-body">
             {legCount === 0 ? (
-              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded.</div><TicketEmptyCoach sampleHref={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
+              <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded.</div><TicketEmptyCoach sampleHref={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
             ) : (
               <div className="ticket-legs" role="list">
                 {slip.map((leg) => (
@@ -492,7 +492,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             <li>Scan active props with odds and recent attempts context.</li>
             <li>Add candidate legs directly into the draft ticket.</li>
           </ul>
-          <Link href={appendQuery(nervous.toHref('/today'), { trace_id: analysis.traceId || nervous.trace_id })}>Open</Link>
+          <Link href={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}>Open</Link>
         </article>
         <article>
           <h3>Stress Test</h3>
@@ -500,7 +500,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             <li>Run deterministic fragility + correlation diagnostics.</li>
             <li>Expose the weakest leg before lock.</li>
           </ul>
-          <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })}>Open</Link>
+          <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })}>Open</Link>
         </article>
         <article>
           <h3>Track Outcomes</h3>
@@ -508,7 +508,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             <li>Follow run continuity by trace_id.</li>
             <li>Review outcome events and postmortem-ready notes.</li>
           </ul>
-          <Link href={appendQuery(nervous.toHref('/track'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })}>Open</Link>
+          <Link href={spineHref('/track', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })}>Open</Link>
         </article>
       </section>
 
@@ -559,7 +559,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
         </div>
         <div className="slip-sheet-actions">
           <Link href={nervous.toHref('/stress-test', { trace_id: analysis.traceId || nervous.trace_id })} className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={(event) => { if (!stressEnabled) event.preventDefault(); }}>Run stress test</Link>
-          <Link href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })} className="btn-secondary">Try sample slip</Link>
+          <Link href={spineHref('/cockpit', nervous, { mode: 'demo' })} className="btn-secondary">Try sample slip</Link>
         </div>
       </aside>
 
