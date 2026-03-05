@@ -35,6 +35,12 @@ const toMarketType = (market: string): MarketType => {
   return (COCKPIT_MARKETS.includes(normalized as MarketType) ? normalized : 'points') as MarketType;
 };
 
+const toPreviewStatusLabel = (mode: 'live' | 'cache' | 'demo') => {
+  if (mode === 'demo') return 'Demo mode (live feeds off)';
+  if (mode === 'cache') return 'Using cached slate';
+  return 'Live mode';
+};
+
 export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const cockpitRef = useRef<HTMLElement | null>(null);
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -127,6 +133,11 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
       return acc;
     }, {});
   }, [board, query]);
+
+  const previewStatusLabel = useMemo(() => {
+    const payloadMode = today.mode ?? provenance.mode;
+    return toPreviewStatusLabel(payloadMode);
+  }, [today.mode, provenance.mode]);
 
   const [recentlyChangedLegIds, setRecentlyChangedLegIds] = useState<Set<string>>(new Set());
   const [recentlyChangedGroups, setRecentlyChangedGroups] = useState<Set<string>>(new Set());
@@ -467,6 +478,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
           <div className="mt-3 space-y-3">
             <PreviewStrip
               rows={board}
+              statusLabel={previewStatusLabel}
               buildHref={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
               pasteHref={spineHref('/ingest', nervous, { trace_id: analysis.traceId || nervous.trace_id })}
               onPaste={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}
