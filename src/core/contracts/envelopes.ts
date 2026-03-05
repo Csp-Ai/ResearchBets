@@ -19,6 +19,16 @@ export const TodayPayloadSchema = z.object({
     reason: z.string().optional(),
     generatedAt: z.string(),
   }).optional(),
+  intent: z.object({
+    mode: z.enum(['live', 'cache', 'demo']),
+    sport: z.string().optional(),
+    tz: z.string().optional(),
+    date: z.string().optional(),
+  }).optional(),
+  effective: z.object({
+    mode: z.enum(['live', 'cache', 'demo']),
+    reason: z.string().optional(),
+  }).optional(),
 
   status: z.enum(['active', 'next', 'market_closed']).optional(),
   nextAvailableStartTime: z.string().optional(),

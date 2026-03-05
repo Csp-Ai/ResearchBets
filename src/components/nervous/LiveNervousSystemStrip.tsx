@@ -7,6 +7,7 @@ export type NervousStepState = 'idle' | 'running' | 'ok' | 'degraded' | 'fallbac
 export type LiveNervousSystemStripProps = {
   mode: 'demo' | 'cache' | 'live';
   reason?: string;
+  intentMode?: 'demo' | 'cache' | 'live';
   updatedAt?: string;
   providerSummary?: { okCount: number; total: number; degraded?: boolean };
   traceId?: string;
@@ -30,7 +31,14 @@ function updatedLabel(updatedAt?: string): string {
   return `Updated ${Math.floor(seconds / 60)}m ago`;
 }
 
-export function LiveNervousSystemStrip({ mode, reason, updatedAt, providerSummary, traceId }: LiveNervousSystemStripProps) {
+function reasonLabel(reason?: string): string | undefined {
+  if (reason === 'odds_rate_limited') return 'Rate limited';
+  if (reason === 'odds_request_invalid') return 'Request invalid';
+  if (reason === 'provider_unavailable') return 'Feeds degraded';
+  return undefined;
+}
+
+export function LiveNervousSystemStrip({ mode, reason, intentMode, updatedAt, providerSummary, traceId }: LiveNervousSystemStripProps) {
   const [demoStage, setDemoStage] = useState(0);
   const isDemoWarmup = mode === 'demo' && !traceId;
 
@@ -66,12 +74,18 @@ export function LiveNervousSystemStrip({ mode, reason, updatedAt, providerSummar
   }, [demoStage, isDemoWarmup, mode, providersDegraded]);
 
   const modeLabel = mode === 'demo'
-    ? 'Feeds off (demo)'
+    ? 'Demo mode (live feeds off)'
     : mode === 'cache'
       ? 'Using cached slate'
       : providersDegraded
         ? 'Live feeds (degraded)'
         : 'Live feeds connected';
+
+  const intentHint = intentMode === 'live' && mode !== 'live'
+    ? (mode === 'cache' ? 'Live intent → Showing cached slate' : 'Live intent → Demo feeds off')
+    : undefined;
+
+  const secondaryLabel = reasonLabel(reason);
 
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-3" data-testid="live-nervous-system-strip">
@@ -79,10 +93,12 @@ export function LiveNervousSystemStrip({ mode, reason, updatedAt, providerSummar
         <p className="text-sm font-semibold text-slate-100">Live Nervous System</p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
           <span className="rounded-full border border-white/15 px-2 py-0.5">{modeLabel}</span>
+          {secondaryLabel ? <span className="rounded-full border border-white/15 px-2 py-0.5">{secondaryLabel}</span> : null}
           {providerSummary?.total ? <span>{providerSummary.okCount}/{providerSummary.total} providers</span> : null}
           <span>{updatedLabel(updatedAt)}</span>
         </div>
       </div>
+      {intentHint ? <p className="mt-1 text-xs text-slate-400">{intentHint}</p> : null}
       <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
         {steps.map((step) => (
           <span key={step.name} className={`rounded-md border px-2 py-1 text-center text-[11px] ${stateClasses[step.state]}`}>

@@ -351,8 +351,9 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             </>
           )}
           strip={{
-            mode: today.mode,
-            reason: provenance.reason ?? today.reason,
+            mode: today.effective?.mode ?? today.mode,
+            reason: today.effective?.reason ?? provenance.reason ?? today.reason,
+            intentMode: today.intent?.mode ?? nervous.mode,
             updatedAt: provenance.generatedAt ?? today.generatedAt,
             providerSummary: {
               okCount: today.providerHealth?.filter((provider) => provider.ok).length ?? 0,

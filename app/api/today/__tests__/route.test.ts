@@ -346,4 +346,37 @@ describe('/api/today GET', () => {
     expect(payload.board.props.length).toBeGreaterThan(0);
     expect(payload.board.games.length).toBeGreaterThan(0);
   });
+
+  it('coerces placeholder date and avoids date_invalid warning', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async ({ date }: { date: string }) => ({
+        mode: 'cache',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'odds_rate_limited',
+        providerWarnings: [],
+        effective: { mode: 'cache', reason: 'odds_rate_limited' },
+        intent: { mode: 'live', sport: 'NBA', tz: 'UTC', date },
+        provenance: { mode: 'cache', reason: 'odds_rate_limited', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=YYYY-MM-DD&mode=live'));
+    const payload = await response.json() as {
+      data: { providerWarnings?: string[]; intent?: { date?: string; mode?: string }; effective?: { mode?: string; reason?: string }; mode: string };
+      spine: { date: string; mode: string };
+    };
+
+    expect(payload.spine.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(payload.spine.date).not.toBe('YYYY-MM-DD');
+    expect(payload.data.providerWarnings?.some((warning) => warning.startsWith('date_invalid:'))).toBe(false);
+    expect(payload.data.providerWarnings).toContain('date_defaulted');
+    expect(payload.data.intent?.mode).toBe('live');
+    expect(payload.data.effective).toEqual({ mode: 'cache', reason: 'odds_rate_limited' });
+    expect(payload.data.mode).toBe('cache');
+  });
+
 });

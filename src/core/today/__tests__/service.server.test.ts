@@ -181,7 +181,7 @@ describe('resolveTodayTruth', () => {
     expect(payload.debug).toMatchObject({ step: 'live_viability', hint: 'provider_events_unavailable' });
   });
 
-  it('uses cached slate on 429 odds rate limiting', async () => {
+  it('uses cached slate on 429 odds rate limiting with cache-first semantics', async () => {
     fetchEvents.mockResolvedValue({
       events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
     });
@@ -197,7 +197,9 @@ describe('resolveTodayTruth', () => {
 
     const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
     expect(payload.mode).toBe('cache');
-    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['odds_rate_limited']));
+    expect(payload.effective).toEqual({ mode: 'cache', reason: 'odds_rate_limited' });
+    expect(payload.reason).toBe('odds_rate_limited');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['live_rate_limited:odds_fetch']));
   });
 
   it('keeps live payload as stats-degraded when enrichment fails', async () => {
