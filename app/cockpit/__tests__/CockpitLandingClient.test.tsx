@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 
 import CockpitLandingClient from '@/app/cockpit/CockpitLandingClient';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
@@ -53,5 +53,20 @@ describe('CockpitLandingClient canonical landing invariants', () => {
     const runButtons = screen.getAllByRole('button', { name: /run analysis/i });
     expect(runButtons.length).toBeGreaterThan(0);
     expect(runButtons[0]?.className).toContain('ui-button-primary');
+  });
+
+
+  it('keeps preview diagnostics below fold and renders PreviewStrip when disclosure is expanded', async () => {
+    renderWithProviders(<CockpitLandingClient />);
+
+    const disclosure = screen.getAllByTestId('cockpit-details-disclosure')[0];
+    expect(disclosure).toBeTruthy();
+    expect(within(disclosure as HTMLElement).queryByTestId('preview-strip')).toBeTruthy();
+
+    const summary = within(disclosure as HTMLElement).getByText('Details and diagnostics');
+    fireEvent.click(summary);
+
+    expect(within(disclosure as HTMLElement).getByTestId('preview-strip')).toBeTruthy();
+    expect(within(disclosure as HTMLElement).getByText('Demo mode (live feeds off)')).toBeTruthy();
   });
 });
