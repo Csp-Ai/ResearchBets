@@ -2,11 +2,13 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 
+import { CANONICAL_KEYS } from '@/src/core/env/keys';
+
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
 const getPublicEnv = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || null;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || null;
+  const url = process.env[CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_URL]?.trim() || null;
+  const anonKey = process.env[CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_ANON_KEY]?.trim() || null;
   return { url, anonKey };
 };
 

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { CANONICAL_KEYS } from '@/src/core/env/keys';
+import { readString } from '@/src/core/env/read.server';
 import { asMarketType } from '@/src/core/markets/marketType';
 import type { TrackedTicket } from '@/src/core/track/types';
 
@@ -81,7 +83,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Invalid tickets payload.' } }, { status: 400 });
   }
 
-  const mode = process.env.LIVE_MODE === '1' ? 'live' : 'demo';
+  const mode = readString(CANONICAL_KEYS.LIVE_MODE) === '1' ? 'live' : 'demo';
   const tickets = parsed.data.tickets as TrackedTicket[];
   return NextResponse.json({
     ok: true,

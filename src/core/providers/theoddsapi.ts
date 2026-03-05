@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { readString, resolveWithAliases } from '@/src/core/env/read.server';
+
 import type { MarketType } from '../markets/marketType';
 import { fetchJsonWithCache } from '../sources/fetchJsonWithCache';
 import { buildProvenance, type DataProvenance } from '../sources/provenance';
@@ -110,8 +113,8 @@ const ttlForEventSet = (events: OddsEvent[]): number => {
 };
 
 export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
-  const apiKey = options.apiKey ?? process.env.ODDS_API_KEY ?? process.env.THEODDSAPI_KEY;
-  const baseUrl = (options.baseUrl ?? process.env.ODDS_API_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+  const apiKey = options.apiKey ?? resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
+  const baseUrl = (options.baseUrl ?? readString(CANONICAL_KEYS.ODDS_API_BASE_URL) ?? DEFAULT_BASE_URL).replace(/\/$/, '');
 
   return {
     id: SOURCE,

@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { readBool, readString, resolveWithAliases } from '@/src/core/env/read.server';
+
 type ServerEnv = {
   nodeEnv: 'development' | 'test' | 'production';
   vercel: string | null;
@@ -13,44 +16,42 @@ type ServerEnv = {
   missing: string[];
 };
 
-const trimEnv = (name: string): string | null => {
-  const value = process.env[name];
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
 export const getServerEnv = (): ServerEnv => {
   const nodeEnv = (process.env.NODE_ENV as ServerEnv['nodeEnv'] | undefined) ?? 'development';
   const env: ServerEnv = {
     nodeEnv,
-    vercel: trimEnv('VERCEL'),
+    vercel: readString('VERCEL') ?? null,
     liveMode: (() => {
-      const rawLive = (trimEnv('LIVE_MODE') ?? '').toLowerCase();
-      if (rawLive === 'true') return true;
-      if (rawLive === 'false') return false;
-      const hasAnyLiveKey = Boolean(trimEnv('ODDS_API_KEY') || trimEnv('THEODDSAPI_KEY') || trimEnv('SPORTSDATA_API_KEY') || trimEnv('SPORTSDATAIO_API_KEY'));
+      const explicitLiveMode = readBool(CANONICAL_KEYS.LIVE_MODE);
+      if (explicitLiveMode !== null) return explicitLiveMode;
+      const hasAnyLiveKey = Boolean(
+        resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]) ||
+          resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]),
+      );
       return nodeEnv === 'production' ? hasAnyLiveKey : false;
     })(),
-    supabaseUrl: trimEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    supabaseAnonKey: trimEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    supabaseServiceRoleKey: trimEnv('SUPABASE_SERVICE_ROLE_KEY'),
-    sportsDataApiKey: trimEnv('SPORTSDATA_API_KEY'),
-    oddsApiKey: trimEnv('ODDS_API_KEY'),
-    cronSecret: trimEnv('CRON_SECRET'),
-    missing: []
+    supabaseUrl: readString(CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_URL) ?? null,
+    supabaseAnonKey: readString(CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_ANON_KEY) ?? null,
+    supabaseServiceRoleKey: readString(CANONICAL_KEYS.SUPABASE_SERVICE_ROLE_KEY) ?? null,
+    sportsDataApiKey:
+      resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]) ?? null,
+    oddsApiKey: resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]) ?? null,
+    cronSecret: readString(CANONICAL_KEYS.CRON_SECRET) ?? null,
+    missing: [],
   };
 
   const required = [
-    ['NEXT_PUBLIC_SUPABASE_URL', env.supabaseUrl],
-    ['NEXT_PUBLIC_SUPABASE_ANON_KEY', env.supabaseAnonKey],
-    ['SUPABASE_SERVICE_ROLE_KEY', env.supabaseServiceRoleKey]
+    [CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_URL, env.supabaseUrl],
+    [CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_ANON_KEY, env.supabaseAnonKey],
+    [CANONICAL_KEYS.SUPABASE_SERVICE_ROLE_KEY, env.supabaseServiceRoleKey],
   ] as const;
 
   env.missing = required.filter((entry) => !entry[1]).map((entry) => entry[0]);
 
   if (nodeEnv === 'development' && env.missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${env.missing.join(', ')}. Copy .env.example to .env.local and fill required values.`);
+    throw new Error(
+      `Missing required environment variables: ${env.missing.join(', ')}. Copy .env.example to .env.local and fill required values.`,
+    );
   }
 
   return env;

@@ -40,6 +40,26 @@ describe('/api/provider-health route', () => {
 
     expect(json.mode).toBe('cache');
     expect(json.reason).toBe('provider_unavailable');
-    expect(json.providerErrors).toEqual(['provider_timeout']);
+    expect(json.checks.odds).toEqual({
+      provider: 'odds',
+      ok: false,
+      reason: 'timeout',
+      statusCode: null,
+    });
+    expect(json.providerErrors).toEqual(['Odds provider request timed out']);
+  });
+
+  it('maps http status errors into reason codes without leaking secrets', async () => {
+    getBoardDataMock.mockRejectedValue(new Error('Request failed with status 401 for upstream endpoint'));
+
+    const { GET } = await import('../route');
+    const response = await GET();
+    const json = await response.json();
+
+    expect(json.ok).toBe(false);
+    expect(json.reason).toBe('provider_unavailable');
+    expect(json.checks.odds.reason).toBe('http_401');
+    expect(json.checks.odds.statusCode).toBe(401);
+    expect(json.providerErrors).toEqual(['Unauthorized response from odds provider']);
   });
 });

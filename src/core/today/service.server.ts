@@ -3,6 +3,8 @@ import 'server-only';
 import { computeEdgeDelta, computeMarketImpliedProb, computeModelProb } from '@/src/core/markets/edgePrimitives';
 import { getProviderRegistry } from '@/src/core/providers/registry.server';
 import type { BoardSport } from '@/src/core/board/boardService.server';
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { resolveWithAliases } from '@/src/core/env/read.server';
 import { createDemoTodayPayload } from './demoToday';
 import { TODAY_LEAGUES, type ProviderHealth, type TodayPayload, type TodayPropKey } from './types';
 import { computeAttemptMetrics, computeFeaturedBucketAveragesFromLogs, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
@@ -37,20 +39,28 @@ const toSportKey = (sport: BoardSport) => {
 const startOfDay = (date: string) => new Date(`${date}T00:00:00.000Z`).getTime();
 const endOfDay = (date: string) => new Date(`${date}T23:59:59.999Z`).getTime();
 
-const providerHealth = (errors: string[] = []): ProviderHealth[] => [
-  {
-    provider: 'the-odds-api',
-    ok: errors.length === 0,
-    missingKey: !process.env.ODDS_API_KEY,
-    message: errors[0]
-  },
-  {
-    provider: 'sportsdataio',
-    ok: Boolean(process.env.SPORTSDATA_API_KEY),
-    missingKey: !process.env.SPORTSDATA_API_KEY,
-    message: process.env.SPORTSDATA_API_KEY ? undefined : 'SPORTSDATA_API_KEY missing'
-  }
-];
+const providerHealth = (errors: string[] = []): ProviderHealth[] => {
+  const oddsKey = resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
+  const sportsDataKey = resolveWithAliases(
+    CANONICAL_KEYS.SPORTSDATA_API_KEY,
+    ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY],
+  );
+
+  return [
+    {
+      provider: 'the-odds-api',
+      ok: errors.length === 0,
+      missingKey: !oddsKey,
+      message: errors[0],
+    },
+    {
+      provider: 'sportsdataio',
+      ok: Boolean(sportsDataKey),
+      missingKey: !sportsDataKey,
+      message: sportsDataKey ? undefined : 'SPORTSDATA_API_KEY missing (SPORTSDATAIO_API_KEY accepted)',
+    },
+  ];
+};
 
 function buildBoardFromGames(games: TodayPayload['games'], mode: TodayPayload['mode']) {
   return games.flatMap((game) => game.propsPreview.map((prop) => ({

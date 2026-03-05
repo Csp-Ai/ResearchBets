@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { resolveWithAliases } from '@/src/core/env/read.server';
+
 import { fetchJsonWithCache } from '../sources/fetchJsonWithCache';
 import { buildProvenance, type DataProvenance, type SourceReference } from '../sources/provenance';
 
@@ -114,7 +117,7 @@ const dedupeAndSortLogs = (logs: GameLog[], limit?: number): GameLog[] => {
 };
 
 export const createSportsDataIoProvider = (options: SportsDataIoOptions = {}) => {
-  const apiKey = options.apiKey ?? process.env.SPORTSDATA_API_KEY ?? process.env.SPORTSDATAIO_API_KEY;
+  const apiKey = options.apiKey ?? resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]);
   const baseUrl = (options.baseUrl ?? process.env.SPORTSDATAIO_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
 
   const fetchPlayerLogs = async (
