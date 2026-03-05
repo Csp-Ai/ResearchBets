@@ -14,6 +14,13 @@ export type CockpitBoardLeg = {
   gameId: string;
   matchup: string;
   startTime: string;
+  threesAttL1?: number;
+  threesAttL3Avg?: number;
+  threesAttL5Avg?: number;
+  fgaL1?: number;
+  fgaL3Avg?: number;
+  fgaL5Avg?: number;
+  attemptsSource?: string;
 };
 
 const toRisk = (tag?: string): Risk => {
@@ -41,7 +48,14 @@ export function todayToBoard(payload: TodayPayload, selectedSport?: string): Coc
       riskTag: toRisk(row.riskTag),
       gameId: row.gameId,
       matchup: row.matchup ?? row.gameId,
-      startTime: row.startTime ?? 'TBD'
+      startTime: row.startTime ?? 'TBD',
+      threesAttL1: typeof row.threesAttL1 === 'number' ? row.threesAttL1 : undefined,
+      threesAttL3Avg: typeof row.threesAttL3Avg === 'number' ? row.threesAttL3Avg : undefined,
+      threesAttL5Avg: typeof row.threesAttL5Avg === 'number' ? row.threesAttL5Avg : undefined,
+      fgaL1: typeof row.fgaL1 === 'number' ? row.fgaL1 : undefined,
+      fgaL3Avg: typeof row.fgaL3Avg === 'number' ? row.fgaL3Avg : undefined,
+      fgaL5Avg: typeof row.fgaL5Avg === 'number' ? row.fgaL5Avg : undefined,
+      attemptsSource: row.attemptsSource
     }));
 
   if (boardRows.length > 0) return boardRows;

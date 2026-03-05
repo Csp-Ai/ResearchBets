@@ -16,6 +16,12 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(window.location.search)
 }));
 
+const flyToTicketMock = vi.fn();
+
+vi.mock('@/src/components/landing/flyToTicket', () => ({
+  flyToTicket: (...args: unknown[]) => flyToTicketMock(...args)
+}));
+
 describe('cockpit route integration', () => {
   afterEach(() => cleanup());
 
@@ -24,6 +30,7 @@ describe('cockpit route integration', () => {
     vi.resetAllMocks();
     window.localStorage.clear();
     window.sessionStorage.clear();
+    flyToTicketMock.mockReset();
   });
 
 
@@ -237,10 +244,10 @@ describe('cockpit route integration', () => {
     renderWithProviders(<CockpitLandingClient />);
     await screen.findAllByText(/J. Tatum/);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Run stress test' })[0]!);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Run analysis' })[0]!);
 
     await waitFor(() => {
-      expect(screen.getByText('deterministic reason')).toBeTruthy();
+      expect(screen.getAllByText('deterministic reason').length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Correlation pressure/).length).toBeGreaterThan(0);
       expect(screen.getByText(/Calibration: not enough outcomes yet/)).toBeTruthy();
     });
@@ -249,4 +256,53 @@ describe('cockpit route integration', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/metrics/calibration', expect.any(Object));
     expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/stress-test?'));
   });
+
+  it('renders hero proof card and nervous pulse above fold', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-proof', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    expect(await screen.findByTestId('hero-proof-card')).toBeTruthy();
+    expect(screen.getByTestId('nervous-pulse')).toBeTruthy();
+  });
+
+  it('invokes fly-to-ticket when adding a leg', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-fly', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
+        { id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM' }
+      ] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    await screen.findByText(/J. Tatum/);
+    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    expect(flyToTicketMock).toHaveBeenCalled();
+  });
+
+  it('respects reduced motion for nervous pulse', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia;
+
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-rm', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    expect((await screen.findByTestId('nervous-pulse')).getAttribute('data-reduced-motion')).toBe('true');
+    window.matchMedia = original;
+  });
+
 });

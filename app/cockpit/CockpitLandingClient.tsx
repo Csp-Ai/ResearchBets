@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
 import { LiveCredibilityStrip } from '@/app/cockpit/components/LiveCredibilityStrip';
+import { AttemptsChips } from '@/src/components/landing/AttemptsChips';
+import { HeroProofCard } from '@/src/components/landing/HeroProofCard';
+import { NervousPulse } from '@/src/components/landing/NervousPulse';
+import { flyToTicket } from '@/src/components/landing/flyToTicket';
 import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
 import { appendQuery } from '@/src/components/landing/navigation';
@@ -36,6 +40,8 @@ export default function CockpitLandingClient() {
   const cockpitRef = useRef<HTMLElement | null>(null);
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
   const saveInputRef = useRef<HTMLInputElement | null>(null);
+  const ticketBadgeRef = useRef<HTMLSpanElement | null>(null);
+  const mobileTicketCtaRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const nervous = useNervousSystem();
@@ -66,6 +72,8 @@ export default function CockpitLandingClient() {
     stage: 'Before' as Stage,
     runProvenance: undefined as ResearchProvenance | undefined
   });
+  const [pulseToken, setPulseToken] = useState(0);
+  const [phaseStep, setPhaseStep] = useState<null | 'Ingest' | 'Normalize' | 'Score' | 'Verdict'>(null);
   const [ui, setUi] = useState({
     navDrawerOpen: false,
     slipSheetOpen: false,
@@ -80,12 +88,14 @@ export default function CockpitLandingClient() {
 
   const onSetMode = (mode: 'live' | 'demo') => {
     setSelectedMode(mode);
+    setPulseToken((v) => v + 1);
     const href = nervous.toHref(pathname || '/cockpit', { mode });
     router.replace(href);
   };
 
   const onSetSport = (sport: 'NBA' | 'NFL') => {
     setSelectedSport(sport);
+    setPulseToken((v) => v + 1);
     const href = nervous.toHref(pathname || '/cockpit', { sport });
     router.replace(href);
   };
@@ -170,7 +180,7 @@ export default function CockpitLandingClient() {
     if (ui.saveModalOpen) saveInputRef.current?.focus();
   }, [ui.saveModalOpen]);
 
-  const onAdd = (leg: (typeof board)[number]) => {
+  const onAdd = (leg: (typeof board)[number], triggerEl?: HTMLElement | null) => {
     if (slipIds.has(leg.id) || slip.length >= 6) return;
     addLeg({
       id: leg.id,
@@ -180,9 +190,15 @@ export default function CockpitLandingClient() {
       odds: leg.odds,
       game: leg.matchup
     });
+    setPulseToken((v) => v + 1);
+    const target = ticketBadgeRef.current ?? mobileTicketCtaRef.current;
+    flyToTicket({ from: triggerEl ?? null, to: target ?? null });
   };
 
-  const onRemove = (id: string) => removeLeg(id);
+  const onRemove = (id: string) => {
+    removeLeg(id);
+    setPulseToken((v) => v + 1);
+  };
 
   const onEditLeg = (id: string, field: 'line' | 'odds', value: string) => {
     const existing = slip.find((leg) => leg.id === id);
@@ -223,9 +239,18 @@ export default function CockpitLandingClient() {
 
   const runStressTest = async () => {
     if (!stressEnabled || analysis.running) return;
+    setPulseToken((v) => v + 1);
     const ensured = ensureTraceId({ sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode, trace_id: nervous.trace_id, tab: undefined });
     const traceId = ensured.trace_id;
     setAnalysis((prev) => ({ ...prev, running: true, stage: 'Analyze', traceId }));
+    const shouldShowPhase = selectedMode !== 'live';
+    if (shouldShowPhase) {
+      setPhaseStep('Ingest');
+      window.setTimeout(() => setPhaseStep('Normalize'), 110);
+      window.setTimeout(() => setPhaseStep('Score'), 220);
+      window.setTimeout(() => setPhaseStep('Verdict'), 330);
+      window.setTimeout(() => setPhaseStep(null), 520);
+    }
     router.replace(appendQuery(nervous.toHref('/cockpit'), { trace_id: traceId }));
 
     try {
@@ -318,8 +343,9 @@ export default function CockpitLandingClient() {
       </header>
 
       <section id="hero" aria-labelledby="hero-headline">
+        <NervousPulse burstToken={pulseToken} />
         <h1 className="hero-headline" id="hero-headline">One leg breaks.<br /><span className="hero-headline-accent">Find it first.</span></h1>
-        <p className="hero-sub">Most slips don&apos;t fail randomly. They fail predictably. Isolate the pressure point before you submit.</p>
+        <p className="hero-sub">Stress your ticket before lock. Spot fragility, correlation pressure, and weakest-leg risk while the board is still moving.</p>
         <div className="hero-controls">
           <div className="segmented" role="tablist" aria-label="Mode">
             <button className={`segment ${selectedMode === 'live' ? 'active' : ''}`} onClick={() => onSetMode('live')} aria-pressed={selectedMode === 'live'}>Live</button>
@@ -332,9 +358,18 @@ export default function CockpitLandingClient() {
           </div>
         </div>
         <div className="cta-row">
-          <button className="btn-primary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
-          <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Slip</button>
+          <button className="btn-primary" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste Bet Slip</button>
+          <button className="btn-secondary" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from Tonight</button>
+          <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })} className="hero-tertiary">See a real example →</Link>
         </div>
+        <HeroProofCard
+          slip={slip}
+          board={board}
+          feedsOk={provenance.mode === 'live' && !strictLiveUnavailable}
+          logMode={provenance.mode === 'cache' ? 'cached' : provenance.mode === 'live' ? 'live' : 'heuristic'}
+          reasons={analysis.reasons}
+          runProvenance={analysis.runProvenance}
+        />
       </section>
 
       <section id="cockpit" ref={cockpitRef} aria-label="Bettor cockpit: board and draft ticket">
@@ -344,6 +379,7 @@ export default function CockpitLandingClient() {
           strictLiveUnavailable={strictLiveUnavailable}
           boardUpdateTick={boardUpdateTick}
           onRefresh={refreshToday}
+          pulseToken={pulseToken}
         />
         <div className="panel" id="board-panel">
           <div className="panel-header"><span className="panel-title">Tonight&apos;s Board</span></div>
@@ -362,12 +398,13 @@ export default function CockpitLandingClient() {
                       <div>
                         <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
                         <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
+                        <AttemptsChips leg={leg} />
                       </div>
                       <div className="board-meta">
                         <span className="board-chip">Odds {leg.odds}</span>
                         <span className="board-chip">L10 {leg.hitRateL10 ?? '—'}/10</span>
                         <span className="board-open">Open ›</span>
-                        <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg); }} disabled={added} aria-pressed={added}>+</button>
+                        <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg, event.currentTarget); }} disabled={added} aria-pressed={added}>+</button>
                       </div>
                     </div>
                   );
@@ -381,7 +418,7 @@ export default function CockpitLandingClient() {
           <div id="ticket-scan-sweep" />
           <div className="panel-header">
             <span className="panel-title">Draft Ticket</span>
-            <span className="leg-count-badge" aria-live="polite">{legCount} {legCount === 1 ? 'leg' : 'legs'}</span>
+            <span ref={ticketBadgeRef} className="leg-count-badge" aria-live="polite">{legCount} {legCount === 1 ? 'leg' : 'legs'}</span>
           </div>
 
           <section className="pipeline-strip ticket-pipeline" aria-label="Run trace strip">
@@ -431,9 +468,10 @@ export default function CockpitLandingClient() {
           </div>
 
           <div className="ticket-cta-row">
-            <button className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run stress test</button>
+            <button className={`btn-primary ${stressEnabled ? '' : 'disabled'}`} onClick={runStressTest} disabled={!stressEnabled || analysis.running}>Run analysis</button>
             <button className="btn-secondary" onClick={() => setUi((p) => ({ ...p, saveModalOpen: true }))}>Save Analysis</button>
           </div>
+          {phaseStep ? <p className="phase-strip" data-testid="phase-strip">{`Phase: ${phaseStep}`}</p> : null}
           {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="btn-primary" style={{ marginTop: 10, display: 'inline-block' }}>Continue to Track</Link> : null}
         </div>
       </section>
@@ -453,7 +491,7 @@ export default function CockpitLandingClient() {
           <p className="mobile-slip-count">{legCount} {legCount === 1 ? 'leg' : 'legs'}</p>
           <p className="mobile-slip-line">Hit est {compactLine.hitEstimate} · Break-even {compactLine.breakEven} · Gap {compactLine.gap}</p>
         </div>
-        <button className="btn-primary" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: true }))}>Open slip</button>
+        <button ref={mobileTicketCtaRef} className="btn-primary" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: true }))}>Open slip</button>
       </section>
 
       <div
