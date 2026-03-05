@@ -6,6 +6,7 @@ import type { BoardSport } from '@/src/core/board/boardService.server';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
 import { createDemoTodayPayload } from './demoToday';
+import { readLastGoodToday, writeLastGoodToday } from './cache.server';
 import { TODAY_LEAGUES, type ProviderHealth, type TodayLiveStep, type TodayPayload, type TodayPropKey } from './types';
 import { computeAttemptMetrics, computeFeaturedBucketAveragesFromLogs, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
 
@@ -250,17 +251,29 @@ function classifyOddsFetchError(statusCode?: number): OddsErrorClassification {
   return { reason: 'provider_unavailable', hint: 'provider_unavailable', marker: 'live_hard_error:odds_fetch' };
 }
 
-function cacheFallbackFrom(classification: OddsErrorClassification, error: unknown): TodayPayload | null {
-  const cachedPayload = cache?.payload;
-  if (!cachedPayload || (cachedPayload.board?.length ?? 0) < MIN_BOARD_ROWS) return null;
+function isUsableCachedPayload(payload: TodayPayload): boolean {
+  return (payload.board?.length ?? 0) >= MIN_BOARD_ROWS || payload.games.length >= 1;
+}
+
+async function cacheFallbackFrom(
+  classification: OddsErrorClassification,
+  error: unknown,
+  key: { sport: BoardSport; tz: string; date: string },
+): Promise<TodayPayload | null> {
+  const cached = await readLastGoodToday(key);
+  const cachedPayload = cached?.payload;
+  if (!cachedPayload || !isUsableCachedPayload(cachedPayload)) return null;
+
+  const providerWarnings = [...new Set([...(cachedPayload.providerWarnings ?? []), classification.marker, classification.reason])];
   return withLandingSummary({
     ...cachedPayload,
     mode: 'cache',
     reason: classification.reason,
     effective: { mode: 'cache', reason: classification.reason },
-    providerWarnings: [...(cachedPayload.providerWarnings ?? []), classification.marker],
+    providerWarnings,
     debug: createDebug('odds_fetch', error, classification.hint),
-    provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
+    userSafeReason: 'Using recently cached slate while live odds refresh recovers.',
+    provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cached.savedAt }
   });
 }
 
@@ -362,7 +375,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     } catch (error) {
       const statusCode = getStatusCode(error);
       const classification = classifyOddsFetchError(statusCode);
-      const cachedFallback = cacheFallbackFrom(classification, error);
+      const cachedFallback = await cacheFallbackFrom(classification, error, { sport, tz, date });
       if (cachedFallback) return cachedFallback;
 
       const specificWarnings = classification.reason === 'provider_unavailable'
@@ -499,6 +512,7 @@ export async function resolveTodayTruth(options?: {
   const date = options?.date ?? new Date().toISOString().slice(0, 10);
   const mode = options?.mode ?? 'live';
   const key = `${sport}:${tz}:${date}`;
+  const cacheKey = { sport, tz, date };
 
   if (mode === 'demo') {
     return getDemoFallback('demo_requested', sport);
@@ -523,6 +537,7 @@ export async function resolveTodayTruth(options?: {
 
   if (livePayload && !shouldFallback) {
     cache = { key, expiresAt: Date.now() + TTL_MS, payload: livePayload };
+    await writeLastGoodToday(cacheKey, livePayload);
     return livePayload;
   }
 
