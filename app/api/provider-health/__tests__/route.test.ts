@@ -22,12 +22,15 @@ describe('/api/provider-health route', () => {
   });
 
   it('returns live mode when odds probe succeeds and required checks are satisfied', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      headers: new Headers({ 'content-type': 'application/json' }),
-      text: vi.fn().mockResolvedValue('[]')
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/events?apiKey=')) {
+        return { ok: true, status: 200, statusText: 'OK', headers: new Headers({ 'content-type': 'application/json' }), text: vi.fn().mockResolvedValue('[{"id":"evt-1","commence_time":"2026-01-20T18:00:00Z","home_team":"BOS","away_team":"LAL"}]') };
+      }
+      if (url.includes('/events/') && url.includes('/odds')) {
+        return { ok: true, status: 200, statusText: 'OK', headers: new Headers({ 'content-type': 'application/json' }), text: vi.fn().mockResolvedValue('{"id":"evt-1","commence_time":"2026-01-20T18:00:00Z","home_team":"BOS","away_team":"LAL","bookmakers":[]}') };
+      }
+      return { ok: true, status: 200, statusText: 'OK', headers: new Headers({ 'content-type': 'application/json' }), text: vi.fn().mockResolvedValue('[]') };
     }));
 
     const { GET } = await import('../route');
@@ -39,7 +42,7 @@ describe('/api/provider-health route', () => {
     expect(json.reason).toBe('live_ok');
     expect(json.providerErrors).toEqual([]);
     expect(json.providerErrors).not.toContain('Odds provider reachable');
-    expect(json.messages).toEqual(['Odds provider reachable', 'Events provider reachable']);
+    expect(json.messages).toEqual(['Today odds fetch shape reachable', 'Events provider reachable']);
     expect(json.checks.odds).toMatchObject({
       provider: 'odds',
       ok: true,
@@ -49,7 +52,7 @@ describe('/api/provider-health route', () => {
       runtime: 'nodejs',
       errorName: null,
       errorCode: null,
-      safeMessage: 'Odds provider reachable'
+      safeMessage: 'Today odds fetch shape reachable'
     });
     expect(json.checks.events).toMatchObject({
       ok: true,
@@ -59,9 +62,11 @@ describe('/api/provider-health route', () => {
     });
 
     const fetchCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([input]) => String(input));
-    const eventsCall = fetchCalls.find((url) => url.includes('/events'));
+    const eventsCall = fetchCalls.find((url) => url.includes('/events?apiKey='));
     expect(eventsCall).toBeTruthy();
     const eventsUrl = new URL(eventsCall!);
+    const oddsCall = fetchCalls.find((url) => url.includes('/events/') && url.includes('/odds?'));
+    expect(oddsCall).toBeTruthy();
     expect(eventsUrl.searchParams.get('apiKey')).toBe('test-key');
     expect(eventsUrl.searchParams.has('dateFormat')).toBe(false);
     expect(eventsUrl.searchParams.has('commenceTimeFrom')).toBe(false);
@@ -143,16 +148,16 @@ describe('/api/provider-health route', () => {
   });
 
   it('never includes success diagnostics in providerErrors when ok is true', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        text: vi.fn().mockResolvedValue('[]')
-      })
-    );
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/events?apiKey=')) {
+        return { ok: true, status: 200, statusText: 'OK', headers: new Headers({ 'content-type': 'application/json' }), text: vi.fn().mockResolvedValue('[{"id":"evt-1"}]') };
+      }
+      if (url.includes('/events/') && url.includes('/odds')) {
+        return { ok: true, status: 200, statusText: 'OK', headers: new Headers({ 'content-type': 'application/json' }), text: vi.fn().mockResolvedValue('{"id":"evt-1","bookmakers":[]}') };
+      }
+      return { ok: true, status: 200, statusText: 'OK', headers: new Headers({ 'content-type': 'application/json' }), text: vi.fn().mockResolvedValue('[]') };
+    }));
 
     const { GET } = await import('../route');
     const response = await GET();
@@ -163,16 +168,25 @@ describe('/api/provider-health route', () => {
     expect(json.providerErrors.some((message: string) => message.toLowerCase().includes('reachable'))).toBe(false);
   });
 
-  it('sets degraded-events reason and provides sanitized safe detail for 422 events errors', async () => {
+  it('returns provider_unavailable and request_invalid when today odds fetch returns 422', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.includes('/events')) {
+      if (url.includes('/events/') && url.includes('/odds')) {
         return {
           ok: false,
           status: 422,
           statusText: 'Unprocessable Entity',
           headers: new Headers({ 'content-type': 'application/json' }),
-          text: vi.fn().mockResolvedValue('invalid request for https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=test-key apiKey=test-key')
+          text: vi.fn().mockResolvedValue('invalid request for https://api.the-odds-api.com/v4/sports/basketball_nba/events/evt-1/odds?apiKey=test-key apiKey=test-key')
+        };
+      }
+      if (url.includes('/events?apiKey=')) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ 'content-type': 'application/json' }),
+          text: vi.fn().mockResolvedValue('[{"id":"evt-1","commence_time":"2026-01-20T18:00:00Z","home_team":"BOS","away_team":"LAL"}]')
         };
       }
       return {
@@ -189,15 +203,12 @@ describe('/api/provider-health route', () => {
     const json = await response.json();
 
     expect(json.ok).toBe(false);
-    expect(json.reason).toBe('live_degraded_events');
-    expect(json.checks.odds.ok).toBe(true);
-    expect(json.checks.events.ok).toBe(false);
-    expect(json.checks.events.reason).toBe('http_422');
-    expect(json.checks.events.safeDetail).toContain('[redacted-url]');
-    expect(json.checks.events.safeDetail).toContain('apiKey=[redacted]');
-    expect(json.checks.events.safeDetail).not.toContain('test-key');
-    expect(json.providerErrors).toContain('Events provider returned HTTP 422');
-    expect(json.providerErrors).toContain(json.checks.events.safeDetail);
+    expect(json.reason).toBe('provider_unavailable');
+    expect(json.checks.odds.ok).toBe(false);
+    expect(json.checks.odds.reason).toBe('request_invalid');
+    expect(json.checks.events.ok).toBe(true);
+    expect(json.checks.odds.statusCode).toBe(422);
+    expect(json.providerErrors).toContain('Today odds fetch request is invalid (HTTP 422)');
     expect(JSON.stringify(json)).not.toContain('test-key');
   });
 });

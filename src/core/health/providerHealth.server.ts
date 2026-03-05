@@ -42,7 +42,7 @@ export type ComputedProviderHealth = Omit<ProviderHealthSummary, 'providerErrors
 
 export async function computeProviderHealth({ sport = 'NBA' }: { sport?: string }): Promise<ComputedProviderHealth> {
   const keyStatus = getLiveKeyStatus();
-  const oddsProbe = await runOddsProbe();
+  const oddsProbe = await runOddsProbe({ target: 'today_odds_fetch', sport });
   const eventsProbe = await runEventsProbe({ sport });
   const statsConfigured = Boolean(resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]));
 
