@@ -184,7 +184,7 @@ h2,
   .panel-shell {
     border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--border) 78%, #cbd5e1 22%);
-    @apply bg-gradient-to-b from-slate-950/94 to-slate-900/76 shadow-[0_12px_30px_rgba(2,6,23,0.42)] ring-1 ring-inset ring-cyan-100/[0.06];
+    @apply bg-gradient-to-b from-slate-950/95 to-slate-900/80 shadow-[0_12px_30px_rgba(2,6,23,0.42)] ring-1 ring-inset ring-cyan-100/[0.06];
   }
   .row-shell {
     min-height: 3rem;

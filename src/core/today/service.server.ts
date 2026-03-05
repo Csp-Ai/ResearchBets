@@ -5,9 +5,10 @@ import { getProviderRegistry } from '@/src/core/providers/registry.server';
 import type { BoardSport } from '@/src/core/board/boardService.server';
 import { createDemoTodayPayload } from './demoToday';
 import { TODAY_LEAGUES, type ProviderHealth, type TodayPayload, type TodayPropKey } from './types';
+import { computeL5AvgForMarket, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
 
 const TTL_MS = 120_000;
-const MARKETS = ['points', 'rebounds', 'assists'] as const;
+const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
 export const MIN_BOARD_ROWS = 6;
 
 export type CanonicalBoardView = {
@@ -192,9 +193,37 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     }
   }
 
-  const gameById = new Map(games.map((g) => [g.id, g]));
+
+  const uniquePlayers = [...new Set(board.map((row) => row.player).filter(Boolean))];
+  const logsResult: { byPlayerId: Record<string, import('@/src/core/providers/sportsdataio').GameLog[]>; fallbackReason?: string } = uniquePlayers.length > 0
+    ? await registry.statsProvider.fetchRecentPlayerGameLogs({ sport, playerIds: uniquePlayers, limit: 5 })
+    : { byPlayerId: {}, fallbackReason: 'no_players' };
+
+  const sourceMode: 'live' | 'heuristic' = logsResult.fallbackReason ? 'heuristic' : 'live';
+
+  const enrichedBoard = board.map((row) => {
+    const logs = logsResult.byPlayerId[row.player] ?? [];
+    const minutes = computeMinutesMetrics(logs);
+    const l5Avg = computeL5AvgForMarket(logs, row.market);
+    const role = deriveRoleConfidence(minutes.minutesL3Avg);
+    const deadLeg = deriveDeadLegRisk({ market: row.market, roleConfidence: role.roleConfidence, odds: row.odds, l5Avg });
+    return {
+      ...row,
+      minutesL1: minutes.minutesL1,
+      minutesL3Avg: minutes.minutesL3Avg,
+      l5Avg: l5Avg ?? Number(((row.hitRateL5 ?? row.hitRateL10 ?? 0) / 10).toFixed(2)),
+      l5Source: l5Avg !== undefined ? sourceMode : 'heuristic',
+      minutesSource: minutes.minutesL3Avg !== undefined ? sourceMode : 'heuristic',
+      roleConfidence: role.roleConfidence,
+      roleReasons: role.roleReasons,
+      deadLegRisk: deadLeg.deadLegRisk,
+      deadLegReasons: deadLeg.deadLegReasons
+    };
+  });
+
+    const gameById = new Map(games.map((g) => [g.id, g]));
   games.forEach((game) => {
-    game.propsPreview = board.filter((p) => p.id.startsWith(`${game.id}:`)).slice(0, 4);
+    game.propsPreview = enrichedBoard.filter((p) => p.id.startsWith(`${game.id}:`)).slice(0, 4);
   });
 
   const payload: TodayPayload = {
@@ -209,7 +238,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     status,
     nextAvailableStartTime: status === 'next' ? selected[0]?.commence_time : undefined,
     providerHealth: providerHealth(errors),
-    board: board.slice(0, 24).map((row) => {
+    board: enrichedBoard.slice(0, 24).map((row) => {
       const gameId = row.id.split(':')[0] ?? '';
       return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: 'live' as const };
     })

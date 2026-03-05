@@ -41,6 +41,15 @@ export type BoardRow = {
   source?: string;
   degraded?: boolean;
   mode?: TodayMode;
+  minutesL1?: number;
+  minutesL3Avg?: number;
+  l5Avg?: number;
+  l5Source?: 'live'|'cached'|'demo'|'heuristic';
+  minutesSource?: 'live'|'cached'|'demo'|'heuristic';
+  roleConfidence?: 'high'|'med'|'low';
+  roleReasons?: string[];
+  deadLegRisk?: 'low'|'med'|'high';
+  deadLegReasons?: string[];
 };
 
 export type TodayPropKey = {
@@ -97,6 +106,15 @@ export type TodayBoardRow = {
   matchup?: string;
   startTime?: string;
   mode?: TodayMode;
+  minutesL1?: number;
+  minutesL3Avg?: number;
+  l5Avg?: number;
+  l5Source?: 'live'|'cached'|'demo'|'heuristic';
+  minutesSource?: 'live'|'cached'|'demo'|'heuristic';
+  roleConfidence?: 'high'|'med'|'low';
+  roleReasons?: string[];
+  deadLegRisk?: 'low'|'med'|'high';
+  deadLegReasons?: string[];
 };
 
 export type TodayPayload = {

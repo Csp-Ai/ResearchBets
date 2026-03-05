@@ -59,6 +59,7 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
                   <div>
                     <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
                     <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
+                    {leg.deadLegRisk ? <p className="text-[11px] text-slate-400">Dead-leg {leg.deadLegRisk}{leg.deadLegReasons?.[0] ? ` · ${leg.deadLegReasons[0]}` : ''}</p> : null}
                   </div>
                   <button type="button" onClick={() => onRemove(leg.id)} className="terminal-focus text-xs text-rose-200">Remove</button>
                 </div>

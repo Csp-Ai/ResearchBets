@@ -43,6 +43,21 @@ describe('normalizeTodayPayload', () => {
     expect(payload.traceId).toBe('legacy-trace');
   });
 
+
+  it('preserves optional minutes and source fields', () => {
+    const payload = normalizeTodayPayload({
+      mode: 'live',
+      games: [{ id: 'g1', matchup: 'A @ B', startTime: '7:00 PM' }],
+      board: [{ id: 'p1', player: 'A', market: 'pra', line: '31.5', odds: '-110', hitRateL10: 63, gameId: 'g1', minutesL1: 34, minutesL3Avg: 33.2, l5Avg: 29.7, l5Source: 'live', minutesSource: 'cached' }]
+    });
+
+    expect(payload.board[0]?.minutesL1).toBe(34);
+    expect(payload.board[0]?.minutesL3Avg).toBe(33.2);
+    expect(payload.board[0]?.l5Avg).toBe(29.7);
+    expect(payload.board[0]?.l5Source).toBe('live');
+    expect(payload.board[0]?.minutesSource).toBe('cached');
+  });
+
   it('builds board from legacy propsPreview', () => {
     const payload = normalizeTodayPayload({
       mode: 'demo',

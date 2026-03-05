@@ -6,11 +6,40 @@ import { toHref } from '@/src/core/nervous/routes';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
 
+const MODE_COPY: Record<TodayPayload['mode'], string> = {
+  live: 'Live providers',
+  cache: 'Cached snapshot',
+  demo: 'Demo fallback'
+};
+
 type TodayPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
 const readFirst = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
+
+function NextGamesFastPaint({ payload }: { payload: TodayPayload }) {
+  const games = payload.games.slice(0, 2);
+  return (
+    <section className="panel-shell p-3" aria-label="Next games fast paint">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <p className="font-semibold text-slate-100">Next 2 games</p>
+        <span className="mono-number text-slate-300">{payload.mode} · {MODE_COPY[payload.mode]}</span>
+      </div>
+      {payload.provenance?.reason ? <p className="mt-1 text-xs text-slate-400">Reason: {payload.provenance.reason}</p> : null}
+      {games.length === 0 ? <p className="mt-2 text-xs text-slate-400">No upcoming games in this window.</p> : (
+        <ul className="mt-2 space-y-2 text-sm">
+          {games.map((game) => (
+            <li key={game.id} className="row-shell">
+              <p className="font-semibold text-slate-100">{game.matchup}</p>
+              <p className="text-xs text-slate-400">{game.startTime} · {game.status}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export default async function TodayPage({ searchParams }: TodayPageProps) {
   const spine = normalizeSpine({
@@ -48,5 +77,10 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
     initialPayload = createDemoTodayPayload();
   }
 
-  return <TodayPageClient initialPayload={initialPayload} />;
+  return (
+    <div className="space-y-3">
+      <NextGamesFastPaint payload={initialPayload} />
+      <TodayPageClient initialPayload={initialPayload} />
+    </div>
+  );
 }

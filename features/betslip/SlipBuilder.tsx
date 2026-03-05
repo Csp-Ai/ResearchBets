@@ -19,6 +19,8 @@ export type SlipBuilderLeg = {
   volatility?: 'low' | 'medium' | 'high';
   confidence?: number;
   game?: string;
+  deadLegRisk?: 'low' | 'med' | 'high';
+  deadLegReasons?: string[];
 };
 
 export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {
@@ -47,6 +49,7 @@ export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; on
             <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
               {leg.volatility ? <Badge variant="warning" size="sm">{leg.volatility}</Badge> : null}
               {typeof leg.confidence === 'number' ? <Badge variant="info" size="sm">Hit est {Math.round(leg.confidence * 100)}%</Badge> : null}
+              {leg.deadLegRisk ? <Badge variant={leg.deadLegRisk === 'high' ? 'danger' : leg.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm" title={leg.deadLegReasons?.join(', ')}>Dead-leg {leg.deadLegRisk}</Badge> : null}
             </div>
           </li>
         ))}

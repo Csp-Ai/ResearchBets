@@ -2,18 +2,14 @@ import type { MarketType } from '../markets/marketType';
 import type { PlatformLine } from '../../agents/live/types';
 import type { DataProvenance } from '../sources/provenance';
 import type { GameLog, SeasonAverages } from './sportsdataio';
+import { mapMarketToFeaturedStatCategory } from '../markets/statCategory';
 
 const mapMarketStatKey = (marketType: MarketType): keyof GameLog['stats'] => {
-  switch (marketType) {
-    case 'rebounds':
-      return 'rebounds';
-    case 'assists':
-      return 'assists';
-    case 'threes':
-      return 'threes';
-    default:
-      return 'points';
-  }
+  const category = mapMarketToFeaturedStatCategory(marketType);
+  if (category === 'rebounds') return 'rebounds';
+  if (category === 'assists') return 'assists';
+  if (category === 'threes') return 'threes';
+  return 'points';
 };
 
 export interface StatsProvider {
