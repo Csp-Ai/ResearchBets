@@ -27,7 +27,7 @@ describe('cockpit route client', () => {
   it('renders core cockpit sections', async () => {
     renderWithProviders(<CockpitLandingClient />);
 
-    expect(screen.getByText('One leg breaks.')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: "Tonight's Board" })).toBeTruthy();
     expect(screen.getAllByText("Tonight's Board").length).toBeGreaterThan(0);
     expect(screen.getByText('Draft Ticket')).toBeTruthy();
     expect((await screen.findAllByText(/J. Tatum/)).length).toBeGreaterThan(0);
