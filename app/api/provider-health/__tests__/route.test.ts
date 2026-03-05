@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const getBoardDataMock = vi.fn();
 const emitMock = vi.fn();
-
-vi.mock('@/src/core/board/boardService.server', () => ({
-  getBoardData: getBoardDataMock
-}));
 
 vi.mock('@/src/core/control-plane/emitter', () => ({
   DbEventEmitter: class {
@@ -21,9 +16,10 @@ describe('/api/provider-health route', () => {
     process.env.LIVE_MODE = 'true';
     process.env.ODDS_API_KEY = 'test-key';
     process.env.ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4';
+    process.env.SPORTSDATA_API_KEY = 'sports-key';
   });
 
-  it('returns canonical mode and populated odds probe diagnostics', async () => {
+  it('returns live mode when odds probe succeeds and required checks are satisfied', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -34,25 +30,17 @@ describe('/api/provider-health route', () => {
         text: vi.fn().mockResolvedValue('[]')
       })
     );
-    getBoardDataMock.mockResolvedValue({
-      mode: 'cache',
-      reason: 'provider_unavailable',
-      generatedAt: '2026-01-01T00:00:00.000Z',
-      freshnessLabel: 'Cached live slate',
-      sport: 'NBA',
-      tz: 'America/Phoenix',
-      dateISO: '2026-01-15',
-      games: [],
-      scouts: [],
-      providerErrors: ['provider_timeout']
-    });
 
     const { GET } = await import('../route');
     const response = await GET();
     const json = await response.json();
 
-    expect(json.mode).toBe('cache');
-    expect(json.reason).toBe('provider_unavailable');
+    expect(json.ok).toBe(true);
+    expect(json.mode).toBe('live');
+    expect(json.reason).toBe('live_ok');
+    expect(json.providerErrors).toEqual([]);
+    expect(json.providerErrors).not.toContain('Odds provider reachable');
+    expect(json.messages).toEqual(['Odds provider reachable']);
     expect(json.checks.odds).toMatchObject({
       provider: 'odds',
       ok: true,
@@ -82,12 +70,12 @@ describe('/api/provider-health route', () => {
     const response = await GET();
     const json = await response.json();
 
-    expect(getBoardDataMock).not.toHaveBeenCalled();
     expect(json.ok).toBe(false);
     expect(json.reason).toBe('provider_unavailable');
     expect(json.checks.odds.reason).toBe('http_401');
     expect(json.checks.odds.statusCode).toBe(401);
     expect(json.checks.odds.safeMessage).toBe('Odds provider returned HTTP 401');
+    expect(json.providerErrors).toContain('Odds provider returned HTTP 401');
     expect(JSON.stringify(json)).not.toContain('test-key');
     expect(JSON.stringify(json)).not.toContain('apiKey=test-key');
   });
@@ -99,11 +87,10 @@ describe('/api/provider-health route', () => {
     const response = await GET();
     const json = await response.json();
 
-    expect(getBoardDataMock).not.toHaveBeenCalled();
     expect(json.checks.odds.reason).toBe('bad_base_url');
     expect(json.checks.odds.resolvedBaseHost).toBeNull();
     expect(json.checks.odds.safeMessage).toBe('Odds provider base URL is invalid');
-    expect(json.providerErrors).toEqual(['Odds provider base URL is invalid']);
+    expect(json.providerErrors).toContain('Odds provider base URL is invalid');
   });
 
   it('classifies dns fetch failures via error code', async () => {
@@ -125,7 +112,7 @@ describe('/api/provider-health route', () => {
     const json = await response.json();
 
     expect(json.checks.odds.reason).toBe('timeout');
-    expect(json.providerErrors).toEqual(['Odds provider request timed out']);
+    expect(json.providerErrors).toContain('Odds provider request timed out');
   });
 
   it('classifies tls failures via error code', async () => {
@@ -137,6 +124,27 @@ describe('/api/provider-health route', () => {
 
     expect(json.checks.odds.reason).toBe('tls');
     expect(json.checks.odds.errorName).toBe('FetchError');
-    expect(json.providerErrors).toEqual(['TLS handshake failed for odds provider']);
+    expect(json.providerErrors).toContain('TLS handshake failed for odds provider');
+  });
+
+  it('never includes success diagnostics in providerErrors when ok is true', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: vi.fn().mockResolvedValue('[]')
+      })
+    );
+
+    const { GET } = await import('../route');
+    const response = await GET();
+    const json = await response.json();
+
+    expect(json.ok).toBe(true);
+    expect(json.providerErrors).toEqual([]);
+    expect(json.providerErrors.some((message: string) => message.toLowerCase().includes('reachable'))).toBe(false);
   });
 });
