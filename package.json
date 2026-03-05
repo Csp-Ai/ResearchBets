@@ -44,7 +44,8 @@
     "audit:shared-chunk-owners": "node scripts/audit/shared-chunk-owners.mjs",
     "audit:chunk-fingerprint": "node scripts/audit/chunk-fingerprint.mjs",
     "audit:ui-primitives-import-guard": "node scripts/audit/ui-primitives-import-guard.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "verify:today": "tsx scripts/verifyTodayCache.ts"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.8",
