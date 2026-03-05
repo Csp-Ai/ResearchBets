@@ -56,6 +56,24 @@ describe('resolveTodayTruth', () => {
     expect(payload.landing?.reason).toBe('live_ok');
   });
 
+
+  it('uses consistent odds sport keys for events and odds calls', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockResolvedValue({
+      platformLines: Array.from({ length: 6 }).map((_, idx) => ({ platform: 'book', player: `Player ${idx + 1}`, line: 20.5 + idx, odds: -110 })),
+    });
+    fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(fetchEvents).toHaveBeenCalledWith({ sport: 'basketball_nba' });
+    expect(fetchEventOdds).toHaveBeenCalled();
+    expect(fetchEventOdds.mock.calls.every(([input]) => input.sport === 'basketball_nba')).toBe(true);
+  });
+
   it('labels fetchEvents error diagnostics as events_fetch hard errors', async () => {
     fetchEvents.mockRejectedValue(new TypeError('failed to fetch'));
 
@@ -114,6 +132,23 @@ describe('resolveTodayTruth', () => {
   });
 
 
+
+
+  it('returns demo with events fetch diagnostics and auth warning for 401/403', async () => {
+    const authError = Object.assign(new Error('forbidden'), { name: 'HttpError', status: 403, url: 'https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=secret' });
+    fetchEvents.mockRejectedValue(authError);
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining([
+      'odds_plan_restricted_or_key_invalid',
+      'live_hard_error:events_fetch',
+      'events_fetch_status:403',
+      'events_fetch_host:api.the-odds-api.com',
+    ]));
+  });
 
   it('classifies non-exception live fallback as live_unavailable viability warning', async () => {
     fetchEvents.mockResolvedValue({

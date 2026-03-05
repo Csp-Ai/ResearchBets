@@ -4,10 +4,19 @@ import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString, resolveWithAliases } from '@/src/core/env/read.server';
 
 import type { MarketType } from '../markets/marketType';
-import { fetchJsonWithCache } from '../sources/fetchJsonWithCache';
 import { buildProvenance, type DataProvenance } from '../sources/provenance';
 import { computeLineConsensus } from './lineConsensus';
 import type { LineWatcherResult, PlatformLine } from '../../agents/live/types';
+
+export type ProviderHttpError = Error & {
+  status?: number;
+  statusCode?: number;
+  url?: string;
+  provider?: string;
+  host?: string;
+  bodyExcerpt?: string;
+  cause?: unknown;
+};
 
 interface TheOddsApiOptions {
   apiKey?: string;
@@ -49,6 +58,36 @@ export const buildOddsEventsUrl = (input: { baseUrl: string; sport: string; apiK
   const url = new URL(`${input.baseUrl.replace(/\/+$/, '')}/sports/${sportToKey(input.sport)}/events`);
   url.searchParams.set('apiKey', input.apiKey);
   return url.toString();
+};
+
+const sanitizeBody = (value: string): string =>
+  value
+    .replace(/api[_-]?key\s*[=:]\s*[^\s,&]+/gi, 'apiKey=[redacted]')
+    .replace(/([?&]apiKey=)[^&\s]+/gi, '$1[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const excerptBody = (value: string): string => sanitizeBody(value).slice(0, 500);
+
+const toProviderHttpError = (input: { status: number; url: string; bodyText: string; cause?: unknown }): ProviderHttpError => {
+  const error = new Error(`odds_http_${input.status}`) as ProviderHttpError;
+  error.status = input.status;
+  error.statusCode = input.status;
+  error.url = input.url;
+  error.provider = SOURCE;
+  error.host = new URL(input.url).host;
+  error.bodyExcerpt = excerptBody(input.bodyText);
+  if (input.cause !== undefined) error.cause = input.cause;
+  return error;
+};
+
+export const fetchJsonOrThrow = async <T>(url: string, init?: RequestInit): Promise<T> => {
+  const response = await fetch(url, init);
+  const text = await response.text();
+  if (!response.ok) {
+    throw toProviderHttpError({ status: response.status, url, bodyText: text });
+  }
+  return (text ? JSON.parse(text) : []) as T;
 };
 
 const marketToOddsApi = (marketType: MarketType): string => {
@@ -115,11 +154,6 @@ const parsePlatformLines = (input: {
   return facts;
 };
 
-const ttlForEventSet = (events: OddsEvent[]): number => {
-  const now = Date.now();
-  const gameDay = events.some((event) => Math.abs(new Date(event.commence_time).getTime() - now) <= 24 * 60 * 60 * 1000);
-  return gameDay ? 60_000 : 300_000;
-};
 
 export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
   const apiKey = options.apiKey ?? resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
@@ -133,15 +167,12 @@ export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
       }
 
       const sportKey = sportToKey(input.sport);
-      const response = await fetchJsonWithCache<OddsEvent[]>(`${baseUrl}/sports/${sportKey}/events`, {
-        source: SOURCE,
-        ttlMs: 5 * 60 * 1000,
-        params: { apiKey },
-        rateLimit: { capacity: 10, refillPerSecond: 4 }
-      });
+      const url = new URL(`${baseUrl}/sports/${sportKey}/events`);
+      url.searchParams.set('apiKey', apiKey);
+      const events = await fetchJsonOrThrow<OddsEvent[]>(url.toString());
       return {
-        events: Array.isArray(response.data) ? response.data : [],
-        provenance: buildProvenance([{ provider: SOURCE, url: response.url, retrievedAt: response.retrievedAt }])
+        events: Array.isArray(events) ? events : [],
+        provenance: buildProvenance([{ provider: SOURCE, url: url.toString(), retrievedAt: new Date().toISOString() }])
       };
     },
 
@@ -157,36 +188,17 @@ export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
       if (eventIds.length === 0) return { platformLines: [], provenance: buildProvenance([]), fallbackReason: 'event_ids_missing' };
 
       const market = marketToOddsApi(input.marketType);
-      const response = await fetchJsonWithCache<OddsResponseEvent[]>(`${baseUrl}/sports/${sportToKey(input.sport)}/odds`, {
-        source: SOURCE,
-        ttlMs: 5 * 60 * 1000,
-        params: {
-          apiKey,
-          regions: 'us',
-          markets: market,
-          eventIds: eventIds.join(',')
-        },
-        rateLimit: { capacity: 10, refillPerSecond: 4 }
-      });
+      const refreshedUrl = new URL(`${baseUrl}/sports/${sportToKey(input.sport)}/odds`);
+      refreshedUrl.searchParams.set('apiKey', apiKey);
+      refreshedUrl.searchParams.set('regions', 'us');
+      refreshedUrl.searchParams.set('markets', market);
+      refreshedUrl.searchParams.set('eventIds', eventIds.join(','));
+      const refreshed = await fetchJsonOrThrow<OddsResponseEvent[]>(refreshedUrl.toString());
 
-      const events = Array.isArray(response.data) ? response.data : [];
-      const ttlMs = ttlForEventSet(events);
-      const refreshed = await fetchJsonWithCache<OddsResponseEvent[]>(`${baseUrl}/sports/${sportToKey(input.sport)}/odds`, {
-        source: SOURCE,
-        ttlMs,
-        params: {
-          apiKey,
-          regions: 'us',
-          markets: market,
-          eventIds: eventIds.join(',')
-        },
-        rateLimit: { capacity: 10, refillPerSecond: 4 }
-      });
-
-      const lines = parsePlatformLines({ events: Array.isArray(refreshed.data) ? refreshed.data : [], marketType: input.marketType });
+      const lines = parsePlatformLines({ events: Array.isArray(refreshed) ? refreshed : [], marketType: input.marketType });
       return {
         platformLines: lines,
-        provenance: buildProvenance([{ provider: SOURCE, url: refreshed.url, retrievedAt: refreshed.retrievedAt }])
+        provenance: buildProvenance([{ provider: SOURCE, url: refreshedUrl.toString(), retrievedAt: new Date().toISOString() }])
       };
     },
 
