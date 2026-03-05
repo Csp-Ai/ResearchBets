@@ -64,22 +64,30 @@ This works in demo mode with graceful degradation for Supabase-backed features.
 
 ### 2) Full mode (Supabase + providers)
 
-Set at minimum:
+Required for live mode:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable-or-anon-key>
-# optional alias supported by env checker:
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=<publishable-key>
 SUPABASE_SERVICE_ROLE_KEY=<server-only>
-LIVE_MODE=true
-```
-
-Optional provider keys for richer live context:
-
-```bash
 ODDS_API_KEY=<key>
 SPORTSDATA_API_KEY=<key>
+LIVE_MODE=true
+CRON_SECRET=<server-only>
+```
+
+Optional:
+
+```bash
+ODDS_API_BASE_URL=<override-api-base-url>
+PUBLIC_APP_NAME=<ui-label>
+```
+
+Legacy aliases still supported (canonical names above are preferred):
+
+```bash
+THEODDSAPI_KEY=<legacy alias for ODDS_API_KEY>
+SPORTSDATAIO_API_KEY=<legacy alias for SPORTSDATA_API_KEY>
 ```
 
 ### 3) Environment validation (`env:check` strict vs relaxed)
@@ -96,7 +104,7 @@ npm run env:check
 npm run env:check:strict
 ```
 
-Common fix for failures: copy `.env.local.example`, add `NEXT_PUBLIC_SUPABASE_URL` and one public key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`), then restart dev server.
+Common fix for failures: copy `.env.local.example`, set canonical keys above, then restart dev server (or redeploy on Vercel after changing env vars).
 
 
 
@@ -269,13 +277,20 @@ npx vitest run app/api/today/__tests__/route.test.ts app/api/postmortem/__tests_
 ```
 
 
-## Canonical provider envs
+## Canonical environment + provider troubleshooting
 
-Use these exact variable names for live feeds:
+Canonical names (Vercel/project settings should match exactly):
 
-- `SPORTSDATA_API_KEY`
-- `ODDS_API_KEY`
-- `THEODDSAPI_KEY` (legacy alias still supported)
+- Public: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Optional public: `PUBLIC_APP_NAME`
+- Server-only: `SUPABASE_SERVICE_ROLE_KEY`, `ODDS_API_KEY`, `ODDS_API_BASE_URL`, `SPORTSDATA_API_KEY`, `LIVE_MODE`, `CRON_SECRET`
+- Legacy aliases: `THEODDSAPI_KEY` -> `ODDS_API_KEY`, `SPORTSDATAIO_API_KEY` -> `SPORTSDATA_API_KEY`
+
+Debug flow:
+
+1. Call `GET /api/env/status` first; expect `resolvedMode.reason=live_ok` before provider checks.
+2. Call `GET /api/provider-health`; inspect `checks.odds.reason` (`http_401`, `http_403`, `http_429`, `timeout`, `dns`, `bad_base_url`, `unknown`) and optional `statusCode`.
+3. After any Vercel env update, redeploy to apply new runtime values.
 
 ## Bettor account-to-settle loop (MVP)
 

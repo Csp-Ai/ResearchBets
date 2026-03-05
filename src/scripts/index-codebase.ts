@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { CANONICAL_KEYS } from '@/src/core/env/keys';
 import { getSupabaseServiceClient } from '../core/supabase/service';
 
 type SupportedLanguage = 'ts' | 'tsx' | 'js' | 'sql' | 'md';
@@ -275,7 +276,7 @@ const embedTexts = async (inputs: string[]): Promise<number[][]> => {
 };
 
 const main = async (): Promise<void> => {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+  if (!process.env[CANONICAL_KEYS.SUPABASE_SERVICE_ROLE_KEY]?.trim()) {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY. Set it in .env.local to write embeddings to Supabase.');
   }
 

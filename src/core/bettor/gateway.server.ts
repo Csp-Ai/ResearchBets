@@ -3,6 +3,8 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 
 import { getBoardData, type BoardSport } from '@/src/core/board/boardService.server';
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { resolveWithAliases } from '@/src/core/env/read.server';
 import { getSupabaseServiceClient } from '@/src/services/supabase';
 
 import { DEMO_GAMES, type BettorGame } from './demoData';
@@ -24,11 +26,18 @@ export type BettorDataEnvelope = {
   userSafeReason?: string;
 };
 
-const readProviderStatus = () => ({
-  stats: process.env.SPORTSDATA_API_KEY ? 'connected' : 'missing',
-  odds: process.env.ODDS_API_KEY ? 'connected' : 'missing',
-  injuries: process.env.SPORTSDATA_API_KEY ? 'connected' : 'missing'
-} as const);
+const readProviderStatus = () => {
+  const sportsDataKey = resolveWithAliases(
+    CANONICAL_KEYS.SPORTSDATA_API_KEY,
+    ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY],
+  );
+  const oddsKey = resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
+  return {
+    stats: sportsDataKey ? 'connected' : 'missing',
+    odds: oddsKey ? 'connected' : 'missing',
+    injuries: sportsDataKey ? 'connected' : 'missing',
+  } as const;
+};
 
 const emitGatewayEvent = async (eventName: string, properties: Record<string, unknown>) => {
   try {

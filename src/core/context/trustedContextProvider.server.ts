@@ -1,6 +1,8 @@
 import 'server-only';
 
 import { fetchJsonWithCache } from '@/src/core/sources/fetchJsonWithCache';
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { resolveWithAliases } from '@/src/core/env/read.server';
 import { getProviderRegistry } from '@/src/core/providers/registry.server';
 
 import { createTrustedContextProvider } from './trustedContextProvider';
@@ -22,7 +24,7 @@ const normalizeSport = (sport: string): 'nba' | 'nfl' | 'soccer' => {
   return 'nba';
 };
 
-const resolveSportsDataKey = () => process.env.TRUSTED_SPORTSDATAIO_KEY ?? process.env.SPORTSDATA_API_KEY;
+const resolveSportsDataKey = () => process.env.TRUSTED_SPORTSDATAIO_KEY ?? resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]);
 
 const asString = (value: unknown): string | undefined => {
   if (typeof value === 'string' && value.trim()) return value.trim();
@@ -109,7 +111,7 @@ export const trustedContextProvider = createTrustedContextProvider({
   },
   odds: {
     fetchEventOdds: async (input) => {
-      if (!process.env.ODDS_API_KEY && !process.env.TRUSTED_ODDS_API_KEY) {
+      if (!resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]) && !process.env.TRUSTED_ODDS_API_KEY) {
         return {
           platformLines: [],
           provenance: { sources: [] },

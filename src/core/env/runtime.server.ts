@@ -1,19 +1,23 @@
 import 'server-only';
 
-export const LIVE_PROVIDER_KEYS = ['THEODDSAPI_KEY', 'ODDS_API_KEY', 'SPORTSDATA_API_KEY', 'SPORTSDATAIO_API_KEY'] as const;
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { readBool, resolveWithAliases } from '@/src/core/env/read.server';
 
-const readBoolean = (value: string | undefined): boolean | null => {
-  if (typeof value !== 'string') return null;
-  const normalized = value.trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  return null;
-};
+export const LIVE_PROVIDER_KEYS = [
+  CANONICAL_KEYS.ODDS_API_KEY,
+  ...ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY],
+  CANONICAL_KEYS.SPORTSDATA_API_KEY,
+  ...ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY],
+] as const;
 
-const hasProviderKey = (): boolean => LIVE_PROVIDER_KEYS.some((name) => Boolean(process.env[name]?.trim()));
+const hasProviderKey = (): boolean =>
+  Boolean(
+    resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]) ||
+      resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]),
+  );
 
 const nodeEnv = process.env.NODE_ENV ?? 'development';
-const explicitLiveMode = readBoolean(process.env.LIVE_MODE);
+const explicitLiveMode = readBool(CANONICAL_KEYS.LIVE_MODE);
 const providersConfigured = hasProviderKey();
 const liveModeEnabled = explicitLiveMode ?? (nodeEnv === 'production' ? providersConfigured : false);
 

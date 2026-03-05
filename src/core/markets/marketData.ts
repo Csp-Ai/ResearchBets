@@ -1,3 +1,5 @@
+import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
+import { resolveWithAliases } from '@/src/core/env/read.server';
 import { getGamesByLeague } from '../games/registry';
 import { getProviderRegistry } from '../providers/registry.server';
 
@@ -123,7 +125,7 @@ const isWebProviderEnabled = (): boolean =>
 
 async function loadWebSnapshot(sport: string): Promise<MarketSnapshot | null> {
   if (!isWebProviderEnabled()) return null;
-  if (!process.env.ODDS_API_KEY) {
+  if (!resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY])) {
     return withFreshness(
       {
         ...loadDemoSnapshot(sport),

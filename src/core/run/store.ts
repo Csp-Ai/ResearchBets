@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from '@/services/supabaseClient';
+import { CANONICAL_KEYS } from '@/src/core/env/keys';
 import { buildSlipStructureReport, computeSlipIntelligence } from '@/src/core/slips/slipIntelligence';
 
 import { normalizeRun } from '@/src/core/run/normalizeRun';
@@ -211,7 +212,7 @@ export function getLatestTraceId(): string | null {
 }
 
 export const createRunStore = (): RunStore => {
-  const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const hasSupabase = Boolean(process.env[CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_URL] && process.env[CANONICAL_KEYS.NEXT_PUBLIC_SUPABASE_ANON_KEY]);
   return hasSupabase ? new SupabaseRunStore() : new LocalRunStore();
 };
 

@@ -1,3 +1,4 @@
+import { CANONICAL_KEYS } from '@/src/core/env/keys';
 import { normalizeSpine } from '@/src/core/nervous/spine';
 
 import type { RedirectSearchParams } from './preserveQueryRedirect';
@@ -11,7 +12,7 @@ const readFirst = (value: string | string[] | undefined) => (Array.isArray(value
 const toTodayIso = () => new Date().toISOString().slice(0, 10);
 
 export function buildCockpitEntryHref(searchParams?: RedirectSearchParams): string {
-  const liveMode = isLiveModeEnabled(process.env.LIVE_MODE);
+  const liveMode = isLiveModeEnabled(process.env[CANONICAL_KEYS.LIVE_MODE]);
   const defaults = {
     sport: 'NBA',
     tz: 'America/Phoenix',
