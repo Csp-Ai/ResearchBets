@@ -60,6 +60,30 @@ describe('/api/today GET', () => {
     expect(payload.board.props.length).toBeGreaterThan(0);
   });
 
+
+
+  it('returns attempts and provenance fields from resolver payload', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'live',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [{ id: 'g1', league: 'NBA', status: 'upcoming', matchup: 'A @ B', teams: ['A', 'B'], startTime: '7:00 PM', bookContext: 'ctx', propsPreview: [], provenance: 'live', lastUpdated: '2026-01-15T19:30:00.000Z' }],
+        board: [{ id: 'p1', gameId: 'g1', player: 'Player 1', market: 'threes', line: '2.5', odds: '-110', attemptsSource: 'live', threesAttL5Avg: 7.2, l5Source: 'live' }],
+        reason: 'live_ok',
+        provenance: { mode: 'live', reason: 'live_ok', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
+    const payload = await response.json() as { board: { props: Array<{ attemptsSource?: string; threesAttL5Avg?: number; l5Source?: string }> } };
+
+    expect(payload.board.props[0]?.attemptsSource).toBe('live');
+    expect(payload.board.props[0]?.threesAttL5Avg).toBe(7.2);
+    expect(payload.board.props[0]?.l5Source).toBe('live');
+  });
+
   it('returns stable hard_error envelope on unhandled resolver failures', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => {

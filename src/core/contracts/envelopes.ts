@@ -40,6 +40,14 @@ export const TodayPayloadSchema = z.object({
     market: z.string().min(1),
     line: z.string(),
     odds: z.string().min(1),
+    l10Avg: z.number().optional(),
+    threesAttL1: z.number().optional(),
+    threesAttL3Avg: z.number().optional(),
+    threesAttL5Avg: z.number().optional(),
+    fgaL1: z.number().optional(),
+    fgaL3Avg: z.number().optional(),
+    fgaL5Avg: z.number().optional(),
+    attemptsSource: z.enum(['live', 'cached', 'demo', 'heuristic']).optional(),
   }).passthrough()),
 });
 

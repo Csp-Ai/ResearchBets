@@ -33,32 +33,63 @@ export const computeL5AvgForMarket = (logs: GameLog[], market: MarketType): numb
   return avg(values.slice(0, 5));
 };
 
-export const deriveRoleConfidence = (minutesL3Avg?: number) => {
-  if (typeof minutesL3Avg !== 'number') {
-    return { roleConfidence: 'med' as const, roleReasons: ['Minutes unavailable (heuristic)'] };
-  }
-  if (minutesL3Avg >= 32) return { roleConfidence: 'high' as const, roleReasons: ['Stable rotation minutes L3'] };
-  if (minutesL3Avg >= 24) return { roleConfidence: 'med' as const, roleReasons: ['Rotation minutes in mid band'] };
-  return { roleConfidence: 'low' as const, roleReasons: ['Low minutes L3', 'Rotation volatility'] };
+
+type FeaturedBucketResult = {
+  l5Avg?: number;
+  l10Avg?: number;
+  provenance: MetricSource;
+  reason?: string;
 };
 
-export const deriveDeadLegRisk = (input: { market: MarketType; roleConfidence?: 'high'|'med'|'low'; odds?: string; l5Avg?: number }) => {
+export const computeFeaturedBucketAveragesFromLogs = (logs: GameLog[], market: MarketType): FeaturedBucketResult => {
+  if (!logs.length) return { provenance: 'heuristic', reason: 'No game logs available' };
+  const values = logs.map((log) => statValueForMarket(log, market)).filter((v): v is number => typeof v === 'number');
+  if (!values.length) return { provenance: 'heuristic', reason: 'No bucket values in logs' };
+  return {
+    l5Avg: avg(values.slice(0, 5)),
+    l10Avg: avg(values.slice(0, 10)),
+    provenance: 'live'
+  };
+};
+
+export const deriveRoleConfidence = (minutesL3Avg?: number) => {
+  if (typeof minutesL3Avg !== 'number') {
+    return { roleConfidence: 'med' as const, roleReasons: ['Role volatility'] };
+  }
+  if (minutesL3Avg >= 32) return { roleConfidence: 'high' as const, roleReasons: ['Stable rotation minutes L3'] };
+  if (minutesL3Avg >= 24) return { roleConfidence: 'med' as const, roleReasons: ['Role volatility'] };
+  return { roleConfidence: 'low' as const, roleReasons: ['Low minutes (L3)', 'Role volatility'] };
+};
+
+export const deriveDeadLegRisk = (input: { market: MarketType; roleConfidence?: 'high'|'med'|'low'; odds?: string; l5Avg?: number; threesAttL5Avg?: number; minutesL3Avg?: number }) => {
   const reasons: string[] = [];
-  if (input.roleConfidence === 'low') reasons.push('Low role confidence from minutes');
+  if (typeof input.minutesL3Avg === 'number' && input.minutesL3Avg < 24) reasons.push('Low minutes (L3)');
+  if (input.roleConfidence === 'low' || input.roleConfidence === 'med') reasons.push('Role volatility');
   const category = mapMarketToFeaturedStatCategory(input.market);
-  if (category === 'threes') {
-    if (typeof input.l5Avg === 'number' && input.l5Avg < 1.6) {
-      reasons.push('Low-attempt 3PM profile');
-    } else {
-      reasons.push('Low-attempt risk (heuristic)');
-    }
+  if (category === 'threes' && typeof input.threesAttL5Avg === 'number' && input.threesAttL5Avg < 4.5) {
+    reasons.push('Low 3PA volume (L5)');
   }
   const oddsNum = Number(input.odds);
-  if (Number.isFinite(oddsNum) && oddsNum >= 180) reasons.push('Aggressive odds booster leg');
+  if (Number.isFinite(oddsNum) && oddsNum >= 160) reasons.push('Mismatch risk');
 
-  if (reasons.length >= 2 || reasons.some((r) => r.includes('Low role confidence'))) {
-    return { deadLegRisk: 'high' as const, deadLegReasons: reasons };
+  const uniqueReasons = [...new Set(reasons)];
+  if (uniqueReasons.length >= 3 || uniqueReasons.includes('Low minutes (L3)')) {
+    return { deadLegRisk: 'high' as const, deadLegReasons: uniqueReasons };
   }
-  if (reasons.length === 1) return { deadLegRisk: 'med' as const, deadLegReasons: reasons };
-  return { deadLegRisk: 'low' as const, deadLegReasons: ['Role and line profile within normal range'] };
+  if (uniqueReasons.length >= 1) return { deadLegRisk: 'med' as const, deadLegReasons: uniqueReasons };
+  return { deadLegRisk: 'low' as const, deadLegReasons: ['Role volatility'] };
+};
+
+
+export const computeAttemptMetrics = (logs: GameLog[]) => {
+  const threesAtt = logs.map((log) => log.stats.threePointAttempts).filter((v): v is number => typeof v === 'number');
+  const fga = logs.map((log) => log.stats.fieldGoalAttempts).filter((v): v is number => typeof v === 'number');
+  return {
+    threesAttL1: threesAtt[0],
+    threesAttL3Avg: avg(threesAtt.slice(0, 3)),
+    threesAttL5Avg: avg(threesAtt.slice(0, 5)),
+    fgaL1: fga[0],
+    fgaL3Avg: avg(fga.slice(0, 3)),
+    fgaL5Avg: avg(fga.slice(0, 5))
+  };
 };

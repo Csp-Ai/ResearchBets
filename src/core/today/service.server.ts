@@ -5,7 +5,7 @@ import { getProviderRegistry } from '@/src/core/providers/registry.server';
 import type { BoardSport } from '@/src/core/board/boardService.server';
 import { createDemoTodayPayload } from './demoToday';
 import { TODAY_LEAGUES, type ProviderHealth, type TodayPayload, type TodayPropKey } from './types';
-import { computeL5AvgForMarket, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
+import { computeAttemptMetrics, computeFeaturedBucketAveragesFromLogs, computeMinutesMetrics, deriveDeadLegRisk, deriveRoleConfidence } from './rowIntelligence';
 
 const TTL_MS = 120_000;
 const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
@@ -204,20 +204,29 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
   const enrichedBoard = board.map((row) => {
     const logs = logsResult.byPlayerId[row.player] ?? [];
     const minutes = computeMinutesMetrics(logs);
-    const l5Avg = computeL5AvgForMarket(logs, row.market);
+    const bucket = computeFeaturedBucketAveragesFromLogs(logs, row.market);
+    const attempts = computeAttemptMetrics(logs);
     const role = deriveRoleConfidence(minutes.minutesL3Avg);
-    const deadLeg = deriveDeadLegRisk({ market: row.market, roleConfidence: role.roleConfidence, odds: row.odds, l5Avg });
+    const deadLeg = deriveDeadLegRisk({ market: row.market, roleConfidence: role.roleConfidence, odds: row.odds, l5Avg: bucket.l5Avg, threesAttL5Avg: attempts.threesAttL5Avg });
     return {
       ...row,
       minutesL1: minutes.minutesL1,
       minutesL3Avg: minutes.minutesL3Avg,
-      l5Avg: l5Avg ?? Number(((row.hitRateL5 ?? row.hitRateL10 ?? 0) / 10).toFixed(2)),
-      l5Source: l5Avg !== undefined ? sourceMode : 'heuristic',
+      l5Avg: bucket.l5Avg ?? Number(((row.hitRateL5 ?? row.hitRateL10 ?? 0) / 10).toFixed(2)),
+      l10Avg: bucket.l10Avg,
+      threesAttL1: attempts.threesAttL1,
+      threesAttL3Avg: attempts.threesAttL3Avg,
+      threesAttL5Avg: attempts.threesAttL5Avg,
+      fgaL1: attempts.fgaL1,
+      fgaL3Avg: attempts.fgaL3Avg,
+      fgaL5Avg: attempts.fgaL5Avg,
+      l5Source: bucket.provenance === 'live' ? sourceMode : 'heuristic',
       minutesSource: minutes.minutesL3Avg !== undefined ? sourceMode : 'heuristic',
+      attemptsSource: attempts.threesAttL5Avg !== undefined || attempts.fgaL5Avg !== undefined ? sourceMode : 'heuristic',
       roleConfidence: role.roleConfidence,
       roleReasons: role.roleReasons,
       deadLegRisk: deadLeg.deadLegRisk,
-      deadLegReasons: deadLeg.deadLegReasons
+      deadLegReasons: bucket.provenance === 'heuristic' && bucket.reason ? [...deadLeg.deadLegReasons, bucket.reason] : deadLeg.deadLegReasons
     };
   });
 
