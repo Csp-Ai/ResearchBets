@@ -289,8 +289,9 @@ Canonical names (Vercel/project settings should match exactly):
 Debug flow:
 
 1. Call `GET /api/env/status` first; expect `resolvedMode.reason=live_ok` before provider checks.
-2. Call `GET /api/provider-health`; inspect `checks.odds.reason` (`http_401`, `http_403`, `http_429`, `timeout`, `dns`, `bad_base_url`, `unknown`) and optional `statusCode`.
-3. After any Vercel env update, redeploy to apply new runtime values.
+2. Call `GET /api/provider-health`; inspect `checks.odds.reason` (`http_401`, `http_403`, `http_429`, `timeout`, `dns`, `tls`, `bad_base_url`, `edge_runtime_blocked`, `network`, `unknown`) plus safe metadata (`resolvedBaseHost`, `runtime`, `errorName`, `safeMessage`) and optional `statusCode`.
+3. If reason is `unknown`, use `errorName` + `safeMessage` to classify locally and then codify the new signature into provider-health so unknown remains a true last-resort bucket.
+4. After any Vercel env update, redeploy to apply new runtime values.
 
 ## Bettor account-to-settle loop (MVP)
 
