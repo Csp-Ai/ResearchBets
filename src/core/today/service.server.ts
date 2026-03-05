@@ -39,19 +39,33 @@ const toSportKey = (sport: BoardSport) => {
 const startOfDay = (date: string) => new Date(`${date}T00:00:00.000Z`).getTime();
 const endOfDay = (date: string) => new Date(`${date}T23:59:59.999Z`).getTime();
 
-const providerHealth = (fatalErrors: string[] = []): ProviderHealth[] => {
+const providerHealth = (
+  fatalErrors: string[] = [],
+  opts?: { mode?: TodayPayload['mode']; reason?: string },
+): ProviderHealth[] => {
   const oddsKey = resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
   const sportsDataKey = resolveWithAliases(
     CANONICAL_KEYS.SPORTSDATA_API_KEY,
     ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY],
   );
 
+  const demoMode = opts?.mode === 'demo';
+  const oddsFatal = fatalErrors.filter((entry) => (
+    entry.includes('provider_unavailable')
+    || entry.includes('provider_events_unavailable')
+    || entry.includes('no_games')
+    || entry.includes('market_closed')
+    || entry.includes('board_too_sparse')
+    || entry.includes('strict_live_empty')
+    || entry.includes('key_missing')
+  ));
+
   return [
     {
       provider: 'the-odds-api',
-      ok: fatalErrors.length === 0,
+      ok: Boolean(oddsKey) && (demoMode || oddsFatal.length === 0),
       missingKey: !oddsKey,
-      message: fatalErrors[0],
+      message: oddsFatal[0],
     },
     {
       provider: 'sportsdataio',
@@ -90,11 +104,12 @@ function withLandingSummary(payload: TodayPayload): TodayPayload {
   const boardSize = payload.board?.length ?? 0;
   const viableLive = boardSize >= MIN_BOARD_ROWS && payload.games.length > 0 && payload.status !== 'market_closed';
   const hasFatalErrors = (payload.providerErrors?.length ?? 0) > 0;
+  const hasMissingKeys = payload.reason === 'missing_keys' || (payload.providerErrors ?? []).some((entry) => entry.includes('key_missing'));
 
   let reason: NonNullable<TodayPayload['landing']>['reason'] = 'live_ok';
   if (payload.mode === 'demo') {
     reason = 'demo';
-  } else if (payload.reason === 'missing_keys') {
+  } else if (hasMissingKeys) {
     reason = 'missing_keys';
   } else if (!viableLive || hasFatalErrors) {
     reason = 'provider_unavailable';
@@ -124,9 +139,9 @@ function getDemoFallback(reason: string, sport?: BoardSport): TodayPayload {
     reason,
     status: 'active',
     provenance: { mode: 'demo', reason, generatedAt: demo.generatedAt },
-    providerErrors: reason === 'live_ok' ? [] : [reason],
-    providerWarnings: [],
-    providerHealth: providerHealth([reason])
+    providerErrors: [],
+    providerWarnings: reason ? [reason] : [],
+    providerHealth: providerHealth([], { mode: 'demo', reason })
   });
   return withLandingSummary(withBoard);
 }
@@ -285,7 +300,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     userSafeReason: fatalErrors.length || warnings.length ? 'Live mode (some feeds unavailable)' : undefined,
     status,
     nextAvailableStartTime: status === 'next' ? selected[0]?.commence_time : undefined,
-    providerHealth: providerHealth(fatalErrors),
+    providerHealth: providerHealth(fatalErrors, { mode: 'live' }),
     board: enrichedBoard.slice(0, 24).map((row) => {
       const gameId = row.id.split(':')[0] ?? '';
       return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: 'live' as const };
@@ -346,6 +361,7 @@ export async function resolveTodayTruth(options?: {
       games: [],
       providerErrors: ['strict_live_empty'],
       providerWarnings: [],
+      providerHealth: providerHealth(['strict_live_empty'], { mode: 'live' }),
       landing: {
         mode: 'live',
         reason: 'provider_unavailable',

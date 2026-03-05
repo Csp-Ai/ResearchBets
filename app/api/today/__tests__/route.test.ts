@@ -31,7 +31,7 @@ describe('/api/today GET', () => {
     expect(Array.isArray(payload.board.games)).toBe(true);
   });
 
-  it('returns demo intent + provenance when demo is requested', async () => {
+  it('returns demo semantics for /api/today?mode=demo', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => ({
         mode: 'demo',
@@ -40,6 +40,9 @@ describe('/api/today GET', () => {
         games: [{ id: 'g1', matchup: 'A @ B', startTime: '7:00 PM', propsPreview: [] }],
         board: [{ id: 'p1', player: 'Player 1', market: 'points', line: '22.5', odds: '-110' }],
         reason: 'demo_requested',
+        providerErrors: [],
+        providerWarnings: ['demo_requested'],
+        providerHealth: [{ provider: 'the-odds-api', ok: true, missingKey: false }],
         landing: { mode: 'demo', reason: 'demo', gamesCount: 1, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
         provenance: { mode: 'demo', reason: 'demo_requested', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
@@ -50,24 +53,33 @@ describe('/api/today GET', () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json() as {
-      data: { reason?: string };
-      landing?: { reason?: string };
+      data: {
+        mode: string;
+        reason?: string;
+        providerErrors?: string[];
+        providerWarnings?: string[];
+        providerHealth?: Array<{ provider: string; ok: boolean; missingKey?: boolean }>;
+      };
+      landing?: { mode?: string; reason?: string };
       spine: { sport: string; tz: string; date: string; mode: string };
       provenance: { mode: string; reason?: string };
       board: { props: unknown[] };
     };
 
     expect(payload.spine).toMatchObject({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
+    expect(payload.data.mode).toBe('demo');
     expect(payload.spine.mode).toBe('demo');
     expect(payload.provenance.mode).toBe('demo');
     expect(payload.data.reason).toBe('demo_requested');
+    expect(payload.data.providerErrors).toEqual([]);
+    expect(payload.data.providerWarnings).toContain('demo_requested');
+    expect(payload.data.providerHealth?.find((provider) => provider.provider === 'the-odds-api')?.ok).toBe(true);
+    expect(payload.landing?.mode).toBe('demo');
     expect(payload.landing?.reason).toBe('demo');
     expect(payload.board.props.length).toBeGreaterThan(0);
   });
 
-
-
-  it('aligns spine.mode with resolved payload mode', async () => {
+  it('aligns spine.mode and landing.reason when /api/today?mode=live resolves to demo fallback', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => ({
         mode: 'demo',
@@ -76,16 +88,25 @@ describe('/api/today GET', () => {
         games: [],
         board: [],
         reason: 'provider_unavailable',
+        providerErrors: [],
+        providerWarnings: ['provider_unavailable'],
+        landing: { mode: 'demo', reason: 'demo', gamesCount: 0, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
         provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
     }));
 
     const { GET } = await import('../route');
     const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
-    const payload = await response.json() as { data: { mode: string }; spine: { mode: string } };
+    const payload = await response.json() as {
+      data: { mode: string; providerErrors?: string[] };
+      landing?: { reason?: string };
+      spine: { mode: string };
+    };
 
     expect(payload.data.mode).toBe('demo');
     expect(payload.spine.mode).toBe('demo');
+    expect(payload.landing?.reason).toBe('demo');
+    expect(payload.data.providerErrors).toEqual([]);
   });
 
   it('returns attempts and provenance fields from resolver payload', async () => {
@@ -97,14 +118,23 @@ describe('/api/today GET', () => {
         games: [{ id: 'g1', league: 'NBA', status: 'upcoming', matchup: 'A @ B', teams: ['A', 'B'], startTime: '7:00 PM', bookContext: 'ctx', propsPreview: [], provenance: 'live', lastUpdated: '2026-01-15T19:30:00.000Z' }],
         board: [{ id: 'p1', gameId: 'g1', player: 'Player 1', market: 'threes', line: '2.5', odds: '-110', attemptsSource: 'live', threesAttL5Avg: 7.2, l5Source: 'live' }],
         reason: 'live_ok',
+        landing: { mode: 'live', reason: 'live_ok', gamesCount: 1, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
         provenance: { mode: 'live', reason: 'live_ok', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
     }));
 
     const { GET } = await import('../route');
     const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
-    const payload = await response.json() as { board: { props: Array<{ attemptsSource?: string; threesAttL5Avg?: number; l5Source?: string }> } };
+    const payload = await response.json() as {
+      board: { props: Array<{ attemptsSource?: string; threesAttL5Avg?: number; l5Source?: string }> };
+      landing?: { reason?: string };
+      spine: { mode: string };
+      data: { mode: string };
+    };
 
+    expect(payload.data.mode).toBe('live');
+    expect(payload.spine.mode).toBe('live');
+    expect(payload.landing?.reason).toBe('live_ok');
     expect(payload.board.props[0]?.attemptsSource).toBe('live');
     expect(payload.board.props[0]?.threesAttL5Avg).toBe(7.2);
     expect(payload.board.props[0]?.l5Source).toBe('live');
