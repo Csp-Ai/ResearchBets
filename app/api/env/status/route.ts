@@ -7,6 +7,8 @@ import { readBool, readString } from '@/src/core/env/read.server';
 import { runtimeFlags } from '@/src/core/env/runtime.server';
 import { resolveRuntimeMode } from '@/src/core/live/modeResolver.server';
 
+export const runtime = 'nodejs';
+
 const hasValue = (name: string): boolean => Boolean(readString(name));
 
 export async function GET() {
