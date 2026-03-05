@@ -38,11 +38,17 @@ export const DEFAULT_ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4';
 export const resolveOddsApiBaseUrl = (baseUrlOverride?: string | null): string =>
   (baseUrlOverride ?? readString(CANONICAL_KEYS.ODDS_API_BASE_URL) ?? DEFAULT_ODDS_API_BASE_URL).replace(/\/$/, '');
 
-const sportToKey = (sport: string): string => {
+export const sportToKey = (sport: string): string => {
   const normalized = sport.toUpperCase();
   if (normalized === 'NBA') return 'basketball_nba';
   if (normalized === 'NFL') return 'americanfootball_nfl';
   return sport.toLowerCase();
+};
+
+export const buildOddsEventsUrl = (input: { baseUrl: string; sport: string; apiKey: string }): string => {
+  const url = new URL(`${input.baseUrl.replace(/\/+$/, '')}/sports/${sportToKey(input.sport)}/events`);
+  url.searchParams.set('apiKey', input.apiKey);
+  return url.toString();
 };
 
 const marketToOddsApi = (marketType: MarketType): string => {

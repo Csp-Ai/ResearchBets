@@ -46,7 +46,7 @@ export async function GET() {
   const runtimeContext = getRuntimeContext();
   const keyStatus = getLiveKeyStatus();
   const oddsProbe = await runOddsProbe();
-  const eventsProbe = await runEventsProbe();
+  const eventsProbe = await runEventsProbe({ sport: 'NBA' });
   const statsConfigured = Boolean(resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]));
 
   const checks = {
@@ -68,6 +68,7 @@ export async function GET() {
       statusCode: eventsProbe.status,
       resolvedBaseHost: eventsProbe.resolvedBaseHost,
       safeMessage: eventsProbe.safeMessage,
+      ...(eventsProbe.safeDetail ? { safeDetail: eventsProbe.safeDetail } : {}),
     },
     stats: statsConfigured ? 'configured' : 'missing',
     liveModeEnv: readString(CANONICAL_KEYS.LIVE_MODE) ?? 'unset'
@@ -84,6 +85,9 @@ export async function GET() {
 
   if (!eventsProbe.ok && eventsProbe.safeMessage) {
     providerErrors.push(eventsProbe.safeMessage);
+    if (eventsProbe.safeDetail && eventsProbe.safeDetail.length <= 120) {
+      providerErrors.push(eventsProbe.safeDetail);
+    }
   } else if (eventsProbe.ok && eventsProbe.safeMessage) {
     messages.push(eventsProbe.safeMessage);
   }
