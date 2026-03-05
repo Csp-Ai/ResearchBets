@@ -40,6 +40,7 @@ describe('/api/today GET', () => {
         games: [{ id: 'g1', matchup: 'A @ B', startTime: '7:00 PM', propsPreview: [] }],
         board: [{ id: 'p1', player: 'Player 1', market: 'points', line: '22.5', odds: '-110' }],
         reason: 'demo_requested',
+        landing: { mode: 'demo', reason: 'demo', gamesCount: 1, lastUpdatedAt: '2026-01-15T19:30:00.000Z' },
         provenance: { mode: 'demo', reason: 'demo_requested', generatedAt: '2026-01-15T19:30:00.000Z' }
       }))
     }));
@@ -49,6 +50,8 @@ describe('/api/today GET', () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json() as {
+      data: { reason?: string };
+      landing?: { reason?: string };
       spine: { sport: string; tz: string; date: string; mode: string };
       provenance: { mode: string; reason?: string };
       board: { props: unknown[] };
@@ -57,10 +60,33 @@ describe('/api/today GET', () => {
     expect(payload.spine).toMatchObject({ sport: 'NBA', tz: 'UTC', date: '2026-01-20' });
     expect(payload.spine.mode).toBe('demo');
     expect(payload.provenance.mode).toBe('demo');
+    expect(payload.data.reason).toBe('demo_requested');
+    expect(payload.landing?.reason).toBe('demo');
     expect(payload.board.props.length).toBeGreaterThan(0);
   });
 
 
+
+  it('aligns spine.mode with resolved payload mode', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'demo',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'provider_unavailable',
+        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
+    const payload = await response.json() as { data: { mode: string }; spine: { mode: string } };
+
+    expect(payload.data.mode).toBe('demo');
+    expect(payload.spine.mode).toBe('demo');
+  });
 
   it('returns attempts and provenance fields from resolver payload', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({

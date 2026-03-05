@@ -143,13 +143,14 @@ export type TodayPayload = {
   reason?: string;
   modeFallbackApplied?: boolean;
   providerErrors?: string[];
+  providerWarnings?: string[];
   userSafeReason?: string;
   status?: 'active' | 'next' | 'market_closed';
   nextAvailableStartTime?: string;
   providerHealth?: ProviderHealth[];
   landing?: {
     mode: TodayMode;
-    reason: 'live_ok' | 'missing_keys' | 'provider_unavailable';
+    reason: 'live_ok' | 'missing_keys' | 'provider_unavailable' | 'demo';
     gamesCount: number;
     lastUpdatedAt: string;
     headlineMatchup?: string;
