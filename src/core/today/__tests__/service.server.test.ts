@@ -4,6 +4,15 @@ const fetchEvents = vi.fn();
 const fetchEventOdds = vi.fn();
 const fetchRecentPlayerGameLogs = vi.fn();
 
+const readLastGoodToday = vi.fn();
+const writeLastGoodToday = vi.fn();
+
+vi.mock('@/src/core/today/cache.server', () => ({
+  readLastGoodToday,
+  writeLastGoodToday,
+  getTodayCacheKey: ({ sport, tz, date }: { sport: string; tz: string; date: string }) => `today:${sport}:${tz}:${date}`,
+}));
+
 vi.mock('@/src/core/providers/registry.server', () => ({
   getProviderRegistry: () => ({
     oddsProvider: {
@@ -25,6 +34,8 @@ describe('resolveTodayTruth', () => {
     vi.setSystemTime(new Date('2026-01-20T12:00:00.000Z'));
     process.env.ODDS_API_KEY = 'key';
     process.env.SPORTSDATA_API_KEY = 'key';
+    readLastGoodToday.mockResolvedValue(null);
+    writeLastGoodToday.mockResolvedValue(undefined);
   });
 
   it('keeps live mode with provider warnings when board is viable', async () => {
@@ -181,7 +192,72 @@ describe('resolveTodayTruth', () => {
     expect(payload.debug).toMatchObject({ step: 'live_viability', hint: 'provider_events_unavailable' });
   });
 
-  it('uses cached slate on 429 odds rate limiting with cache-first semantics', async () => {
+  it('429 returns cached payload when last-good cache exists', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockRejectedValue({ name: 'RateLimitError', status: 429 });
+    readLastGoodToday.mockResolvedValue({
+      savedAt: '2026-01-20T11:58:00.000Z',
+      payload: {
+        mode: 'live',
+        generatedAt: '2026-01-20T11:58:00.000Z',
+        leagues: ['NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'],
+        games: [{
+          id: 'evt-1',
+          league: 'NBA',
+          status: 'upcoming',
+          startTime: 'Jan 20, 6:00 PM',
+          matchup: 'LAL @ BOS',
+          teams: ['LAL', 'BOS'],
+          bookContext: 'cached',
+          propsPreview: [],
+          provenance: 'the-odds-api',
+          lastUpdated: '2026-01-20T11:58:00.000Z',
+        }],
+        board: Array.from({ length: 6 }).map((_, idx) => ({
+          id: `row-${idx + 1}`,
+          gameId: 'evt-1',
+          player: `Player ${idx + 1}`,
+          market: 'points',
+          line: '20.5',
+          odds: '-110',
+          hitRateL10: 60,
+          marketImpliedProb: 0.52,
+          modelProb: 0.56,
+          edgeDelta: 0.04,
+          riskTag: 'stable',
+        })),
+      },
+    });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('cache');
+    expect(payload.effective).toEqual({ mode: 'cache', reason: 'odds_rate_limited' });
+    expect(payload.reason).toBe('odds_rate_limited');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['live_rate_limited:odds_fetch', 'odds_rate_limited']));
+    expect(payload.board?.length).toBeGreaterThan(0);
+    expect(payload.games.length).toBeGreaterThan(0);
+  });
+
+  it('429 falls back to demo when cache is absent', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockRejectedValue({ name: 'RateLimitError', status: 429 });
+    readLastGoodToday.mockResolvedValue(null);
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.effective).toEqual({ mode: 'demo', reason: 'odds_rate_limited' });
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['live_rate_limited:odds_fetch', 'odds_rate_limited']));
+  });
+
+  it('live success writes last-good cache with canonical key and payload', async () => {
     fetchEvents.mockResolvedValue({
       events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
     });
@@ -191,15 +267,14 @@ describe('resolveTodayTruth', () => {
     fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
 
     const { resolveTodayTruth } = await import('../service.server');
-    await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
-
-    fetchEventOdds.mockRejectedValue({ name: 'RateLimitError', status: 429 });
-
     const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
-    expect(payload.mode).toBe('cache');
-    expect(payload.effective).toEqual({ mode: 'cache', reason: 'odds_rate_limited' });
-    expect(payload.reason).toBe('odds_rate_limited');
-    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['live_rate_limited:odds_fetch']));
+
+    expect(payload.mode).toBe('live');
+    expect(writeLastGoodToday).toHaveBeenCalledTimes(1);
+    expect(writeLastGoodToday).toHaveBeenCalledWith(
+      { sport: 'NBA', tz: 'UTC', date: '2026-01-20' },
+      expect.objectContaining({ mode: 'live', games: expect.any(Array), board: expect.any(Array) }),
+    );
   });
 
   it('keeps live payload as stats-degraded when enrichment fails', async () => {
