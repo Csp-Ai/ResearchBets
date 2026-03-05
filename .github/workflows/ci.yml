@@ -108,20 +108,14 @@ jobs:
         run: npm run audit:security
       - name: Supabase schema drift guard
         run: npm run supabase:schema:drift-check
-      - name: Lint
-        run: npm run lint
-      - name: Typecheck
-        run: npm run typecheck
       - name: Governor checks
         run: npm run check:governor
-      - name: Test
-        run: npm run test
-      - name: Build
-        run: npm run build
+      - name: Canonical quality gate
+        run: npm run check
       - name: Unused code audit
         run: npm run audit:unused:ci
       - name: Canonical entry policy
-        run: echo "Canonical entry: / → /cockpit (server redirect). Demo/cache expected when keys missing."
+        run: echo "Canonical entry: / (shared with /cockpit alias). Demo/cache expected when keys missing."
 
   dependency-audit:
     name: Dependency audit (production gate)

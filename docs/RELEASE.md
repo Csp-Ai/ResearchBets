@@ -1,24 +1,21 @@
 # Release Checklist (v0.2.0+)
 
-This checklist keeps cockpit-first routing, neutral degradation messaging, and release gates aligned.
+This checklist keeps canonical landing routing, neutral degradation messaging, and release gates aligned.
 
 ## 1) Local quality gates
 
 ```bash
 npm ci
-npm test
-npm run build
+npm run check
 ```
 
-Optional but recommended before release tagging:
+Additional governance checks before release tagging:
 
 ```bash
-npm run lint
-npm run typecheck
 npm run check:governor
 ```
 
-## 2) Verify canonical redirects (`/` and `/landing` -> `/cockpit`)
+## 2) Verify canonical routing (`/` shared with `/cockpit`, `/landing` -> `/`)
 
 Run local dev (`npm run dev`) and confirm server redirects preserve query/spine context.
 
@@ -27,7 +24,7 @@ curl -I "http://localhost:3000/"
 curl -I "http://localhost:3000/landing?sport=NBA&tz=America/Phoenix&date=2026-03-01&mode=demo&trace_id=trace_release"
 ```
 
-Expected: `Location` points at `/cockpit?...` with the incoming parameters preserved and normalized defaults applied when omitted.
+Expected: `/` renders landing directly, and `/landing` responds with `Location: /?...` preserving incoming query parameters.
 
 ## 3) Verify env-check behavior (demo vs strict)
 
@@ -50,13 +47,13 @@ Expectations:
 ## 5) CI / GitHub Actions release gates
 
 Confirm PR + `main` workflows run:
-- `npm run test`
-- `npm run build`
-- lint/typecheck/governor gates
+- `npm run check`
+- `npm run check:governor`
+- CI runs `npm run check` as the canonical web quality gate
 - canonical log line at end of web quality job:
 
 ```text
-Canonical entry: / → /cockpit (server redirect). Demo/cache expected when keys missing.
+Canonical entry: / (shared with /cockpit alias). Demo/cache expected when keys missing.
 ```
 
 Do not print secrets or raw env values in CI logs.
@@ -65,7 +62,7 @@ Do not print secrets or raw env values in CI logs.
 
 After deployment:
 - Build completes with no fatal env-check errors in intended mode.
-- Redirect behavior works in preview/prod (`/` and `/landing` route to `/cockpit`).
+- Redirect behavior works in preview/prod (`/` renders landing, `/landing` routes to `/`).
 - Route table includes app routes while runtime redirect behavior remains canonical.
 - No regressions in cockpit page render, board fetch, and slip handoff.
 

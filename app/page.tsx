@@ -1,11 +1,9 @@
-import { redirect } from 'next/navigation';
-
-import { buildCockpitEntryHref } from '@/src/core/routing/cockpitEntry';
+import { CanonicalLanding } from '@/app/_components/CanonicalLanding';
 
 export default function HomePage({
   searchParams
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  redirect(buildCockpitEntryHref(searchParams));
+  return <CanonicalLanding searchParams={searchParams} />;
 }

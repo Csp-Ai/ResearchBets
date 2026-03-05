@@ -1,15 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Unified home landing', () => {
-  it('redirects / to /cockpit', async () => {
-    const redirect = vi.fn((to: string) => {
-      throw new Error(`REDIRECT:${to}`);
-    });
-
-    vi.doMock('next/navigation', () => ({ redirect }));
+  it('renders the canonical shared landing component at /', async () => {
     const mod = await import('@/app/page');
+    const element = mod.default({ searchParams: { trace_id: 'trace-home' } }) as { type?: { name?: string }, props?: { searchParams?: { trace_id?: string } } };
 
-    expect(() => mod.default({})).toThrow('REDIRECT:/cockpit?sport=NBA&tz=America%2FPhoenix&date=');
-    expect(redirect).toHaveBeenCalledWith(expect.stringContaining('/cockpit?'));
+    expect(element.type?.name).toBe('CanonicalLanding');
+    expect(element.props?.searchParams?.trace_id).toBe('trace-home');
   });
 });

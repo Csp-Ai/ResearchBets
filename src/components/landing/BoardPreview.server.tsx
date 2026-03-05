@@ -6,6 +6,12 @@ import { resolveTodayTruth } from '@/src/core/today/service.server';
 
 const chip = (v?: string) => v ?? 'heuristic';
 
+const MODE_STATUS_LABEL: Record<'live' | 'cache' | 'demo', string> = {
+  live: 'System status: live feeds active',
+  cache: 'System status: cached feeds active',
+  demo: 'System status: fallback data active'
+};
+
 export async function BoardPreviewServer({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const sport = typeof searchParams?.sport === 'string' ? searchParams.sport.toUpperCase() as 'NBA' : 'NBA';
   const tz = typeof searchParams?.tz === 'string' ? searchParams.tz : 'UTC';
@@ -21,8 +27,8 @@ export async function BoardPreviewServer({ searchParams }: { searchParams?: Reco
   return (
     <section className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Board Preview</h2>
-        <span className="text-xs text-slate-300">{payload.mode}</span>
+        <h2 className="text-sm font-semibold text-white">Tonight’s Board Preview</h2>
+        <span className="text-xs text-slate-300">{MODE_STATUS_LABEL[payload.mode]}</span>
       </div>
       {FEATURED_STAT_CATEGORY_ORDER.map((category) => {
         const bucketRows = rows.filter((r) => mapMarketToFeaturedStatCategory(r.market) === category).slice(0, 4);

@@ -183,3 +183,14 @@ Determinism guarantee: all `/tonight` and landing lead computations are pure aga
 - DURING-to-AFTER bridge: `src/components/track/DuringCoach.tsx` writes draft coach snapshots, and settlement attaches the latest snapshot for “what coach saw vs what happened.”
 - Edge aggregation: `src/core/review/edgeProfile.ts` derives local-only tendencies from postmortems (win rate, near-miss rate, high-fragility share, coverage-gap share, top miss tags, killer stat types).
 - UI surfaces: `/track` includes a Settle panel; `/review` renders the Edge Profile card + recent postmortem table.
+
+
+## Landing architecture map
+
+- Canonical home landing: `/`
+- Alias: `/cockpit` renders the shared landing composition (no forked layout logic).
+- Compatibility alias: `/landing` redirects to `/` and preserves query continuity.
+- Landing board preview source of truth: `src/components/landing/BoardPreview.server.tsx` using `resolveTodayTruth` + `buildCanonicalBoard`.
+- Copy policy on landing: neutral system status only; avoid `demo/beta/prototype/experimental` UI wording.
+- Spine continuity for CTA links: `nervous.toHref`, `appendQuery`, and `withTraceId`.
+- Flow: `/` -> `/today` -> `/slip|/ingest` -> `/stress-test?tab=analyze` -> `/track` -> `/traces/[trace_id]`.
