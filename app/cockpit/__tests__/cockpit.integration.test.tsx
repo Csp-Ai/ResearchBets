@@ -268,6 +268,21 @@ describe('cockpit route integration', () => {
     expect(screen.getByTestId('nervous-pulse')).toBeTruthy();
   });
 
+  it('renders fragility preview above hero proof when board rows exist', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-fragility', data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
+        { id: 'p1', player: 'S. Curry', market: '3PM', line: '4.5', odds: '-115', gameId: 'g1', matchup: 'LAL @ GSW', startTime: '10:00 PM', riskTag: 'watch', threesAttL1: 3, threesAttL3Avg: 8 }
+      ] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    const fragilityCard = await screen.findByTestId('board-fragility-preview');
+    const proofCard = screen.getByTestId('hero-proof-card');
+
+    expect(fragilityCard.compareDocumentPosition(proofCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('invokes fly-to-ticket when adding a leg', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
