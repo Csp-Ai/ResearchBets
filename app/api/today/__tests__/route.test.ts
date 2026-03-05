@@ -140,6 +140,36 @@ describe('/api/today GET', () => {
     expect(payload.board.props[0]?.l5Source).toBe('live');
   });
 
+
+  it('returns debug object only when debug=1 and keeps diagnostics sanitized', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'demo',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'provider_unavailable',
+        providerErrors: [],
+        providerWarnings: ['live_hard_error:fetch_odds', 'live_hard_error_name:HttpError', 'live_hard_error_code:429'],
+        debug: { step: 'fetch_odds', errorName: 'HttpError', statusCode: 429, hint: 'fetch_odds:status:429' },
+        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const debugResponse = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live&debug=1'));
+    const debugPayload = await debugResponse.json() as { debug?: { step: string; errorName: string; statusCode?: number; hint: string } };
+    expect(debugPayload.debug).toEqual({ step: 'fetch_odds', errorName: 'HttpError', statusCode: 429, hint: 'fetch_odds:status:429' });
+    expect(JSON.stringify(debugPayload.debug)).not.toContain('http');
+    expect(JSON.stringify(debugPayload.debug)).not.toContain('apiKey');
+    expect(JSON.stringify(debugPayload.debug)).not.toContain('stack');
+
+    const normalResponse = await GET(new Request('http://localhost:3000/api/today?sport=NBA&tz=UTC&date=2026-01-20&mode=live'));
+    const normalPayload = await normalResponse.json() as { debug?: unknown };
+    expect(normalPayload.debug).toBeUndefined();
+  });
+
   it('returns stable hard_error envelope on unhandled resolver failures', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => {

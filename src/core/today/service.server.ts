@@ -13,6 +13,15 @@ const TTL_MS = 120_000;
 const MARKETS = ['pra', 'points', 'rebounds', 'assists', 'threes'] as const;
 export const MIN_BOARD_ROWS = 6;
 
+type LiveStep = 'resolve_context' | 'fetch_odds' | 'fetch_stats_enrichment' | 'normalize' | 'build_board' | 'min_board_rows';
+
+type LiveDiagnostic = {
+  step: LiveStep;
+  errorName: string;
+  statusCode?: number;
+  hint: string;
+};
+
 export type CanonicalBoardView = {
   mode: TodayPayload['mode'];
   reason?: TodayPayload['reason'];
@@ -132,34 +141,74 @@ function ensureBoard(payload: TodayPayload): TodayPayload {
   return { ...payload, board };
 }
 
-function getDemoFallback(reason: string, sport?: BoardSport): TodayPayload {
+function getDemoFallback(reason: string, sport?: BoardSport, extras?: { providerWarnings?: string[]; debug?: TodayPayload['debug'] }): TodayPayload {
   const demo = createDemoTodayPayload(sport);
+  const warnings = extras?.providerWarnings ?? (reason ? [reason] : []);
   const withBoard = ensureBoard({
     ...demo,
     reason,
     status: 'active',
     provenance: { mode: 'demo', reason, generatedAt: demo.generatedAt },
     providerErrors: [],
-    providerWarnings: reason ? [reason] : [],
+    providerWarnings: warnings,
+    debug: extras?.debug,
     providerHealth: providerHealth([], { mode: 'demo', reason })
   });
   return withLandingSummary(withBoard);
+}
+
+function getErrorName(error: unknown) {
+  return error instanceof Error && error.name ? error.name : 'Error';
+}
+
+function getStatusCode(error: unknown): number | undefined {
+  if (typeof error === 'object' && error !== null) {
+    const status = (error as { status?: unknown; statusCode?: unknown }).status ?? (error as { statusCode?: unknown }).statusCode;
+    if (typeof status === 'number' && Number.isFinite(status)) return status;
+  }
+  return undefined;
+}
+
+function createLiveHardErrorWarning(step: LiveStep, error: unknown): string[] {
+  const statusCode = getStatusCode(error);
+  return [
+    `live_hard_error:${step}`,
+    `live_hard_error_name:${getErrorName(error)}`,
+    `live_hard_error_code:${typeof statusCode === 'number' ? String(statusCode) : 'none'}`,
+  ];
+}
+
+function createDebug(step: LiveStep, error: unknown): LiveDiagnostic {
+  const statusCode = getStatusCode(error);
+  const statusHint = statusCode ? `status:${statusCode}` : 'status:none';
+  return {
+    step,
+    errorName: getErrorName(error),
+    statusCode,
+    hint: `${step}:${statusHint}`,
+  };
 }
 
 async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: string }): Promise<TodayPayload> {
   const { sport, tz, date } = options;
   const registry = getProviderRegistry();
   const now = Date.now();
-  const fatalErrors: string[] = [];
   const warnings: string[] = [];
 
   let events: Array<{ id: string; commence_time?: string; home_team?: string; away_team?: string }> = [];
+  const oddsBoard: TodayPropKey[] = [];
+  let enrichedBoard: TodayPropKey[] = [];
+  let games: TodayPayload['games'] = [];
+  let status: TodayPayload['status'] = 'market_closed';
+  let debug: LiveDiagnostic | undefined;
+
   try {
     const result = await registry.oddsProvider.fetchEvents({ sport: toSportKey(sport) });
     events = (result.events ?? []) as Array<{ id: string; commence_time?: string; home_team?: string; away_team?: string }>;
     if (result.fallbackReason) warnings.push(result.fallbackReason);
   } catch (error) {
-    fatalErrors.push(error instanceof Error ? error.message : 'provider_unavailable');
+    const providerWarnings = createLiveHardErrorWarning('resolve_context', error);
+    return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('resolve_context', error) });
   }
 
   const active = events.filter((event) => {
@@ -177,9 +226,9 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     .sort((a, b) => new Date(a.commence_time!).getTime() - new Date(b.commence_time!).getTime());
 
   const selected = active.length > 0 ? active : nextWindow;
-  const status: TodayPayload['status'] = active.length > 0 ? 'active' : nextWindow.length > 0 ? 'next' : 'market_closed';
+  status = active.length > 0 ? 'active' : nextWindow.length > 0 ? 'next' : 'market_closed';
 
-  const games: TodayPayload['games'] = selected.slice(0, 8).map((event, idx) => {
+  games = selected.slice(0, 8).map((event, idx) => {
     const startTimeUTC = event.commence_time ?? new Date(now + idx * 3_600_000).toISOString();
     const home = event.home_team ?? `HOME-${idx + 1}`;
     const away = event.away_team ?? `AWAY-${idx + 1}`;
@@ -197,11 +246,10 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     };
   });
 
-  const eventIds = games.map((g) => g.id);
-  const board: TodayPropKey[] = [];
-  if (eventIds.length > 0) {
-    for (const market of MARKETS) {
-      try {
+  if (games.length > 0) {
+    const eventIds = games.map((g) => g.id);
+    try {
+      for (const market of MARKETS) {
         const odds = await registry.oddsProvider.fetchEventOdds({ sport, eventIds, marketType: market });
         if (odds.fallbackReason) warnings.push(odds.fallbackReason);
         odds.platformLines.slice(0, 30).forEach((line, idx) => {
@@ -209,7 +257,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
           if (!game) return;
           const implied = computeMarketImpliedProb({ odds: typeof line.odds === 'number' ? String(line.odds) : String(line.odds ?? '-110') });
           const model = computeModelProb({ deterministic: { idSeed: `${game.id}:${line.player}:${market}:${idx}`, hitRateL10: 56 + (idx % 20), riskTag: idx % 2 ? 'watch' : 'stable' } });
-          board.push({
+          oddsBoard.push({
             id: `${game.id}:${market}:${idx}`,
             player: line.player,
             market,
@@ -227,84 +275,143 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
             lastUpdated: new Date().toISOString()
           });
         });
-      } catch (error) {
-        fatalErrors.push(error instanceof Error ? error.message : 'provider_unavailable');
       }
+    } catch (error) {
+      const statusCode = getStatusCode(error);
+      if (statusCode === 429) {
+        const cachedPayload = cache?.payload;
+        if (cachedPayload && (cachedPayload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
+          return withLandingSummary({
+            ...cachedPayload,
+            mode: 'cache',
+            reason: 'provider_unavailable',
+            providerWarnings: [...(cachedPayload.providerWarnings ?? []), 'odds_rate_limited'],
+            debug: createDebug('fetch_odds', error),
+            provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
+          });
+        }
+        return getDemoFallback('provider_unavailable', sport, {
+          providerWarnings: ['odds_rate_limited', ...createLiveHardErrorWarning('fetch_odds', error)],
+          debug: createDebug('fetch_odds', error),
+        });
+      }
+
+      if (statusCode === 401 || statusCode === 403) {
+        return getDemoFallback('provider_unavailable', sport, {
+          providerWarnings: ['odds_plan_restricted_or_key_invalid', ...createLiveHardErrorWarning('fetch_odds', error)],
+          debug: createDebug('fetch_odds', error),
+        });
+      }
+
+      return getDemoFallback('provider_unavailable', sport, {
+        providerWarnings: createLiveHardErrorWarning('fetch_odds', error),
+        debug: createDebug('fetch_odds', error),
+      });
     }
   }
 
+  enrichedBoard = oddsBoard;
+  if (oddsBoard.length > 0) {
+    try {
+      const uniquePlayers = [...new Set(oddsBoard.map((row) => row.player).filter(Boolean))];
+      const logsResult: { byPlayerId: Record<string, import('@/src/core/providers/sportsdataio').GameLog[]>; fallbackReason?: string } = uniquePlayers.length > 0
+        ? await registry.statsProvider.fetchRecentPlayerGameLogs({ sport, playerIds: uniquePlayers, limit: 5 })
+        : { byPlayerId: {}, fallbackReason: 'no_players' };
 
-  const uniquePlayers = [...new Set(board.map((row) => row.player).filter(Boolean))];
-  const logsResult: { byPlayerId: Record<string, import('@/src/core/providers/sportsdataio').GameLog[]>; fallbackReason?: string } = uniquePlayers.length > 0
-    ? await registry.statsProvider.fetchRecentPlayerGameLogs({ sport, playerIds: uniquePlayers, limit: 5 })
-    : { byPlayerId: {}, fallbackReason: 'no_players' };
-
-  const sourceMode: 'live' | 'heuristic' = logsResult.fallbackReason ? 'heuristic' : 'live';
-
-  const enrichedBoard = board.map((row) => {
-    const logs = logsResult.byPlayerId[row.player] ?? [];
-    const minutes = computeMinutesMetrics(logs);
-    const bucket = computeFeaturedBucketAveragesFromLogs(logs, row.market);
-    const attempts = computeAttemptMetrics(logs);
-    const role = deriveRoleConfidence(minutes.minutesL3Avg);
-    const deadLeg = deriveDeadLegRisk({ market: row.market, roleConfidence: role.roleConfidence, odds: row.odds, l5Avg: bucket.l5Avg, threesAttL5Avg: attempts.threesAttL5Avg });
-    return {
-      ...row,
-      minutesL1: minutes.minutesL1,
-      minutesL3Avg: minutes.minutesL3Avg,
-      l5Avg: bucket.l5Avg ?? Number(((row.hitRateL5 ?? row.hitRateL10 ?? 0) / 10).toFixed(2)),
-      l10Avg: bucket.l10Avg,
-      threesAttL1: attempts.threesAttL1,
-      threesAttL3Avg: attempts.threesAttL3Avg,
-      threesAttL5Avg: attempts.threesAttL5Avg,
-      fgaL1: attempts.fgaL1,
-      fgaL3Avg: attempts.fgaL3Avg,
-      fgaL5Avg: attempts.fgaL5Avg,
-      l5Source: bucket.provenance === 'live' ? sourceMode : 'heuristic',
-      minutesSource: minutes.minutesL3Avg !== undefined ? sourceMode : 'heuristic',
-      attemptsSource: attempts.threesAttL5Avg !== undefined || attempts.fgaL5Avg !== undefined ? sourceMode : 'heuristic',
-      roleConfidence: role.roleConfidence,
-      roleReasons: role.roleReasons,
-      deadLegRisk: deadLeg.deadLegRisk,
-      deadLegReasons: bucket.provenance === 'heuristic' && bucket.reason ? [...deadLeg.deadLegReasons, bucket.reason] : deadLeg.deadLegReasons
-    };
-  });
-
-    const gameById = new Map(games.map((g) => [g.id, g]));
-  games.forEach((game) => {
-    game.propsPreview = enrichedBoard.filter((p) => p.id.startsWith(`${game.id}:`)).slice(0, 4);
-  });
-
-  if (events.length === 0) {
-    fatalErrors.push('provider_events_unavailable');
+      const sourceMode: 'live' | 'heuristic' = logsResult.fallbackReason ? 'heuristic' : 'live';
+      enrichedBoard = oddsBoard.map((row) => {
+        const logs = logsResult.byPlayerId[row.player] ?? [];
+        const minutes = computeMinutesMetrics(logs);
+        const bucket = computeFeaturedBucketAveragesFromLogs(logs, row.market);
+        const attempts = computeAttemptMetrics(logs);
+        const role = deriveRoleConfidence(minutes.minutesL3Avg);
+        const deadLeg = deriveDeadLegRisk({ market: row.market, roleConfidence: role.roleConfidence, odds: row.odds, l5Avg: bucket.l5Avg, threesAttL5Avg: attempts.threesAttL5Avg });
+        return {
+          ...row,
+          minutesL1: minutes.minutesL1,
+          minutesL3Avg: minutes.minutesL3Avg,
+          l5Avg: bucket.l5Avg ?? Number(((row.hitRateL5 ?? row.hitRateL10 ?? 0) / 10).toFixed(2)),
+          l10Avg: bucket.l10Avg,
+          threesAttL1: attempts.threesAttL1,
+          threesAttL3Avg: attempts.threesAttL3Avg,
+          threesAttL5Avg: attempts.threesAttL5Avg,
+          fgaL1: attempts.fgaL1,
+          fgaL3Avg: attempts.fgaL3Avg,
+          fgaL5Avg: attempts.fgaL5Avg,
+          l5Source: bucket.provenance === 'live' ? sourceMode : 'heuristic',
+          minutesSource: minutes.minutesL3Avg !== undefined ? sourceMode : 'heuristic',
+          attemptsSource: attempts.threesAttL5Avg !== undefined || attempts.fgaL5Avg !== undefined ? sourceMode : 'heuristic',
+          roleConfidence: role.roleConfidence,
+          roleReasons: role.roleReasons,
+          deadLegRisk: deadLeg.deadLegRisk,
+          deadLegReasons: bucket.provenance === 'heuristic' && bucket.reason ? [...deadLeg.deadLegReasons, bucket.reason] : deadLeg.deadLegReasons
+        };
+      });
+    } catch (error) {
+      warnings.push('stats_degraded');
+      debug = createDebug('fetch_stats_enrichment', error);
+    }
   }
-  if (games.length === 0) {
-    fatalErrors.push('no_games');
+
+  const gameById = new Map(games.map((g) => [g.id, g]));
+  try {
+    games.forEach((game) => {
+      game.propsPreview = enrichedBoard.filter((p) => p.id.startsWith(`${game.id}:`)).slice(0, 4);
+    });
+  } catch (error) {
+    return getDemoFallback('provider_unavailable', sport, {
+      providerWarnings: createLiveHardErrorWarning('normalize', error),
+      debug: createDebug('normalize', error),
+    });
   }
-  if (status === 'market_closed') {
-    fatalErrors.push('market_closed');
+
+  let board: NonNullable<TodayPayload['board']> = [];
+  try {
+    board = enrichedBoard.slice(0, 24).map((row) => {
+      const gameId = row.id.split(':')[0] ?? '';
+      return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: 'live' as const };
+    });
+  } catch (error) {
+    return getDemoFallback('provider_unavailable', sport, {
+      providerWarnings: createLiveHardErrorWarning('build_board', error),
+      debug: createDebug('build_board', error),
+    });
   }
-  if (enrichedBoard.length < MIN_BOARD_ROWS) {
-    fatalErrors.push('board_too_sparse');
+
+  try {
+    if (events.length === 0 || games.length === 0 || status === 'market_closed' || board.length < MIN_BOARD_ROWS) {
+      return getDemoFallback('provider_unavailable', sport, {
+        providerWarnings: events.length === 0
+          ? ['provider_events_unavailable']
+          : games.length === 0
+            ? ['no_games']
+            : status === 'market_closed'
+              ? ['market_closed']
+              : ['board_too_sparse'],
+      });
+    }
+  } catch (error) {
+    return getDemoFallback('provider_unavailable', sport, {
+      providerWarnings: createLiveHardErrorWarning('min_board_rows', error),
+      debug: createDebug('min_board_rows', error),
+    });
   }
 
   const payload: TodayPayload = {
     mode: 'live',
     generatedAt: new Date().toISOString(),
-    provenance: { mode: 'live', reason: fatalErrors.length ? 'provider_unavailable' : 'live_ok', generatedAt: new Date().toISOString() },
+    provenance: { mode: 'live', reason: 'live_ok', generatedAt: new Date().toISOString() },
     leagues: [...TODAY_LEAGUES],
     games,
-    reason: fatalErrors.some((entry) => entry.includes('key_missing')) ? 'missing_keys' : fatalErrors.length ? 'provider_unavailable' : 'live_ok',
-    providerErrors: fatalErrors,
+    reason: 'live_ok',
+    providerErrors: [],
     providerWarnings: warnings,
-    userSafeReason: fatalErrors.length || warnings.length ? 'Live mode (some feeds unavailable)' : undefined,
+    debug,
+    userSafeReason: warnings.length ? 'Live mode (some feeds unavailable)' : undefined,
     status,
     nextAvailableStartTime: status === 'next' ? selected[0]?.commence_time : undefined,
-    providerHealth: providerHealth(fatalErrors, { mode: 'live' }),
-    board: enrichedBoard.slice(0, 24).map((row) => {
-      const gameId = row.id.split(':')[0] ?? '';
-      return { ...row, gameId, matchup: gameById.get(gameId)?.matchup, startTime: gameById.get(gameId)?.startTime, mode: 'live' as const };
-    })
+    providerHealth: providerHealth([], { mode: 'live' }),
+    board,
   };
 
   return withLandingSummary(payload);
@@ -339,12 +446,11 @@ export async function resolveTodayTruth(options?: {
     livePayload = null;
   }
 
-  const hasMissingKeys = livePayload?.reason === 'missing_keys' || (livePayload?.providerErrors ?? []).some((entry) => entry.includes('key_missing'));
   const shouldFallback = !livePayload
+    || livePayload.mode === 'demo'
     || (livePayload.board?.length ?? 0) < MIN_BOARD_ROWS
     || livePayload.games.length === 0
-    || livePayload.status === 'market_closed'
-    || hasMissingKeys;
+    || livePayload.status === 'market_closed';
 
   if (livePayload && !shouldFallback) {
     cache = { key, expiresAt: Date.now() + TTL_MS, payload: livePayload };
@@ -369,6 +475,10 @@ export async function resolveTodayTruth(options?: {
         lastUpdatedAt: new Date().toISOString(),
       },
     };
+  }
+
+  if (livePayload?.mode === 'demo') {
+    return livePayload;
   }
 
   if (cache?.key === key && (cache.payload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
