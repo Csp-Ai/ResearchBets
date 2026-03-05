@@ -95,11 +95,24 @@ function resolveTz(input: string | undefined, warnings: string[]): string {
   }
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function coerceIsoDate(input?: string, tz?: string): string {
+  const safeTz = tz && tz.trim().length > 0 ? tz : DEFAULT_SPINE.tz;
+  const fallback = todayInTz(safeTz);
+  const normalized = input?.trim();
+  if (!normalized || normalized === 'YYYY-MM-DD') return fallback;
+  return ISO_DATE_RE.test(normalized) ? normalized : fallback;
+}
+
 function resolveDate(input: string | undefined, tz: string, warnings: string[]): string {
   const fallback = todayInTz(tz);
-  if (!input) return fallback;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
-  warnings.push(`date_invalid:${input}->${fallback}`);
+  if (!input || input === 'YYYY-MM-DD') {
+    if (input === 'YYYY-MM-DD') warnings.push('date_defaulted');
+    return fallback;
+  }
+  if (ISO_DATE_RE.test(input)) return input;
+  warnings.push('date_defaulted');
   return fallback;
 }
 

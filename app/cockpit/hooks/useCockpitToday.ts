@@ -35,7 +35,9 @@ export function useCockpitToday(spine: Pick<QuerySpine, 'sport' | 'tz' | 'date' 
   const intentMode = spine.mode;
 
   const strictLiveUnavailable = provenance.reason === 'strict_live_unavailable';
-  const canPollLive = intentMode === 'live' && provenance.mode === 'live' && !strictLiveUnavailable;
+  const effectiveMode = today.effective?.mode ?? provenance.mode;
+  const effectiveReason = today.effective?.reason ?? provenance.reason ?? today.reason;
+  const canPollLive = intentMode === 'live' && effectiveMode === 'live' && !strictLiveUnavailable;
 
   const loadToday = useCallback(async ({ forceRefresh = false, signal }: { forceRefresh?: boolean; signal?: AbortSignal } = {}) => {
     try {
@@ -113,11 +115,11 @@ export function useCockpitToday(spine: Pick<QuerySpine, 'sport' | 'tz' | 'date' 
   const board = useMemo(() => todayToBoard(today, spine.sport), [today, spine.sport]);
 
   const neutralStatus = useMemo(() => {
-    if (provenance.mode === 'demo') return 'Demo mode (live feeds off)';
-    if (provenance.mode === 'cache') return 'Using cached slate';
-    if (provenance.reason === 'provider_unavailable' && today.games.length === 0) return 'Live requested — feeds unavailable';
+    if (effectiveMode === 'demo') return 'Demo mode (live feeds off)';
+    if (effectiveMode === 'cache') return 'Using cached slate';
+    if (effectiveReason === 'provider_unavailable' && today.games.length === 0) return 'Live requested — feeds unavailable';
     return 'Live slate';
-  }, [provenance.mode, provenance.reason, today.games.length]);
+  }, [effectiveMode, effectiveReason, today.games.length]);
 
   return {
     today,

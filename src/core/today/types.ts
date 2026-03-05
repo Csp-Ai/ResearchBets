@@ -5,6 +5,18 @@ export type TodayLeague = (typeof TODAY_LEAGUES)[number];
 
 export type TodayMode = 'live' | 'cache' | 'demo';
 
+export type TodayModeEnvelope = {
+  mode: TodayMode;
+  reason?: string;
+};
+
+export type TodayIntent = {
+  mode: TodayMode;
+  sport?: string;
+  tz?: string;
+  date?: string;
+};
+
 export type TodayLiveStep =
   | 'resolve_context'
   | 'events_fetch'
@@ -145,6 +157,8 @@ export type TodayBoardRow = {
 
 export type TodayPayload = {
   mode: TodayMode;
+  intent?: TodayIntent;
+  effective?: TodayModeEnvelope;
   generatedAt: string;
   provenance?: TodayProvenance;
   leagues: TodayLeague[];

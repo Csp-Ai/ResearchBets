@@ -19,6 +19,12 @@ type LiveDiagnostic = {
   hint: string;
 };
 
+type OddsErrorClassification = {
+  reason: string;
+  hint: string;
+  marker: string;
+};
+
 export type CanonicalBoardView = {
   mode: TodayPayload['mode'];
   reason?: TodayPayload['reason'];
@@ -146,6 +152,7 @@ function getDemoFallback(reason: string, sport?: BoardSport, extras?: { provider
     reason,
     status: 'active',
     provenance: { mode: 'demo', reason, generatedAt: demo.generatedAt },
+    effective: { mode: 'demo', reason },
     providerErrors: [],
     providerWarnings: warnings,
     debug: extras?.debug,
@@ -234,6 +241,27 @@ function createDebug(step: TodayLiveStep, error: unknown, hintOverride?: string)
 
 function createLiveUnavailableWarning(reason: string): string {
   return `live_unavailable:${reason}`;
+}
+
+function classifyOddsFetchError(statusCode?: number): OddsErrorClassification {
+  if (statusCode === 429) return { reason: 'odds_rate_limited', hint: 'rate_limited', marker: 'live_rate_limited:odds_fetch' };
+  if (statusCode === 422) return { reason: 'odds_request_invalid', hint: 'request_invalid', marker: 'live_request_invalid:odds_fetch' };
+  if (statusCode === 401 || statusCode === 403) return { reason: 'odds_plan_restricted_or_key_invalid', hint: 'auth_or_plan_restricted', marker: 'live_plan_restricted:odds_fetch' };
+  return { reason: 'provider_unavailable', hint: 'provider_unavailable', marker: 'live_hard_error:odds_fetch' };
+}
+
+function cacheFallbackFrom(classification: OddsErrorClassification, error: unknown): TodayPayload | null {
+  const cachedPayload = cache?.payload;
+  if (!cachedPayload || (cachedPayload.board?.length ?? 0) < MIN_BOARD_ROWS) return null;
+  return withLandingSummary({
+    ...cachedPayload,
+    mode: 'cache',
+    reason: classification.reason,
+    effective: { mode: 'cache', reason: classification.reason },
+    providerWarnings: [...(cachedPayload.providerWarnings ?? []), classification.marker],
+    debug: createDebug('odds_fetch', error, classification.hint),
+    provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
+  });
 }
 
 async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: string }): Promise<TodayPayload> {
@@ -333,53 +361,17 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
       }
     } catch (error) {
       const statusCode = getStatusCode(error);
-      if (statusCode === 429) {
-        const cachedPayload = cache?.payload;
-        if (cachedPayload && (cachedPayload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
-          return withLandingSummary({
-            ...cachedPayload,
-            mode: 'cache',
-            reason: 'provider_unavailable',
-            providerWarnings: [...(cachedPayload.providerWarnings ?? []), 'odds_rate_limited'],
-            debug: createDebug('odds_fetch', error, 'rate_limited'),
-            provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
-          });
-        }
-        return getDemoFallback('provider_unavailable', sport, {
-          providerWarnings: ['odds_rate_limited', ...createLiveHardErrorWarning('odds_fetch', error)],
-          debug: createDebug('odds_fetch', error, 'rate_limited'),
-        });
-      }
+      const classification = classifyOddsFetchError(statusCode);
+      const cachedFallback = cacheFallbackFrom(classification, error);
+      if (cachedFallback) return cachedFallback;
 
-      if (statusCode === 401 || statusCode === 403) {
-        return getDemoFallback('provider_unavailable', sport, {
-          providerWarnings: ['odds_plan_restricted_or_key_invalid', ...createLiveHardErrorWarning('odds_fetch', error)],
-          debug: createDebug('odds_fetch', error, 'auth_or_plan_restricted'),
-        });
-      }
+      const specificWarnings = classification.reason === 'provider_unavailable'
+        ? [classification.marker]
+        : [classification.marker, classification.reason];
 
-      if (statusCode === 422) {
-        const cachedPayload = cache?.payload;
-        if (cachedPayload && (cachedPayload.board?.length ?? 0) >= MIN_BOARD_ROWS) {
-          return withLandingSummary({
-            ...cachedPayload,
-            mode: 'cache',
-            reason: 'odds_request_invalid',
-            providerWarnings: [...(cachedPayload.providerWarnings ?? []), 'odds_request_invalid'],
-            debug: createDebug('odds_fetch', error, 'request_invalid'),
-            provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cachedPayload.generatedAt }
-          });
-        }
-
-        return getDemoFallback('odds_request_invalid', sport, {
-          providerWarnings: ['odds_request_invalid', ...createLiveHardErrorWarning('odds_fetch', error)],
-          debug: createDebug('odds_fetch', error, 'request_invalid'),
-        });
-      }
-
-      return getDemoFallback('provider_unavailable', sport, {
-        providerWarnings: createLiveHardErrorWarning('odds_fetch', error),
-        debug: createDebug('odds_fetch', error, 'provider_unavailable'),
+      return getDemoFallback(classification.reason, sport, {
+        providerWarnings: [...specificWarnings, ...createLiveHardErrorWarning('odds_fetch', error)],
+        debug: createDebug('odds_fetch', error, classification.hint),
       });
     }
   }
@@ -476,6 +468,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
   const payload: TodayPayload = {
     mode: 'live',
     generatedAt: new Date().toISOString(),
+    effective: { mode: 'live', reason: 'live_ok' },
     provenance: { mode: 'live', reason: 'live_ok', generatedAt: new Date().toISOString() },
     leagues: [...TODAY_LEAGUES],
     games,
@@ -512,7 +505,7 @@ export async function resolveTodayTruth(options?: {
   }
 
   if (!options?.forceRefresh && cache && cache.key === key && cache.expiresAt > Date.now()) {
-    return withLandingSummary({ ...cache.payload, mode: 'cache', provenance: { mode: 'cache', reason: 'cache_hit', generatedAt: cache.payload.generatedAt } });
+    return withLandingSummary({ ...cache.payload, mode: 'cache', reason: cache.payload.reason ?? 'cache_hit', effective: { mode: 'cache', reason: cache.payload.reason ?? 'cache_hit' }, provenance: { mode: 'cache', reason: 'cache_hit', generatedAt: cache.payload.generatedAt } });
   }
 
   let livePayload: TodayPayload | null = null;
@@ -539,6 +532,7 @@ export async function resolveTodayTruth(options?: {
       ...(livePayload ?? getDemoFallback('provider_unavailable', sport)),
       mode: 'live',
       reason: 'strict_live_empty',
+      effective: { mode: 'live', reason: 'strict_live_empty' },
       board: [],
       games: [],
       providerErrors: ['strict_live_empty'],
@@ -561,7 +555,8 @@ export async function resolveTodayTruth(options?: {
     return withLandingSummary({
       ...cache.payload,
       mode: 'cache',
-      reason: 'provider_unavailable',
+      reason: livePayload?.reason ?? 'provider_unavailable',
+      effective: { mode: 'cache', reason: livePayload?.reason ?? 'provider_unavailable' },
       provenance: { mode: 'cache', reason: 'cache_fallback', generatedAt: cache.payload.generatedAt }
     });
   }
