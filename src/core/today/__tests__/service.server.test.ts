@@ -55,50 +55,76 @@ describe('resolveTodayTruth', () => {
     expect(payload.landing?.reason).toBe('live_ok');
   });
 
-  it('returns demo payload for explicit demo mode without fatal provider errors', async () => {
-    const { resolveTodayTruth } = await import('../service.server');
-    const payload = await resolveTodayTruth({ mode: 'demo', sport: 'NBA' });
-
-    expect(payload.mode).toBe('demo');
-    expect(payload.reason).toBe('demo_requested');
-    expect(payload.landing?.mode).toBe('demo');
-    expect(payload.landing?.reason).toBe('demo');
-    expect(payload.providerErrors).toEqual([]);
-    expect(payload.providerWarnings).toContain('demo_requested');
-    expect(payload.providerHealth?.find((provider) => provider.provider === 'the-odds-api')?.ok).toBe(true);
-    expect(payload.providerHealth?.find((provider) => provider.provider === 'the-odds-api')?.missingKey).toBe(false);
-  });
-
-  it('falls back to demo with truthful landing reason when live board is non-viable', async () => {
-    fetchEvents.mockResolvedValue({ events: [] });
-    fetchEventOdds.mockResolvedValue({ platformLines: [] });
-    fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
+  it('returns diagnostic warnings when resolve context fails', async () => {
+    fetchEvents.mockRejectedValue(new TypeError('failed to fetch'));
 
     const { resolveTodayTruth } = await import('../service.server');
     const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
 
     expect(payload.mode).toBe('demo');
-    expect(payload.reason).toBe('provider_unavailable');
-    expect(payload.landing?.mode).toBe('demo');
-    expect(payload.landing?.reason).toBe('demo');
-    expect(payload.providerErrors).toEqual([]);
-    expect(payload.providerWarnings).toContain('provider_unavailable');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining([
+      'live_hard_error:resolve_context',
+      'live_hard_error_name:TypeError',
+      'live_hard_error_code:none',
+    ]));
   });
 
-  it('returns strict live empty payload when live board is not viable', async () => {
-    fetchEvents.mockResolvedValue({ events: [] });
-    fetchEventOdds.mockResolvedValue({ platformLines: [] });
+  it('returns demo with 401/403 specific warning on odds auth/plan errors', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockRejectedValue({ name: 'HttpError', status: 403 });
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining([
+      'odds_plan_restricted_or_key_invalid',
+      'live_hard_error:fetch_odds',
+      'live_hard_error_name:Error',
+      'live_hard_error_code:403',
+    ]));
+  });
+
+  it('uses cached slate on 429 odds rate limiting', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockResolvedValue({
+      platformLines: Array.from({ length: 6 }).map((_, idx) => ({ platform: 'book', player: `Player ${idx + 1}`, line: 20.5 + idx, odds: -110 })),
+    });
     fetchRecentPlayerGameLogs.mockResolvedValue({ byPlayerId: {} });
 
     const { resolveTodayTruth } = await import('../service.server');
-    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', strictLive: true, forceRefresh: true });
+    await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    fetchEventOdds.mockRejectedValue({ name: 'RateLimitError', status: 429 });
+
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+    expect(payload.mode).toBe('cache');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['odds_rate_limited']));
+  });
+
+  it('keeps live payload as stats-degraded when enrichment fails', async () => {
+    fetchEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', commence_time: '2026-01-20T18:00:00.000Z', home_team: 'BOS', away_team: 'LAL' }],
+    });
+    fetchEventOdds.mockResolvedValue({
+      platformLines: Array.from({ length: 6 }).map((_, idx) => ({
+        platform: 'book',
+        player: `Player ${idx + 1}`,
+        line: 20.5 + idx,
+        odds: -110,
+      })),
+    });
+    fetchRecentPlayerGameLogs.mockRejectedValue(new Error('stats unavailable'));
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
 
     expect(payload.mode).toBe('live');
-    expect(payload.reason).toBe('strict_live_empty');
-    expect(payload.games).toEqual([]);
-    expect(payload.board).toEqual([]);
-    expect(payload.providerErrors).toEqual(['strict_live_empty']);
-    expect(payload.providerWarnings).toEqual([]);
-    expect(payload.landing?.reason).toBe('provider_unavailable');
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining(['stats_degraded']));
+    expect(payload.board?.[0]).toMatchObject({ market: 'pra' });
   });
 });

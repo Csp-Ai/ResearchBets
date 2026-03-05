@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
     const forceRefresh = searchParams.get('refresh') === '1';
     const strictLive = searchParams.get('strict_live') === '1';
+    const debugEnabled = searchParams.get('debug') === '1';
 
     let payload: TodayPayload;
     try {
@@ -55,15 +56,18 @@ export async function GET(request: Request) {
     const resolvedMode = payload.provenance?.mode ?? payload.mode;
     const responseSpine = { ...spine, mode: resolvedMode };
 
-    return NextResponse.json({
+    const responseBody = {
       ok: true,
       data: payload,
       trace_id: responseSpine.trace_id,
       landing: payload.landing,
       spine: responseSpine,
       provenance: payload.provenance ?? { mode: payload.mode, reason: payload.reason, generatedAt: payload.generatedAt },
-      board
-    });
+      board,
+      ...(debugEnabled && payload.debug ? { debug: payload.debug } : {})
+    };
+
+    return NextResponse.json(responseBody);
   } catch {
     let fallbackSpine;
     try {

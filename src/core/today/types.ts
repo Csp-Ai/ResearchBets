@@ -144,6 +144,12 @@ export type TodayPayload = {
   modeFallbackApplied?: boolean;
   providerErrors?: string[];
   providerWarnings?: string[];
+  debug?: {
+    step: string;
+    errorName: string;
+    statusCode?: number;
+    hint: string;
+  };
   userSafeReason?: string;
   status?: 'active' | 'next' | 'market_closed';
   nextAvailableStartTime?: string;
