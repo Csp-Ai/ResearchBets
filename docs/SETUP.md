@@ -1,151 +1,62 @@
-# Setup: Fresh Clone ➝ Running App
+# Setup
 
-## Runtime policy
+## 1) Start from the env template
 
-- Node.js: **20.x**
-- Package manager: **npm** (`package-lock.json` is authoritative)
-- Canonical Next app root: **`app/`**
-- Supabase mode: hosted or local; either way, never expose `SUPABASE_SERVICE_ROLE_KEY` to client components.
+```bash
+cp .env.local.example .env.local
+```
 
-## 1) Install dependencies
+Primary template: `.env.local.example`.
+
+## 2) Demo-safe local mode (recommended default)
 
 ```bash
 npm ci
-```
-
-## 1.1) Bootstrap local env file
-
-Copy the template before running local commands:
-
-```bash
-cp .env.example .env.local
-```
-
-If you already ran `npm run supabase:setup`, keep your generated values and only fill any missing keys used by your workflow.
-
-## 2) One-time Supabase setup (recommended)
-
-```bash
-npm run supabase:setup
-```
-
-This command will:
-
-- verify Supabase CLI + auth,
-- link your local repo to project `gbkjalflukfkixsrjfiq`,
-- fetch API keys via Supabase Management API and generate/update `.env.local` with required variables,
-- run `npm run env:check` and `npm run supabase:health`.
-
-For CI/non-interactive environments:
-
-```bash
-npm run supabase:setup:ci
-```
-
-This mode fails if required keys are missing instead of prompting.
-
-> Setup now requires a Supabase access token only once (`SUPABASE_ACCESS_TOKEN` or `SUPABASE_TOKEN`).
-> The script also auto-discovers the CLI token from local auth stores on macOS/Linux/Windows when available.
-
-## 3) Required environment values
-
-After setup, these keys should exist in `.env.local`:
-
-- `EXPO_PUBLIC_SUPABASE_URL=https://gbkjalflukfkixsrjfiq.supabase.co`
-- `EXPO_PUBLIC_SUPABASE_KEY=<publishable key>`
-- `NEXT_PUBLIC_SUPABASE_URL=https://gbkjalflukfkixsrjfiq.supabase.co`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=<publishable key>`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key (back-compat)>`
-- `SUPABASE_SERVICE_ROLE_KEY=<service role key>` (**server only**)
-- `DATABASE_URL=postgresql://postgres.gbkjalflukfkixsrjfiq:[YOUR-PASSWORD]@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
-- `DIRECT_URL=postgresql://postgres.gbkjalflukfkixsrjfiq:[YOUR-PASSWORD]@aws-1-us-east-1.pooler.supabase.com:5432/postgres`
-
-### Why DB URLs use `[YOUR-PASSWORD]`
-
-Supabase never exposes your DB password through client keys. Get it from:
-
-- Supabase Dashboard → Project Settings → Database → Connection string / reset password.
-
-Replace `[YOUR-PASSWORD]` locally only.
-
-## 4) Windows notes (PowerShell)
-
-Install Supabase CLI with Scoop:
-
-```powershell
-scoop install supabase
-```
-
-If `supabase:setup` reports auth issues, run:
-
-```powershell
-supabase login
-```
-
-The setup script uses Node-based npm invocation paths to avoid common PowerShell `spawnSync npm ENOENT` issues.
-
-## 5) Apply migrations and verify health manually (if needed)
-
-```bash
-npm run supabase:push
 npm run env:check
-npm run supabase:health
-```
-
-If schema check says missing `inspect_public_columns` RPC, `npm run supabase:setup` now attempts `supabase db push --include-all --yes` automatically, waits for PostgREST cache refresh, and retries once.
-
-## 6) Run app
-
-```bash
 npm run dev
 ```
 
-Open:
+Expected behavior:
 
-- `http://localhost:3000/research`
-- `http://localhost:3000/traces`
+- App boots without external feed keys.
+- `/api/today` can resolve to deterministic `demo` or `cache` fallback mode.
+- UI remains truthful and non-error-tone about feed availability.
 
-## Security
+## 3) Full mode (provider + backend)
 
-- Never commit `.env.local`, `.env.expo`, or service role secrets.
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` via `NEXT_PUBLIC_*` variables.
+Set these variables for full local/live behavior:
 
-## Schema baseline policy
-
-- Canonical baseline: `supabase/schema.sql`.
-- Mirror baseline: `db/supabase/schema.sql` (must stay byte-for-byte identical).
-- Before commit/PR, run `npm run supabase:schema:drift-check` to prevent drift.
-- If you update canonical schema, copy it to mirror in the same commit.
-
-## 7) Minimum variables by workflow
-
-### Run dev server (`npm run dev`)
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-### Run Project Mirror indexer (`npm run dev:mirror:index`)
-- `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
+- `ODDS_API_KEY`
+- `SPORTSDATA_API_KEY`
+- `LIVE_MODE`
+- `CRON_SECRET`
 
-### Use `/dev/mirror` chat UI
-- Mirror is disabled in this launch branch (route and API return 404 in all environments).
+Legacy aliases still recognized:
 
-## 8) Deploy to Vercel (pre-launch hardening checklist)
+- `THEODDSAPI_KEY` -> `ODDS_API_KEY`
+- `SPORTSDATAIO_API_KEY` -> `SPORTSDATA_API_KEY`
 
-1. Add required env vars in Vercel project settings:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` (**server only, never `NEXT_PUBLIC_`**)
-   - `SPORTSDATA_API_KEY` (optional for live providers)
-   - `ODDS_API_KEY` (optional for live providers)
-   - `CRON_SECRET` (required for cron auth)
-   - `LIVE_MODE=false` (recommended default until all provider keys are confirmed)
-2. Confirm Next.js env variable rule: only `NEXT_PUBLIC_*` values are exposed to browser bundles at build time.
-3. Deploy and verify `/dev/mirror` and other `/dev/*` routes return 404 in production.
-4. Verify cron call uses `x-cron-secret: $CRON_SECRET`.
-5. Verify bettor UX remains safe when provider keys are missing: app should fall back to demo data instead of crashing.
+## 4) Env validation behavior
 
-### Vercel WAF note
+Validation script: `scripts/env-check.mjs`.
 
-This repo now includes a best-effort in-process rate limiter for key POST endpoints. For stronger production protection, enable Vercel WAF rate limiting rules at the edge.
+- Relaxed/default: `npm run env:check`
+- Strict live validation: `LIVE_MODE=true npm run env:check` (or `npm run env:check:strict`)
+
+`LIVE_MODE` influences strictness and expectations for provider availability.
+
+## 5) Helpful commands
+
+```bash
+npm run check
+npm run verify:landing
+npm run docs:check
+```
+
+## Related docs
+
+- Route + spine semantics: [ROUTES.md](./ROUTES.md)
+- Runtime precedence + diagnostics: [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)

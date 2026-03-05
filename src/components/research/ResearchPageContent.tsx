@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { computeLegRisk, runSlip } from '@/src/core/pipeline/runSlip';
@@ -24,7 +25,8 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 import { appendQuery } from '@/src/components/landing/navigation';
 import { getQueryTraceId, withTraceId } from '@/src/core/trace/queryTrace';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
-import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { CockpitHeader } from '@/src/components/cockpit/CockpitHeader';
+import { CockpitShell } from '@/src/components/cockpit/CockpitShell';
 import { listGuardrails } from '@/src/core/guardrails/localGuardrails';
 
 const ScoutTabPanel = dynamic(() => import('@/src/components/research/ScoutTabPanel'), {
@@ -400,17 +402,17 @@ export default function ResearchPageContent() {
   }, [activeTraceId, currentRun?.trace_id, nervous, runDto?.trace_id, traceFromQuery]);
 
   return (
-    <section className="mx-auto max-w-6xl space-y-4">
+    <CockpitShell>
       <header className="space-y-3">
-        <TruthSpineHeader
+        <CockpitHeader
           title="Stress Test"
-          subtitle="During loop: isolate the weakest leg and enforce process over impulse."
-          actions={[
-            { label: 'Build from Board', href: boardHref },
-            ...(latestRunHref ? [{ label: 'Open latest run', href: latestRunHref, tone: 'primary' as const }] : []),
-            { label: 'Try sample slip (demo)', href: appendQuery(nervous.toHref('/ingest'), { demo: 1 }) }
-          ]}
-          traceId={traceFromQuery || nervous.trace_id}
+          purpose="During loop: isolate the weakest leg and enforce process over impulse."
+          ctas={<>
+            <Link href={boardHref} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Build from Board</Link>
+            {latestRunHref ? <Link href={latestRunHref} className="rounded-lg border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm text-slate-950">Open latest run</Link> : null}
+            <Link href={appendQuery(nervous.toHref('/ingest'), { demo: 1 })} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Try sample slip (demo)</Link>
+          </>}
+          strip={{ mode: data?.mode ?? nervous.mode, updatedAt: currentRun?.updatedAt, traceId: traceFromQuery || activeTraceId || nervous.trace_id }}
         />
         {activeGuardrail ? (
           <div className="w-fit rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-100">
@@ -476,6 +478,6 @@ export default function ResearchPageContent() {
           </Surface>
         </div>
       ) : null}
-    </section>
+    </CockpitShell>
   );
 }

@@ -10,7 +10,8 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
-import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
+import { CockpitHeader } from '@/src/components/cockpit/CockpitHeader';
+import { CockpitShell } from '@/src/components/cockpit/CockpitShell';
 import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
 
@@ -119,15 +120,18 @@ export function ControlPageClient() {
   }, [latestTrace, nervous, retroDto?.trace_id]);
 
   return (
-    <section className="mx-auto max-w-6xl space-y-3">
-      <TruthSpineHeader
+    <CockpitShell>
+      <CockpitHeader
         title="Control Room"
-        subtitle="After loop: track live posture, review outcomes, and feed back process fixes."
-        actions={[
-          { label: 'Build from Board', href: nervous.toHref('/today') },
-          ...(latestTrace ? [{ label: 'Open latest run', href: appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace }), tone: 'primary' as const }] : []),
-          { label: 'Try sample slip (demo)', href: appendQuery(nervous.toHref('/stress-test'), { demo: '1' }) }
-        ]}
+        purpose="After loop: track live posture, review outcomes, and feed back process fixes."
+        ctas={
+          <>
+            <Link href={nervous.toHref('/today')} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Build from Board</Link>
+            {latestTrace ? <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: latestTrace })} className="rounded-lg border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm text-slate-950">Open latest run</Link> : null}
+            <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Try sample slip (demo)</Link>
+          </>
+        }
+        strip={{ mode: nervous.mode, traceId: latestTrace ?? nervous.trace_id }}
       />
 
       <div className="flex gap-2 rounded-xl bg-slate-900/70 p-1 w-fit">
@@ -199,6 +203,6 @@ export function ControlPageClient() {
           ) : null}
         </div>
       ) : null}
-    </section>
+    </CockpitShell>
   );
 }

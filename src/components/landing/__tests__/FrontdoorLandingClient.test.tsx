@@ -32,6 +32,7 @@ describe('FrontdoorLandingClient live modes', () => {
     await waitFor(() => expect(screen.getByTestId('board-section')).toBeTruthy());
     expect(screen.getByText("Tonight's Board")).toBeTruthy();
     expect(screen.getAllByText('Demo mode (live feeds off)').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('live-nervous-system-strip')).toBeTruthy();
     expect(screen.getByText(/Fast add/)).toBeTruthy();
   });
 
@@ -140,7 +141,7 @@ describe('FrontdoorLandingClient live modes', () => {
     expect(screen.getByText('Odds checked')).toBeTruthy();
     expect(screen.getByText('Injuries scanned')).toBeTruthy();
     expect(screen.getByText('Model scored')).toBeTruthy();
-    expect(screen.getByText('Feeds off (demo)')).toBeTruthy();
+    expect(screen.getAllByText('Feeds off (demo)').length).toBeGreaterThan(0);
   });
 
   it('run analysis href preserves nervous spine and canonical trace_id', async () => {
