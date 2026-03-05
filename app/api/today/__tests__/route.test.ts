@@ -176,6 +176,36 @@ describe('/api/today GET', () => {
     expect(payload.debug?.step).toBe('live_viability');
   });
 
+
+
+  it('keeps provider stage in debug when provider warnings carry non-error throws', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'demo',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'provider_unavailable',
+        providerErrors: [],
+        providerWarnings: ['live_unavailable:non_error_throw:events_fetch'],
+        debug: { step: 'resolve_context', hint: 'provider_unavailable' },
+        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?mode=live&sport=NBA&debug=1'));
+    const payload = await response.json() as {
+      data: { providerWarnings?: string[] };
+      debug?: { step?: string; hint?: string };
+    };
+
+    expect(payload.data.providerWarnings).toContain('live_unavailable:non_error_throw:events_fetch');
+    expect(payload.debug?.step).toBe('events_fetch');
+    expect(payload.debug?.step).not.toBe('resolve_context');
+  });
+
   it('returns attempts and provenance fields from resolver payload', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => ({

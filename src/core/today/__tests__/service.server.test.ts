@@ -55,7 +55,7 @@ describe('resolveTodayTruth', () => {
     expect(payload.landing?.reason).toBe('live_ok');
   });
 
-  it('returns diagnostic warnings when resolve context fails', async () => {
+  it('labels fetchEvents error diagnostics as events_fetch hard errors', async () => {
     fetchEvents.mockRejectedValue(new TypeError('failed to fetch'));
 
     const { resolveTodayTruth } = await import('../service.server');
@@ -63,11 +63,27 @@ describe('resolveTodayTruth', () => {
 
     expect(payload.mode).toBe('demo');
     expect(payload.providerWarnings).toEqual(expect.arrayContaining([
-      'live_hard_error:resolve_context',
+      'live_hard_error:events_fetch',
       'live_hard_error_name:TypeError',
       'live_hard_error_msg:failed to fetch',
       'live_hard_error_code:none',
     ]));
+    expect(payload.debug).toMatchObject({ step: 'events_fetch', hint: 'provider_unavailable' });
+    expect(payload.providerWarnings?.some((warning) => warning.includes('resolve_context'))).toBe(false);
+  });
+
+
+
+  it('labels non-Error fetchEvents throws as events_fetch live_unavailable warnings', async () => {
+    fetchEvents.mockRejectedValue('network_down');
+
+    const { resolveTodayTruth } = await import('../service.server');
+    const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
+
+    expect(payload.mode).toBe('demo');
+    expect(payload.providerWarnings).toContain('live_unavailable:non_error_throw:events_fetch');
+    expect(payload.providerWarnings?.some((warning) => warning.startsWith('live_hard_error:'))).toBe(false);
+    expect(payload.debug).toMatchObject({ step: 'events_fetch', hint: 'provider_unavailable' });
   });
 
   it('returns demo with 401/403 specific warning on odds auth/plan errors', async () => {

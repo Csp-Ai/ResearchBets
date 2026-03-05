@@ -6,6 +6,28 @@ import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { resolveToday } from '@/src/core/today/resolveToday.server';
 import type { TodayPayload } from '@/src/core/today/types';
 
+
+const LIVE_STEPS = [
+  'resolve_context',
+  'events_fetch',
+  'odds_fetch',
+  'stats_fetch',
+  'normalize',
+  'board_build',
+  'min_row_checks',
+  'live_viability',
+] as const;
+
+type LiveStep = (typeof LIVE_STEPS)[number];
+
+function parseWarningStep(providerWarnings: string[] = []): LiveStep | undefined {
+  const withStep = providerWarnings.find((warning) => warning.startsWith('live_unavailable:non_error_throw:') || warning.startsWith('live_hard_error:'));
+  if (!withStep) return undefined;
+  const step = withStep.split(':').at(-1);
+  if (!step) return undefined;
+  return (LIVE_STEPS as readonly string[]).includes(step) ? (step as LiveStep) : undefined;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -55,20 +77,30 @@ export async function GET(request: Request) {
 
     const responseSpine = { ...spine };
 
+    const withContextWarnings = contextWarnings.length > 0
+      ? {
+        ...payload,
+        providerWarnings: [...(payload.providerWarnings ?? []), ...contextWarnings]
+      }
+      : payload;
+
+    const warningStep = parseWarningStep(withContextWarnings.providerWarnings ?? []);
+    const sanitizedDebug = payload.debug
+      ? {
+        ...payload.debug,
+        step: warningStep && payload.debug.step === 'resolve_context' ? warningStep : payload.debug.step,
+      }
+      : undefined;
+
     const responseBody = {
       ok: true,
-      data: contextWarnings.length > 0
-        ? {
-          ...payload,
-          providerWarnings: [...(payload.providerWarnings ?? []), ...contextWarnings]
-        }
-        : payload,
+      data: withContextWarnings,
       trace_id: responseSpine.trace_id,
       landing: payload.landing,
       spine: responseSpine,
       provenance: payload.provenance ?? { mode: payload.mode, reason: payload.reason, generatedAt: payload.generatedAt },
       board,
-      ...(debugEnabled && payload.debug ? { debug: payload.debug } : {})
+      ...(debugEnabled && sanitizedDebug ? { debug: sanitizedDebug } : {})
     };
 
     return NextResponse.json(responseBody);
