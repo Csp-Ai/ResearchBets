@@ -169,6 +169,32 @@ describe('cockpit route integration', () => {
     expect(within(strip).getByText('Using cached slate')).toBeTruthy();
   });
 
+  it('renders preview deploy badge when provider-health reports preview tier', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/provider-health')) {
+        return {
+          ok: true,
+          json: async () => ({ vercelEnv: 'preview', nodeEnv: 'production' })
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        headers: { get: () => null },
+        json: async () => ({
+          ok: true,
+          trace_id: 'trace-1',
+          data: { mode: 'live', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [] },
+          provenance: { mode: 'live', generatedAt: new Date().toISOString(), reason: 'live_ok' }
+        })
+      } as unknown as Response;
+    }));
+
+    renderWithProviders(<CockpitLandingClient />, { mode: 'live' });
+    const strip = await screen.findByTestId('pipeline-strip');
+    expect(strip.textContent).toContain('Preview deploy (prod build)');
+  });
+
   it('polls /api/today only when served mode is live', async () => {
     const setIntervalSpy = vi.spyOn(window, 'setInterval');
     const liveFetch = vi.fn(async () => ({

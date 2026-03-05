@@ -7,6 +7,7 @@ const fetchRecentPlayerGameLogs = vi.fn();
 vi.mock('@/src/core/providers/registry.server', () => ({
   getProviderRegistry: () => ({
     oddsProvider: {
+      id: 'odds-test',
       fetchEvents,
       fetchEventOdds,
     },
@@ -74,15 +75,21 @@ describe('resolveTodayTruth', () => {
 
 
 
-  it('labels non-Error fetchEvents throws as events_fetch live_unavailable warnings', async () => {
+  it('normalizes non-Error fetchEvents throws into events_fetch hard-error warnings', async () => {
     fetchEvents.mockRejectedValue('network_down');
 
     const { resolveTodayTruth } = await import('../service.server');
     const payload = await resolveTodayTruth({ mode: 'live', sport: 'NBA', tz: 'UTC', date: '2026-01-20', forceRefresh: true });
 
     expect(payload.mode).toBe('demo');
-    expect(payload.providerWarnings).toContain('live_unavailable:non_error_throw:events_fetch');
-    expect(payload.providerWarnings?.some((warning) => warning.startsWith('live_hard_error:'))).toBe(false);
+    expect(payload.providerWarnings).toEqual(expect.arrayContaining([
+      'live_hard_error:events_fetch',
+      'live_hard_error_name:Error',
+      'live_hard_error_msg:events_fetch_non_error_throw',
+      'events_fetch_status:none',
+      'events_fetch_provider:odds-test',
+    ]));
+    expect(payload.providerWarnings?.some((warning) => warning.includes('non_error_throw:events_fetch'))).toBe(false);
     expect(payload.debug).toMatchObject({ step: 'events_fetch', hint: 'provider_unavailable' });
   });
 

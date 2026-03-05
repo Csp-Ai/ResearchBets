@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { getRuntimeContext } from '@/src/core/env/runtimeContext.server';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString, resolveWithAliases } from '@/src/core/env/read.server';
 import { getLiveKeyStatus } from '@/src/core/live/modeResolver.server';
+import { runEventsProbe } from '@/src/core/providers/eventsProbe.server';
 import { runOddsProbe, type OddsReasonCode } from '@/src/core/providers/oddsProbe.server';
 
 export const runtime = 'nodejs';
@@ -41,8 +43,10 @@ async function emitFallbackEvent(providerErrors: string[], startedAt: number) {
 
 export async function GET() {
   const startedAt = Date.now();
+  const runtimeContext = getRuntimeContext();
   const keyStatus = getLiveKeyStatus();
   const oddsProbe = await runOddsProbe();
+  const eventsProbe = await runEventsProbe();
   const statsConfigured = Boolean(resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]));
 
   const checks = {
@@ -57,6 +61,14 @@ export async function GET() {
       errorCode: oddsProbe.errorCode,
       safeMessage: oddsProbe.safeMessage
     } as OddsCheck,
+    events: {
+      provider: 'odds',
+      ok: eventsProbe.ok,
+      reason: eventsProbe.ok ? null : eventsProbe.reason,
+      statusCode: eventsProbe.status,
+      resolvedBaseHost: eventsProbe.resolvedBaseHost,
+      safeMessage: eventsProbe.safeMessage,
+    },
     stats: statsConfigured ? 'configured' : 'missing',
     liveModeEnv: readString(CANONICAL_KEYS.LIVE_MODE) ?? 'unset'
   };
@@ -68,6 +80,12 @@ export async function GET() {
     providerErrors.push(oddsProbe.safeMessage);
   } else if (oddsProbe.ok && oddsProbe.safeMessage) {
     messages.push(oddsProbe.safeMessage);
+  }
+
+  if (!eventsProbe.ok && eventsProbe.safeMessage) {
+    providerErrors.push(eventsProbe.safeMessage);
+  } else if (eventsProbe.ok && eventsProbe.safeMessage) {
+    messages.push(eventsProbe.safeMessage);
   }
 
   if (!keyStatus.requiredKeysPresent) {
@@ -82,9 +100,13 @@ export async function GET() {
     providerErrors.push('Sports data provider key is missing');
   }
 
-  const ok = keyStatus.requiredKeysPresent && keyStatus.liveModeEnabled && checks.odds.ok && checks.stats === 'configured';
+  const ok = keyStatus.requiredKeysPresent
+    && keyStatus.liveModeEnabled
+    && checks.odds.ok
+    && checks.events.ok
+    && checks.stats === 'configured';
   const mode = ok ? 'live' : 'demo';
-  const reason = ok ? 'live_ok' : 'provider_unavailable';
+  const reason = ok ? 'live_ok' : (checks.odds.ok && !checks.events.ok ? 'live_degraded_events' : 'provider_unavailable');
 
   if (!ok && providerErrors.length > 0) {
     await emitFallbackEvent(providerErrors, startedAt);
@@ -99,7 +121,9 @@ export async function GET() {
     providerErrors,
     ...(messages.length > 0 ? { messages } : {}),
     runtime,
-    nodeEnv: process.env.NODE_ENV ?? 'development',
-    vercelEnv: process.env.VERCEL_ENV ?? 'unset'
+    runtimeContext,
+    nodeEnv: runtimeContext.nodeEnv,
+    vercelEnv: runtimeContext.vercelEnv,
+    isVercelProd: runtimeContext.isVercelProd
   });
 }

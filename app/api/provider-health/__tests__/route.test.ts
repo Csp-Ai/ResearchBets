@@ -17,19 +17,18 @@ describe('/api/provider-health route', () => {
     process.env.ODDS_API_KEY = 'test-key';
     process.env.ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4';
     process.env.SPORTSDATA_API_KEY = 'sports-key';
+    process.env.VERCEL_ENV = 'preview';
+    vi.stubEnv('NODE_ENV', 'production');
   });
 
   it('returns live mode when odds probe succeeds and required checks are satisfied', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        text: vi.fn().mockResolvedValue('[]')
-      })
-    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: vi.fn().mockResolvedValue('[]')
+    }));
 
     const { GET } = await import('../route');
     const response = await GET();
@@ -40,7 +39,7 @@ describe('/api/provider-health route', () => {
     expect(json.reason).toBe('live_ok');
     expect(json.providerErrors).toEqual([]);
     expect(json.providerErrors).not.toContain('Odds provider reachable');
-    expect(json.messages).toEqual(['Odds provider reachable']);
+    expect(json.messages).toEqual(['Odds provider reachable', 'Events provider reachable']);
     expect(json.checks.odds).toMatchObject({
       provider: 'odds',
       ok: true,
@@ -52,19 +51,27 @@ describe('/api/provider-health route', () => {
       errorCode: null,
       safeMessage: 'Odds provider reachable'
     });
+    expect(json.checks.events).toMatchObject({
+      ok: true,
+      reason: null,
+      statusCode: 200,
+      safeMessage: 'Events provider reachable'
+    });
+    expect(json.runtimeContext).toEqual({
+      vercelEnv: 'preview',
+      nodeEnv: 'production',
+      isVercelProd: false,
+    });
   });
 
   it('maps http status responses into reason codes without leaking secrets', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
         headers: new Headers({ 'content-type': 'text/plain' }),
         text: vi.fn().mockResolvedValue('apiKey=test-key invalid')
-      })
-    );
+      }));
 
     const { GET } = await import('../route');
     const response = await GET();
@@ -146,5 +153,37 @@ describe('/api/provider-health route', () => {
     expect(json.ok).toBe(true);
     expect(json.providerErrors).toEqual([]);
     expect(json.providerErrors.some((message: string) => message.toLowerCase().includes('reachable'))).toBe(false);
+  });
+
+  it('sets degraded-events reason when odds are reachable but events are not', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/events')) {
+        return {
+          ok: false,
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: new Headers({ 'content-type': 'application/json' }),
+          text: vi.fn().mockResolvedValue('{}')
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: vi.fn().mockResolvedValue('[]')
+      };
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET();
+    const json = await response.json();
+
+    expect(json.ok).toBe(false);
+    expect(json.reason).toBe('live_degraded_events');
+    expect(json.checks.odds.ok).toBe(true);
+    expect(json.checks.events.ok).toBe(false);
+    expect(json.providerErrors).toContain('Events provider returned HTTP 503');
   });
 });
