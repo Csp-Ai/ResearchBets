@@ -35,9 +35,12 @@ describe('TodayPageClient', () => {
     expect(screen.getByTestId('sort-select')).toBeTruthy();
   });
 
-  it('renders decision-focused row copy with why-on-board context', () => {
+  it('renders decision-focused row copy with evidence and caution context', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
     expect(screen.getAllByText(/Why on board:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Strongest evidence:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Caution:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Volume-driven|Role-driven|Price-driven|Trend-driven|Matchup-driven/i).length).toBeGreaterThan(0);
   });
 
   it('renders role/dead-leg chips with source labels', () => {
@@ -66,6 +69,7 @@ describe('TodayPageClient', () => {
     if (!addButton) throw new Error('Expected at least one Add button');
     fireEvent.click(addButton);
     expect(screen.getByText(/Board reason:/i)).toBeTruthy();
+    expect(screen.getByText(/Fragility:/i)).toBeTruthy();
     expect(screen.getByText(/Staging keeps each leg tied to its board rationale./i)).toBeTruthy();
   });
 

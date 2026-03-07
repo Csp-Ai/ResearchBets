@@ -4,6 +4,7 @@ import React from 'react';
 
 import { formatSignedPct } from '@/src/core/markets/edgePrimitives';
 import type { MarketType } from '@/src/core/markets/marketType';
+import { deriveEvidenceTexture } from '@/src/core/today/evidenceTexture';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
@@ -55,14 +56,22 @@ const riskWeight: Record<'stable' | 'watch', number> = {
   watch: 1
 };
 
-function toDecisionTier(row: TerminalBoardRow): { label: string; variant: 'success' | 'warning' | 'neutral' } {
+function toDecisionTier(row: TerminalBoardRow): { label: string; variant: 'success' | 'warning' | 'neutral'; cue: string } {
   const edge = row.edgeDelta ?? 0;
   const riskPenalty = row.riskTag === 'stable' ? 0 : 0.015;
   const net = edge - riskPenalty;
-  if (net >= 0.07) return { label: 'Priority look', variant: 'success' };
-  if (net >= 0.03) return { label: 'Viable look', variant: 'neutral' };
-  return { label: 'Thin look', variant: 'warning' };
+  if (net >= 0.07) return { label: 'Priority look', variant: 'success', cue: 'Multiple supports aligned' };
+  if (net >= 0.03) return { label: 'Viable look', variant: 'neutral', cue: 'One clear support with manageable risk' };
+  return { label: 'Thin look', variant: 'warning', cue: 'Support is narrow; fragility can break the edge' };
 }
+
+const SUPPORT_LABEL: Record<ReturnType<typeof deriveEvidenceTexture>['supportTags'][number], string> = {
+  'volume-driven': 'Volume-driven',
+  'role-driven': 'Role-driven',
+  'matchup-driven': 'Matchup-driven',
+  'trend-driven': 'Trend-driven',
+  'price-driven': 'Price-driven',
+};
 
 export function sortBoardRows(rows: TerminalBoardRow[], sortKey: SortKey): TerminalBoardRow[] {
   return [...rows].sort((a, b) => {
@@ -86,6 +95,7 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
         const isSelected = selectedLegIds.has(row.id);
         const signal = row.riskTag === 'stable' ? 'Steadier setup' : 'Higher swing setup';
         const tier = toDecisionTier(row);
+        const evidence = deriveEvidenceTexture(row);
 
         return (
           <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-2.5 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''} ${recentAddedRowId === row.id ? 'ring-1 ring-emerald-300/70 shadow-[0_0_0_1px_rgba(110,231,183,0.4)]' : ''}`}>
@@ -94,8 +104,11 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
                 <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
                 <p className="truncate text-xs text-slate-400">#{index + 1} ranked · {row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
                 <p className="truncate text-xs text-slate-300">Why on board: {row.rationale?.[0] ?? signal}</p>
-                <p className="truncate text-[11px] text-slate-400">Decision signal: {tier.label} · {signal}</p>
+                {evidence.strongestEvidence ? <p className="truncate text-[11px] text-slate-300">Strongest evidence: {evidence.strongestEvidence}</p> : null}
+                {evidence.caution ? <p className="truncate text-[11px] text-amber-100">Caution: {evidence.caution}</p> : null}
+                <p className="truncate text-[11px] text-slate-400">Decision signal: {tier.label} · {tier.cue}</p>
                 <div className="flex flex-wrap gap-1 text-[11px]">
+                  {evidence.supportTags.map((tag) => <Badge key={tag} variant="neutral" size="sm">{SUPPORT_LABEL[tag]}</Badge>)}
                   {typeof row.l5Avg === 'number' ? <Badge variant="neutral" size="sm">L5 {row.l5Avg.toFixed(1)}</Badge> : null}
                   {typeof row.minutesL3Avg === 'number' ? <Badge variant="neutral" size="sm">MIN L3 {row.minutesL3Avg.toFixed(1)}</Badge> : null}
                   {typeof row.threesAttL5Avg === 'number' && row.market === 'threes' ? <Badge variant="neutral" size="sm">3PA L5 {row.threesAttL5Avg.toFixed(1)}</Badge> : null}
