@@ -52,6 +52,25 @@ const TABLES = {
   trackedProps: 'tracked_props'
 } as const;
 
+const buildEventInsertPayload = (event: ControlPlaneEvent) => {
+  const { mode, reason, sport, tz, date, properties, timestamp, ...base } = event;
+
+  return {
+    ...base,
+    created_at: timestamp,
+    properties: {
+      ...properties,
+      runtime_context: {
+        mode,
+        reason,
+        sport,
+        tz,
+        date
+      }
+    }
+  };
+};
+
 const mapBet = (data: Record<string, unknown>): StoredBet => ({
   id: data.id as string,
   userId: data.user_id as string,
@@ -220,10 +239,7 @@ export class SupabaseRuntimeStore implements RuntimeStore {
   }
 
   async saveEvent(event: ControlPlaneEvent): Promise<void> {
-    const { error } = await this.client.from(TABLES.events).insert({
-      ...event,
-      created_at: event.timestamp
-    });
+    const { error } = await this.client.from(TABLES.events).insert(buildEventInsertPayload(event));
     if (!error) return;
 
     if (isMissingAnalyticsSchemaError(error)) {

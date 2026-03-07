@@ -17,6 +17,23 @@ export type TodayRuntimeSummary = {
   bannerDetail: string;
 };
 
+const INTERNAL_REASON_COPY: Record<string, string> = {
+  live_ok: 'Live providers are operating normally.',
+  demo_requested: 'Demo mode is on for this view.',
+  live_mode_disabled: 'Live mode is currently turned off.',
+  provider_unavailable: 'Live providers are temporarily unavailable.',
+  missing_keys: 'Live providers are not fully connected.',
+  cache_hit: 'Using a recent cached board while feeds recover.',
+  cache_fallback: 'Using a recent cached board while feeds recover.'
+};
+
+function sanitizeRuntimeReason(reason?: string): string | undefined {
+  if (!reason) return undefined;
+  const trimmed = reason.trim();
+  if (!trimmed) return undefined;
+  return INTERNAL_REASON_COPY[trimmed] ?? trimmed.replace(/_/g, ' ');
+}
+
 function dedupeSegments(parts: Array<string | undefined>): string[] {
   const seen = new Set<string>();
   const output: string[] = [];
@@ -82,14 +99,14 @@ export function getSourceQualityCopy(input: { mode: Mode; reason?: string; degra
     return {
       tier,
       label: 'Source quality: mixed',
-      detail: input.degradedReason ?? input.reason ?? 'Some live inputs are degraded, so parts of the board may rely on fallback data.'
+      detail: sanitizeRuntimeReason(input.degradedReason) ?? sanitizeRuntimeReason(input.reason) ?? 'Some live inputs are degraded, so parts of the board may rely on fallback data.'
     };
   }
 
   return {
     tier,
     label: 'Source quality: demo fallback',
-    detail: input.degradedReason ?? input.reason ?? 'Deterministic fallback data is powering this board.'
+    detail: sanitizeRuntimeReason(input.degradedReason) ?? sanitizeRuntimeReason(input.reason) ?? 'Deterministic fallback data is powering this board.'
   };
 }
 
@@ -186,7 +203,7 @@ export function buildTodayRuntimeSummary(input: {
   });
 
   const fallbackDetail = input.mode === 'demo' || input.mode === 'cache' || source.tier !== 'verified'
-    ? mode.intentHint ?? input.degradedReason ?? input.reason ?? source.detail
+    ? mode.intentHint ?? sanitizeRuntimeReason(input.degradedReason) ?? sanitizeRuntimeReason(input.reason) ?? source.detail
     : undefined;
 
   const bannerLabel = mode.label;
