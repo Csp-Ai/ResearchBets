@@ -40,6 +40,7 @@ describe('shareable terminal copy invariants', () => {
         runDto={null}
         currentRun={null}
         prefillKeyFromQuery=""
+        stagedContext={[]}
         copyStatus="idle"
         copySlipStatus="idle"
         onPasteOpen={vi.fn()}

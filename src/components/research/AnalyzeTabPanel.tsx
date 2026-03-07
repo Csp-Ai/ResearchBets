@@ -25,6 +25,7 @@ type AnalyzeTabPanelProps = {
   runDto: ResearchRunDTO | null;
   currentRun: Run | null;
   prefillKeyFromQuery: string;
+  stagedContext: string[];
   copyStatus: 'idle' | 'done' | 'error';
   copySlipStatus: 'idle' | 'done' | 'error';
   onPasteOpen: () => void;
@@ -41,7 +42,7 @@ type AnalyzeTabPanelProps = {
 };
 
 export default function AnalyzeTabPanel({
-  intelLegs, legs, sortedLegs, weakestLeg, runDto, currentRun, prefillKeyFromQuery, copyStatus, copySlipStatus,
+  intelLegs, legs, sortedLegs, weakestLeg, runDto, currentRun, prefillKeyFromQuery, stagedContext, copyStatus, copySlipStatus,
   onPasteOpen, onTryExample, onCopyReasons, onCopySlip, onShareRun, slipHref, boardHref, shareStatus, uncertainty, demoSlip, latestRunHref
 }: AnalyzeTabPanelProps) {
   const [calibration, setCalibration] = useState({ take_accuracy: 0, weakest_leg_accuracy: 0, runs_analyzed: 0, last_updated: null as string | null });
@@ -124,7 +125,7 @@ export default function AnalyzeTabPanel({
           <CardSurface className="p-4">
             <p className="text-xs font-semibold text-amber-100">Weakest leg</p>
             <p className="mt-1 text-lg font-semibold text-slate-100">{riskSummary.weakestLeg}</p>
-            <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">Why it&rsquo;s fragile</p>
+            <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">Watch-outs driving fragility</p>
             <div className="mt-2 space-y-1 text-sm text-slate-300">
               {combinedReasons.length > 0 ? combinedReasons.slice(0, 3).map((reason) => <p key={reason}>• {reason}</p>) : <p>• Check line movement before locking.</p>}
             </div>
@@ -155,7 +156,13 @@ export default function AnalyzeTabPanel({
       <CardSurface className="space-y-3 p-4">
         <h3 className="text-sm font-semibold text-slate-400">Slip to place</h3>
         <ol className="space-y-1 text-sm text-slate-100">{slipLines.map((line, index) => <li key={`${index + 1}-${line}`}>{index + 1}. {line}</li>)}</ol>
-        {prefillKeyFromQuery ? <Badge variant="info">Draft from Scout</Badge> : null}
+        {prefillKeyFromQuery ? <Badge variant="info">Staged from Board</Badge> : null}
+        {stagedContext.length > 0 ? (
+          <div className="space-y-1 rounded border border-cyan-300/25 bg-cyan-500/5 p-2 text-xs text-slate-300">
+            <p className="font-semibold text-cyan-100">Board carryover</p>
+            {stagedContext.map((entry) => <p key={entry}>• {entry}</p>)}
+          </div>
+        ) : null}
       </CardSurface>
 
       <section className="rounded-lg border border-white/10 bg-black/20 px-3 py-2" data-testid="run-details-collapsed">
