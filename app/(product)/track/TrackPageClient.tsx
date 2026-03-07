@@ -23,6 +23,7 @@ import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
 import type { TodayPayload } from '@/src/core/today/types';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { Skeleton } from '@/src/components/ui/Skeleton';
+import { getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
 
 const statusTone: Record<SlipTrackingState['status'], string> = {
   alive: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40',
@@ -30,11 +31,18 @@ const statusTone: Record<SlipTrackingState['status'], string> = {
   settled: 'bg-slate-600/30 text-slate-100 border-slate-400/40'
 };
 
+
+export function readTrackSlipIdFromQuery(params: URLSearchParams): string {
+  const canonical = params.get('slip_id');
+  if (canonical) return canonical;
+  // Compatibility boundary: keep legacy camelCase read only for old shared links.
+  return params.get('slipId') ?? '';
+}
 export function TrackPageClient() {
   const router = useRouter();
   const nervous = useNervousSystem();
   const params = useSearchParams();
-  const slipId = params.get('slip_id') ?? params.get('slipId') ?? '';
+  const slipId = readTrackSlipIdFromQuery(params);
   const [state, setState] = useState<SlipTrackingState | null>(null);
   const [saved, setSaved] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
@@ -145,6 +153,7 @@ export function TrackPageClient() {
   const runHeader = deriveRunHeader({ trace_id: nervous.trace_id, mode: state?.mode });
   const surfaceMode = (state?.mode ?? nervous.mode) as 'demo' | 'cache' | 'live';
   const modeNote = surfaceMode === 'demo' ? 'Demo mode (live feeds off)' : surfaceMode === 'cache' ? 'Using cached slate' : 'Live feeds active';
+  const sourceQuality = getSourceQualityCopy({ mode: surfaceMode });
 
   if (!state) {
     const hasDraft = DraftSlipStore.getSlip().length > 0;
@@ -163,6 +172,7 @@ export function TrackPageClient() {
           ) : null}
           <h1 className="text-xl font-semibold">No tracked slip yet</h1>
           <p className="mt-2 text-sm text-slate-300">{modeNote}</p>
+          <p className="mt-1 text-xs text-slate-400" title={sourceQuality.detail}>{sourceQuality.label}</p>
           <p className="mt-1 text-sm text-slate-300">Track a slip to get live status + learning even after elimination.</p>
           <TrackSlipInput onTracked={onTracked} onOpenDraft={onTrackLatestDraft} onTrySample={onSampleSlip} sampleLoading={sampleLoading} />
           {!hasDraft ? <p className="mt-2 text-xs text-slate-400">No draft found yet. Build one in Tonight and come back.</p> : null}
@@ -183,6 +193,7 @@ export function TrackPageClient() {
           </div>
         ) : null}
         <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel} · {modeNote}</p>
+        <p className="text-xs text-slate-500" title={sourceQuality.detail}>{sourceQuality.label}</p>
         <div className="flex items-center gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}>{state.status}</span>
           {state.eliminatedByLegId ? <span className="text-sm text-rose-100">Eliminated by: {state.legs.find((leg) => leg.legId === state.eliminatedByLegId)?.player}</span> : null}

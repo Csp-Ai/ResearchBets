@@ -77,6 +77,7 @@ describe('AnalyzeTabPanel', () => {
     expect(screen.getByText(/Action: replace or remove this leg first/i)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Find replacement on Board' })).toBeTruthy();
     expect(screen.getByText(/Signal confidence/i)).toBeTruthy();
+    expect(screen.getByText(/Source quality: verified/i)).toBeTruthy();
     expect(screen.queryByText(/Unknown Leg/i)).toBeNull();
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
   });

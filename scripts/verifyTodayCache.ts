@@ -88,6 +88,7 @@ async function main(): Promise<void> {
     const cacheWorking = call2Debug.cacheHit === true && call2Debug.didLiveFetch === false;
 
     console.log('------ ResearchBets Cache Verification ------');
+    console.log('Note: This script uses manual warm endpoint invocation and does not require platform cron support.');
     console.log('');
     console.log('Warm status: OK');
     console.log(`Today call 1 mode: ${call1Mode}`);

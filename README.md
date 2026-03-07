@@ -45,6 +45,13 @@ ResearchBets supports three runtime modes:
 
 UI labels must follow API payload truth (`TodayPayload.mode` + provenance) instead of local overrides. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
+## Today cache warming (deployment truth)
+
+- `POST /api/today/warm` is the canonical warm endpoint (requires `CRON_SECRET`).
+- `vercel.json` uses a **daily** cron schedule so the repo remains Vercel Hobby-compatible.
+- Higher-frequency warming (for example every 15 minutes) is plan-dependent and should be configured only on supported tiers.
+- Product behavior does **not** depend on cron success: `/api/today` still falls back through live → cache → deterministic demo.
+
 ## Quality checks
 
 Primary governor:
