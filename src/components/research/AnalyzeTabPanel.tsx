@@ -14,6 +14,7 @@ import { SystemCalibrationStrip } from '@/src/components/research/SystemCalibrat
 import type { Run } from '@/src/core/run/types';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 import { getConfidenceCopy, getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
+import { DecisionThreadStrip } from '@/src/components/nervous/DecisionThreadStrip';
 
 type IntelLegs = ComponentProps<typeof SlipIntelBar>['legs'];
 
@@ -100,6 +101,13 @@ export default function AnalyzeTabPanel({
         lastUpdated={calibration.last_updated}
       />
 
+      {(prefillKeyFromQuery || stagedContext.length > 0) ? (
+        <DecisionThreadStrip
+          activeStage="analyze"
+          contextLabel="Continuation: Staged from Board context is active in this verdict."
+        />
+      ) : null}
+
       {hasSlip ? (
         <CardSurface className="space-y-4 p-4 transition-opacity duration-300" data-testid="decision-terminal-verdict">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto]">
@@ -154,13 +162,23 @@ export default function AnalyzeTabPanel({
       )}
 
       <CardSurface className="space-y-3 p-4">
-        <h3 className="text-sm font-semibold text-slate-400">Slip to place</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-400">Slip to place</h3>
+          {prefillKeyFromQuery ? <Badge variant="info">Staged from Board</Badge> : null}
+        </div>
         <ol className="space-y-1 text-sm text-slate-100">{slipLines.map((line, index) => <li key={`${index + 1}-${line}`}>{index + 1}. {line}</li>)}</ol>
-        {prefillKeyFromQuery ? <Badge variant="info">Staged from Board</Badge> : null}
         {stagedContext.length > 0 ? (
-          <div className="space-y-1 rounded border border-cyan-300/25 bg-cyan-500/5 p-2 text-xs text-slate-300">
-            <p className="font-semibold text-cyan-100">Board carryover</p>
-            {stagedContext.map((entry) => <p key={entry}>• {entry}</p>)}
+          <div className="space-y-2 rounded border border-cyan-300/25 bg-cyan-500/5 p-2 text-xs text-slate-300">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-semibold text-cyan-100">Board carryover</p>
+              <span className="rounded-full border border-cyan-300/40 px-2 py-0.5 text-[10px] text-cyan-100">Decision lineage</span>
+            </div>
+            {stagedContext.map((entry) => (
+              <p key={entry}>
+                • {entry}
+              </p>
+            ))}
+            <p className="text-[11px] text-slate-400">Support and Watch-out cues are blended with weakest-leg and Fragility scoring.</p>
           </div>
         ) : null}
       </CardSurface>

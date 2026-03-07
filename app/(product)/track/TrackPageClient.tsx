@@ -24,6 +24,7 @@ import type { TodayPayload } from '@/src/core/today/types';
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
+import { DecisionThreadStrip } from '@/src/components/nervous/DecisionThreadStrip';
 
 const statusTone: Record<SlipTrackingState['status'], string> = {
   alive: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40',
@@ -159,7 +160,7 @@ export function TrackPageClient() {
   const surfaceMode = (state?.mode ?? nervous.mode) as 'demo' | 'cache' | 'live';
   const modeNote = surfaceMode === 'demo' ? 'Demo mode (live feeds off)' : surfaceMode === 'cache' ? 'Using cached slate' : 'Live feeds active';
   const sourceQuality = getSourceQualityCopy({ mode: surfaceMode });
-  const continuityLabel = continuityTag === 'staged_ticket' ? 'Continuation: staged ticket → tracking run' : null;
+  const continuityLabel = continuityTag === 'staged_ticket' ? 'Continuation active: Staged from Board → Tracking run' : 'Tracking run';
 
   if (!state) {
     const hasDraft = DraftSlipStore.getSlip().length > 0;
@@ -168,6 +169,10 @@ export function TrackPageClient() {
       <section className="mx-auto max-w-6xl space-y-4 pb-20">
         <OpenTicketsPanel mode={surfaceMode} />
         <DuringStageTracker trace_id={nervous.trace_id} mode={surfaceMode} />
+        <DecisionThreadStrip
+          activeStage="track"
+          contextLabel={continuityTag === 'staged_ticket' ? 'Continuation: this tracking run follows your staged board decision and stays in the learning loop.' : 'Track keeps the learning loop live from verdict to outcome.'}
+        />
         {showTrackedToast ? <p className="text-xs text-emerald-200">Slip tracked.</p> : null}
         <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
           {isHydratingTicket ? (
@@ -179,8 +184,8 @@ export function TrackPageClient() {
           <h1 className="text-xl font-semibold">No tracked slip yet</h1>
           <p className="mt-2 text-sm text-slate-300">{modeNote}</p>
           <p className="mt-1 text-xs text-slate-400" title={sourceQuality.detail}>{sourceQuality.label}</p>
-          <p className="mt-1 text-sm text-slate-300">Track a slip to follow the same run context through outcome and learning.</p>
-          {continuityLabel ? <p className="mt-1 text-xs text-cyan-100">{continuityLabel}</p> : null}
+          <p className="mt-1 text-sm text-slate-300">Track a slip to continue the same decision thread through outcome and learning.</p>
+          <p className="mt-1 text-xs text-cyan-100">{continuityLabel}</p>
           <TrackSlipInput onTracked={onTracked} onOpenDraft={onTrackLatestDraft} onTrySample={onSampleSlip} sampleLoading={sampleLoading} />
           {!hasDraft ? <p className="mt-2 text-xs text-slate-400">No draft found yet. Build one in Tonight and come back.</p> : null}
         </section>
@@ -192,6 +197,10 @@ export function TrackPageClient() {
     <section className="mx-auto max-w-6xl space-y-4 pb-20">
       <OpenTicketsPanel mode={surfaceMode} />
       <DuringStageTracker trace_id={nervous.trace_id} mode={surfaceMode} />
+      <DecisionThreadStrip
+        activeStage="track"
+        contextLabel={continuityTag === 'staged_ticket' ? 'Continuation: this tracking run follows your staged board decision and stays in the learning loop.' : 'Track keeps the learning loop live from verdict to outcome.'}
+      />
       <header className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
         {isHydratingTicket ? (
           <div className="space-y-2" aria-label="Ticket loading">
@@ -200,7 +209,7 @@ export function TrackPageClient() {
           </div>
         ) : null}
         <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel} · {modeNote}</p>
-        {continuityLabel ? <p className="text-xs text-cyan-100">{continuityLabel}</p> : null}
+        <p className="text-xs text-cyan-100">{continuityLabel}</p>
         <p className="text-xs text-slate-500" title={sourceQuality.detail}>{sourceQuality.label}</p>
         <div className="flex items-center gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}>{state.status}</span>
