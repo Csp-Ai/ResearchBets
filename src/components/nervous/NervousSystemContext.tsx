@@ -16,17 +16,17 @@ const readFromSearch = (): QuerySpine => {
   return normalizeSpine(parseSpineFromSearch(new URLSearchParams(window.location.search)));
 };
 
-export function NervousSystemProvider({ children }: { children: React.ReactNode }) {
-  const [spine, setSpine] = useState<QuerySpine>(() => readFromSearch());
+export function NervousSystemProvider({ children, initialSpine }: { children: React.ReactNode; initialSpine?: Partial<QuerySpine> }) {
+  const [spine, setSpine] = useState<QuerySpine>(() => normalizeSpine({ ...readFromSearch(), ...(initialSpine ?? {}) }));
 
   useEffect(() => {
-    const sync = () => setSpine(readFromSearch());
+    const sync = () => setSpine(normalizeSpine({ ...readFromSearch(), ...(initialSpine ?? {}) }));
     sync();
     window.addEventListener('popstate', sync);
     return () => {
       window.removeEventListener('popstate', sync);
     };
-  }, []);
+  }, [initialSpine]);
 
   const value = useMemo<Ctx>(() => ({
     ...spine,

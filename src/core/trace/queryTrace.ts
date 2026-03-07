@@ -5,7 +5,7 @@ type SearchParamsLike = {
 };
 
 export function getQueryTraceId(searchParamsLike: SearchParamsLike): string | null {
-  const traceId = searchParamsLike.get('trace_id') ?? searchParamsLike.get('trace');
+  const traceId = searchParamsLike.get('trace_id') ?? searchParamsLike.get('traceId') ?? searchParamsLike.get('trace');
   if (!traceId) return null;
   const trimmed = traceId.trim();
   return trimmed.length > 0 ? trimmed : null;

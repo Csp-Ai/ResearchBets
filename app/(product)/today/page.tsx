@@ -5,12 +5,7 @@ import { normalizeSpine } from '@/src/core/nervous/spine';
 import { toHref } from '@/src/core/nervous/routes';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
-
-const MODE_COPY: Record<TodayPayload['mode'], string> = {
-  live: 'Live providers',
-  cache: 'Cached snapshot',
-  demo: 'Demo fallback'
-};
+import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
 type TodayPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -24,7 +19,7 @@ function NextGamesFastPaint({ payload }: { payload: TodayPayload }) {
     <section className="panel-shell p-3" aria-label="Next games fast paint">
       <div className="flex items-center justify-between gap-2 text-xs">
         <p className="font-semibold text-slate-100">Next 2 games</p>
-        <span className="mono-number text-slate-300">{payload.mode} · {MODE_COPY[payload.mode]}</span>
+        <span className="mono-number text-slate-300">{payload.mode} · {getTruthModeCopy({ mode: payload.mode, reason: payload.reason }).label}</span>
       </div>
       {payload.provenance?.reason ? <p className="mt-1 text-xs text-slate-400">Reason: {payload.provenance.reason}</p> : null}
       {games.length === 0 ? <p className="mt-2 text-xs text-slate-400">No upcoming games in this window.</p> : (

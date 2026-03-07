@@ -13,6 +13,7 @@ import { LegRankList, type AnalyzeLeg } from '@/src/components/bettor/BettorFirs
 import { SystemCalibrationStrip } from '@/src/components/research/SystemCalibrationStrip';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
+import { getConfidenceCopy } from '@/src/core/ui/truthPresentation';
 
 type IntelLegs = ComponentProps<typeof SlipIntelBar>['legs'];
 
@@ -81,6 +82,12 @@ export default function AnalyzeTabPanel({
   });
   const combinedReasons = selectTopReasons(rankedReasons, 3);
   const hasSlip = legs.length > 0;
+  const sourceQuality = runDto?.provenance.degraded
+    ? 'fallback'
+    : runDto?.provenance.source === 'CACHE'
+      ? 'mixed'
+      : 'verified';
+  const confidenceCopy = getConfidenceCopy({ confidencePct: riskSummary.confidencePct, sourceQuality });
   const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip).split('\n').map((line) => line.trim()).filter(Boolean);
 
   return (
@@ -104,8 +111,8 @@ export default function AnalyzeTabPanel({
             </div>
             <div className={pulse ? 'signal-pulse rounded-md px-1 py-0.5' : ''}>
               <p className="text-xs text-slate-500">Confidence</p>
-              <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${riskSummary.confidencePct}%` }} /></div>
-              <p className="mono-number mt-1 text-sm text-slate-200">{riskSummary.confidencePct}%</p>
+              <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${confidenceCopy.boundedPct}%` }} /></div>
+              <p className="mono-number mt-1 text-sm text-slate-200">{confidenceCopy.label}</p>
             </div>
             <div className={`flex items-end gap-2 rounded-md px-1 py-0.5 ${pulse ? 'signal-pulse' : ''}`}>
               <Badge variant="warning">Fragility {riskSummary.fragilityScore}</Badge>
@@ -120,7 +127,11 @@ export default function AnalyzeTabPanel({
             <div className="mt-2 space-y-1 text-sm text-slate-300">
               {combinedReasons.length > 0 ? combinedReasons.slice(0, 3).map((reason) => <p key={reason}>• {reason}</p>) : <p>• Check line movement before locking.</p>}
             </div>
-            <a href={slipHref} className="terminal-focus mt-3 inline-flex rounded-md border border-cyan-300/45 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/10">Edit slip</a>
+            <p className="mt-2 text-xs text-slate-400">Action: replace or remove this leg first, then rerun stress test.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={slipHref} className="terminal-focus inline-flex rounded-md border border-cyan-300/45 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/10">Edit slip</a>
+              <a href={boardHref} className="terminal-focus inline-flex rounded-md border border-white/25 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-white/10">Find replacement on Board</a>
+            </div>
           </CardSurface>
 
           <div className="flex flex-wrap gap-2">

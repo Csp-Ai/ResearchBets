@@ -17,12 +17,19 @@ import { SurfaceHeaderBar } from './SurfaceHeaderBar';
 const BASE_NAV_ITEMS = [
   { label: 'Board', href: '/today' },
   { label: 'Slip', href: '/slip' },
-  { label: 'Stress Test', href: '/stress-test' },
-  { label: 'Control Room', href: '/control' }
+  { label: 'Analyze', href: '/stress-test' },
+  { label: 'Track', href: '/track' },
+  { label: 'Review', href: '/review' }
 ];
 
-const PRODUCT_PREFIXES = ['/today', '/slip', '/stress-test', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
-const RAIL_ROUTES = ['/today', '/slip', '/stress-test', '/control'];
+const SECONDARY_ROUTES = [
+  { label: 'Control Room', href: '/control' },
+  { label: 'Discover (secondary)', href: '/discover' },
+  { label: 'Ingest (secondary)', href: '/ingest' }
+];
+
+const PRODUCT_PREFIXES = ['/today', '/slip', '/stress-test', '/track', '/review', '/control', '/discover', '/ingest', '/research', '/pending-bets', '/live', '/settings', '/u', '/dev'];
+const RAIL_ROUTES = ['/today', '/slip', '/stress-test', '/track', '/review'];
 
 export function AppShellProduct({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -98,12 +105,17 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-3">
             <ContextBadge />
-            <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
+            <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Analyze ({slip.length})</button>
             <details className="relative">
               <summary className="terminal-focus cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
                 <Link href={nervous.toHref('/settings')} className="block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Settings</Link>
                 {developerMode ? <Link href={nervous.toHref('/dev/dashboard')} className="mt-1 block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Dev dashboard</Link> : null}
+                <div className="mt-1 border-t border-white/10 pt-1">
+                  {SECONDARY_ROUTES.map((route) => (
+                    <Link key={route.href} href={nervous.toHref(route.href)} className="block rounded px-2 py-1 text-slate-300 hover:bg-white/10">{route.label}</Link>
+                  ))}
+                </div>
                 {process.env.NODE_ENV !== 'production' ? (
                   <button type="button" onClick={() => writeLiveModeEnabled(!liveMode)} className="mt-1 w-full rounded px-2 py-1 text-left text-slate-200 hover:bg-white/10">
                     Live Mode: {liveMode ? 'On' : 'Off'}
@@ -135,11 +147,11 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
               ))}
             </ul>
           )}
-          <button type="button" onClick={toStressTest} className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
+          <button type="button" onClick={toStressTest} className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Analyze ({slip.length})</button>
         </aside>
       </div>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 py-2 backdrop-blur sm:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
           {BASE_NAV_ITEMS.map((item) => {
             const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
             return (
@@ -155,7 +167,7 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
         <div className="fixed inset-x-0 bottom-24 z-40 mx-3 rounded-xl border border-white/10 bg-slate-950 p-3 sm:hidden">
           <div className="mb-2 flex items-center justify-between"><p className="text-sm font-semibold">Draft Slip</p>{slip.length > 0 ? <button type="button" className="text-xs text-slate-400" onClick={clearSlip}>Clear</button> : null}</div>
           {slip.length === 0 ? <p className="text-xs text-slate-400">No legs yet.</p> : <ul className="max-h-48 space-y-2 overflow-auto text-xs">{slip.map((leg) => <li key={leg.id} className="rounded border border-white/10 p-2">{leg.player} {leg.marketType} {leg.line}</li>)}</ul>}
-          <button type="button" onClick={toStressTestFromDrawer} className="mt-3 w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Stress Test ({slip.length})</button>
+          <button type="button" onClick={toStressTestFromDrawer} className="mt-3 w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Analyze ({slip.length})</button>
         </div>
       ) : null}
       {toast ? <div className="fixed bottom-5 right-5 rounded bg-slate-200 px-3 py-2 text-xs font-medium text-slate-900">{toast}</div> : null}

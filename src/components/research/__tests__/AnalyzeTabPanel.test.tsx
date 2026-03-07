@@ -74,6 +74,9 @@ describe('AnalyzeTabPanel', () => {
     );
 
     expect(screen.getAllByTestId('decision-terminal-verdict').at(-1)?.textContent).toMatch(/TAKE|MODIFY|PASS/);
+    expect(screen.getByText(/Action: replace or remove this leg first/i)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Find replacement on Board' })).toBeTruthy();
+    expect(screen.getByText(/Signal confidence/i)).toBeTruthy();
     expect(screen.queryByText(/Unknown Leg/i)).toBeNull();
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
   });

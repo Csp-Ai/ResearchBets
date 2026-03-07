@@ -10,7 +10,7 @@ export function normalizeRun(input: RunInput): Run {
 
   return {
     trace_id: canonicalTraceId,
-    traceId: canonicalTraceId,
+    traceId: input.traceId,
     slipId: input.slipId,
     snapshotId: input.snapshotId,
     anonSessionId: input.anonSessionId,

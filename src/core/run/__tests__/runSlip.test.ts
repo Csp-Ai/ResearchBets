@@ -80,7 +80,7 @@ describe('runSlip pipeline', () => {
     const run = await runStore.getRun(traceId);
 
     expect(traceId).not.toBe(serverTraceId);
-    expect(run?.traceId).toBe(traceId);
+    expect(run?.trace_id).toBe(traceId);
   });
 
 
@@ -104,7 +104,7 @@ describe('runSlip pipeline', () => {
     const run = await runStore.getRun(traceId);
 
     expect(traceId).toBe('trace-explicit-052');
-    expect(run?.traceId).toBe('trace-explicit-052');
+    expect(run?.trace_id).toBe('trace-explicit-052');
   });
 
   it('computeVerdict keeps weakest leg aligned with sorted risk and reason wording', () => {

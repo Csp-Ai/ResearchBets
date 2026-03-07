@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { LiveNervousSystemStrip, type LiveNervousSystemStripProps } from '@/src/components/nervous/LiveNervousSystemStrip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
 export function CockpitHeader({
   title,
@@ -17,6 +18,7 @@ export function CockpitHeader({
   strip: LiveNervousSystemStripProps;
 }) {
   const nervous = useNervousSystem();
+  const modeCopy = getTruthModeCopy({ mode: strip.mode, reason: strip.reason, intentMode: strip.intentMode });
 
   return (
     <header className="space-y-3">
@@ -32,7 +34,7 @@ export function CockpitHeader({
           <span className="rounded-full border border-white/15 px-2 py-1">{nervous.sport}</span>
           <span className="rounded-full border border-white/15 px-2 py-1">{nervous.date}</span>
           <span className="rounded-full border border-white/15 px-2 py-1">{nervous.tz}</span>
-          <span className="rounded-full border border-white/15 px-2 py-1">{strip.mode}</span>
+          <span className="rounded-full border border-white/15 px-2 py-1" title={modeCopy.detail}>{modeCopy.label}</span>
           <span>{strip.updatedAt ? `Updated ${new Date(strip.updatedAt).toLocaleTimeString()}` : 'Updated recently'}</span>
         </div>
       </div>
