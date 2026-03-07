@@ -79,7 +79,7 @@ describe('TodayPageClient', () => {
     const href = String(pushMock.mock.calls[0]?.[0] ?? '');
     expect(href).toContain('prefillKey=rb%3Aresearch%3Ascout-prefill');
     expect(href).toContain('prefillContextKey=rb%3Aresearch%3Ascout-context');
-    expect(window.sessionStorage.getItem('rb:research:scout-context')).toContain('Support cue:');
+    expect(window.sessionStorage.getItem('rb:research:scout-context')).toContain('Support:');
   });
 
   it('renders ranked decision-tier row cues and carries board rationale into staging', () => {
@@ -93,7 +93,7 @@ describe('TodayPageClient', () => {
     fireEvent.click(addButton);
     expect(screen.getAllByText(/Board reason:/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Watch-out:/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Staged legs keep board support and watch-out context into analysis./i)).toBeTruthy();
+    expect(screen.getByText(/Staged legs keep board Support, Watch-out, and Fragility context into analysis./i)).toBeTruthy();
   });
 
 });

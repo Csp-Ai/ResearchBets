@@ -28,8 +28,11 @@ describe('SlipDrawer', () => {
   });
 
   it('enables analyze/track actions when legs are staged', () => {
-    wrap(<SlipDrawer legs={[{ id: '1', player: 'Luka Doncic', marketType: 'points', line: '30.5', odds: '-110', game: 'LAL @ DAL' }]} rationaleByLegId={new Map([['1', 'Strong role stability']])} onRemove={vi.fn()} onRunStressTest={vi.fn()} />);
+    wrap(<SlipDrawer legs={[{ id: '1', player: 'Luka Doncic', marketType: 'points', line: '30.5', odds: '-110', game: 'LAL @ DAL' }]} rationaleByLegId={new Map([['1', { boardReason: 'Strong role stability', support: 'L5 form up', watchOut: 'Minutes dip', fragility: 'Fragility medium' }]])} onRemove={vi.fn()} onRunStressTest={vi.fn()} />);
     expect(screen.getByRole('button', { name: /Analyze staged ticket/i })).toHaveProperty('disabled', false);
     expect(screen.getByRole('link', { name: /Track this run/i }).getAttribute('aria-disabled')).toBe('false');
+    expect(screen.getByText(/Support:/i)).toBeTruthy();
+    expect(screen.getByText(/Watch-out:/i)).toBeTruthy();
+    expect(screen.getByLabelText('Decision thread strip')).toBeTruthy();
   });
 });

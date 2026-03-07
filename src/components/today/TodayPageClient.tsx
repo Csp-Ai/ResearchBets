@@ -23,6 +23,13 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { FEATURED_STAT_CATEGORY_ORDER, FEATURED_STAT_LABEL, type FeaturedStatCategory, mapMarketToFeaturedStatCategory } from '@/src/core/markets/statCategory';
 import { buildTodayRuntimeSummary } from '@/src/core/ui/truthPresentation';
 
+type StagedLegContext = {
+  boardReason: string;
+  support?: string;
+  watchOut?: string;
+  fragility?: string;
+};
+
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
 function normalizedToTodayPayload(normalized: NormalizedToday): TodayPayload {
@@ -181,8 +188,16 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
     const contextLines = selectedLegs
-      .map((leg) => rationaleByLegId.get(leg.id) ?? '')
-      .filter(Boolean);
+      .flatMap((leg) => {
+        const context = rationaleByLegId.get(leg.id);
+        if (!context) return [];
+        return [
+          context.support ? `Support: ${context.support}` : null,
+          context.watchOut ? `Watch-out: ${context.watchOut}` : null,
+          context.fragility
+        ];
+      })
+      .filter((entry): entry is string => Boolean(entry));
     window.sessionStorage.setItem(SCOUT_ANALYZE_CONTEXT_STORAGE_KEY, serializeDraftContext(contextLines));
     router.push(nervous.toHref('/stress-test', { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillContextKey: SCOUT_ANALYZE_CONTEXT_STORAGE_KEY }));
   };
@@ -195,14 +210,15 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
 
 
   const rationaleByLegId = useMemo(() => {
-    const lookup = new Map<string, string>();
+    const lookup = new Map<string, StagedLegContext>();
     for (const row of allRows) {
       const evidence = deriveEvidenceTexture(row);
-      const coreReason = row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.';
-      const carry = [coreReason];
-      if (evidence.strongestEvidence) carry.push(`Support cue: ${evidence.strongestEvidence}`);
-      if (evidence.caution) carry.push(`Watch-out: ${evidence.caution}`);
-      lookup.set(row.id, carry.join(' | '));
+      lookup.set(row.id, {
+        boardReason: row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.',
+        support: evidence.strongestEvidence,
+        watchOut: evidence.caution,
+        fragility: row.deadLegRisk ? `Fragility ${row.deadLegRisk}${row.deadLegReasons?.[0] ? ` · ${row.deadLegReasons[0]}` : ''}` : undefined
+      });
     }
     return lookup;
   }, [allRows]);

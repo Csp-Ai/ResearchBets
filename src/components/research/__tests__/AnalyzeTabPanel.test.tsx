@@ -16,7 +16,7 @@ describe('AnalyzeTabPanel continuity context', () => {
         runDto={null}
         currentRun={null}
         prefillKeyFromQuery="rb:research:scout-prefill"
-        stagedContext={['Support cue: L5 trend', 'Watch-out: limited minutes']}
+        stagedContext={['Support: L5 trend', 'Watch-out: limited minutes']}
         copyStatus="idle"
         copySlipStatus="idle"
         onPasteOpen={vi.fn()}
@@ -33,8 +33,9 @@ describe('AnalyzeTabPanel continuity context', () => {
     );
 
     expect(screen.getByText('Board carryover')).toBeTruthy();
-    expect(screen.getByText(/Support cue:/i)).toBeTruthy();
+    expect(screen.getByText(/Support:/i)).toBeTruthy();
     expect(screen.getByText(/Watch-out:/i)).toBeTruthy();
     expect(screen.getByText('Staged from Board')).toBeTruthy();
+    expect(screen.getByLabelText('Decision thread strip')).toBeTruthy();
   });
 });

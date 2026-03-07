@@ -11,10 +11,11 @@ import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 import { withTraceId } from '@/src/core/trace/queryTrace';
+import { DecisionThreadStrip } from '@/src/components/nervous/DecisionThreadStrip';
 
 export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }: {
   legs: SlipBuilderLeg[];
-  rationaleByLegId: Map<string, string>;
+  rationaleByLegId: Map<string, { boardReason: string; support?: string; watchOut?: string; fragility?: string }>;
   onRemove: (id: string) => void;
   onRunStressTest: () => void;
 }) {
@@ -49,7 +50,15 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
         ) : null}
 
         {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest leg preview: {risk.weakestLeg}</p> : null}
-        {hasLegs ? <p className="text-[11px] text-slate-400">Staged legs keep board support and watch-out context into analysis.</p> : null}
+        {hasLegs ? <p className="text-[11px] text-slate-400">Staged legs keep board Support, Watch-out, and Fragility context into analysis.</p> : null}
+
+        {hasLegs ? (
+          <DecisionThreadStrip
+            activeStage="staging"
+            contextLabel="Staged from Board — Support and Watch-out carry into Analyze, then Track continues the same run."
+          />
+        ) : null}
+
 
         {!hasLegs ? (
           <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
@@ -68,8 +77,10 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
                   <div>
                     <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
                     <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
-                    <p className="text-[11px] text-slate-300">Board reason: {rationaleByLegId.get(leg.id) ?? 'No explicit rationale; staged from ranked board signal.'}</p>
-                    {leg.deadLegRisk ? <p className="text-[11px] text-slate-400">Fragility {leg.deadLegRisk}{leg.deadLegReasons?.[0] ? ` · ${leg.deadLegReasons[0]}` : ''}</p> : null}
+                    <p className="text-[11px] text-slate-300">Board reason: {rationaleByLegId.get(leg.id)?.boardReason ?? 'No explicit rationale; staged from ranked board signal.'}</p>
+                    {rationaleByLegId.get(leg.id)?.support ? <p className="text-[11px] text-emerald-100">Support: {rationaleByLegId.get(leg.id)?.support}</p> : null}
+                    {rationaleByLegId.get(leg.id)?.watchOut ? <p className="text-[11px] text-amber-100">Watch-out: {rationaleByLegId.get(leg.id)?.watchOut}</p> : null}
+                    {rationaleByLegId.get(leg.id)?.fragility ? <p className="text-[11px] text-slate-400">{rationaleByLegId.get(leg.id)?.fragility}</p> : null}
                   </div>
                   <button type="button" onClick={() => onRemove(leg.id)} className="terminal-focus text-xs text-rose-200">Remove</button>
                 </div>
