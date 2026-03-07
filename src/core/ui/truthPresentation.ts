@@ -5,6 +5,8 @@ export type SourceQualityTier = 'verified' | 'mixed' | 'fallback';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const MAX_FRESHNESS_WINDOW_MS = 7 * DAY;
 
 export function getTruthModeCopy(input: { mode: Mode; reason?: string; intentMode?: Mode }) {
   const degraded = input.mode === 'cache' || Boolean(input.reason && input.reason !== 'live_ok');
@@ -87,7 +89,28 @@ export function getFreshnessCopy(input: { mode: Mode; generatedAt?: string; nowM
   }
 
   const nowMs = input.nowMs ?? Date.now();
-  const diff = Math.max(0, nowMs - timestamp);
+  if (!Number.isFinite(nowMs)) {
+    return {
+      label: 'Update time unavailable',
+      detail: 'Current time reference is unavailable for freshness formatting.'
+    };
+  }
+
+  const diff = nowMs - timestamp;
+  if (diff < 0) {
+    return {
+      label: 'just now',
+      detail: 'Board timestamp is ahead of local clock; showing nearest truthful freshness label.'
+    };
+  }
+
+  if (diff > MAX_FRESHNESS_WINDOW_MS) {
+    return {
+      label: 'Update time unavailable',
+      detail: 'Board timestamp is outside the freshness window.'
+    };
+  }
+
   if (diff < MINUTE) return { label: 'just now', detail: 'Board was refreshed moments ago.' };
   if (diff < HOUR) {
     const minutes = Math.floor(diff / MINUTE);

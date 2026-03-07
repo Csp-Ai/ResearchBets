@@ -44,4 +44,31 @@ describe('buildCanonicalBoard', () => {
     expect(board.find((row) => row.market === 'points')?.id).toBe('b');
     expect(board.map((row) => row.id)).toContain('c');
   });
+
+  it('normalizes invalid riskTag values to watch and preserves stable values', () => {
+    const board = buildCanonicalBoard({
+      board: [
+        {
+          id: 'stable',
+          gameId: 'g2',
+          player: 'Jayson Tatum',
+          market: 'points',
+          line: '29.5',
+          riskTag: 'stable'
+        },
+        {
+          id: 'invalid',
+          gameId: 'g2',
+          player: 'Jaylen Brown',
+          market: 'rebounds',
+          line: '6.5',
+          riskTag: 'unknown-risk'
+        }
+      ]
+    });
+
+    expect(board.find((row) => row.id === 'stable')?.riskTag).toBe('stable');
+    expect(board.find((row) => row.id === 'invalid')?.riskTag).toBe('watch');
+  });
+
 });
