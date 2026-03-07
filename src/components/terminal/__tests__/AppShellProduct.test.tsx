@@ -35,4 +35,10 @@ describe('AppShellProduct nav hierarchy', () => {
     expect(screen.getAllByRole('link', { name: 'Track' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Review' }).length).toBeGreaterThan(0);
   });
+
+  it('labels secondary routes distinctly inside settings menu', () => {
+    render(<AppShellProduct><div>child</div></AppShellProduct>);
+    expect(screen.getAllByRole('link', { name: 'Control Room (secondary)' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Discover (secondary)' }).length).toBeGreaterThan(0);
+  });
 });

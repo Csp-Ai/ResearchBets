@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getConfidenceCopy, getTruthModeCopy } from '@/src/core/ui/truthPresentation';
+import { getConfidenceCopy, getSourceQualityCopy, getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
 describe('truthPresentation helpers', () => {
   it('returns neutral truthful copy for cache fallback', () => {
@@ -13,5 +13,17 @@ describe('truthPresentation helpers', () => {
     const confidence = getConfidenceCopy({ confidencePct: 91, sourceQuality: 'fallback' });
     expect(confidence.boundedPct).toBe(65);
     expect(confidence.label).toContain('fallback-limited');
+  });
+
+  it('returns fallback-limited source quality in demo mode', () => {
+    const quality = getSourceQualityCopy({ mode: 'demo', reason: 'provider_unavailable' });
+    expect(quality.tier).toBe('fallback');
+    expect(quality.label).toContain('fallback-limited');
+  });
+
+  it('returns mixed source quality for cache/degraded runs', () => {
+    const quality = getSourceQualityCopy({ mode: 'cache', degradedReason: 'Fallback provider data used.' });
+    expect(quality.tier).toBe('mixed');
+    expect(quality.label).toContain('mixed');
   });
 });

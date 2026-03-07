@@ -13,7 +13,7 @@ import { LegRankList, type AnalyzeLeg } from '@/src/components/bettor/BettorFirs
 import { SystemCalibrationStrip } from '@/src/components/research/SystemCalibrationStrip';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
-import { getConfidenceCopy } from '@/src/core/ui/truthPresentation';
+import { getConfidenceCopy, getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
 
 type IntelLegs = ComponentProps<typeof SlipIntelBar>['legs'];
 
@@ -82,12 +82,12 @@ export default function AnalyzeTabPanel({
   });
   const combinedReasons = selectTopReasons(rankedReasons, 3);
   const hasSlip = legs.length > 0;
-  const sourceQuality = runDto?.provenance.degraded
-    ? 'fallback'
-    : runDto?.provenance.source === 'CACHE'
-      ? 'mixed'
-      : 'verified';
-  const confidenceCopy = getConfidenceCopy({ confidencePct: riskSummary.confidencePct, sourceQuality });
+  const sourceQuality = getSourceQualityCopy({
+    mode: runDto?.provenance.source === 'DEMO' ? 'demo' : runDto?.provenance.source === 'CACHE' ? 'cache' : 'live',
+    degraded: runDto?.provenance.degraded,
+    degradedReason: runDto?.provenance.degraded_reason
+  });
+  const confidenceCopy = getConfidenceCopy({ confidencePct: riskSummary.confidencePct, sourceQuality: sourceQuality.tier });
   const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip).split('\n').map((line) => line.trim()).filter(Boolean);
 
   return (
@@ -113,6 +113,7 @@ export default function AnalyzeTabPanel({
               <p className="text-xs text-slate-500">Confidence</p>
               <div className="mt-1 h-1.5 rounded bg-slate-900"><div className="h-1.5 rounded bg-gradient-to-r from-amber-400 to-[#00E5C8] transition-all duration-1000" style={{ width: `${confidenceCopy.boundedPct}%` }} /></div>
               <p className="mono-number mt-1 text-sm text-slate-200">{confidenceCopy.label}</p>
+              <p className="mt-1 text-xs text-slate-400" title={sourceQuality.detail}>{sourceQuality.label}</p>
             </div>
             <div className={`flex items-end gap-2 rounded-md px-1 py-0.5 ${pulse ? 'signal-pulse' : ''}`}>
               <Badge variant="warning">Fragility {riskSummary.fragilityScore}</Badge>

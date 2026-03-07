@@ -20,6 +20,7 @@ import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { FEATURED_STAT_CATEGORY_ORDER, FEATURED_STAT_LABEL, type FeaturedStatCategory, mapMarketToFeaturedStatCategory } from '@/src/core/markets/statCategory';
+import { getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
 
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
@@ -172,11 +173,15 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   };
 
   const selectedLegIds = useMemo(() => new Set(selectedLegs.map((leg) => leg.id)), [selectedLegs]);
+  const sourceQuality = getSourceQualityCopy({
+    mode: payload.mode,
+    reason: payload.provenance?.reason ?? payload.reason
+  });
 
   return (
     <section className="w-full space-y-3 pb-14">
       <TruthSpineHeader title="Board" subtitle="Before loop: scout leads, check risk, and stage a slip." freshness={timeAgo(payload.generatedAt)} actions={[{ label: 'Build from Board', href: nervous.toHref('/slip'), tone: 'primary' }, { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) }, { label: 'Track', href: nervous.toHref('/track') }]} />
-      <section className="panel-shell p-3"><div className="flex flex-wrap items-center gap-2 text-xs">{FILTERS.map((item) => (<button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>))}<span className="ml-auto text-slate-500 mono-number">{payload.mode} · {timeAgo(payload.generatedAt)}</span></div></section>
+      <section className="panel-shell p-3"><div className="flex flex-wrap items-center gap-2 text-xs">{FILTERS.map((item) => (<button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>))}<span className="rounded border border-white/15 px-2 py-1 text-slate-300" title={sourceQuality.detail}>{sourceQuality.label}</span><span className="ml-auto text-slate-500 mono-number">{payload.mode} · {timeAgo(payload.generatedAt)}</span></div></section>
       <section className="panel-shell p-3"><div className="flex items-center gap-2 text-xs"><button className={`rounded px-2 py-1 ${viewTab==='grouped'?'bg-cyan-500/15 text-cyan-100':'text-slate-300'}`} onClick={() => setViewTab('grouped')}>Core candidates</button><button className={`rounded px-2 py-1 ${viewTab==='all'?'bg-cyan-500/15 text-cyan-100':'text-slate-300'}`} onClick={() => setViewTab('all')}>All props</button></div></section>
       <section id="board-terminal" className="panel-shell p-3"><div className="flex flex-wrap items-center gap-2 text-xs"><select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1" data-testid="sort-select"><option value="edge">Edge</option><option value="l10">L10</option><option value="risk">Risk</option><option value="start">Start</option></select><select value={marketFilter} onChange={(event) => setMarketFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableMarkets.map((market) => <option key={market} value={market}>{market}</option>)}</select><select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | 'stable' | 'watch')} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1"><option value="all">all risk</option><option value="stable">stable</option><option value="watch">watch</option></select><select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="terminal-focus rounded-md border border-white/15 bg-slate-900/80 px-2 py-1">{availableTeams.map((team) => <option key={team} value={team}>{team}</option>)}</select></div></section>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-3">

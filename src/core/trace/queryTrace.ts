@@ -5,7 +5,9 @@ type SearchParamsLike = {
 };
 
 export function getQueryTraceId(searchParamsLike: SearchParamsLike): string | null {
-  const traceId = searchParamsLike.get('trace_id') ?? searchParamsLike.get('traceId') ?? searchParamsLike.get('trace');
+  const canonicalTraceId = searchParamsLike.get('trace_id');
+  // Compatibility boundary: legacy keys are read-only fallbacks for older deep-links.
+  const traceId = canonicalTraceId ?? searchParamsLike.get('traceId') ?? searchParamsLike.get('trace');
   if (!traceId) return null;
   const trimmed = traceId.trim();
   return trimmed.length > 0 ? trimmed : null;

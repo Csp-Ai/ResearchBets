@@ -42,4 +42,9 @@ describe('TodayPageClient', () => {
     expect(screen.getAllByText(/Dead-leg high: /i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/3PA L5 2.9/i).length).toBeGreaterThan(0);
   });
+
+  it('shows fallback-limited source quality for demo board payloads', () => {
+    renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
+    expect(screen.getAllByText(/Source quality: fallback-limited/i).length).toBeGreaterThan(0);
+  });
 });
