@@ -10,6 +10,7 @@ import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/cor
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
 import { buildCanonicalBoard, buildTopSpotScouts } from '@/src/core/today/boardModel';
+import { deriveEvidenceTexture } from '@/src/core/today/evidenceTexture';
 import type { NormalizedToday } from '@/src/core/today/normalize';
 
 import { TopSpotsPanel } from './TopSpotsPanel';
@@ -192,7 +193,12 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
   const rationaleByLegId = useMemo(() => {
     const lookup = new Map<string, string>();
     for (const row of allRows) {
-      lookup.set(row.id, row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.');
+      const evidence = deriveEvidenceTexture(row);
+      const coreReason = row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.';
+      const carry = [coreReason];
+      if (evidence.strongestEvidence) carry.push(`Support: ${evidence.strongestEvidence}`);
+      if (evidence.caution) carry.push(`Fragility: ${evidence.caution}`);
+      lookup.set(row.id, carry.join(' | '));
     }
     return lookup;
   }, [allRows]);
