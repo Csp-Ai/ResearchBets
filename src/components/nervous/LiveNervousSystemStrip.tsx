@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
+
 export type NervousStepState = 'idle' | 'running' | 'ok' | 'degraded' | 'fallback';
 
 export type LiveNervousSystemStripProps = {
@@ -73,18 +75,7 @@ export function LiveNervousSystemStrip({ mode, reason, intentMode, updatedAt, pr
     });
   }, [demoStage, isDemoWarmup, mode, providersDegraded]);
 
-  const modeLabel = mode === 'demo'
-    ? 'Demo mode (live feeds off)'
-    : mode === 'cache'
-      ? 'Using cached slate'
-      : providersDegraded
-        ? 'Live feeds (degraded)'
-        : 'Live feeds connected';
-
-  const intentHint = intentMode === 'live' && mode !== 'live'
-    ? (mode === 'cache' ? 'Live intent → Showing cached slate' : 'Live intent → Demo feeds off')
-    : undefined;
-
+  const modeTruth = getTruthModeCopy({ mode, reason, intentMode });
   const secondaryLabel = reasonLabel(reason);
 
   return (
@@ -92,13 +83,13 @@ export function LiveNervousSystemStrip({ mode, reason, intentMode, updatedAt, pr
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-slate-100">Live Nervous System</p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-          <span className="rounded-full border border-white/15 px-2 py-0.5">{modeLabel}</span>
+          <span className="rounded-full border border-white/15 px-2 py-0.5">{modeTruth.label}</span>
           {secondaryLabel ? <span className="rounded-full border border-white/15 px-2 py-0.5">{secondaryLabel}</span> : null}
           {providerSummary?.total ? <span>{providerSummary.okCount}/{providerSummary.total} providers</span> : null}
           <span>{updatedLabel(updatedAt)}</span>
         </div>
       </div>
-      {intentHint ? <p className="mt-1 text-xs text-slate-400">{intentHint}</p> : null}
+      {modeTruth.intentHint ? <p className="mt-1 text-xs text-slate-400">{modeTruth.intentHint}</p> : null}
       <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
         {steps.map((step) => (
           <span key={step.name} className={`rounded-md border px-2 py-1 text-center text-[11px] ${stateClasses[step.state]}`}>

@@ -334,12 +334,12 @@ export default function ResearchPageContent() {
       const raw = window.localStorage.getItem('rb:runs:v1');
       if (!raw) return null;
       try {
-        const parsed = JSON.parse(raw) as Array<{ trace_id?: string; traceId?: string; updatedAt?: string }>;
+        const parsed = JSON.parse(raw) as Array<{ trace_id?: string; updatedAt?: string }>;
         if (!Array.isArray(parsed) || parsed.length === 0) return null;
         const latest = [...parsed]
-          .filter((run) => run.trace_id || run.traceId)
+          .filter((run) => run.trace_id)
           .sort((a, b) => Date.parse(b.updatedAt ?? '') - Date.parse(a.updatedAt ?? ''))[0];
-        return latest?.trace_id ?? latest?.traceId ?? null;
+        return latest?.trace_id ?? null;
       } catch {
         return null;
       }

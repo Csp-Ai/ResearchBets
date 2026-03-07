@@ -8,6 +8,12 @@ describe('queryTrace helpers', () => {
     expect(getQueryTraceId(params)).toBe('canonical-id');
   });
 
+
+  it('falls back to legacy traceId key before trace', () => {
+    const params = new URLSearchParams('traceId=legacy-camel&trace=legacy-short');
+    expect(getQueryTraceId(params)).toBe('legacy-camel');
+  });
+
   it('falls back to trace and appends canonical trace_id', () => {
     const params = new URLSearchParams('trace=legacy-id');
     expect(getQueryTraceId(params)).toBe('legacy-id');

@@ -9,7 +9,7 @@ const STORAGE_KEY = 'rb:runs:v1';
 const SUPABASE_TABLE = 'research_runs';
 const serverRuns: Run[] = [];
 
-const runIdOf = (run: Pick<Run, 'trace_id' | 'traceId'>): string => run.trace_id ?? run.traceId ?? '';
+const runIdOf = (run: Pick<Run, 'trace_id'>): string => run.trace_id;
 
 export interface RunStore {
   saveRun(run: Run): Promise<void>;
@@ -46,12 +46,12 @@ function fallbackLatestTraceIdFromRaw(): string | null {
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Array<{ trace_id?: string; traceId?: string; updatedAt?: string }>;
+    const parsed = JSON.parse(raw) as Array<{ trace_id?: string; updatedAt?: string }>;
     if (!Array.isArray(parsed)) return null;
     const latest = [...parsed]
-      .filter((run) => typeof run.trace_id === 'string' || typeof run.traceId === 'string')
+      .filter((run) => typeof run.trace_id === 'string')
       .sort((a, b) => Date.parse(b.updatedAt ?? '') - Date.parse(a.updatedAt ?? ''))[0];
-    return latest?.trace_id ?? latest?.traceId ?? null;
+    return latest?.trace_id ?? null;
   } catch {
     return null;
   }
@@ -74,7 +74,7 @@ const migrateLocalRuns = () => {
 
   try {
     const parsed = JSON.parse(raw) as Array<{ trace_id?: string; traceId?: string }>;
-    const needsMigration = parsed.some((run) => !run.trace_id && run.traceId);
+    const needsMigration = parsed.some((run) => !run.trace_id && typeof run.traceId === 'string');
     if (needsMigration) writeRuns(runs);
   } catch {
     // no-op
@@ -106,7 +106,6 @@ export class LocalRunStore implements RunStore {
       ...current,
       ...patch,
       trace_id: traceId,
-      traceId,
       updatedAt: patch.updatedAt ?? new Date().toISOString()
     });
 
@@ -149,7 +148,6 @@ export class SupabaseRunStore implements RunStore {
       ...existing,
       ...patch,
       trace_id: traceId,
-      traceId,
       updatedAt: patch.updatedAt ?? new Date().toISOString()
     });
 

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { getModePresentation } from '@/src/core/mode';
+import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
 type HeaderAction = {
   label: string;
@@ -25,7 +25,7 @@ export function TruthSpineHeader({
   actions?: HeaderAction[];
 }) {
   const nervous = useNervousSystem();
-  const mode = getModePresentation(nervous.mode);
+  const mode = getTruthModeCopy({ mode: nervous.mode });
   const activeTrace = traceId ?? nervous.trace_id;
 
   return (
@@ -51,7 +51,7 @@ export function TruthSpineHeader({
         <span className="rounded-full border border-white/15 px-2 py-1">{nervous.sport}</span>
         <span className="rounded-full border border-white/15 px-2 py-1">{nervous.date}</span>
         <span className="rounded-full border border-white/15 px-2 py-1">{nervous.tz}</span>
-        <span className="rounded-full border border-white/15 px-2 py-1" title={mode.tooltip}>{mode.label}</span>
+        <span className="rounded-full border border-white/15 px-2 py-1" title={mode.detail}>{mode.label}</span>
         <span>{freshness ? `Updated ${freshness}` : 'Updated just now'}</span>
         {activeTrace ? (
           <button
