@@ -25,9 +25,9 @@ function NextGamesFastPaint({ payload }: { payload: TodayPayload }) {
     <section className="panel-shell p-3" aria-label="Next games fast paint">
       <div className="flex items-center justify-between gap-2 text-xs">
         <p className="font-semibold text-slate-100">Next 2 games</p>
-        <span className="mono-number text-slate-300">{runtime.modeLabel} · {runtime.sourceLabel.replace('Sources: ', '')}</span>
+        <span className="mono-number text-slate-300">{runtime.modeLabel} · {runtime.sourceLabel.replace('Source quality: ', '')}</span>
       </div>
-      <p className="mt-1 text-xs text-slate-400" title={runtime.bannerDetail}>Runtime: {runtime.bannerDetail}</p>
+      <p className="mt-1 text-xs text-slate-400" title={runtime.bannerDetail}>Status: {runtime.bannerDetail}</p>
       {games.length === 0 ? <p className="mt-2 text-xs text-slate-400">No upcoming games in this window.</p> : (
         <ul className="mt-2 space-y-2 text-sm">
           {games.map((game) => (

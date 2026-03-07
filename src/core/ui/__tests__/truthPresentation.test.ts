@@ -5,7 +5,7 @@ import { buildTodayRuntimeSummary, getConfidenceCopy, getFreshnessCopy, getSourc
 describe('truthPresentation helpers', () => {
   it('returns neutral truthful copy for cache fallback', () => {
     const truth = getTruthModeCopy({ mode: 'cache', intentMode: 'live' });
-    expect(truth.label).toBe('Cache fallback');
+    expect(truth.label).toBe('Cached board active');
     expect(truth.intentHint).toContain('Requested live');
   });
 
@@ -57,10 +57,22 @@ describe('truthPresentation helpers', () => {
       nowMs: Date.parse('2026-01-15T00:15:00.000Z')
     });
 
-    expect(summary.modeLabel).toBe('Live (degraded)');
-    expect(summary.sourceLabel).toBe('Sources: mixed');
+    expect(summary.modeLabel).toBe('Live board active (degraded)');
+    expect(summary.sourceLabel).toBe('Source quality: mixed');
     expect(summary.freshnessLabel).toBe('15 min ago');
     expect(summary.fallbackDetail).toContain('Odds provider timed out');
+  });
+
+
+  it('deduplicates repeated fallback/runtime detail in banner copy', () => {
+    const summary = buildTodayRuntimeSummary({
+      mode: 'cache',
+      reason: 'provider timed out',
+      degradedReason: 'provider timed out'
+    });
+
+    expect(summary.bannerDetail).toContain('provider timed out');
+    expect(summary.bannerDetail.match(/provider timed out/gi)?.length).toBe(1);
   });
 
   it('keeps verified live runtime summary free of fallback detail', () => {
@@ -71,7 +83,7 @@ describe('truthPresentation helpers', () => {
       nowMs: Date.parse('2026-01-15T00:02:00.000Z')
     });
 
-    expect(summary.modeLabel).toBe('Live');
+    expect(summary.modeLabel).toBe('Live board active');
     expect(summary.sourceTier).toBe('verified');
     expect(summary.fallbackDetail).toBeUndefined();
   });
