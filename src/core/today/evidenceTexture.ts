@@ -29,6 +29,7 @@ export type EvidenceTexture = {
   supportTags: EvidenceCategory[];
   strongestEvidence?: string;
   caution?: string;
+  supportStrength: 'strong' | 'balanced' | 'thin';
 };
 
 type Candidate = { tag: EvidenceCategory; reason: string; weight: number };
@@ -106,6 +107,10 @@ function deriveSupportCandidates(input: EvidenceTextureInput): Candidate[] {
 function deriveCaution(input: EvidenceTextureInput): string | undefined {
   const reasons = input.deadLegReasons ?? [];
 
+  if (reasons[0]) {
+    return reasons[0];
+  }
+
   if (reasons.some((reason) => /low 3pa volume/i.test(reason))) {
     return 'high swing shot volume';
   }
@@ -130,9 +135,13 @@ function deriveCaution(input: EvidenceTextureInput): string | undefined {
 
 export function deriveEvidenceTexture(input: EvidenceTextureInput): EvidenceTexture {
   const candidates = deriveSupportCandidates(input);
+  const topWeight = candidates[0]?.weight ?? 0;
+  const supportStrength: EvidenceTexture['supportStrength'] = topWeight >= 0.8 ? 'strong' : topWeight >= 0.62 ? 'balanced' : 'thin';
+
   return {
     supportTags: candidates.slice(0, 2).map((candidate) => candidate.tag),
     strongestEvidence: candidates[0]?.reason,
     caution: deriveCaution(input),
+    supportStrength,
   };
 }

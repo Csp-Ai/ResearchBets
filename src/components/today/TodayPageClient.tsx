@@ -217,7 +217,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
         boardReason: row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.',
         support: evidence.strongestEvidence,
         watchOut: evidence.caution,
-        fragility: row.deadLegRisk ? `Fragility ${row.deadLegRisk}${row.deadLegReasons?.[0] ? ` · ${row.deadLegReasons[0]}` : ''}` : undefined
+        fragility: `Fragility ${row.deadLegRisk ?? 'low'}${row.deadLegReasons?.[0] ? ` · ${row.deadLegReasons[0]}` : ''}`
       });
     }
     return lookup;

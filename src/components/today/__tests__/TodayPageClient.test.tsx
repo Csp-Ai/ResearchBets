@@ -46,7 +46,8 @@ describe('TodayPageClient', () => {
 
   it('renders decision-focused row copy with evidence and caution context', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
-    expect(screen.getAllByText(/Support cue:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Why now:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Why it made the board/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Watch-out:/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Volume-driven|Role-driven|Price-driven|Trend-driven|Matchup-driven/i).length).toBeGreaterThan(0);
   });
@@ -92,8 +93,9 @@ describe('TodayPageClient', () => {
     if (!addButton) throw new Error('Expected at least one Add button');
     fireEvent.click(addButton);
     expect(screen.getAllByText(/Board reason:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Why it made the board/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Watch-out:/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Staged legs keep board Support, Watch-out, and Fragility context into analysis./i)).toBeTruthy();
+    expect(screen.getByText(/Staged from Board: Support, Watch-out, and Fragility carry over into Analyze and the tracking run./i)).toBeTruthy();
   });
 
 });

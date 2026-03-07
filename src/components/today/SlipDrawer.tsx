@@ -12,6 +12,7 @@ import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 import { withTraceId } from '@/src/core/trace/queryTrace';
 import { DecisionThreadStrip } from '@/src/components/nervous/DecisionThreadStrip';
+import { WhyThisStandsOut } from '@/src/components/evidence/WhyThisStandsOut';
 
 export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }: {
   legs: SlipBuilderLeg[];
@@ -33,6 +34,23 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
   const hasLegs = legs.length > 0;
   const traceScopedTrackHref = appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), hasLegs ? { continuity: 'staged_ticket' } : {});
 
+  const legEvidenceQuality = legs.map((leg) => {
+    const context = rationaleByLegId.get(leg.id);
+    const supportScore = context?.support ? 1 : 0;
+    const watchPenalty = context?.watchOut ? 1 : 0;
+    const fragilityPenalty = context?.fragility?.toLowerCase().includes('high') ? 2 : context?.fragility?.toLowerCase().includes('med') ? 1 : 0;
+    const quality = supportScore - watchPenalty - fragilityPenalty;
+    return {
+      legId: leg.id,
+      quality,
+      support: context?.support,
+      watchOut: context?.watchOut,
+      fragility: context?.fragility
+    };
+  });
+  const strongestLegId = [...legEvidenceQuality].sort((a, b) => b.quality - a.quality)[0]?.legId;
+  const weakestLegId = [...legEvidenceQuality].sort((a, b) => a.quality - b.quality)[0]?.legId;
+
   return (
     <aside className="lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
       <CardSurface className="space-y-3 p-4">
@@ -50,7 +68,7 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
         ) : null}
 
         {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest leg preview: {risk.weakestLeg}</p> : null}
-        {hasLegs ? <p className="text-[11px] text-slate-400">Staged legs keep board Support, Watch-out, and Fragility context into analysis.</p> : null}
+        {hasLegs ? <p className="text-[11px] text-slate-400">Staged from Board: Support, Watch-out, and Fragility carry over into Analyze and the tracking run.</p> : null}
 
         {hasLegs ? (
           <DecisionThreadStrip
@@ -78,9 +96,19 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
                     <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
                     <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
                     <p className="text-[11px] text-slate-300">Board reason: {rationaleByLegId.get(leg.id)?.boardReason ?? 'No explicit rationale; staged from ranked board signal.'}</p>
-                    {rationaleByLegId.get(leg.id)?.support ? <p className="text-[11px] text-emerald-100">Support: {rationaleByLegId.get(leg.id)?.support}</p> : null}
-                    {rationaleByLegId.get(leg.id)?.watchOut ? <p className="text-[11px] text-amber-100">Watch-out: {rationaleByLegId.get(leg.id)?.watchOut}</p> : null}
-                    {rationaleByLegId.get(leg.id)?.fragility ? <p className="text-[11px] text-slate-400">{rationaleByLegId.get(leg.id)?.fragility}</p> : null}
+                    <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                      {leg.id === strongestLegId ? <Badge variant="success">Best supported staged leg</Badge> : null}
+                      {leg.id === weakestLegId ? <Badge variant="warning">Weakest evidence staged leg</Badge> : null}
+                    </div>
+                    <div className="mt-1">
+                      <WhyThisStandsOut
+                        compact
+                        support={rationaleByLegId.get(leg.id)?.support}
+                        watchOut={rationaleByLegId.get(leg.id)?.watchOut}
+                        fragility={rationaleByLegId.get(leg.id)?.fragility}
+                        title="Evidence check"
+                      />
+                    </div>
                   </div>
                   <button type="button" onClick={() => onRemove(leg.id)} className="terminal-focus text-xs text-rose-200">Remove</button>
                 </div>
