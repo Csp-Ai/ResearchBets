@@ -5,7 +5,7 @@ import { normalizeSpine } from '@/src/core/nervous/spine';
 import { toHref } from '@/src/core/nervous/routes';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
-import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
+import { buildTodayRuntimeSummary } from '@/src/core/ui/truthPresentation';
 
 type TodayPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -15,13 +15,19 @@ const readFirst = (value: string | string[] | undefined) => Array.isArray(value)
 
 function NextGamesFastPaint({ payload }: { payload: TodayPayload }) {
   const games = payload.games.slice(0, 2);
+  const runtime = buildTodayRuntimeSummary({
+    mode: payload.mode,
+    reason: payload.provenance?.reason ?? payload.reason,
+    degradedReason: payload.provenance?.reason,
+    generatedAt: payload.generatedAt
+  });
   return (
     <section className="panel-shell p-3" aria-label="Next games fast paint">
       <div className="flex items-center justify-between gap-2 text-xs">
         <p className="font-semibold text-slate-100">Next 2 games</p>
-        <span className="mono-number text-slate-300">{payload.mode} · {getTruthModeCopy({ mode: payload.mode, reason: payload.reason }).label}</span>
+        <span className="mono-number text-slate-300">{runtime.modeLabel} · {runtime.sourceLabel.replace('Sources: ', '')}</span>
       </div>
-      {payload.provenance?.reason ? <p className="mt-1 text-xs text-slate-400">Reason: {payload.provenance.reason}</p> : null}
+      <p className="mt-1 text-xs text-slate-400" title={runtime.bannerDetail}>Runtime: {runtime.bannerDetail}</p>
       {games.length === 0 ? <p className="mt-2 text-xs text-slate-400">No upcoming games in this window.</p> : (
         <ul className="mt-2 space-y-2 text-sm">
           {games.map((game) => (

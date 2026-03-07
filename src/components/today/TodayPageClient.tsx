@@ -20,7 +20,7 @@ import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { appendQuery } from '@/src/components/landing/navigation';
 import { FEATURED_STAT_CATEGORY_ORDER, FEATURED_STAT_LABEL, type FeaturedStatCategory, mapMarketToFeaturedStatCategory } from '@/src/core/markets/statCategory';
-import { getFreshnessCopy, getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
+import { buildTodayRuntimeSummary } from '@/src/core/ui/truthPresentation';
 
 const FILTERS: LeagueFilter[] = ['All', 'NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'];
 
@@ -188,22 +188,31 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     document.getElementById(`board-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+
+  const rationaleByLegId = useMemo(() => {
+    const lookup = new Map<string, string>();
+    for (const row of allRows) {
+      lookup.set(row.id, row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.');
+    }
+    return lookup;
+  }, [allRows]);
+
   const selectedLegIds = useMemo(() => new Set(selectedLegs.map((leg) => leg.id)), [selectedLegs]);
-  const sourceQuality = getSourceQualityCopy({
+  const runtimeSummary = useMemo(() => buildTodayRuntimeSummary({
     mode: payload.mode,
-    reason: payload.provenance?.reason ?? payload.reason
-  });
-  const freshness = getFreshnessCopy({
-    mode: payload.mode,
-    generatedAt: payload.generatedAt
-  });
+    reason: payload.provenance?.reason ?? payload.reason,
+    degradedReason: payload.provenance?.reason,
+    generatedAt: payload.generatedAt,
+    intentMode: nervous.mode
+  }), [nervous.mode, payload.generatedAt, payload.mode, payload.provenance?.reason, payload.reason]);
 
   return (
     <section className="w-full space-y-3 pb-14">
       <TruthSpineHeader
         title="Board"
         subtitle="Scan matchup → prop → edge reason, then stage a ticket."
-        freshness={freshness.label}
+        freshness={runtimeSummary.freshnessLabel}
+        runtimeSummary={runtimeSummary}
         actions={[
           { label: selectedLegs.length > 0 ? 'Analyze staged ticket' : 'Build from board', href: selectedLegs.length > 0 ? nervous.toHref('/stress-test', { tab: 'analyze' }) : '#board-terminal', tone: 'primary' },
           { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) },
@@ -215,8 +224,10 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
           {FILTERS.map((item) => (
             <button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>
           ))}
-          <span className="rounded border border-white/15 px-2 py-1 text-slate-300" title={sourceQuality.detail}>{sourceQuality.label}</span>
-          <span className="rounded border border-white/15 px-2 py-1 text-slate-400" title={freshness.detail}>Freshness: {freshness.label}</span>
+          <span className="rounded border border-white/15 px-2 py-1 text-slate-200" title={runtimeSummary.bannerDetail}>{runtimeSummary.bannerLabel}</span>
+          <span className="rounded border border-white/15 px-2 py-1 text-slate-300" title={runtimeSummary.sourceDetail}>{runtimeSummary.sourceLabel}</span>
+          <span className="rounded border border-white/15 px-2 py-1 text-slate-400" title={runtimeSummary.freshnessDetail}>Freshness: {runtimeSummary.freshnessLabel}</span>
+          {runtimeSummary.fallbackDetail ? <span className="rounded border border-amber-300/30 bg-amber-400/10 px-2 py-1 text-amber-100" title={runtimeSummary.fallbackDetail}>Fallback context</span> : null}
         </div>
       </section>
       <section className="panel-shell p-3">
@@ -251,9 +262,9 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
               </div>
             </section>
           )) : <BoardTerminalTable rows={visibleRows} onToggleLeg={onToggleLeg} selectedLegIds={selectedLegIds} highlightedRowId={highlightedRowId} recentAddedRowId={recentAddedRowId} />}
-          <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} />
+          <TopSpotsPanel scouts={topSpotScouts} onSelect={onSelectSignal} selectedLegIds={selectedLegIds} />
         </div>
-        <SlipDrawer legs={selectedLegs} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} />
+        <SlipDrawer legs={selectedLegs} rationaleByLegId={rationaleByLegId} onRemove={(id) => setSelectedLegs((prev) => prev.filter((leg) => leg.id !== id))} onRunStressTest={runStress} />
       </div>
       {isLoading ? <Skeleton className="h-6 w-full" /> : null}
     </section>

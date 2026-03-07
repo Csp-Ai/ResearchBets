@@ -3,6 +3,20 @@ import type { Mode } from '@/src/core/mode';
 export type TruthTone = 'healthy' | 'degraded' | 'fallback';
 export type SourceQualityTier = 'verified' | 'mixed' | 'fallback';
 
+export type TodayRuntimeSummary = {
+  modeLabel: string;
+  modeDetail: string;
+  modeTone: TruthTone;
+  sourceLabel: string;
+  sourceDetail: string;
+  sourceTier: SourceQualityTier;
+  freshnessLabel: string;
+  freshnessDetail: string;
+  fallbackDetail?: string;
+  bannerLabel: string;
+  bannerDetail: string;
+};
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -129,4 +143,52 @@ export function getConfidenceCopy(input: { confidencePct: number; sourceQuality:
     return { label: `Signal confidence ${bounded}% (mixed sources)`, boundedPct: Math.min(bounded, 75) };
   }
   return { label: `Signal confidence ${Math.min(bounded, 65)}% (fallback-limited)`, boundedPct: Math.min(bounded, 65) };
+}
+
+export function buildTodayRuntimeSummary(input: {
+  mode: Mode;
+  reason?: string;
+  degraded?: boolean;
+  degradedReason?: string;
+  generatedAt?: string;
+  intentMode?: Mode;
+  nowMs?: number;
+}): TodayRuntimeSummary {
+  const mode = getTruthModeCopy({
+    mode: input.mode,
+    reason: input.reason,
+    intentMode: input.intentMode
+  });
+  const source = getSourceQualityCopy({
+    mode: input.mode,
+    reason: input.reason,
+    degraded: input.degraded,
+    degradedReason: input.degradedReason
+  });
+  const freshness = getFreshnessCopy({
+    mode: input.mode,
+    generatedAt: input.generatedAt,
+    nowMs: input.nowMs
+  });
+
+  const fallbackDetail = input.mode === 'demo' || input.mode === 'cache' || source.tier !== 'verified'
+    ? mode.intentHint ?? input.degradedReason ?? input.reason ?? source.detail
+    : undefined;
+
+  const bannerLabel = mode.label;
+  const bannerDetail = [mode.detail, source.detail, fallbackDetail].filter(Boolean).join(' ');
+
+  return {
+    modeLabel: mode.label,
+    modeDetail: mode.detail,
+    modeTone: mode.tone,
+    sourceLabel: source.label,
+    sourceDetail: source.detail,
+    sourceTier: source.tier,
+    freshnessLabel: freshness.label,
+    freshnessDetail: freshness.detail,
+    fallbackDetail,
+    bannerLabel,
+    bannerDetail
+  };
 }

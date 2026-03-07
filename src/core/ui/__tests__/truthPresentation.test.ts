@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getConfidenceCopy, getFreshnessCopy, getSourceQualityCopy, getTruthModeCopy } from '@/src/core/ui/truthPresentation';
+import { buildTodayRuntimeSummary, getConfidenceCopy, getFreshnessCopy, getSourceQualityCopy, getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
 describe('truthPresentation helpers', () => {
   it('returns neutral truthful copy for cache fallback', () => {
@@ -44,6 +44,36 @@ describe('truthPresentation helpers', () => {
   it('degrades gracefully when generatedAt is invalid in non-demo mode', () => {
     const freshness = getFreshnessCopy({ mode: 'cache', generatedAt: 'not-a-timestamp' });
     expect(freshness.label).toBe('Update time unavailable');
+  });
+
+
+  it('builds a singular runtime summary for degraded live responses', () => {
+    const summary = buildTodayRuntimeSummary({
+      mode: 'live',
+      reason: 'provider_partial',
+      degraded: true,
+      degradedReason: 'Odds provider timed out',
+      generatedAt: '2026-01-15T00:00:00.000Z',
+      nowMs: Date.parse('2026-01-15T00:15:00.000Z')
+    });
+
+    expect(summary.modeLabel).toBe('Live (degraded)');
+    expect(summary.sourceLabel).toBe('Sources: mixed');
+    expect(summary.freshnessLabel).toBe('15 min ago');
+    expect(summary.fallbackDetail).toContain('Odds provider timed out');
+  });
+
+  it('keeps verified live runtime summary free of fallback detail', () => {
+    const summary = buildTodayRuntimeSummary({
+      mode: 'live',
+      reason: 'live_ok',
+      generatedAt: '2026-01-15T00:00:00.000Z',
+      nowMs: Date.parse('2026-01-15T00:02:00.000Z')
+    });
+
+    expect(summary.modeLabel).toBe('Live');
+    expect(summary.sourceTier).toBe('verified');
+    expect(summary.fallbackDetail).toBeUndefined();
   });
 
 });

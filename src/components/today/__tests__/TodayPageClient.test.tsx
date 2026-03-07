@@ -50,7 +50,23 @@ describe('TodayPageClient', () => {
 
   it('shows fallback-limited source quality for demo board payloads', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
+    expect(screen.getAllByText(/Demo mode \(live feeds off\)/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Sources: demo fallback/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Freshness: Demo snapshot/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Fallback context/i).length).toBeGreaterThan(0);
   });
+
+  it('renders ranked decision-tier row cues and carries board rationale into staging', () => {
+    renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
+
+    expect(screen.getAllByText(/ranked/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Priority look|Viable look|Thin look/i).length).toBeGreaterThan(0);
+
+    const addButton = screen.getAllByRole('button', { name: 'Add' })[0];
+    if (!addButton) throw new Error('Expected at least one Add button');
+    fireEvent.click(addButton);
+    expect(screen.getByText(/Board reason:/i)).toBeTruthy();
+    expect(screen.getByText(/Staging keeps each leg tied to its board rationale./i)).toBeTruthy();
+  });
+
 });

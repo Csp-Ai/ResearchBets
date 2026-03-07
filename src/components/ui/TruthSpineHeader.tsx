@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
+import type { TodayRuntimeSummary } from '@/src/core/ui/truthPresentation';
 
 type HeaderAction = {
   label: string;
@@ -16,16 +16,17 @@ export function TruthSpineHeader({
   subtitle,
   freshness,
   traceId,
-  actions
+  actions,
+  runtimeSummary
 }: {
   title: string;
   subtitle: string;
   freshness?: string;
   traceId?: string;
   actions?: HeaderAction[];
+  runtimeSummary?: TodayRuntimeSummary;
 }) {
   const nervous = useNervousSystem();
-  const mode = getTruthModeCopy({ mode: nervous.mode });
   const activeTrace = traceId ?? nervous.trace_id;
 
   return (
@@ -51,8 +52,8 @@ export function TruthSpineHeader({
         <span className="rounded-full border border-white/15 px-2 py-1">{nervous.sport}</span>
         <span className="rounded-full border border-white/15 px-2 py-1">{nervous.date}</span>
         <span className="rounded-full border border-white/15 px-2 py-1">{nervous.tz}</span>
-        <span className="rounded-full border border-white/15 px-2 py-1" title={mode.detail}>{mode.label}</span>
-        <span>{freshness ? `Updated ${freshness}` : 'Updated just now'}</span>
+        <span className="rounded-full border border-white/15 px-2 py-1" title={runtimeSummary?.modeDetail}>{runtimeSummary?.modeLabel ?? nervous.mode}</span>
+        <span>{freshness ? `Updated ${freshness}` : `Updated ${runtimeSummary?.freshnessLabel ?? 'just now'}`}</span>
         {activeTrace ? (
           <button
             type="button"
