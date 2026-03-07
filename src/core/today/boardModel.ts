@@ -33,9 +33,20 @@ export type BoardProp = {
 };
 
 type BoardInputRow = Record<string, unknown>;
+type DataSourceTag = BoardProp['l5Source'];
 
 const DEFAULT_MATCHUP = 'TBD @ TBD';
 const DEFAULT_START = 'TBD';
+
+function normalizeRiskTag(value: unknown): BoardProp['riskTag'] {
+  return value === 'stable' ? 'stable' : 'watch';
+}
+
+function normalizeDataSource(value: unknown): DataSourceTag {
+  return value === 'live' || value === 'cached' || value === 'demo' || value === 'heuristic'
+    ? value
+    : undefined;
+}
 
 const roleScore = (role?: 'high'|'med'|'low') => role === 'high' ? 2 : role === 'med' ? 1 : 0;
 const deadLegPenalty = (risk?: 'low'|'med'|'high') => risk === 'low' ? 0 : risk === 'med' ? 1 : 2;
@@ -69,9 +80,9 @@ function dedupeBoardRows(rows: BoardProp[]): BoardProp[] {
 
 export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[] {
   const rows = Array.isArray(payload.board) ? payload.board : [];
-  const canonicalRows = rows
+  const canonicalRows: BoardProp[] = rows
     .filter((row): row is BoardInputRow => Boolean(row && typeof row === 'object'))
-    .map((row) => ({
+    .map((row): BoardProp => ({
       id: String(row.id ?? ''),
       gameId: String(row.gameId ?? ''),
       matchup: typeof row.matchup === 'string' ? row.matchup : DEFAULT_MATCHUP,
@@ -85,7 +96,7 @@ export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[]
       marketImpliedProb: typeof row.marketImpliedProb === 'number' ? row.marketImpliedProb : 0.5,
       modelProb: typeof row.modelProb === 'number' ? row.modelProb : 0.5,
       edgeDelta: typeof row.edgeDelta === 'number' ? row.edgeDelta : 0,
-      riskTag: row.riskTag === 'stable' ? 'stable' : 'watch',
+      riskTag: normalizeRiskTag(row.riskTag),
       rationale: Array.isArray(row.rationale) ? row.rationale.map(String) : undefined,
       provenance: typeof row.provenance === 'string' ? row.provenance : undefined,
       lastUpdated: typeof row.lastUpdated === 'string' ? row.lastUpdated : undefined,
@@ -94,9 +105,9 @@ export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[]
       l5Avg: typeof row.l5Avg === 'number' ? row.l5Avg : undefined,
       l10Avg: typeof row.l10Avg === 'number' ? row.l10Avg : undefined,
       threesAttL5Avg: typeof row.threesAttL5Avg === 'number' ? row.threesAttL5Avg : undefined,
-      l5Source: row.l5Source === 'live' || row.l5Source === 'cached' || row.l5Source === 'demo' || row.l5Source === 'heuristic' ? row.l5Source : undefined,
-      minutesSource: row.minutesSource === 'live' || row.minutesSource === 'cached' || row.minutesSource === 'demo' || row.minutesSource === 'heuristic' ? row.minutesSource : undefined,
-      attemptsSource: row.attemptsSource === 'live' || row.attemptsSource === 'cached' || row.attemptsSource === 'demo' || row.attemptsSource === 'heuristic' ? row.attemptsSource : undefined,
+      l5Source: normalizeDataSource(row.l5Source),
+      minutesSource: normalizeDataSource(row.minutesSource),
+      attemptsSource: normalizeDataSource(row.attemptsSource),
       roleConfidence: row.roleConfidence === 'high' || row.roleConfidence === 'med' || row.roleConfidence === 'low' ? row.roleConfidence : undefined,
       roleReasons: Array.isArray(row.roleReasons) ? row.roleReasons.map(String) : undefined,
       deadLegRisk: row.deadLegRisk === 'low' || row.deadLegRisk === 'med' || row.deadLegRisk === 'high' ? row.deadLegRisk : undefined,

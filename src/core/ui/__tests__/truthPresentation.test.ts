@@ -31,4 +31,19 @@ describe('truthPresentation helpers', () => {
     const freshness = getFreshnessCopy({ mode: 'demo', generatedAt: '2020-01-01T00:00:00.000Z' });
     expect(freshness.label).toBe('Demo snapshot');
   });
+
+  it('suppresses absurd stale elapsed strings when timestamp is outside freshness window', () => {
+    const freshness = getFreshnessCopy({
+      mode: 'live',
+      generatedAt: '2020-01-01T00:00:00.000Z',
+      nowMs: Date.parse('2026-01-15T00:00:00.000Z')
+    });
+    expect(freshness.label).toBe('Update time unavailable');
+  });
+
+  it('degrades gracefully when generatedAt is invalid in non-demo mode', () => {
+    const freshness = getFreshnessCopy({ mode: 'cache', generatedAt: 'not-a-timestamp' });
+    expect(freshness.label).toBe('Update time unavailable');
+  });
+
 });
