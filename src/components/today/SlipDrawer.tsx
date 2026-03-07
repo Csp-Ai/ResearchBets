@@ -11,8 +11,9 @@ import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 
-export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
+export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }: {
   legs: SlipBuilderLeg[];
+  rationaleByLegId: Map<string, string>;
   onRemove: (id: string) => void;
   onRunStressTest: () => void;
 }) {
@@ -40,12 +41,13 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
         {hasLegs ? (
           <div className="flex flex-wrap gap-2 text-xs">
             <Badge variant={risk.correlationFlag ? 'warning' : 'success'}>{risk.correlationFlag ? 'Guardrail active' : 'Correlation in range'}</Badge>
-            <Badge variant="neutral">Hit est <span className="ml-1">{risk.confidencePct}%</span></Badge>
+            <Badge variant="neutral">Ticket hit range <span className="ml-1">{risk.confidencePct}%</span></Badge>
             <Badge variant="neutral">Fragility <span className="ml-1">{risk.fragilityScore}</span></Badge>
           </div>
         ) : null}
 
         {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest preview: {risk.weakestLeg}</p> : null}
+        {hasLegs ? <p className="text-[11px] text-slate-400">Staging keeps each leg tied to its board rationale.</p> : null}
 
         {!hasLegs ? (
           <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
@@ -64,6 +66,7 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
                   <div>
                     <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
                     <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
+                    <p className="text-[11px] text-slate-300">Board reason: {rationaleByLegId.get(leg.id) ?? 'No explicit rationale; staged from ranked board signal.'}</p>
                     {leg.deadLegRisk ? <p className="text-[11px] text-slate-400">Dead-leg {leg.deadLegRisk}{leg.deadLegReasons?.[0] ? ` · ${leg.deadLegReasons[0]}` : ''}</p> : null}
                   </div>
                   <button type="button" onClick={() => onRemove(leg.id)} className="terminal-focus text-xs text-rose-200">Remove</button>

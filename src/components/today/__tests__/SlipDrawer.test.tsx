@@ -21,14 +21,14 @@ const wrap = (ui: React.ReactNode) => render(
 
 describe('SlipDrawer', () => {
   it('de-emphasizes track/analyze actions when no legs are staged', () => {
-    wrap(<SlipDrawer legs={[]} onRemove={vi.fn()} onRunStressTest={vi.fn()} />);
+    wrap(<SlipDrawer legs={[]} rationaleByLegId={new Map()} onRemove={vi.fn()} onRunStressTest={vi.fn()} />);
     expect(screen.getByText(/No ticket staged yet/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Analyze staged ticket/i })).toHaveProperty('disabled', true);
     expect(screen.getByRole('link', { name: /Track ticket/i }).getAttribute('aria-disabled')).toBe('true');
   });
 
   it('enables analyze/track actions when legs are staged', () => {
-    wrap(<SlipDrawer legs={[{ id: '1', player: 'Luka Doncic', marketType: 'points', line: '30.5', odds: '-110', game: 'LAL @ DAL' }]} onRemove={vi.fn()} onRunStressTest={vi.fn()} />);
+    wrap(<SlipDrawer legs={[{ id: '1', player: 'Luka Doncic', marketType: 'points', line: '30.5', odds: '-110', game: 'LAL @ DAL' }]} rationaleByLegId={new Map([['1', 'Strong role stability']])} onRemove={vi.fn()} onRunStressTest={vi.fn()} />);
     expect(screen.getByRole('button', { name: /Analyze staged ticket/i })).toHaveProperty('disabled', false);
     expect(screen.getByRole('link', { name: /Track ticket/i }).getAttribute('aria-disabled')).toBe('false');
   });

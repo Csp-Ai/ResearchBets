@@ -55,6 +55,15 @@ const riskWeight: Record<'stable' | 'watch', number> = {
   watch: 1
 };
 
+function toDecisionTier(row: TerminalBoardRow): { label: string; variant: 'success' | 'warning' | 'neutral' } {
+  const edge = row.edgeDelta ?? 0;
+  const riskPenalty = row.riskTag === 'stable' ? 0 : 0.015;
+  const net = edge - riskPenalty;
+  if (net >= 0.07) return { label: 'Priority look', variant: 'success' };
+  if (net >= 0.03) return { label: 'Viable look', variant: 'neutral' };
+  return { label: 'Thin look', variant: 'warning' };
+}
+
 export function sortBoardRows(rows: TerminalBoardRow[], sortKey: SortKey): TerminalBoardRow[] {
   return [...rows].sort((a, b) => {
     if (sortKey === 'l10') return (b.hitRateL10 ?? 0) - (a.hitRateL10 ?? 0);
@@ -73,19 +82,19 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
 }) {
   return (
     <div className="space-y-2">
-      {rows.map((row) => {
+      {rows.map((row, index) => {
         const isSelected = selectedLegIds.has(row.id);
-        const confidence = Math.max(0, Math.min(100, Math.round(((row.modelProb ?? 0.5) - (row.marketImpliedProb ?? 0.5) + 0.5) * 100)));
         const signal = row.riskTag === 'stable' ? 'Steadier setup' : 'Higher swing setup';
-        const confidenceVariant = row.riskTag === 'stable' ? 'success' : 'warning';
+        const tier = toDecisionTier(row);
 
         return (
           <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-2.5 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''} ${recentAddedRowId === row.id ? 'ring-1 ring-emerald-300/70 shadow-[0_0_0_1px_rgba(110,231,183,0.4)]' : ''}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
                 <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
-                <p className="truncate text-xs text-slate-400">{row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
+                <p className="truncate text-xs text-slate-400">#{index + 1} ranked · {row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
                 <p className="truncate text-xs text-slate-300">Why on board: {row.rationale?.[0] ?? signal}</p>
+                <p className="truncate text-[11px] text-slate-400">Decision signal: {tier.label} · {signal}</p>
                 <div className="flex flex-wrap gap-1 text-[11px]">
                   {typeof row.l5Avg === 'number' ? <Badge variant="neutral" size="sm">L5 {row.l5Avg.toFixed(1)}</Badge> : null}
                   {typeof row.minutesL3Avg === 'number' ? <Badge variant="neutral" size="sm">MIN L3 {row.minutesL3Avg.toFixed(1)}</Badge> : null}
@@ -94,7 +103,7 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={confidenceVariant} className="justify-center">{confidence}%</Badge>
+                <Badge variant={tier.variant} className="justify-center">{tier.label}</Badge>
                 <Button
                   intent={isSelected ? 'secondary' : 'primary'}
                   onClick={() => onToggleLeg(row)}
