@@ -3,6 +3,9 @@ import type { Mode } from '@/src/core/mode';
 export type TruthTone = 'healthy' | 'degraded' | 'fallback';
 export type SourceQualityTier = 'verified' | 'mixed' | 'fallback';
 
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
 export function getTruthModeCopy(input: { mode: Mode; reason?: string; intentMode?: Mode }) {
   const degraded = input.mode === 'cache' || Boolean(input.reason && input.reason !== 'live_ok');
   const label = input.mode === 'live'
@@ -40,7 +43,7 @@ export function getSourceQualityCopy(input: { mode: Mode; reason?: string; degra
   if (tier === 'verified') {
     return {
       tier,
-      label: 'Source quality: verified',
+      label: 'Sources: verified',
       detail: 'Primary provider sources are available for this decision surface.'
     };
   }
@@ -48,16 +51,50 @@ export function getSourceQualityCopy(input: { mode: Mode; reason?: string; degra
   if (tier === 'mixed') {
     return {
       tier,
-      label: 'Source quality: mixed',
+      label: 'Sources: mixed',
       detail: input.degradedReason ?? input.reason ?? 'Some provider signals are degraded; outputs may include partial fallback data.'
     };
   }
 
   return {
     tier,
-    label: 'Source quality: fallback-limited',
+    label: 'Sources: demo fallback',
     detail: input.degradedReason ?? input.reason ?? 'Deterministic fallback and heuristics are carrying this surface.'
   };
+}
+
+export function getFreshnessCopy(input: { mode: Mode; generatedAt?: string; nowMs?: number }) {
+  if (input.mode === 'demo') {
+    return {
+      label: 'Demo snapshot',
+      detail: 'Deterministic sample data refreshes only when the demo slate is rebuilt.'
+    };
+  }
+
+  if (!input.generatedAt) {
+    return {
+      label: 'Update time unavailable',
+      detail: 'Board timestamp is missing from this response.'
+    };
+  }
+
+  const timestamp = new Date(input.generatedAt).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return {
+      label: 'Update time unavailable',
+      detail: 'Board timestamp could not be parsed.'
+    };
+  }
+
+  const nowMs = input.nowMs ?? Date.now();
+  const diff = Math.max(0, nowMs - timestamp);
+  if (diff < MINUTE) return { label: 'just now', detail: 'Board was refreshed moments ago.' };
+  if (diff < HOUR) {
+    const minutes = Math.floor(diff / MINUTE);
+    return { label: `${minutes} min ago`, detail: 'Board freshness reflects provider or cache update time.' };
+  }
+  const hours = Math.floor(diff / HOUR);
+  return { label: `${hours}h ago`, detail: 'Board freshness reflects provider or cache update time.' };
 }
 
 export function getConfidenceCopy(input: { confidencePct: number; sourceQuality: SourceQualityTier }) {

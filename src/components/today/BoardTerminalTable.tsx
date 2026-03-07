@@ -4,7 +4,6 @@ import React from 'react';
 
 import { formatSignedPct } from '@/src/core/markets/edgePrimitives';
 import type { MarketType } from '@/src/core/markets/marketType';
-import { mapMarketToFeaturedStatCategory } from '@/src/core/markets/statCategory';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
@@ -36,6 +35,7 @@ export type TerminalBoardRow = {
   roleReasons?: string[];
   deadLegRisk?: 'low' | 'med' | 'high';
   deadLegReasons?: string[];
+  rationale?: string[];
 };
 
 const MARKET_LABEL: Record<MarketType, string> = {
@@ -76,32 +76,31 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
       {rows.map((row) => {
         const isSelected = selectedLegIds.has(row.id);
         const confidence = Math.max(0, Math.min(100, Math.round(((row.modelProb ?? 0.5) - (row.marketImpliedProb ?? 0.5) + 0.5) * 100)));
-        const confidenceVariant = confidence >= 62 ? 'success' : confidence >= 52 ? 'warning' : 'neutral';
-        const signal = confidence >= 62 ? 'stable' : 'watch';
+        const signal = row.riskTag === 'stable' ? 'Steadier setup' : 'Higher swing setup';
+        const confidenceVariant = row.riskTag === 'stable' ? 'success' : 'warning';
 
         return (
-          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-3 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''} ${recentAddedRowId === row.id ? 'ring-1 ring-emerald-300/70 shadow-[0_0_0_1px_rgba(110,231,183,0.4)]' : ''}`}>
-            <div className="flex items-start justify-between gap-3">
+          <CardSurface key={row.id} id={`board-row-${row.id}`} className={`p-2.5 transition-all hover-glow ${highlightedRowId === row.id ? 'ring-1 ring-cyan-300/65' : ''} ${isSelected ? 'border-cyan-300/45 bg-cyan-500/[0.08]' : ''} ${recentAddedRowId === row.id ? 'ring-1 ring-emerald-300/70 shadow-[0_0_0_1px_rgba(110,231,183,0.4)]' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
                 <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
-                <p className="truncate text-xs text-slate-400">{row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
+                <p className="truncate text-xs text-slate-400">{row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
+                <p className="truncate text-xs text-slate-300">Why on board: {row.rationale?.[0] ?? signal}</p>
                 <div className="flex flex-wrap gap-1 text-[11px]">
-                  {typeof row.l5Avg === 'number' ? <Badge variant="neutral" size="sm">L5 {row.l5Avg.toFixed(1)} ({row.l5Source ?? 'heuristic'})</Badge> : null}
-                  {typeof row.minutesL3Avg === 'number' ? <Badge variant="neutral" size="sm">MIN L3 {row.minutesL3Avg.toFixed(1)} ({row.minutesSource ?? 'heuristic'})</Badge> : null}
-                  {row.roleConfidence ? <Badge variant={row.roleConfidence === 'high' ? 'success' : row.roleConfidence === 'med' ? 'warning' : 'danger'} size="sm" title={row.roleReasons?.join(', ')}>Role {row.roleConfidence}</Badge> : null}
-                  {typeof row.threesAttL5Avg === 'number' && row.market === 'threes' ? <Badge variant="neutral" size="sm">3PA L5 {row.threesAttL5Avg.toFixed(1)} ({row.attemptsSource ?? 'heuristic'})</Badge> : null}
-                  {row.deadLegRisk ? <Badge variant={row.deadLegRisk === 'high' ? 'danger' : row.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm">Dead-leg {row.deadLegRisk}: {row.deadLegReasons?.[0] ?? 'Role volatility'}</Badge> : null}
-                  {mapMarketToFeaturedStatCategory(row.market) ? <Badge variant="info" size="sm">{mapMarketToFeaturedStatCategory(row.market)?.toUpperCase()}</Badge> : null}
+                  {typeof row.l5Avg === 'number' ? <Badge variant="neutral" size="sm">L5 {row.l5Avg.toFixed(1)}</Badge> : null}
+                  {typeof row.minutesL3Avg === 'number' ? <Badge variant="neutral" size="sm">MIN L3 {row.minutesL3Avg.toFixed(1)}</Badge> : null}
+                  {typeof row.threesAttL5Avg === 'number' && row.market === 'threes' ? <Badge variant="neutral" size="sm">3PA L5 {row.threesAttL5Avg.toFixed(1)}</Badge> : null}
+                  {row.deadLegRisk ? <Badge variant={row.deadLegRisk === 'high' ? 'danger' : row.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm">Risk {row.deadLegRisk}</Badge> : null}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={confidenceVariant} className="justify-center">{confidence}% {signal}</Badge>
+                <Badge variant={confidenceVariant} className="justify-center">{confidence}%</Badge>
                 <Button
                   intent={isSelected ? 'secondary' : 'primary'}
                   onClick={() => onToggleLeg(row)}
                   className="min-h-0 px-3 py-1.5 text-xs"
                 >
-                  {isSelected ? 'Added' : '+ Add'}
+                  {isSelected ? 'Remove' : 'Add'}
                 </Button>
               </div>
             </div>

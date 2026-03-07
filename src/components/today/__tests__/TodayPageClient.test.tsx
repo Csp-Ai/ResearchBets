@@ -28,23 +28,29 @@ describe('TodayPageClient', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
 
     const labels = screen.getAllByTestId(/category-/).map((el) => el.textContent);
-    expect(labels.slice(0, 5)).toEqual(['PRA', 'PTS', 'REB', 'AST', '3PM']);
+    expect(labels).toEqual(['PRA', '3PM']);
 
     expect(screen.getByRole('button', { name: 'Core candidates' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'All props' }));
     expect(screen.getByTestId('sort-select')).toBeTruthy();
   });
 
+  it('renders decision-focused row copy with why-on-board context', () => {
+    renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
+    expect(screen.getAllByText(/Why on board:/i).length).toBeGreaterThan(0);
+  });
+
   it('renders role/dead-leg chips with source labels', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
     expect(screen.getAllByText(/L5 46.2/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/MIN L3 35.1/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Dead-leg high: /i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Risk high/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/3PA L5 2.9/i).length).toBeGreaterThan(0);
   });
 
   it('shows fallback-limited source quality for demo board payloads', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
-    expect(screen.getAllByText(/Source quality: fallback-limited/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Sources: demo fallback/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Freshness: Demo snapshot/i).length).toBeGreaterThan(0);
   });
 });

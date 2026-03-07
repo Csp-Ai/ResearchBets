@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getConfidenceCopy, getSourceQualityCopy, getTruthModeCopy } from '@/src/core/ui/truthPresentation';
+import { getConfidenceCopy, getFreshnessCopy, getSourceQualityCopy, getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
 describe('truthPresentation helpers', () => {
   it('returns neutral truthful copy for cache fallback', () => {
@@ -15,15 +15,20 @@ describe('truthPresentation helpers', () => {
     expect(confidence.label).toContain('fallback-limited');
   });
 
-  it('returns fallback-limited source quality in demo mode', () => {
+  it('returns demo fallback source label in demo mode', () => {
     const quality = getSourceQualityCopy({ mode: 'demo', reason: 'provider_unavailable' });
     expect(quality.tier).toBe('fallback');
-    expect(quality.label).toContain('fallback-limited');
+    expect(quality.label).toContain('demo fallback');
   });
 
   it('returns mixed source quality for cache/degraded runs', () => {
     const quality = getSourceQualityCopy({ mode: 'cache', degradedReason: 'Fallback provider data used.' });
     expect(quality.tier).toBe('mixed');
     expect(quality.label).toContain('mixed');
+  });
+
+  it('shows demo snapshot freshness in demo mode instead of large elapsed minutes', () => {
+    const freshness = getFreshnessCopy({ mode: 'demo', generatedAt: '2020-01-01T00:00:00.000Z' });
+    expect(freshness.label).toBe('Demo snapshot');
   });
 });
