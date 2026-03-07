@@ -196,8 +196,8 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
       const evidence = deriveEvidenceTexture(row);
       const coreReason = row.rationale?.[0] ?? 'No explicit rationale; staged from ranked board signal.';
       const carry = [coreReason];
-      if (evidence.strongestEvidence) carry.push(`Support: ${evidence.strongestEvidence}`);
-      if (evidence.caution) carry.push(`Fragility: ${evidence.caution}`);
+      if (evidence.strongestEvidence) carry.push(`Support cue: ${evidence.strongestEvidence}`);
+      if (evidence.caution) carry.push(`Watch-out: ${evidence.caution}`);
       lookup.set(row.id, carry.join(' | '));
     }
     return lookup;
@@ -231,9 +231,10 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
             <button key={item} type="button" onClick={() => setLeague(item)} className={`terminal-focus rounded-md border px-3 py-1 transition ${league === item ? 'border-cyan-300/45 bg-cyan-400/15 text-cyan-100' : 'border-transparent text-slate-400 hover:border-white/15 hover:text-slate-200'}`}>{item}</button>
           ))}
           <span className="rounded border border-white/15 px-2 py-1 text-slate-200" title={runtimeSummary.bannerDetail}>{runtimeSummary.bannerLabel}</span>
-          <span className="rounded border border-white/15 px-2 py-1 text-slate-300" title={runtimeSummary.sourceDetail}>{runtimeSummary.sourceLabel}</span>
-          <span className="rounded border border-white/15 px-2 py-1 text-slate-400" title={runtimeSummary.freshnessDetail}>Freshness: {runtimeSummary.freshnessLabel}</span>
-          {runtimeSummary.fallbackDetail ? <span className="rounded border border-amber-300/30 bg-amber-400/10 px-2 py-1 text-amber-100" title={runtimeSummary.fallbackDetail}>Fallback context</span> : null}
+          <span className="text-slate-400" title={runtimeSummary.bannerDetail}>
+            {runtimeSummary.sourceLabel.replace('Source quality: ', '')} · Updated {runtimeSummary.freshnessLabel}
+          </span>
+          {runtimeSummary.fallbackDetail ? <span className="text-amber-100" title={runtimeSummary.fallbackDetail}>Note: {runtimeSummary.fallbackDetail}</span> : null}
         </div>
       </section>
       <section className="panel-shell p-3">

@@ -17,6 +17,20 @@ export type TodayRuntimeSummary = {
   bannerDetail: string;
 };
 
+function dedupeSegments(parts: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const part of parts) {
+    const cleaned = part?.trim();
+    if (!cleaned) continue;
+    const token = cleaned.toLowerCase();
+    if (seen.has(token)) continue;
+    seen.add(token);
+    output.push(cleaned);
+  }
+  return output;
+}
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -26,22 +40,22 @@ export function getTruthModeCopy(input: { mode: Mode; reason?: string; intentMod
   const degraded = input.mode === 'cache' || Boolean(input.reason && input.reason !== 'live_ok');
   const label = input.mode === 'live'
     ? degraded
-      ? 'Live (degraded)'
-      : 'Live'
+      ? 'Live board active (degraded)'
+      : 'Live board active'
     : input.mode === 'cache'
-      ? 'Cache fallback'
-      : 'Demo mode (live feeds off)';
+      ? 'Cached board active'
+      : 'Demo board active';
 
   const detail = input.mode === 'live'
-    ? (degraded ? 'Some providers are degraded; board uses available signals.' : 'Provider-backed board is active.')
+    ? (degraded ? 'Some live feeds are unstable; board is using available signals.' : 'Provider-backed lines and context are in sync.')
     : input.mode === 'cache'
-      ? 'Serving cached board while live providers recover.'
-      : 'Deterministic board is active because live feeds are unavailable or off.';
+      ? 'Using the latest available snapshot while live feeds recover.'
+      : 'Using a deterministic slate because live feeds are unavailable or off.';
 
   const intentHint = input.intentMode === 'live' && input.mode !== 'live'
     ? input.mode === 'cache'
       ? 'Requested live; showing cache fallback.'
-      : 'Requested live; running deterministic demo fallback.'
+      : 'Requested live; showing deterministic demo slate.'
     : undefined;
 
   const tone: TruthTone = input.mode === 'demo' ? 'fallback' : degraded ? 'degraded' : 'healthy';
@@ -59,23 +73,23 @@ export function getSourceQualityCopy(input: { mode: Mode; reason?: string; degra
   if (tier === 'verified') {
     return {
       tier,
-      label: 'Sources: verified',
-      detail: 'Primary provider sources are available for this decision surface.'
+      label: 'Source quality: verified',
+      detail: 'Primary providers are available for this board.'
     };
   }
 
   if (tier === 'mixed') {
     return {
       tier,
-      label: 'Sources: mixed',
-      detail: input.degradedReason ?? input.reason ?? 'Some provider signals are degraded; outputs may include partial fallback data.'
+      label: 'Source quality: mixed',
+      detail: input.degradedReason ?? input.reason ?? 'Some live inputs are degraded, so parts of the board may rely on fallback data.'
     };
   }
 
   return {
     tier,
-    label: 'Sources: demo fallback',
-    detail: input.degradedReason ?? input.reason ?? 'Deterministic fallback and heuristics are carrying this surface.'
+    label: 'Source quality: demo fallback',
+    detail: input.degradedReason ?? input.reason ?? 'Deterministic fallback data is powering this board.'
   };
 }
 
@@ -176,7 +190,7 @@ export function buildTodayRuntimeSummary(input: {
     : undefined;
 
   const bannerLabel = mode.label;
-  const bannerDetail = [mode.detail, source.detail, fallbackDetail].filter(Boolean).join(' ');
+  const bannerDetail = dedupeSegments([mode.detail, source.detail, fallbackDetail]).join(' ');
 
   return {
     modeLabel: mode.label,

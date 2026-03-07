@@ -9,8 +9,8 @@ export function TopSpotsPanel({ scouts, onSelect, selectedLegIds }: { scouts: To
   return (
     <section className="space-y-2" data-testid="top-spots-panel">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold sm:text-lg">Fast edge checks</h2>
-        <p className="text-xs text-slate-400">{scouts.length} board cues</p>
+        <h2 className="text-base font-semibold sm:text-lg">Quick board reads</h2>
+        <p className="text-xs text-slate-400">{scouts.length} looks</p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {scouts.map((scout) => (

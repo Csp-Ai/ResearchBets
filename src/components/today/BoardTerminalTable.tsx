@@ -103,10 +103,10 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
               <div className="min-w-0 space-y-1">
                 <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
                 <p className="truncate text-xs text-slate-400">#{index + 1} ranked · {row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
-                <p className="truncate text-xs text-slate-300">Why on board: {row.rationale?.[0] ?? signal}</p>
-                {evidence.strongestEvidence ? <p className="truncate text-[11px] text-slate-300">Strongest evidence: {evidence.strongestEvidence}</p> : null}
-                {evidence.caution ? <p className="truncate text-[11px] text-amber-100">Caution: {evidence.caution}</p> : null}
-                <p className="truncate text-[11px] text-slate-400">Decision signal: {tier.label} · {tier.cue}</p>
+                <p className="truncate text-xs text-slate-300">{row.rationale?.[0] ?? signal}</p>
+                {evidence.strongestEvidence ? <p className="truncate text-[11px] text-slate-300">Support cue: {evidence.strongestEvidence}</p> : null}
+                {evidence.caution ? <p className="truncate text-[11px] text-amber-100">Watch-out: {evidence.caution}</p> : null}
+                <p className="truncate text-[11px] text-slate-400">{tier.label} · {tier.cue}</p>
                 <div className="flex flex-wrap gap-1 text-[11px]">
                   {evidence.supportTags.map((tag) => <Badge key={tag} variant="neutral" size="sm">{SUPPORT_LABEL[tag]}</Badge>)}
                   {typeof row.l5Avg === 'number' ? <Badge variant="neutral" size="sm">L5 {row.l5Avg.toFixed(1)}</Badge> : null}

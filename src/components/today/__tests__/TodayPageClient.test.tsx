@@ -37,9 +37,8 @@ describe('TodayPageClient', () => {
 
   it('renders decision-focused row copy with evidence and caution context', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
-    expect(screen.getAllByText(/Why on board:/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Strongest evidence:/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Caution:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Support cue:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Watch-out:/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Volume-driven|Role-driven|Price-driven|Trend-driven|Matchup-driven/i).length).toBeGreaterThan(0);
   });
 
@@ -53,10 +52,9 @@ describe('TodayPageClient', () => {
 
   it('shows fallback-limited source quality for demo board payloads', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
-    expect(screen.getAllByText(/Demo mode \(live feeds off\)/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Sources: demo fallback/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Freshness: Demo snapshot/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Fallback context/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Demo board active/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/demo fallback · Updated Demo snapshot/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Note:/i).length).toBeGreaterThan(0);
   });
 
   it('renders ranked decision-tier row cues and carries board rationale into staging', () => {
@@ -69,7 +67,7 @@ describe('TodayPageClient', () => {
     if (!addButton) throw new Error('Expected at least one Add button');
     fireEvent.click(addButton);
     expect(screen.getByText(/Board reason:/i)).toBeTruthy();
-    expect(screen.getByText(/Fragility:/i)).toBeTruthy();
+    expect(screen.getAllByText(/Watch-out:/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Staging keeps each leg tied to its board rationale./i)).toBeTruthy();
   });
 
