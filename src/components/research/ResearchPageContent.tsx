@@ -140,6 +140,7 @@ export default function ResearchPageContent() {
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [copySlipStatus, setCopySlipStatus] = useState<'idle' | 'done' | 'error'>('idle');
+  const [stagedContext, setStagedContext] = useState<string[]>([]);
   const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [activeTraceId, setActiveTraceId] = useState<string>('');
   const autoDemoTriggeredRef = useRef(false);
@@ -150,6 +151,7 @@ export default function ResearchPageContent() {
   const traceFromQuery = getQueryTraceId(search) ?? '';
   const prefillFromQuery = search.get('prefill') ?? '';
   const prefillKeyFromQuery = search.get('prefillKey') ?? '';
+  const prefillContextKeyFromQuery = search.get('prefillContextKey') ?? '';
   const snapshotIdFromQuery = search.get('snapshotId') ?? '';
 
   const refreshRecent = useCallback(async () => {
@@ -262,12 +264,19 @@ export default function ResearchPageContent() {
     const stored = window.sessionStorage.getItem(prefillKeyFromQuery);
     if (!stored) return;
     window.sessionStorage.removeItem(prefillKeyFromQuery);
+
+    const stagedContextRaw = prefillContextKeyFromQuery ? window.sessionStorage.getItem(prefillContextKeyFromQuery) : null;
+    if (prefillContextKeyFromQuery) {
+      window.sessionStorage.removeItem(prefillContextKeyFromQuery);
+    }
+    setStagedContext((stagedContextRaw ?? '').split('\n').map((line) => line.trim()).filter(Boolean).slice(0, 3));
+
     setRawSlip(stored);
     void runSlip(stored, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
       await refreshRecent();
       router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
     });
-  }, [prefillFromQuery, prefillKeyFromQuery, refreshRecent, router, nervous]);
+  }, [prefillContextKeyFromQuery, prefillFromQuery, prefillKeyFromQuery, refreshRecent, router, nervous]);
 
   useEffect(() => {
     const snapshotId = currentRun?.snapshotId ?? snapshotIdFromQuery;
@@ -439,6 +448,7 @@ export default function ResearchPageContent() {
           runDto={runDto}
           currentRun={currentRun}
           prefillKeyFromQuery={prefillKeyFromQuery}
+          stagedContext={stagedContext}
           copyStatus={copyStatus}
           copySlipStatus={copySlipStatus}
           onPasteOpen={() => setPasteOpen(true)}

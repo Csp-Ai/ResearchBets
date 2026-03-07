@@ -1,18 +1,27 @@
 /** @vitest-environment jsdom */
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 
 import type { TodayPayload } from '@/src/core/today/types';
 import { renderWithNervousSystem } from '@/src/test-utils/renderWithNervousSystem';
 
 import { TodayPageClient } from '../TodayPageClient';
 
+const pushMock = vi.fn();
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() })
+  useRouter: () => ({ push: pushMock })
 }));
 
 describe('TodayPageClient', () => {
+  afterEach(() => {
+    cleanup();
+  });
+  beforeEach(() => {
+    pushMock.mockReset();
+    window.sessionStorage.clear();
+  });
   const payload: TodayPayload = {
     mode: 'demo',
     generatedAt: '2026-02-26T18:00:00.000Z',
@@ -57,6 +66,22 @@ describe('TodayPageClient', () => {
     expect(screen.getAllByText(/Note:/i).length).toBeGreaterThan(0);
   });
 
+
+  it('passes staged board context into analyze handoff', () => {
+    renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
+
+    const addButton = screen.getAllByRole('button', { name: 'Add' })[0];
+    if (!addButton) throw new Error('Expected at least one Add button');
+    fireEvent.click(addButton);
+    fireEvent.click(screen.getAllByRole('button', { name: /Analyze staged ticket/i })[0]!);
+
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    const href = String(pushMock.mock.calls[0]?.[0] ?? '');
+    expect(href).toContain('prefillKey=rb%3Aresearch%3Ascout-prefill');
+    expect(href).toContain('prefillContextKey=rb%3Aresearch%3Ascout-context');
+    expect(window.sessionStorage.getItem('rb:research:scout-context')).toContain('Support cue:');
+  });
+
   it('renders ranked decision-tier row cues and carries board rationale into staging', () => {
     renderWithNervousSystem(<TodayPageClient initialPayload={payload} />);
 
@@ -66,9 +91,9 @@ describe('TodayPageClient', () => {
     const addButton = screen.getAllByRole('button', { name: 'Add' })[0];
     if (!addButton) throw new Error('Expected at least one Add button');
     fireEvent.click(addButton);
-    expect(screen.getByText(/Board reason:/i)).toBeTruthy();
+    expect(screen.getAllByText(/Board reason:/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Watch-out:/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Staging keeps each leg tied to its board rationale./i)).toBeTruthy();
+    expect(screen.getByText(/Staged legs keep board support and watch-out context into analysis./i)).toBeTruthy();
   });
 
 });

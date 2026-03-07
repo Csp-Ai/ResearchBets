@@ -10,6 +10,7 @@ import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
+import { withTraceId } from '@/src/core/trace/queryTrace';
 
 export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }: {
   legs: SlipBuilderLeg[];
@@ -29,6 +30,7 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
   })));
 
   const hasLegs = legs.length > 0;
+  const traceScopedTrackHref = appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), hasLegs ? { continuity: 'staged_ticket' } : {});
 
   return (
     <aside className="lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
@@ -46,16 +48,16 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
           </div>
         ) : null}
 
-        {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest preview: {risk.weakestLeg}</p> : null}
-        {hasLegs ? <p className="text-[11px] text-slate-400">Staging keeps each leg tied to its board rationale.</p> : null}
+        {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest leg preview: {risk.weakestLeg}</p> : null}
+        {hasLegs ? <p className="text-[11px] text-slate-400">Staged legs keep board support and watch-out context into analysis.</p> : null}
 
         {!hasLegs ? (
           <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
             <p className="font-semibold text-slate-200">No ticket staged yet.</p>
-            <p className="mt-1">Start on the board: add 2–3 legs, then run analysis.</p>
+            <p className="mt-1">Start on the board: add 2–3 legs with support cues, then analyze.</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <a href="#board-terminal" className="text-cyan-200 underline">Browse board</a>
-              <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="text-cyan-200 underline">Load sample ticket</Link>
+              <Link href={nervous.toHref('/slip', { sample: '1' })} className="text-cyan-200 underline">Load sample ticket</Link>
             </div>
           </div>
         ) : (
@@ -67,7 +69,7 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
                     <p className="text-sm font-semibold text-slate-100">{leg.player}</p>
                     <p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
                     <p className="text-[11px] text-slate-300">Board reason: {rationaleByLegId.get(leg.id) ?? 'No explicit rationale; staged from ranked board signal.'}</p>
-                    {leg.deadLegRisk ? <p className="text-[11px] text-slate-400">Dead-leg {leg.deadLegRisk}{leg.deadLegReasons?.[0] ? ` · ${leg.deadLegReasons[0]}` : ''}</p> : null}
+                    {leg.deadLegRisk ? <p className="text-[11px] text-slate-400">Fragility {leg.deadLegRisk}{leg.deadLegReasons?.[0] ? ` · ${leg.deadLegReasons[0]}` : ''}</p> : null}
                   </div>
                   <button type="button" onClick={() => onRemove(leg.id)} className="terminal-focus text-xs text-rose-200">Remove</button>
                 </div>
@@ -87,11 +89,11 @@ export function SlipDrawer({ legs, rationaleByLegId, onRemove, onRunStressTest }
             Analyze staged ticket
           </Button>
           <Link
-            href={nervous.toHref('/track')}
+            href={traceScopedTrackHref}
             aria-disabled={!hasLegs}
             className={`ui-button ui-button-secondary terminal-focus w-full text-center text-sm font-semibold ${!hasLegs ? 'pointer-events-none opacity-50' : ''}`}
           >
-            Track ticket
+            Track this run
           </Link>
         </div>
       </CardSurface>

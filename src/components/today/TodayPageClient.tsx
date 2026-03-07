@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
-import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
+import { SCOUT_ANALYZE_CONTEXT_STORAGE_KEY, SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftContext, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import type { TodayPayload } from '@/src/core/today/types';
 import { buildCanonicalBoard, buildTopSpotScouts } from '@/src/core/today/boardModel';
@@ -180,7 +180,11 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     const prefillText = serializeDraftSlip(selectedLegs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(nervous.toHref('/stress-test', { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
+    const contextLines = selectedLegs
+      .map((leg) => rationaleByLegId.get(leg.id) ?? '')
+      .filter(Boolean);
+    window.sessionStorage.setItem(SCOUT_ANALYZE_CONTEXT_STORAGE_KEY, serializeDraftContext(contextLines));
+    router.push(nervous.toHref('/stress-test', { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillContextKey: SCOUT_ANALYZE_CONTEXT_STORAGE_KEY }));
   };
 
   const onSelectSignal = (id: string) => {
@@ -216,7 +220,7 @@ export function TodayPageClient({ initialPayload }: { initialPayload?: TodayPayl
     <section className="w-full space-y-3 pb-14">
       <TruthSpineHeader
         title="Board"
-        subtitle="Scan matchup → prop → edge reason, then stage a ticket."
+        subtitle="Scan support + watch-outs, then stage a ticket for analysis."
         freshness={runtimeSummary.freshnessLabel}
         runtimeSummary={runtimeSummary}
         actions={[
