@@ -8,6 +8,7 @@ import { deriveEvidenceTexture } from '@/src/core/today/evidenceTexture';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
+import { WhyThisStandsOut } from '@/src/components/evidence/WhyThisStandsOut';
 
 export type SortKey = 'edge' | 'l10' | 'risk' | 'start';
 
@@ -104,8 +105,18 @@ export function BoardTerminalTable({ rows, onToggleLeg, selectedLegIds, highligh
                 <p className="truncate text-sm font-semibold text-slate-100">{row.player} · {MARKET_LABEL[row.market]} {row.line ?? 'TBD'}</p>
                 <p className="truncate text-xs text-slate-400">#{index + 1} ranked · {row.matchup} · <span className="mono-number">{row.odds ?? 'Odds TBD'}</span> · Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
                 <p className="truncate text-xs text-slate-300">{row.rationale?.[0] ?? signal}</p>
-                {evidence.strongestEvidence ? <p className="truncate text-[11px] text-slate-300">Support cue: {evidence.strongestEvidence}</p> : null}
-                {evidence.caution ? <p className="truncate text-[11px] text-amber-100">Watch-out: {evidence.caution}</p> : null}
+                <div className="grid gap-1 text-[11px] text-slate-300 sm:grid-cols-3">
+                  <p className="truncate"><span className="text-slate-400">Why now:</span> Edge <span className="mono-number">{formatSignedPct(row.edgeDelta ?? 0)}</span></p>
+                  <p className="truncate"><span className="text-slate-400">Support:</span> {evidence.supportStrength}</p>
+                  <p className="truncate"><span className="text-slate-400">Fragility:</span> {row.deadLegRisk ?? 'low'}</p>
+                </div>
+                <WhyThisStandsOut
+                  compact
+                  support={evidence.strongestEvidence}
+                  watchOut={evidence.caution}
+                  fragility={row.deadLegRisk ? `Fragility ${row.deadLegRisk}` : undefined}
+                  title="Why it made the board"
+                />
                 <p className="truncate text-[11px] text-slate-400">{tier.label} · {tier.cue}</p>
                 <div className="flex flex-wrap gap-1 text-[11px]">
                   {evidence.supportTags.map((tag) => <Badge key={tag} variant="neutral" size="sm">{SUPPORT_LABEL[tag]}</Badge>)}

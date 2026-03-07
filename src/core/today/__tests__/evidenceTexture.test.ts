@@ -28,7 +28,7 @@ describe('deriveEvidenceTexture', () => {
       deadLegReasons: ['Low minutes (L3)', 'Role volatility'],
     });
 
-    expect(texture.caution).toBe('role sensitive');
+    expect(texture.caution).toBe('Low minutes (L3)');
   });
 
   it('omits caution when no meaningful risk signal is present', () => {
@@ -42,5 +42,6 @@ describe('deriveEvidenceTexture', () => {
     });
 
     expect(texture.caution).toBeUndefined();
+    expect(texture.supportStrength).toBe('thin');
   });
 });

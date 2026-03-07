@@ -15,6 +15,7 @@ import type { Run } from '@/src/core/run/types';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 import { getConfidenceCopy, getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
 import { DecisionThreadStrip } from '@/src/components/nervous/DecisionThreadStrip';
+import { WhyThisStandsOut } from '@/src/components/evidence/WhyThisStandsOut';
 
 type IntelLegs = ComponentProps<typeof SlipIntelBar>['legs'];
 
@@ -92,6 +93,15 @@ export default function AnalyzeTabPanel({
   const confidenceCopy = getConfidenceCopy({ confidencePct: riskSummary.confidencePct, sourceQuality: sourceQuality.tier });
   const slipLines = (runDto?.raw_slip_text || currentRun?.slipText || demoSlip).split('\n').map((line) => line.trim()).filter(Boolean);
 
+  const strongestSupport = combinedReasons.find((reason) => !/weakest|fragility|correlation|risk|watch-out|watch out/i.test(reason))
+    ?? riskSummary.reasonBullets.find((reason) => !/weakest|fragility|correlation|risk/i.test(reason))
+    ?? reasons[0]
+    ?? 'Support is present but narrow; keep stake sizing disciplined.';
+  const mainWatchOut = combinedReasons.find((reason) => /fragility|correlation|risk|watch-out|watch out|volatility/i.test(reason))
+    ?? weakestReasons[0]
+    ?? 'No major watch-out was tagged, but keep monitoring late status changes.';
+  const weakestLegConcern = weakestReasons[0] ?? riskSummary.weakestLeg;
+
   return (
     <div className="space-y-3">
       <SystemCalibrationStrip
@@ -130,15 +140,23 @@ export default function AnalyzeTabPanel({
             </div>
           </div>
 
-          <CardSurface className="p-4">
-            <p className="text-xs font-semibold text-amber-100">Weakest leg</p>
-            <p className="mt-1 text-lg font-semibold text-slate-100">{riskSummary.weakestLeg}</p>
-            <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">Watch-outs driving fragility</p>
-            <div className="mt-2 space-y-1 text-sm text-slate-300">
-              {combinedReasons.length > 0 ? combinedReasons.slice(0, 3).map((reason) => <p key={reason}>• {reason}</p>) : <p>• Check line movement before locking.</p>}
+          <CardSurface className="space-y-3 p-4">
+            <WhyThisStandsOut
+              support={strongestSupport}
+              watchOut={mainWatchOut}
+              fragility={`Fragility ${riskSummary.fragilityScore}`}
+              title="Evidence hierarchy"
+            />
+            <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+              <p><span className="font-semibold text-cyan-100">Strongest support:</span> {strongestSupport}</p>
+              <p><span className="font-semibold text-amber-100">Main caution:</span> {mainWatchOut}</p>
+              <p><span className="font-semibold text-rose-100">Weakest leg concern:</span> {weakestLegConcern}</p>
+              <p><span className="font-semibold text-slate-100">Verdict implication:</span> {presentRecommendation(riskSummary.recommendation)} with {confidenceCopy.label.toLowerCase()} confidence.</p>
             </div>
-            <p className="mt-2 text-xs text-slate-400">Action: replace or remove this leg first, then rerun stress test.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <p className="text-xs font-semibold text-amber-100">Weakest leg</p>
+            <p className="text-lg font-semibold text-slate-100">{riskSummary.weakestLeg}</p>
+            <p className="text-xs text-slate-400">Action: replace or remove this leg first, then rerun stress test.</p>
+            <div className="flex flex-wrap gap-2">
               <a href={slipHref} className="terminal-focus inline-flex rounded-md border border-cyan-300/45 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/10">Edit slip</a>
               <a href={boardHref} className="terminal-focus inline-flex rounded-md border border-white/25 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-white/10">Find replacement on Board</a>
             </div>
