@@ -19,6 +19,7 @@ describe('truthPresentation helpers', () => {
     const quality = getSourceQualityCopy({ mode: 'demo', reason: 'provider_unavailable' });
     expect(quality.tier).toBe('fallback');
     expect(quality.label).toContain('demo fallback');
+    expect(quality.detail).toBe('Live providers are temporarily unavailable.');
   });
 
   it('returns mixed source quality for cache/degraded runs', () => {
@@ -61,6 +62,16 @@ describe('truthPresentation helpers', () => {
     expect(summary.sourceLabel).toBe('Source quality: mixed');
     expect(summary.freshnessLabel).toBe('15 min ago');
     expect(summary.fallbackDetail).toContain('Odds provider timed out');
+  });
+
+  it('sanitizes internal runtime reason tokens before displaying fallback detail', () => {
+    const summary = buildTodayRuntimeSummary({
+      mode: 'demo',
+      reason: 'demo_requested'
+    });
+
+    expect(summary.fallbackDetail).toBe('Demo mode is on for this view.');
+    expect(summary.bannerDetail).not.toContain('demo_requested');
   });
 
 
