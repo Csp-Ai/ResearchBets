@@ -27,28 +27,33 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
     game: leg.game
   })));
 
+  const hasLegs = legs.length > 0;
+
   return (
     <aside className="lg:sticky lg:top-4 lg:h-fit" data-testid="slip-drawer">
       <CardSurface className="space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-100">Bet Ticket</h3>
+          <h3 className="text-lg font-semibold text-slate-100">Ticket staging</h3>
           <span className="mono-number text-xs text-slate-400">{legs.length} legs</span>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant={risk.correlationFlag ? 'warning' : 'success'}>{risk.correlationFlag ? 'Guardrail active' : 'Correlation in range'}</Badge>
-          <Badge variant="neutral">Hit est <span className="ml-1">{risk.confidencePct}%</span></Badge>
-          <Badge variant="neutral">Fragility <span className="ml-1">{risk.fragilityScore}</span></Badge>
-        </div>
+        {hasLegs ? (
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Badge variant={risk.correlationFlag ? 'warning' : 'success'}>{risk.correlationFlag ? 'Guardrail active' : 'Correlation in range'}</Badge>
+            <Badge variant="neutral">Hit est <span className="ml-1">{risk.confidencePct}%</span></Badge>
+            <Badge variant="neutral">Fragility <span className="ml-1">{risk.fragilityScore}</span></Badge>
+          </div>
+        ) : null}
 
         {legs.length >= 2 ? <p className="truncate text-xs text-amber-100">Weakest preview: {risk.weakestLeg}</p> : null}
 
-        {legs.length === 0 ? (
-          <div className="rounded-lg bg-black/20 p-3 text-xs text-slate-300">
-            <p>Add legs from the board to stage a ticket.</p>
+        {!hasLegs ? (
+          <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-slate-200">No ticket staged yet.</p>
+            <p className="mt-1">Start on the board: add 2–3 legs, then run analysis.</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <a href="#board-terminal" className="text-cyan-200 underline">Browse board</a>
-              <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="text-cyan-200 underline">Sample slip</Link>
+              <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="text-cyan-200 underline">Load sample ticket</Link>
             </div>
           </div>
         ) : (
@@ -72,13 +77,19 @@ export function SlipDrawer({ legs, onRemove, onRunStressTest }: {
           <Button
             type="button"
             intent="primary"
-            disabled={legs.length === 0}
+            disabled={!hasLegs}
             onClick={onRunStressTest}
             className="w-full text-sm font-semibold"
           >
-            Analyze slip
+            Analyze staged ticket
           </Button>
-          <Link href={nervous.toHref('/track')} className="ui-button ui-button-secondary terminal-focus w-full text-center text-sm font-semibold">Track ticket</Link>
+          <Link
+            href={nervous.toHref('/track')}
+            aria-disabled={!hasLegs}
+            className={`ui-button ui-button-secondary terminal-focus w-full text-center text-sm font-semibold ${!hasLegs ? 'pointer-events-none opacity-50' : ''}`}
+          >
+            Track ticket
+          </Link>
         </div>
       </CardSurface>
     </aside>

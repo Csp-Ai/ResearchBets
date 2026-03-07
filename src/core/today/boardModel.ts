@@ -37,9 +37,39 @@ type BoardInputRow = Record<string, unknown>;
 const DEFAULT_MATCHUP = 'TBD @ TBD';
 const DEFAULT_START = 'TBD';
 
+const roleScore = (role?: 'high'|'med'|'low') => role === 'high' ? 2 : role === 'med' ? 1 : 0;
+const deadLegPenalty = (risk?: 'low'|'med'|'high') => risk === 'low' ? 0 : risk === 'med' ? 1 : 2;
+
+function rowSelectionScore(row: BoardProp) {
+  return (row.edgeDelta ?? 0) * 100
+    + (row.hitRateL10 ?? 0) * 0.8
+    + (row.modelProb ?? 0) * 15
+    + roleScore(row.roleConfidence) * 5
+    - deadLegPenalty(row.deadLegRisk) * 6
+    + (row.riskTag === 'stable' ? 2 : 0);
+}
+
+function dedupeBoardRows(rows: BoardProp[]): BoardProp[] {
+  const byKey = new Map<string, BoardProp>();
+  for (const row of rows) {
+    const key = [
+      row.gameId,
+      row.player.trim().toLowerCase(),
+      row.market,
+      row.line.trim().toLowerCase()
+    ].join('|');
+    const existing = byKey.get(key);
+    if (!existing || rowSelectionScore(row) > rowSelectionScore(existing)) {
+      byKey.set(key, row);
+    }
+  }
+  return [...byKey.values()]
+    .sort((a, b) => rowSelectionScore(b) - rowSelectionScore(a));
+}
+
 export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[] {
   const rows = Array.isArray(payload.board) ? payload.board : [];
-  return rows
+  const canonicalRows = rows
     .filter((row): row is BoardInputRow => Boolean(row && typeof row === 'object'))
     .map((row) => ({
       id: String(row.id ?? ''),
@@ -72,6 +102,8 @@ export function buildCanonicalBoard(payload: { board?: unknown[] }): BoardProp[]
       deadLegRisk: row.deadLegRisk === 'low' || row.deadLegRisk === 'med' || row.deadLegRisk === 'high' ? row.deadLegRisk : undefined,
       deadLegReasons: Array.isArray(row.deadLegReasons) ? row.deadLegReasons.map(String) : undefined
     }));
+
+  return dedupeBoardRows(canonicalRows);
 }
 
 export function buildTopSpotScouts(payload: { board?: unknown[]; generatedAt?: string }, limit = 5): BoardProp[] {
@@ -82,10 +114,6 @@ export function buildTopSpotScouts(payload: { board?: unknown[]; generatedAt?: s
     lastUpdated: row.lastUpdated ?? payload.generatedAt
   }));
 }
-
-
-const roleScore = (role?: 'high'|'med'|'low') => role === 'high' ? 2 : role === 'med' ? 1 : 0;
-const deadLegPenalty = (risk?: 'low'|'med'|'high') => risk === 'low' ? 0 : risk === 'med' ? 1 : 2;
 
 export function buildCoreCandidates(payload: { board?: unknown[] }, options?: { maxPerGame?: number; maxPerTeam?: number }): BoardProp[] {
   const rows = buildCanonicalBoard(payload);
@@ -101,11 +129,7 @@ export function buildCoreCandidates(payload: { board?: unknown[] }, options?: { 
   const result: BoardProp[] = [];
   for (const group of byGame.values()) {
     const teamCounts = new Map<string, number>();
-    const sorted = [...group].sort((a, b) => {
-      const scoreA = (a.minutesL3Avg ?? 0) * 2 + roleScore(a.roleConfidence) * 10 - deadLegPenalty(a.deadLegRisk) * 8 + (a.l5Avg ?? 0);
-      const scoreB = (b.minutesL3Avg ?? 0) * 2 + roleScore(b.roleConfidence) * 10 - deadLegPenalty(b.deadLegRisk) * 8 + (b.l5Avg ?? 0);
-      return scoreB - scoreA;
-    });
+    const sorted = [...group].sort((a, b) => rowSelectionScore(b) - rowSelectionScore(a));
 
     for (const row of sorted) {
       if (result.filter((r) => r.gameId === row.gameId).length >= maxPerGame) break;
