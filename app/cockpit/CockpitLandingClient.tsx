@@ -344,12 +344,6 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     return { hitEstimate, breakEven, gap };
   }, [slip]);
 
-  const scoutCards = useMemo(() => {
-    return [...board]
-      .sort((a, b) => (b.hitRateL10 ?? 0) - (a.hitRateL10 ?? 0))
-      .slice(0, 3);
-  }, [board]);
-
   const { statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
 
   const runStressTest = async () => {
@@ -467,9 +461,9 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
         <section className="terminal-hero" aria-label="Research terminal overview">
           <div className="terminal-hero-main">
             <p className="terminal-kicker">Bettor research terminal</p>
-            <h1>Read tonight&apos;s board. Build a tighter slip. Stress it before lock.</h1>
+            <h1>Read tonight&apos;s board. Build a tighter slip.</h1>
             <p className="terminal-subcopy">
-              Start with active props, move to deterministic stress diagnostics, and continue tracking the same trace without leaving flow.
+              Start with active props, move to deterministic stress diagnostics, and keep one truthful trace.
             </p>
             <div className="terminal-cta-row">
               <button className="ui-button ui-button-primary focus-glow" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from tonight&apos;s board</button>
@@ -488,19 +482,19 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
               <h2>Scout cards</h2>
               <span>High signal from tonight&apos;s board</span>
             </div>
-            {scoutCards.length === 0 ? (
+            {scoutSignals.length === 0 ? (
               <p className="terminal-empty">Board is loading. Demo/live state stays truthful and updates automatically.</p>
             ) : (
               <div className="terminal-scout-list">
-                {scoutCards.map((leg) => (
-                  <button key={leg.id} className="terminal-scout-card" onClick={() => onOpenLeg(leg)}>
+                {scoutSignals.map((signal) => (
+                  <button key={signal.id} className="terminal-scout-card" onClick={() => onOpenLeg(signal.leg)}>
                     <div>
-                      <p>{leg.player} · {leg.market} {leg.line}</p>
-                      <small>{leg.matchup} · {leg.startTime}</small>
+                      <p>{signal.headline}</p>
+                      <small>{signal.context}</small>
                     </div>
                     <div className="terminal-scout-meta">
-                      <span>Odds {leg.odds}</span>
-                      <span>L10 {leg.hitRateL10 ?? '—'}/10</span>
+                      <span>{signal.confidence}</span>
+                      <span>{signal.rationale}</span>
                     </div>
                   </button>
                 ))}
@@ -637,27 +631,6 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
         </section>
 
 
-
-        <section className="scout-signal-grid" aria-label="Top board signals">
-          {scoutSignals.map((signal) => (
-            <article key={signal.id} className="scout-signal-card">
-              <div className="scout-signal-head">
-                <p className="scout-signal-title">{signal.headline}</p>
-                <LandingChip variant={signal.confidenceTone}>{signal.confidence}</LandingChip>
-              </div>
-              <p className="scout-signal-context">{signal.context}</p>
-              <p className="scout-signal-rationale">{signal.rationale}</p>
-              <div className="scout-signal-actions">
-                <button className="ui-button ui-button-secondary focus-glow" onClick={() => onAdd(signal.leg)} disabled={slipIds.has(signal.leg.id)}>
-                  {slipIds.has(signal.leg.id) ? 'Added' : 'Add to ticket'}
-                </button>
-                <button className="ui-button ui-button-secondary focus-glow" onClick={() => onOpenLeg(signal.leg)}>
-                  Open game
-                </button>
-              </div>
-            </article>
-          ))}
-        </section>
 
         <details className="rounded-2xl border border-white/10 bg-slate-950/50 p-3" data-testid="cockpit-details-disclosure">
           <summary className="cursor-pointer text-sm text-slate-200">Details and diagnostics</summary>
