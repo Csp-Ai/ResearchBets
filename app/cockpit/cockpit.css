@@ -35,6 +35,7 @@
 .board-list { max-height: 520px; overflow: auto; padding: 8px 12px; }
 .group-label { color: #8a96a8; margin: 6px 0; font-size: 10px; text-transform: uppercase; position: sticky; top: 0; background: #0c1420; padding: 4px 0; z-index: 1; }
 .board-row, .ticket-leg, .moat-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 4px; padding: 8px; margin-bottom: 6px; }
+.board-row { align-items: flex-start; }
 .board-main, .ticket-leg-main { color: #e8edf5; font-size: 12px; }
 .board-sub, .ticket-leg-sub { color: #8a96a8; font-size: 11px; }
 .add-btn, .remove-btn { width: 28px; height: 28px; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 4px; }
@@ -160,8 +161,14 @@
 .board-row { cursor: pointer; }
 .board-row:hover { border-color: rgba(0, 229, 200, 0.45); background: rgba(0, 229, 200, 0.06); }
 .board-meta { display: flex; align-items: center; gap: 6px; }
+
+.board-row-body { display: flex; justify-content: space-between; gap: 10px; width: 100%; }
+.board-evidence-stack { margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap; }
+.board-note { margin: 4px 0 0; color: #a9bbd2; font-size: 11px; }
+.board-actions { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+.board-open { color: #a7b2c1; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,0.02); padding: 3px 8px; }
+.board-open:hover { border-color: rgba(0, 229, 200, 0.45); color: var(--cyan); }
 .board-chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 10px; color: #8a96a8; }
-.board-open { color: #a7b2c1; font-size: 11px; }
 .ticket-empty-text { font-weight: 700; color: #c8d0dc; }
 @media (max-width: 900px) {
   #cockpit { grid-template-columns: 1fr; }
