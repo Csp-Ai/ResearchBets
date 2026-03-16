@@ -24,14 +24,41 @@ const INTERNAL_REASON_COPY: Record<string, string> = {
   provider_unavailable: 'Live providers are temporarily unavailable.',
   missing_keys: 'Live providers are not fully connected.',
   cache_hit: 'Using a recent cached board while feeds recover.',
-  cache_fallback: 'Using a recent cached board while feeds recover.'
+  cache_fallback: 'Using a recent cached board while feeds recover.',
+  cache_fresh: 'Using a recent cached board while feeds recover.',
+  strict_live_empty: 'Live feeds returned an empty slate; fallback board is shown.',
+  hard_error: 'A runtime issue occurred; fallback board is shown.',
+  odds_rate_limited: 'Live odds calls are rate-limited right now.',
+  odds_request_invalid: 'Live odds request shape is temporarily unavailable.',
+  odds_plan_restricted_or_key_invalid: 'Live odds access is temporarily unavailable.'
 };
+
+const INTERNAL_REASON_PREFIX_COPY: Array<{ prefix: string; message: string }> = [
+  { prefix: 'live_rate_limited', message: 'Live provider calls are rate-limited right now.' },
+  { prefix: 'live_request_invalid', message: 'Live provider request shape is temporarily unavailable.' },
+  { prefix: 'live_plan_restricted', message: 'Live provider access is temporarily unavailable.' },
+  { prefix: 'live_hard_error', message: 'A runtime issue occurred; fallback board is shown.' },
+  { prefix: 'odds_', message: 'Live odds access is temporarily unavailable.' }
+];
+
+const INTERNAL_TOKEN_PATTERN = /^[a-z0-9_:-]+$/i;
 
 function sanitizeRuntimeReason(reason?: string): string | undefined {
   if (!reason) return undefined;
   const trimmed = reason.trim();
   if (!trimmed) return undefined;
-  return INTERNAL_REASON_COPY[trimmed] ?? trimmed.replace(/_/g, ' ');
+  const direct = INTERNAL_REASON_COPY[trimmed];
+  if (direct) return direct;
+
+  const normalized = trimmed.toLowerCase();
+  const prefixed = INTERNAL_REASON_PREFIX_COPY.find((entry) => normalized.startsWith(entry.prefix));
+  if (prefixed) return prefixed.message;
+
+  if (INTERNAL_TOKEN_PATTERN.test(trimmed)) {
+    return undefined;
+  }
+
+  return trimmed;
 }
 
 function dedupeSegments(parts: Array<string | undefined>): string[] {

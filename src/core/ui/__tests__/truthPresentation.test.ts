@@ -74,6 +74,26 @@ describe('truthPresentation helpers', () => {
     expect(summary.bannerDetail).not.toContain('demo_requested');
   });
 
+  it('suppresses unknown internal-style tokens from fallback detail', () => {
+    const summary = buildTodayRuntimeSummary({
+      mode: 'cache',
+      reason: 'live_hard_error:odds_fetch'
+    });
+
+    expect(summary.fallbackDetail).toBe('A runtime issue occurred; fallback board is shown.');
+    expect(summary.bannerDetail).not.toContain('live_hard_error:odds_fetch');
+  });
+
+  it('does not leak unmapped internal token-like reasons', () => {
+    const summary = buildTodayRuntimeSummary({
+      mode: 'cache',
+      reason: 'provider_pipeline_17'
+    });
+
+    expect(summary.fallbackDetail).toBe('Some live inputs are degraded, so parts of the board may rely on fallback data.');
+    expect(summary.bannerDetail).not.toContain('provider_pipeline_17');
+  });
+
 
   it('deduplicates repeated fallback/runtime detail in banner copy', () => {
     const summary = buildTodayRuntimeSummary({
