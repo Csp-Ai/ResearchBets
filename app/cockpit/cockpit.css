@@ -253,6 +253,7 @@
 .how-it-works a { color: #b5ffef; font-size: 12px; text-decoration: none; }
 
 @media (max-width: 900px) {
+  .terminal-hero { grid-template-columns: 1fr; }
   .preview-strip { grid-template-columns: 1fr; text-align: left; }
   .preview-strip-actions { flex-wrap: wrap; }
   .how-it-works { grid-template-columns: 1fr; margin-bottom: 90px; }
@@ -296,4 +297,109 @@
 
 .pipeline-strip-health {
   color: #94a3b8;
+}
+
+.terminal-hero {
+  margin: 10px 0 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 12px;
+}
+.terminal-hero-main,
+.terminal-scout-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(8, 14, 24, 0.94), rgba(8, 14, 24, 0.8));
+  border-radius: 12px;
+  padding: 14px;
+}
+.terminal-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  color: #83ebd9;
+}
+.terminal-hero-main h1 {
+  margin: 6px 0 8px;
+  color: #f1f6fc;
+  font-size: clamp(24px, 3.3vw, 36px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  max-width: 16ch;
+}
+.terminal-subcopy {
+  margin: 0;
+  color: #a9b8cb;
+  max-width: 62ch;
+  font-size: 13px;
+}
+.terminal-cta-row {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.terminal-evidence-row {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.terminal-evidence-chip {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #b9c6d8;
+  background: rgba(255, 255, 255, 0.03);
+}
+.terminal-scout-head h2 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #f1f6fc;
+}
+.terminal-scout-head span {
+  color: #93a7bf;
+  font-size: 11px;
+}
+.terminal-scout-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.terminal-scout-card {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(13, 22, 34, 0.9);
+  color: #d4dfec;
+  padding: 9px 10px;
+}
+.terminal-scout-card p {
+  margin: 0;
+  font-size: 12px;
+  color: #e8edf5;
+}
+.terminal-scout-card small {
+  color: #91a4bc;
+  font-size: 10px;
+}
+.terminal-scout-meta {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: 10px;
+  color: #9ceada;
+}
+.terminal-empty {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #9fb0c6;
 }
