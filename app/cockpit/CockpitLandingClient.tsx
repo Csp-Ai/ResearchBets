@@ -24,7 +24,6 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useRunEvents } from '@/src/core/events/useRunEvents';
 import { ensureTraceId } from '@/src/core/trace/trace_id';
 import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
-import type { CockpitBoardLeg } from '@/app/cockpit/adapters/todayToBoard';
 
 import './cockpit.css';
 
@@ -40,16 +39,6 @@ const toPreviewStatusLabel = (mode: 'live' | 'cache' | 'demo') => {
   if (mode === 'demo') return 'Demo mode (live feeds off)';
   if (mode === 'cache') return 'Using cached slate';
   return 'Live mode';
-};
-
-type ScoutSignal = {
-  id: string;
-  headline: string;
-  confidence: string;
-  confidenceTone: 'good' | 'warn';
-  rationale: string;
-  context: string;
-  leg: CockpitBoardLeg;
 };
 
 export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
@@ -150,7 +139,15 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     return toPreviewStatusLabel(payloadMode);
   }, [today.mode, provenance.mode]);
 
-  const scoutSignals = useMemo(() => {
+  const scoutSignals = useMemo<Array<{
+    id: string;
+    headline: string;
+    confidence: string;
+    confidenceTone: 'good' | 'warn';
+    rationale: string;
+    context: string;
+    leg: (typeof board)[number];
+  }>>(() => {
     return board
       .slice()
       .sort((a, b) => {
@@ -529,7 +526,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
 
             <div className="ticket-body">
               {legCount === 0 ? (
-                <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">0 legs loaded.</div><TicketEmptyCoach sampleHref={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
+                <div className="ticket-empty"><div className="ticket-empty-icon">⬡</div><div className="ticket-empty-text">No legs yet — add 2–4 from Tonight&apos;s Board to pressure-test your ticket.</div><TicketEmptyCoach sampleHref={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} /></div>
               ) : (
                 <div className="ticket-legs" role="list">
                   {slip.map((leg) => (
