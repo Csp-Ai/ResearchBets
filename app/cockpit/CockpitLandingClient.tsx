@@ -250,6 +250,12 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     return { hitEstimate, breakEven, gap };
   }, [slip]);
 
+  const scoutCards = useMemo(() => {
+    return [...board]
+      .sort((a, b) => (b.hitRateL10 ?? 0) - (a.hitRateL10 ?? 0))
+      .slice(0, 3);
+  }, [board]);
+
   const { statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
 
   const runStressTest = async () => {
@@ -363,6 +369,51 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             traceId: analysis.traceId || nervous.trace_id
           }}
         />
+
+        <section className="terminal-hero" aria-label="Research terminal overview">
+          <div className="terminal-hero-main">
+            <p className="terminal-kicker">Bettor research terminal</p>
+            <h1>Read tonight&apos;s board. Build a tighter slip. Stress it before lock.</h1>
+            <p className="terminal-subcopy">
+              Start with active props, move to deterministic stress diagnostics, and continue tracking the same trace without leaving flow.
+            </p>
+            <div className="terminal-cta-row">
+              <button className="ui-button ui-button-primary focus-glow" onClick={() => cockpitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Build from tonight&apos;s board</button>
+              <button className="ui-button ui-button-secondary focus-glow" onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}>Paste sample slip</button>
+              <Link href={nervous.toHref('/track', { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })} className="ui-button ui-button-secondary focus-glow">Open latest run</Link>
+            </div>
+            <div className="terminal-evidence-row">
+              <span className="terminal-evidence-chip">{previewStatusLabel}</span>
+              <span className="terminal-evidence-chip">{neutralStatus}</span>
+              <span className="terminal-evidence-chip">Slip confidence est. {compactLine.hitEstimate}</span>
+              <span className="terminal-evidence-chip">Break-even gap {compactLine.gap}</span>
+            </div>
+          </div>
+          <aside className="terminal-scout-panel" aria-label="Scout cards">
+            <div className="terminal-scout-head">
+              <h2>Scout cards</h2>
+              <span>High signal from tonight&apos;s board</span>
+            </div>
+            {scoutCards.length === 0 ? (
+              <p className="terminal-empty">Board is loading. Demo/live state stays truthful and updates automatically.</p>
+            ) : (
+              <div className="terminal-scout-list">
+                {scoutCards.map((leg) => (
+                  <button key={leg.id} className="terminal-scout-card" onClick={() => onOpenLeg(leg)}>
+                    <div>
+                      <p>{leg.player} · {leg.market} {leg.line}</p>
+                      <small>{leg.matchup} · {leg.startTime}</small>
+                    </div>
+                    <div className="terminal-scout-meta">
+                      <span>Odds {leg.odds}</span>
+                      <span>L10 {leg.hitRateL10 ?? '—'}/10</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </aside>
+        </section>
 
         <section id="cockpit" ref={cockpitRef} aria-label="Bettor cockpit: board and draft ticket" className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)] lg:items-start">
           <Panel id="board-panel" className="space-y-3">
@@ -495,28 +546,28 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
           </div>
         </details>
 
-        <section className="how-it-works" aria-label="How it works">
+        <section className="how-it-works" aria-label="Connected bettor workflow">
           <article>
-            <h3>Tonight&apos;s Board</h3>
+            <h3>Tonight&apos;s board</h3>
             <ul>
-              <li>Scan active props with odds and recent attempts context.</li>
-              <li>Add candidate legs directly into the draft ticket.</li>
+              <li>Scan odds, attempts context, and player-market edges quickly.</li>
+              <li>Move straight from board rows into your working slip.</li>
             </ul>
             <Link href={spineHref('/today', nervous, { trace_id: analysis.traceId || nervous.trace_id })}>Open</Link>
           </article>
           <article>
-            <h3>Stress Test</h3>
+            <h3>Stress test</h3>
             <ul>
-              <li>Run deterministic fragility + correlation diagnostics.</li>
-              <li>Expose the weakest leg before lock.</li>
+              <li>Run deterministic fragility and correlation diagnostics.</li>
+              <li>See weakest-leg risk and confidence pressure before lock.</li>
             </ul>
             <Link href={spineHref('/stress-test', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'analyze' })}>Open</Link>
           </article>
           <article>
-            <h3>Track Outcomes</h3>
+            <h3>Track outcomes</h3>
             <ul>
-              <li>Follow run continuity by trace_id.</li>
-              <li>Review outcome events and postmortem-ready notes.</li>
+              <li>Carry one trace from board → slip → run → outcome review.</li>
+              <li>Keep evidence tied to the same decision path.</li>
             </ul>
             <Link href={spineHref('/track', nervous, { trace_id: analysis.traceId || nervous.trace_id, tab: 'during' })}>Open</Link>
           </article>
