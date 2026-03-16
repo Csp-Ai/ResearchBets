@@ -79,9 +79,9 @@ export function LiveNervousSystemStrip({ mode, reason, intentMode, updatedAt, pr
   const secondaryLabel = reasonLabel(reason);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-3" data-testid="live-nervous-system-strip">
+    <section className="rounded-xl border border-white/10 bg-slate-950/35 p-2.5" data-testid="live-nervous-system-strip">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-100">Live Nervous System</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.09em] text-slate-200">Live Nervous System</p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
           <span className="rounded-full border border-white/15 px-2 py-0.5">{modeTruth.label}</span>
           {secondaryLabel ? <span className="rounded-full border border-white/15 px-2 py-0.5">{secondaryLabel}</span> : null}
@@ -89,15 +89,16 @@ export function LiveNervousSystemStrip({ mode, reason, intentMode, updatedAt, pr
           <span>{updatedLabel(updatedAt)}</span>
         </div>
       </div>
-      {modeTruth.intentHint ? <p className="mt-1 text-xs text-slate-400">{modeTruth.intentHint}</p> : null}
-      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+      <div className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-5">
         {steps.map((step) => (
-          <span key={step.name} className={`rounded-md border px-2 py-1 text-center text-[11px] ${stateClasses[step.state]}`}>
+          <span key={step.name} className={`rounded-md border px-1.5 py-1 text-center text-[10px] ${stateClasses[step.state]}`}>
             {step.name}
           </span>
         ))}
       </div>
-      {!traceId ? <p className="mt-2 text-xs text-slate-400">Ready to run — add 2–4 legs.</p> : null}
+      {(modeTruth.intentHint || !traceId) ? (
+        <p className="mt-1 text-[11px] text-slate-400">{modeTruth.intentHint ?? 'Ready to run — add 2–4 legs.'}</p>
+      ) : null}
     </section>
   );
 }

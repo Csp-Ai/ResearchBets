@@ -23,8 +23,8 @@ describe('AppShellProduct top nav', () => {
 
     expect((await screen.findAllByText('Board')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Slip').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Stress Test').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Control Room').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Analyze').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Review').length).toBeGreaterThan(0);
     expect(screen.queryByText('Community')).toBeNull();
   });
 });

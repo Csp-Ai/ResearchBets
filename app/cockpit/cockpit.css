@@ -254,7 +254,7 @@
 .ticket-empty-steps { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .ticket-step-chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 10px; color: #a8b7c9; }
 .ticket-header-pulse { box-shadow: 0 0 0 1px rgba(0,229,200,0.38) inset; background: rgba(0,229,200,0.06); transition: box-shadow 240ms ease, background 240ms ease; }
-.how-it-works { margin: 14px 16px 10px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.how-it-works { margin: 8px 16px 8px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .how-it-works h3 { margin: 0 0 6px; color: #e8edf5; font-size: 13px; }
 .how-it-works ul { margin: 0 0 6px 16px; padding: 0; color: #a4b0c1; font-size: 12px; display: grid; gap: 4px; }
 .how-it-works a { color: #b5ffef; font-size: 12px; text-decoration: none; }
@@ -307,17 +307,17 @@
 }
 
 .terminal-hero {
-  margin: 10px 0 12px;
+  margin: 6px 0 8px;
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
-  gap: 12px;
+  gap: 10px;
 }
 .terminal-hero-main,
 .terminal-scout-panel {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(180deg, rgba(8, 14, 24, 0.94), rgba(8, 14, 24, 0.8));
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 10px;
+  padding: 12px;
 }
 .terminal-kicker {
   margin: 0;
@@ -327,10 +327,10 @@
   color: #83ebd9;
 }
 .terminal-hero-main h1 {
-  margin: 6px 0 8px;
+  margin: 4px 0 6px;
   color: #f1f6fc;
-  font-size: clamp(24px, 3.3vw, 36px);
-  line-height: 1.08;
+  font-size: clamp(22px, 2.6vw, 30px);
+  line-height: 1.06;
   letter-spacing: -0.02em;
   max-width: 16ch;
 }
@@ -341,13 +341,13 @@
   font-size: 13px;
 }
 .terminal-cta-row {
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 .terminal-evidence-row {
-  margin-top: 12px;
+  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -372,9 +372,9 @@
   font-size: 11px;
 }
 .terminal-scout-list {
-  margin-top: 10px;
+  margin-top: 8px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 .terminal-scout-card {
   width: 100%;
@@ -387,7 +387,7 @@
   border-radius: 8px;
   background: rgba(13, 22, 34, 0.9);
   color: #d4dfec;
-  padding: 9px 10px;
+  padding: 7px 9px;
 }
 .terminal-scout-card p {
   margin: 0;
