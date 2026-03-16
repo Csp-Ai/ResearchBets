@@ -11,6 +11,7 @@ import { TicketEmptyCoach } from '@/src/components/landing/TicketEmptyCoach';
 import { flyToTicket } from '@/src/components/landing/flyToTicket';
 import { RunIntegrityPanel } from '@/app/cockpit/components/RunIntegrityPanel';
 import { useCockpitToday } from '@/app/cockpit/hooks/useCockpitToday';
+import type { CockpitBoardLeg } from '@/app/cockpit/adapters/todayToBoard';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { CockpitHeader } from '@/src/components/cockpit/CockpitHeader';
 import { CockpitShell } from '@/src/components/cockpit/CockpitShell';
@@ -18,6 +19,7 @@ import { Chip as LandingChip, Panel, PanelHeader } from '@/src/components/landin
 import { spineHref } from '@/src/core/nervous/spineNavigation';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
+import { formatPct, formatSignedPct } from '@/src/core/markets/edgePrimitives';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { Button } from '@/src/components/ui/button';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -39,6 +41,35 @@ const toPreviewStatusLabel = (mode: 'live' | 'cache' | 'demo') => {
   if (mode === 'demo') return 'Demo mode (live feeds off)';
   if (mode === 'cache') return 'Using cached slate';
   return 'Live mode';
+};
+
+
+const confidenceLabel = (leg: CockpitBoardLeg) => {
+  if (typeof leg.confidencePct === 'number') {
+    if (leg.confidencePct >= 70) return 'High confidence';
+    if (leg.confidencePct >= 58) return 'Medium confidence';
+    return 'Thin confidence';
+  }
+  if (typeof leg.hitRateL10 === 'number') {
+    if (leg.hitRateL10 >= 7) return 'High confidence';
+    if (leg.hitRateL10 >= 6) return 'Medium confidence';
+  }
+  return 'Watchlist confidence';
+};
+
+const fragilityLabel = (leg: CockpitBoardLeg) => {
+  if (leg.deadLegRisk === 'high') return 'Can break a ticket fast';
+  if (leg.deadLegRisk === 'med') return 'Needs script support';
+  if (leg.deadLegRisk === 'low') return 'Lower downside pressure';
+  if (leg.riskTag === 'watch') return 'Higher swing profile';
+  return 'Steadier profile';
+};
+
+const bestContextCue = (leg: CockpitBoardLeg) => {
+  if (typeof leg.threesAttL3Avg === 'number') return `3PA L3 ${leg.threesAttL3Avg.toFixed(1)}`;
+  if (typeof leg.fgaL3Avg === 'number') return `FGA L3 ${leg.fgaL3Avg.toFixed(1)}`;
+  if (typeof leg.hitRateL10 === 'number') return `L10 ${leg.hitRateL10}/10`;
+  return null;
 };
 
 export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
@@ -270,6 +301,23 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     setPulseToken((v) => v + 1);
   };
 
+  const onAnalyzeLeg = async (leg: (typeof board)[number], triggerEl?: HTMLElement | null) => {
+    const alreadyAdded = slipIds.has(leg.id);
+    if (!alreadyAdded) {
+      onAdd(leg, triggerEl);
+    }
+
+    const nextCount = alreadyAdded ? slip.length : slip.length + 1;
+    const ticketPanel = document.getElementById('ticket-panel');
+    if (ticketPanel && typeof ticketPanel.scrollIntoView === 'function') {
+      ticketPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (nextCount >= 2) {
+      await runStressTest();
+    }
+  };
+
   const onEditLeg = (id: string, field: 'line' | 'odds', value: string) => {
     const existing = slip.find((leg) => leg.id === id);
     if (!existing) return;
@@ -498,16 +546,33 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
                     const added = slipIds.has(leg.id);
                     return (
                       <div key={leg.id} className={`board-row ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''}`} role="listitem" onClick={() => onOpenLeg(leg)}>
-                        <div>
-                          <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
-                          <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
-                          <AttemptsChips leg={leg} />
-                        </div>
-                        <div className="board-meta">
-                          <LandingChip>Odds {leg.odds}</LandingChip>
-                          <LandingChip>L10 {leg.hitRateL10 ?? '—'}/10</LandingChip>
-                          <span className="board-open">Open ›</span>
-                          <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg, event.currentTarget); }} disabled={added} aria-pressed={added}>+</button>
+                        <div className="board-row-body">
+                          <div>
+                            <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
+                            <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
+                            <AttemptsChips leg={leg} />
+                            <div className="board-evidence-stack">
+                              {typeof leg.edgeDelta === 'number' ? <LandingChip>Edge {formatSignedPct(leg.edgeDelta)}</LandingChip> : null}
+                              {typeof leg.marketImpliedProb === 'number' && typeof leg.modelProb === 'number' ? <LandingChip>Model {formatPct(leg.modelProb)} vs Implied {formatPct(leg.marketImpliedProb)}</LandingChip> : null}
+                              {typeof leg.hitRateL10 === 'number' ? <LandingChip>L10 {leg.hitRateL10}/10</LandingChip> : null}
+                              {bestContextCue(leg) ? <LandingChip>{bestContextCue(leg)}</LandingChip> : null}
+                              <LandingChip>{confidenceLabel(leg)}</LandingChip>
+                              {leg.deadLegRisk ? <LandingChip>Fragility: {fragilityLabel(leg)}</LandingChip> : null}
+                            </div>
+                            {leg.deadLegRisk || leg.roleReasons?.[0] || leg.deadLegReasons?.[0] || leg.rationale?.[0] ? (
+                              <p className="board-note">
+                                {leg.deadLegReasons?.[0] ?? leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? fragilityLabel(leg)}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="board-meta">
+                            <LandingChip>Odds {leg.odds}</LandingChip>
+                            <div className="board-actions">
+                              <button className="board-open" onClick={(event) => { event.stopPropagation(); onOpenLeg(leg); }}>Open game</button>
+                              <button className="board-open" onClick={(event) => { event.stopPropagation(); void onAnalyzeLeg(leg, event.currentTarget); }}>Analyze</button>
+                              <button className={`add-btn ${added ? 'added' : ''}`} onClick={(event) => { event.stopPropagation(); onAdd(leg, event.currentTarget); }} disabled={added} aria-pressed={added}>{added ? 'Added' : 'Add'}</button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );

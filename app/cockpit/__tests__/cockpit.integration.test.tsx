@@ -58,7 +58,7 @@ describe('cockpit route integration', () => {
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/game/g1?'));
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('highlight=p1'));
 
-    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(mockPush).toHaveBeenCalledTimes(1);
   });
 
@@ -107,10 +107,26 @@ describe('cockpit route integration', () => {
 
     renderWithProviders(<CockpitLandingClient />);
     expect(await screen.findByTestId('ticket-empty-coach')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await waitFor(() => expect(screen.queryByTestId('ticket-empty-coach')).toBeNull());
   });
 
+
+  it('analyze action adds the leg and keeps row navigation scoped', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, trace_id: 'trace-analyze', data: { mode: 'demo', generatedAt: new Date().toISOString(), leagues: ['NBA'], games: [], board: [
+        { id: 'p1', player: 'J. Tatum', market: 'points', line: '28.5', odds: '-110', hitRateL10: 7, gameId: 'g1', matchup: 'LAL @ BOS', startTime: '8:00 PM', edgeDelta: 0.06, modelProb: 0.59, marketImpliedProb: 0.53 }
+      ] } })
+    }) as unknown as Response));
+
+    renderWithProviders(<CockpitLandingClient />);
+    await screen.findAllByText(/J. Tatum/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze' }));
+    expect(screen.getAllByText(/1 leg/i).length).toBeGreaterThan(0);
+    expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/game/g1?'));
+  });
   it('invokes fly-to-ticket when adding a leg', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
@@ -121,7 +137,7 @@ describe('cockpit route integration', () => {
 
     renderWithProviders(<CockpitLandingClient />);
     await screen.findAllByText(/J. Tatum/);
-    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(flyToTicketMock).toHaveBeenCalled();
   });
 });
