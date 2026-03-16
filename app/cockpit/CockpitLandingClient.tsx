@@ -24,6 +24,7 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useRunEvents } from '@/src/core/events/useRunEvents';
 import { ensureTraceId } from '@/src/core/trace/trace_id';
 import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
+import type { CockpitBoardLeg } from '@/app/cockpit/adapters/todayToBoard';
 
 import './cockpit.css';
 
@@ -39,6 +40,16 @@ const toPreviewStatusLabel = (mode: 'live' | 'cache' | 'demo') => {
   if (mode === 'demo') return 'Demo mode (live feeds off)';
   if (mode === 'cache') return 'Using cached slate';
   return 'Live mode';
+};
+
+type ScoutSignal = {
+  id: string;
+  headline: string;
+  confidence: string;
+  confidenceTone: 'good' | 'warn';
+  rationale: string;
+  context: string;
+  leg: CockpitBoardLeg;
 };
 
 export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
@@ -138,6 +149,44 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     const payloadMode = today.mode ?? provenance.mode;
     return toPreviewStatusLabel(payloadMode);
   }, [today.mode, provenance.mode]);
+
+  const scoutSignals = useMemo(() => {
+    return board
+      .slice()
+      .sort((a, b) => {
+        const aHit = typeof a.hitRateL10 === 'number' ? a.hitRateL10 : 0;
+        const bHit = typeof b.hitRateL10 === 'number' ? b.hitRateL10 : 0;
+        if (bHit !== aHit) return bHit - aHit;
+        if (a.riskTag === b.riskTag) return 0;
+        return a.riskTag === 'stable' ? -1 : 1;
+      })
+      .slice(0, 3)
+      .map((leg) => {
+        const hitRate = typeof leg.hitRateL10 === 'number' ? leg.hitRateL10 : null;
+        const confidence = hitRate !== null && hitRate >= 7
+          ? 'High confidence'
+          : hitRate !== null && hitRate >= 6
+            ? 'Medium confidence'
+            : 'Watchlist';
+        const rationale = typeof leg.threesAttL3Avg === 'number'
+          ? `3PA L3 ${leg.threesAttL3Avg.toFixed(1)} supports this line.`
+          : typeof leg.fgaL3Avg === 'number'
+            ? `FGA L3 ${leg.fgaL3Avg.toFixed(1)} keeps volume live.`
+            : hitRate !== null
+              ? `Recent form ${hitRate}/10 against this line.`
+              : 'Deterministic board signal with limited sample context.';
+
+        return {
+          id: leg.id,
+          headline: `${leg.player} · ${leg.market} ${leg.line}`,
+          confidence,
+          confidenceTone: confidence === 'Watchlist' ? 'warn' : 'good',
+          rationale,
+          context: `${leg.matchup} · ${leg.startTime} · ${leg.odds}`,
+          leg
+        };
+      });
+  }, [board]);
 
   const [recentlyChangedLegIds, setRecentlyChangedLegIds] = useState<Set<string>>(new Set());
   const [recentlyChangedGroups, setRecentlyChangedGroups] = useState<Set<string>>(new Set());
@@ -523,6 +572,29 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             {phaseStep ? <p className="phase-strip" data-testid="phase-strip">{`Phase: ${phaseStep}`}</p> : null}
             {analysis.traceId ? <Link href={nervous.toHref('/track', { trace_id: analysis.traceId, tab: 'during' })} className="ui-button ui-button-secondary focus-glow" style={{ marginTop: 10, display: 'inline-block' }}>Continue to track</Link> : null}
           </Panel>
+        </section>
+
+
+
+        <section className="scout-signal-grid" aria-label="Top board signals">
+          {scoutSignals.map((signal) => (
+            <article key={signal.id} className="scout-signal-card">
+              <div className="scout-signal-head">
+                <p className="scout-signal-title">{signal.headline}</p>
+                <LandingChip variant={signal.confidenceTone}>{signal.confidence}</LandingChip>
+              </div>
+              <p className="scout-signal-context">{signal.context}</p>
+              <p className="scout-signal-rationale">{signal.rationale}</p>
+              <div className="scout-signal-actions">
+                <button className="ui-button ui-button-secondary focus-glow" onClick={() => onAdd(signal.leg)} disabled={slipIds.has(signal.leg.id)}>
+                  {slipIds.has(signal.leg.id) ? 'Added' : 'Add to ticket'}
+                </button>
+                <button className="ui-button ui-button-secondary focus-glow" onClick={() => onOpenLeg(signal.leg)}>
+                  Open game
+                </button>
+              </div>
+            </article>
+          ))}
         </section>
 
         <details className="rounded-2xl border border-white/10 bg-slate-950/50 p-3" data-testid="cockpit-details-disclosure">
