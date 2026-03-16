@@ -297,3 +297,95 @@
 .pipeline-strip-health {
   color: #94a3b8;
 }
+
+.scout-signal-grid {
+  margin: 10px 16px 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scout-signal-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(10, 16, 26, 0.78);
+  padding: 10px;
+  display: grid;
+  gap: 7px;
+}
+
+.scout-signal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.scout-signal-title {
+  margin: 0;
+  color: #ecf5ff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scout-signal-context,
+.scout-signal-rationale {
+  margin: 0;
+  font-size: 12px;
+  color: #a8b7c9;
+}
+
+.scout-signal-rationale {
+  color: #c4d0df;
+}
+
+.scout-signal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workflow-rail {
+  margin: 14px 16px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  background: rgba(7, 13, 22, 0.8);
+}
+
+.workflow-step {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #91faeb;
+}
+
+.workflow-copy {
+  margin: 6px 0;
+  font-size: 12px;
+  color: #b6c2d2;
+  min-height: 34px;
+}
+
+.workflow-rail a,
+.workflow-link {
+  color: #b5ffef;
+  font-size: 12px;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .scout-signal-grid,
+  .workflow-rail {
+    grid-template-columns: 1fr;
+  }
+}
