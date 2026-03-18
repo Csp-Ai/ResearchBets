@@ -93,3 +93,15 @@
 - **Acceptance criteria**:
   - archive modules are clearly marked non-canonical.
   - imports from active surfaces are blocked or warned.
+
+## PR11 — AFTER-stage attribution and feedback engine
+
+- **Goal**: upgrade postmortem from generic deterministic notes into structured weakest-leg attribution that stays continuity-safe and bettor-useful.
+- **Touched areas**: `app/api/postmortem/*`, `src/core/postmortem/*`, `app/(product)/control/*`, review ingestion DTO/types, docs.
+- **Tests to run**: `npm run lint`, `npm run typecheck`, `npm test -- app/api/postmortem/__tests__/route.test.ts app/(product)/control/__tests__/ReviewPanel.test.tsx`.
+- **Acceptance criteria**:
+  - `/api/postmortem` returns `weakest_leg`, compact deterministic `cause_tags`, `confidence_level`, and `summary_explanation`.
+  - attribution is suppressed when `parse_status=failed`.
+  - response and UI preserve `trace_id` + `slip_id` continuity for later comparison/logging.
+  - Review Panel renders a compact weakest-leg card, cause-tag chips, and neutral bettor-facing copy.
+  - implementation remains deterministic-first, with future LLM summarization optional rather than required.

@@ -4,7 +4,6 @@ import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 import {
   REVIEW_DEMO_SAMPLE_NAME,
   REVIEW_DEMO_SAMPLE_TEXT,
-  ReviewIngestionError,
   runReviewIngestion
 } from '@/src/core/control/reviewIngestion';
 

@@ -39,6 +39,8 @@
 6. Control Room stores a structured review provenance object (`source_type`, `parse_status`, nullable `parse_confidence`, continuity ids, `had_manual_edits`, `generated_at`) and renders it in the review panel.
 7. Screenshot OCR now pauses before postmortem with an extracted-text preview + manual correction loop; failed real ingestion stays visibly failed and never auto-swaps to demo.
 8. A separate, explicitly labeled demo sample review remains available only through the sample action.
+9. `/api/postmortem` now adds deterministic attribution (`weakest_leg`, compact `cause_tags`, `confidence_level`, `summary_explanation`) tied to `trace_id` and `slip_id`, so review reasoning can be compared across reruns without changing ingestion.
+10. Attribution heuristics stay deterministic and explainable: they score the weakest leg from miss/pending pressure, threshold gap, report fragility, stat volatility, and correlation context; an optional LLM layer can sit on top later, but the canonical contract remains rule-based first.
 
 ## Provenance model
 

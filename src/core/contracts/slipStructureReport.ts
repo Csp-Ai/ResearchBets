@@ -33,8 +33,20 @@ export type FailureForecast = {
 
 export type Attribution = {
   outcome?: 'win' | 'loss' | 'push' | 'partial';
+  trace_id?: string;
+  slip_id?: string;
   breaker_leg_id?: string;
-  tags: string[];
+  weakest_leg?: {
+    leg_id: string;
+    player: string | null;
+    prop_type: string | null;
+    expected_vs_actual?: string;
+    status: 'hit' | 'miss' | 'pending';
+  };
+  tags?: string[];
+  cause_tags?: string[];
+  confidence_level?: 'high' | 'medium' | 'low';
+  summary_explanation?: string;
   narrative: string;
 };
 

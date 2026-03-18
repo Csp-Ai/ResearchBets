@@ -19,6 +19,7 @@ export type ReviewPostMortemResult = {
   ok: boolean;
   trace_id?: string;
   slip_id?: string;
+  attribution: import('@/src/core/postmortem/attribution').PostmortemAttribution | null;
   classification: {
     process: string;
     correlationMiss: boolean;
@@ -205,7 +206,9 @@ export async function runReviewIngestion(
       outcome: input.outcome,
       trace_id: dto.trace_id,
       slip_id: dto.slip_id,
-      mode: input.mode === 'demo' ? 'demo' : 'live'
+      mode: input.mode === 'demo' ? 'demo' : 'live',
+      report: dto.report,
+      parse_status: parseStatus
     })
   });
   const postmortemPayload = (await postmortemResponse.json()) as PostmortemResponse;

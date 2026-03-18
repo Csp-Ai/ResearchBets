@@ -31,6 +31,15 @@ ResearchBets should always:
 5. **Truthful review ingestion** — AFTER-stage review defaults to the real parse/extract path; demo review is labeled as sample-only fallback.
 6. **Visible provenance** — review output tells bettors whether it came from pasted text, screenshot OCR, or the demo sample, plus parse status, confidence availability, and continuity ids.
 7. **Manual recovery before postmortem** — when OCR/parse quality is weak, bettors can correct extracted text and rerun the real review instead of being quietly routed to demo.
+8. **Useful attribution, not vibes** — review highlights the weakest leg, classifies a short list of deterministic cause tags, and explains the failure/success in bettor-facing language tied to the same continuity ids.
+
+## AFTER-stage attribution engine
+
+- `/api/postmortem` now produces a compact attribution payload with `weakest_leg`, `cause_tags`, `confidence_level`, and `summary_explanation`.
+- The engine is deterministic: it uses canonical run output plus continuity metadata, never LLM calls.
+- Cause tags stay intentionally tight (`line_too_aggressive`, `role_mismatch`, `blowout_minutes_risk`, `low_usage_player`, `efficiency_variance`, `correlated_legs`, `late_game_inactivity`, `injury_or_rotation_shift`) so bettors can compare reviews over time.
+- Control Room review renders this in a compact weakest-leg card with chips and one short explanation.
+- Future extensibility: an LLM can later summarize or personalize copy, but only after deterministic attribution is computed and preserved as the canonical layer.
 
 ## Positioning: not a tout product
 

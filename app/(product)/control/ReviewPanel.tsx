@@ -34,6 +34,8 @@ const formatConfidence = (confidence: number | null) => {
   return confidence <= 1 ? `${Math.round(confidence * 100)}% confidence` : `${Math.round(confidence)}% confidence`;
 };
 
+const titleCase = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
 export function ReviewPanel({
   retroDto,
   uploadName,
@@ -70,8 +72,10 @@ export function ReviewPanel({
     ?? 'Unknown leg';
 
   const originLabel = provenance.source_type === 'demo_sample' ? 'Demo sample review' : 'Real parsed review';
-  const continuityTraceId = provenance.trace_id ?? retroDto.trace_id ?? 'Unavailable';
-  const continuitySlipId = provenance.slip_id ?? retroDto.slip_id ?? 'Unavailable';
+  const continuityTraceId = postmortem?.attribution?.trace_id ?? provenance.trace_id ?? retroDto.trace_id ?? 'Unavailable';
+  const continuitySlipId = postmortem?.attribution?.slip_id ?? provenance.slip_id ?? retroDto.slip_id ?? 'Unavailable';
+  const attribution = postmortem?.attribution;
+  const weakestLegAttribution = attribution?.weakest_leg;
 
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm space-y-2">
@@ -101,6 +105,35 @@ export function ReviewPanel({
       <ul className="list-disc pl-5 text-slate-300">
         {postmortemReasons.map((reason) => <li key={reason}>{reason}</li>)}
       </ul>
+      {weakestLegAttribution ? (
+        <div className="rounded-lg border border-cyan-400/20 bg-slate-900/80 p-3 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Weakest leg</p>
+              <p className="font-medium text-slate-100">
+                {weakestLegAttribution.player ?? 'Unknown player'} {weakestLegAttribution.prop_type ? `${weakestLegAttribution.prop_type}` : ''}
+              </p>
+              {weakestLegAttribution.expected_vs_actual ? (
+                <p className="text-xs text-slate-400">Current vs target: {weakestLegAttribution.expected_vs_actual}</p>
+              ) : null}
+            </div>
+            <span className="rounded-full border border-white/10 px-2 py-1 text-xs text-slate-200">
+              {titleCase(weakestLegAttribution.status)}
+            </span>
+          </div>
+          {attribution && attribution.cause_tags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {attribution.cause_tags.map((tag) => (
+                <span key={tag} className="rounded-full border border-white/10 bg-slate-950/70 px-2 py-1 text-[11px] text-slate-200">
+                  {titleCase(tag)}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <p className="text-sm text-slate-200">{attribution?.summary_explanation}</p>
+          <p className="text-xs text-slate-500">Confidence: {titleCase(attribution?.confidence_level ?? 'low')}</p>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={onShare} className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5">
           {shareStatus === 'done' ? 'Shared run' : shareStatus === 'error' ? 'Share unavailable' : 'Share'}
