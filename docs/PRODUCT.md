@@ -10,7 +10,7 @@ The first 7 users are Chris and 6 friends who bet props together and want a repe
 2. **Build a slip** on `/slip` by adding a few legs.
 3. **Stress-test** on `/stress-test` before placing.
 4. **Monitor** in `/control?tab=live` while games run.
-5. **Review wins/losses** in `/control?tab=review` and run postmortem.
+5. **Review wins/losses** in `/control?tab=review` with real pasted/uploaded ingestion by default, then run postmortem.
 
 ## Canonical user promise
 
@@ -28,6 +28,7 @@ ResearchBets should always:
 2. **Deterministic fallback** — no dead-end experience if live services are unavailable.
 3. **Lifecycle continuity** — board → slip → stress-test → control stays connected.
 4. **Process feedback loop** — postmortem always outputs “what failed” and “what to change.”
+5. **Truthful review ingestion** — AFTER-stage review defaults to the real parse/extract path; demo review is labeled as sample-only fallback.
 
 ## Positioning: not a tout product
 

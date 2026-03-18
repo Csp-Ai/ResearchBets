@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
@@ -13,6 +13,12 @@ import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { CockpitHeader } from '@/src/components/cockpit/CockpitHeader';
 import { CockpitShell } from '@/src/components/cockpit/CockpitShell';
 import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
+import {
+  REVIEW_DEMO_SAMPLE_NAME,
+  REVIEW_DEMO_SAMPLE_TEXT,
+  type ReviewPostMortemResult,
+  runReviewIngestion
+} from '@/src/core/control/reviewIngestion';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
 
 const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPanel), {
@@ -26,32 +32,6 @@ const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPa
 
 type Tab = 'live' | 'review';
 
-type PostMortemResult = {
-  ok: boolean;
-  classification: {
-    process: string;
-    correlationMiss: boolean;
-    injuryImpact: boolean;
-    lineValueMiss: boolean;
-  };
-  notes: string[];
-  correlationScore: number;
-  volatilityTier: 'Low' | 'Med' | 'High' | 'Extreme';
-  exposureSummary: {
-    topGames: Array<{ game: string; count: number }>;
-    topPlayers: Array<{ player: string; count: number }>;
-  };
-};
-
-const mockParseSlip = (fileName: string): string => {
-  const key = fileName.toLowerCase();
-  if (key.includes('nba'))
-    return 'Luka Doncic over 31.5 points (-110)\nKyrie Irving over 3.5 threes (+105)';
-  if (key.includes('nfl'))
-    return 'Josh Allen over 1.5 pass TDs (-120)\nStefon Diggs over 74.5 receiving yards (-115)';
-  return 'LeBron James over 6.5 rebounds (-105)\nJayson Tatum over 29.5 points (-110)';
-};
-
 export function ControlPageClient() {
   const search = useSearchParams();
   const initialTab = search.get('tab') === 'review' ? 'review' : 'live';
@@ -59,11 +39,17 @@ export function ControlPageClient() {
   const { slip, slip_id: draftSlipId, trace_id: draftTraceId } = useDraftSlip();
   const nervous = useNervousSystem();
   const [outcome, setOutcome] = useState<'win' | 'loss' | 'push'>('loss');
-  const [postmortem, setPostmortem] = useState<PostMortemResult | null>(null);
+  const [postmortem, setPostmortem] = useState<ReviewPostMortemResult | null>(null);
   const [retroDto, setRetroDto] = useState<ResearchRunDTO | null>(null);
-  const [uploadName, setUploadName] = useState('');
+  const [reviewInputLabel, setReviewInputLabel] = useState('');
+  const [reviewMode, setReviewMode] = useState<'live' | 'demo' | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewStatus, setReviewStatus] = useState<'idle' | 'running'>('idle');
+  const [ocrStatus, setOcrStatus] = useState<string | null>(null);
   const [latestTrace, setLatestTrace] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
+  const [reviewText, setReviewText] = useState('');
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const riskDelta = useMemo(() => {
     if (slip.length === 0) return 0;
@@ -72,39 +58,98 @@ export function ControlPageClient() {
   }, [slip]);
 
   const runReview = useCallback(
-    async (file?: File) => {
-      const slipText = mockParseSlip(file?.name ?? 'upload.png');
-      const [{ runSlip }, { runStore }, { toResearchRunDTOFromRun }] = await Promise.all([
-        import('@/src/core/pipeline/runSlip'),
-        import('@/src/core/run/store'),
-        import('@/src/core/run/researchRunDTO')
-      ]);
-      const traceId = await runSlip(slipText, {
-        trace_id: draftTraceId ?? nervous.trace_id,
-        slip_id: draftSlipId
-      });
-      const run = await runStore.getRun(traceId);
-      if (!run) return;
-
-      const dto = toResearchRunDTOFromRun(run);
-      setRetroDto(dto);
-      setUploadName(file?.name ?? 'upload.png');
-
-      const response = await fetch('/api/postmortem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ legs: dto.legs, outcome })
-      });
-      const payload = (await response.json()) as PostMortemResult;
-      setPostmortem(payload);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(
-          'rb:last-postmortem',
-          JSON.stringify({ uploadName: file?.name, dto, payload })
+    async ({
+      text,
+      mode,
+      sourceHint,
+      inputLabel
+    }: {
+      text: string;
+      mode: 'paste' | 'screenshot' | 'demo';
+      sourceHint: 'paste' | 'screenshot' | 'demo';
+      inputLabel: string;
+    }) => {
+      setReviewStatus('running');
+      setReviewError(null);
+      setOcrStatus(null);
+      try {
+        const [{ runSlip }, { runStore }, { toResearchRunDTOFromRun }] = await Promise.all([
+          import('@/src/core/pipeline/runSlip'),
+          import('@/src/core/run/store'),
+          import('@/src/core/run/researchRunDTO')
+        ]);
+        const result = await runReviewIngestion({
+          text,
+          outcome,
+          mode,
+          sourceHint,
+          inputLabel,
+          continuity: {
+            trace_id: draftTraceId ?? nervous.trace_id,
+            slip_id: draftSlipId
+          }
+        },
+          { runSlip, runStore, toResearchRunDTOFromRun }
         );
+
+        setRetroDto(result.dto);
+        setReviewInputLabel(result.inputLabel);
+        setReviewMode(result.mode === 'demo' ? 'demo' : 'live');
+        setPostmortem(result.postmortem);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(
+            'rb:last-postmortem',
+            JSON.stringify({
+              inputLabel: result.inputLabel,
+              mode: result.mode,
+              dto: result.dto,
+              payload: result.postmortem
+            })
+          );
+        }
+      } catch (error) {
+        setRetroDto(null);
+        setPostmortem(null);
+        setReviewMode(mode === 'demo' ? 'demo' : 'live');
+        setReviewInputLabel(inputLabel);
+        setReviewError(error instanceof Error ? error.message : 'Review ingestion failed.');
+      } finally {
+        setReviewStatus('idle');
       }
     },
-    [outcome]
+    [draftSlipId, draftTraceId, nervous.trace_id, outcome]
+  );
+
+  const onUploadReviewFile = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+
+      setReviewError(null);
+
+      try {
+        setOcrStatus('Reading screenshot…');
+        const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
+        const text = await runOcr(file, (progress) => setOcrStatus(progress));
+        setReviewText(text);
+        await runReview({
+          text,
+          mode: 'screenshot',
+          sourceHint: 'screenshot',
+          inputLabel: file.name
+        });
+      } catch (error) {
+        setReviewError(
+          error instanceof Error
+            ? error.message
+            : 'Could not read the screenshot. Try another image or paste your slip manually.'
+        );
+      } finally {
+        setOcrStatus(null);
+      }
+    },
+    [runReview]
   );
 
   useEffect(() => {
@@ -115,7 +160,12 @@ export function ControlPageClient() {
 
   useEffect(() => {
     if (search.get('sample') === '1' && tab === 'review' && !retroDto) {
-      void runReview();
+      void runReview({
+        text: REVIEW_DEMO_SAMPLE_TEXT,
+        mode: 'demo',
+        sourceHint: 'demo',
+        inputLabel: REVIEW_DEMO_SAMPLE_NAME
+      });
     }
   }, [retroDto, runReview, search, tab]);
 
@@ -265,41 +315,99 @@ export function ControlPageClient() {
         <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
           <h2 className="text-lg font-semibold">Review</h2>
           <p className="text-sm text-slate-300">
-            Upload a FanDuel screenshot for demo OCR parsing and deterministic postmortem
-            classification.
+            Review a real slip by pasting ticket text or uploading a screenshot. The default
+            path runs OCR/parse + extract before postmortem. Demo review stays separate below.
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                void runReview(file);
-              }}
-              className="text-sm"
-            />
-            <select
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value as 'win' | 'loss' | 'push')}
-              className="rounded border border-white/20 bg-slate-950 px-2 py-1 text-sm"
-            >
-              <option value="win">Win</option>
-              <option value="loss">Loss</option>
-              <option value="push">Push</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => void runReview()}
-              className="rounded bg-cyan-400 px-3 py-1.5 text-sm font-medium text-slate-950"
-            >
-              Run sample review
-            </button>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="space-y-1">
+              <span className="text-xs uppercase tracking-wide text-slate-400">Review input</span>
+              <textarea
+                value={reviewText}
+                onChange={(event) => setReviewText(event.target.value)}
+                className="h-28 w-full rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-100"
+                placeholder="Paste the real slip text you want to review…"
+              />
+            </label>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(event) => {
+                  void onUploadReviewFile(event);
+                }}
+                hidden
+              />
+              <select
+                value={outcome}
+                onChange={(e) => setOutcome(e.target.value as 'win' | 'loss' | 'push')}
+                className="rounded border border-white/20 bg-slate-950 px-2 py-2 text-sm"
+              >
+                <option value="win">Win</option>
+                <option value="loss">Loss</option>
+                <option value="push">Push</option>
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  void runReview({
+                    text: reviewText,
+                    mode: 'paste',
+                    sourceHint: 'paste',
+                    inputLabel: 'Pasted review input'
+                  })
+                }
+                disabled={reviewStatus === 'running' || !reviewText.trim()}
+                className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reviewStatus === 'running' ? 'Running review…' : 'Run real review'}
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={reviewStatus === 'running'}
+                className="rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-100 hover:bg-white/5 disabled:opacity-60"
+              >
+                Upload screenshot
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void runReview({
+                    text: REVIEW_DEMO_SAMPLE_TEXT,
+                    mode: 'demo',
+                    sourceHint: 'demo',
+                    inputLabel: REVIEW_DEMO_SAMPLE_NAME
+                  })
+                }
+                disabled={reviewStatus === 'running'}
+                className="rounded border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 disabled:opacity-60"
+              >
+                Run demo sample review
+              </button>
+            </div>
           </div>
+          <p className="text-xs text-slate-400">
+            Default review keeps the current bettor-loop continuity by reusing trace_id{' '}
+            {draftTraceId ?? nervous.trace_id ?? 'when available'} and slip_id{' '}
+            {draftSlipId ?? 'when available'}.
+          </p>
+          {ocrStatus ? <p className="text-xs text-slate-300">{ocrStatus}</p> : null}
+          {reviewError ? (
+            <div className="rounded-lg border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+              <p className="font-medium">Real review could not be parsed.</p>
+              <p className="mt-1">{reviewError}</p>
+              <p className="mt-1 text-xs text-rose-100/80">
+                You can edit the input and retry, or choose “Run demo sample review” for the
+                clearly labeled sample flow.
+              </p>
+            </div>
+          ) : null}
 
           <ReviewPanel
             retroDto={retroDto}
-            uploadName={uploadName}
+            uploadName={reviewInputLabel}
+            reviewMode={reviewMode}
             postmortem={postmortem}
             shareStatus={shareStatus}
             onShare={() => void shareRun()}

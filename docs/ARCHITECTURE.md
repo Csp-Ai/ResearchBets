@@ -31,12 +31,12 @@
 
 ### B) Postmortem review path
 
-1. User enters Control Room review tab and uploads a slip image.
-2. Client performs deterministic mock OCR parse to slip text.
-3. Client replays stress-test pipeline (`runSlip`) for structured legs + verdict context.
-4. Client posts `{ legs, outcome }` to `/api/postmortem`.
-5. API returns deterministic classification + slip-intelligence metrics.
-6. UI renders “what failed / what to change next” using returned signals.
+1. User enters Control Room review tab and pastes slip text or uploads a screenshot.
+2. Screenshot uploads run client OCR; pasted text goes directly to `/api/slips/parseText`.
+3. The parsed text is then sent through the canonical submit/extract-backed stress pipeline (`runSlip`) using the existing `trace_id`/`slip_id` when available.
+4. Client posts the resulting extracted `dto.legs` plus continuity metadata to `/api/postmortem`.
+5. API returns deterministic classification + slip-intelligence metrics grounded in the real parsed/extracted review input.
+6. A separate, explicitly labeled demo sample review remains available only as fallback.
 
 ## Provenance model
 
