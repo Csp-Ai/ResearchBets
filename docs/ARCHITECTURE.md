@@ -41,6 +41,8 @@
 8. A separate, explicitly labeled demo sample review remains available only through the sample action.
 9. `/api/postmortem` now adds deterministic attribution (`weakest_leg`, compact `cause_tags`, `confidence_level`, `summary_explanation`) tied to `trace_id` and `slip_id`, so review reasoning can be compared across reruns without changing ingestion.
 10. Attribution heuristics stay deterministic and explainable: they score the weakest leg from miss/pending pressure, threshold gap, report fragility, stat volatility, and correlation context; an optional LLM layer can sit on top later, but the canonical contract remains rule-based first.
+11. After a real reviewed slip returns attribution, the client persists a compact local reviewed-attribution record keyed by canonical `trace_id`/`slip_id` and recomputes a bettor pattern summary through `src/core/postmortem/patternSource.ts` and `src/core/postmortem/patterns.ts`.
+12. Pattern summaries are deterministic only: they aggregate repeated `cause_tags` plus weakest-leg prop type context, return `recurring_tags`, `common_failure_mode`, `sample_size`, `confidence_level`, `recommendation_summary`, and `recent_examples`, and explicitly return low-confidence / insufficient-history output instead of inventing a trend.
 
 ## Provenance model
 
@@ -186,6 +188,11 @@ Determinism guarantee: all `/tonight` and landing lead computations are pure aga
 - Edge aggregation: `src/core/review/edgeProfile.ts` derives local-only tendencies from postmortems (win rate, near-miss rate, high-fragility share, coverage-gap share, top miss tags, killer stat types).
 - UI surfaces: `/track` includes a Settle panel; `/review` renders the Edge Profile card + recent postmortem table.
 - Control Room AFTER-stage review (`app/(product)/control/*`, `src/core/control/reviewIngestion.ts`) now separates four truthful states: real review success, real review partial parse, real review failure, and explicit demo sample. Screenshot OCR can stop for manual correction before postmortem, while provenance stays attached to the resulting review output.
+- Cross-slip bettor pattern layer (`src/core/postmortem/patterns.ts`, `src/core/postmortem/patternSource.ts`) extends the AFTER loop from one-slip attribution into repeated-mistake detection without changing the canonical review contract.
+- History source rule: only real reviewed slips with deterministic attribution are stored in the local reviewed-attribution adapter; demo samples and failed parses are excluded so bettor history is never fabricated.
+- Confidence rule: fewer than 3 reviewed slips, or fewer than 2 repeats for any `cause_tag`, yields `confidence_level: low` and `common_failure_mode: insufficient_history`.
+- Failure mode rule: repeated aggressive lines, blowout/minutes flags, role mismatches, correlated legs, and high-variance stat types are bucketed into a small deterministic set of failure modes for compact review UI copy.
+- Future extension path: a richer learning system can swap the storage adapter or add more features later, but it must continue to preserve canonical `trace_id` / `slip_id` continuity and deterministic summaries as the first layer.
 
 ## Landing architecture map
 

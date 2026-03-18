@@ -20,6 +20,7 @@ export type ReviewPostMortemResult = {
   trace_id?: string;
   slip_id?: string;
   attribution: import('@/src/core/postmortem/attribution').PostmortemAttribution | null;
+  pattern_summary?: import('@/src/core/postmortem/patterns').BettorMistakePatternSummary;
   classification: {
     process: string;
     correlationMiss: boolean;
@@ -156,7 +157,8 @@ export async function runReviewIngestion(
   if (!parseResponse.ok || !parsePayload.ok || !parsePayload.data) {
     throw new ReviewIngestionError(
       'parse_failed',
-      parsePayload.error?.message ?? 'Could not parse this review input yet. Try editing the text or use the demo sample instead.',
+      parsePayload.error?.message ??
+        'Could not parse this review input yet. Try editing the text or use the demo sample instead.',
       buildProvenance(input, {
         trace_id: input.continuity?.trace_id ?? null,
         slip_id: input.continuity?.slip_id ?? null,
@@ -215,7 +217,8 @@ export async function runReviewIngestion(
   if (!postmortemResponse.ok || !('ok' in postmortemPayload) || postmortemPayload.ok !== true) {
     throw new ReviewIngestionError(
       'postmortem_failed',
-      ('error' in postmortemPayload ? postmortemPayload.error?.message : undefined) ?? 'Postmortem review failed. The parsed slip was kept, but the after-action summary could not be generated.',
+      ('error' in postmortemPayload ? postmortemPayload.error?.message : undefined) ??
+        'Postmortem review failed. The parsed slip was kept, but the after-action summary could not be generated.',
       buildProvenance(input, {
         parseTicket: parsePayload.data,
         trace_id: dto.trace_id ?? traceId,

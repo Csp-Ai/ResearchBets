@@ -20,6 +20,7 @@ import {
   type ReviewProvenance,
   runReviewIngestion
 } from '@/src/core/control/reviewIngestion';
+import { getBettorMistakePatternSummary, saveReviewedAttribution } from '@/src/core/postmortem/patternSource';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
 
 const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPanel), {
@@ -102,7 +103,14 @@ export function ControlPageClient() {
         setRetroDto(result.dto);
         setReviewInputLabel(result.inputLabel);
         setReviewProvenance(result.provenance);
-        setPostmortem(result.postmortem);
+        saveReviewedAttribution({
+          postmortem: result.postmortem,
+          provenance: result.provenance
+        });
+        setPostmortem({
+          ...result.postmortem,
+          pattern_summary: getBettorMistakePatternSummary()
+        });
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(
             'rb:last-postmortem',

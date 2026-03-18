@@ -32,6 +32,7 @@ ResearchBets should always:
 6. **Visible provenance** — review output tells bettors whether it came from pasted text, screenshot OCR, or the demo sample, plus parse status, confidence availability, and continuity ids.
 7. **Manual recovery before postmortem** — when OCR/parse quality is weak, bettors can correct extracted text and rerun the real review instead of being quietly routed to demo.
 8. **Useful attribution, not vibes** — review highlights the weakest leg, classifies a short list of deterministic cause tags, and explains the failure/success in bettor-facing language tied to the same continuity ids.
+9. **Truthful pattern learning** — once enough real reviewed slips exist, Control Room can show repeated mistake patterns across prior postmortems without inventing history or using LLMs.
 
 ## AFTER-stage attribution engine
 
@@ -40,6 +41,25 @@ ResearchBets should always:
 - Cause tags stay intentionally tight (`line_too_aggressive`, `role_mismatch`, `blowout_minutes_risk`, `low_usage_player`, `efficiency_variance`, `correlated_legs`, `late_game_inactivity`, `injury_or_rotation_shift`) so bettors can compare reviews over time.
 - Control Room review renders this in a compact weakest-leg card with chips and one short explanation.
 - Future extensibility: an LLM can later summarize or personalize copy, but only after deterministic attribution is computed and preserved as the canonical layer.
+
+## AFTER-stage bettor pattern summary
+
+- Real reviewed slips with attribution are also normalized into a compact history record keyed by canonical `trace_id` / `slip_id`.
+- The pattern summary model is deterministic and narrow:
+  - `recurring_tags: [{ tag, count, percentage }]`
+  - `common_failure_mode`
+  - `sample_size`
+  - `confidence_level`
+  - `recommendation_summary`
+  - `recent_examples`
+- The first version intentionally stays conservative:
+  - no summary is fabricated when there is no history,
+  - demo reviews do not count toward bettor history,
+  - fewer than 3 reviewed slips returns low-confidence / insufficient-history language,
+  - one isolated miss does not become a “pattern.”
+- Current repeated-pattern buckets are explainable and compact: aggressive lines, blowout-sensitive scoring, role/market mismatch, correlated same-script exposure, rotation-context misses, and high-variance stat chasing.
+- UI tone stays neutral and bettor-facing: “Across 8 reviewed slips…” instead of mystical or overconfident coaching copy.
+- Future extension path: replace the local adapter with durable storage, add more weakest-leg features, or add richer learning systems later, while keeping deterministic attribution and continuity-safe history as the canonical base layer.
 
 ## Positioning: not a tout product
 
