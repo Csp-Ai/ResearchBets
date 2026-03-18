@@ -3,16 +3,32 @@ import type { BettorMistakePatternSummary } from '@/src/core/postmortem/patterns
 import type { CauseTag, ConfidenceLevel } from '@/src/core/postmortem/attribution';
 
 export type PreSubmitWarningLevel = 'high' | 'medium' | 'low' | 'none';
+export type SuggestedFixType =
+  | 'lower_threshold'
+  | 'reduce_correlation'
+  | 'swap_stat_type'
+  | 'reduce_blowout_exposure'
+  | 'trim_leg_count';
 
 export type PreSubmitMatchedPattern = {
   tag: CauseTag;
   reason: string;
 };
 
+export type PreSubmitSuggestedFix = {
+  fix_type: SuggestedFixType;
+  title: string;
+  explanation: string;
+  affected_legs: string[];
+  suggested_action: string;
+  confidence_level: ConfidenceLevel;
+};
+
 export type PreSubmitPatternWarning = {
   warning_level: PreSubmitWarningLevel;
   matched_patterns: PreSubmitMatchedPattern[];
   recommendation_summary: string;
+  suggested_fixes: PreSubmitSuggestedFix[];
   sample_size: number;
   confidence_level: ConfidenceLevel;
   suppression_reason?: string;
@@ -21,9 +37,12 @@ export type PreSubmitPatternWarning = {
 const MIN_HISTORY_TO_SHOW = 2;
 const MIN_HISTORY_FOR_MEDIUM = 3;
 const MAX_MATCHED_PATTERNS = 3;
+const MAX_SUGGESTED_FIXES = 3;
+const TRIM_LEG_COUNT_THRESHOLD = 5;
 
 const AGGRESSIVE_MARKETS = new Set<SlipBuilderLeg['marketType']>(['points', 'threes', 'assists']);
 const OVER_STYLE_MARKETS = new Set<SlipBuilderLeg['marketType']>(['points', 'threes', 'assists', 'rebounds', 'pra', 'ra']);
+const BLOWOUT_SWAP_MARKETS = new Set<SlipBuilderLeg['marketType']>(['points', 'threes']);
 
 const parseLine = (value: string): number | null => {
   const parsed = Number(value);
@@ -41,6 +60,9 @@ const normalizeText = (value?: string): string => value?.trim().toLowerCase() ??
 
 const uniqueCount = (values: Array<string | undefined>): number =>
   new Set(values.map((value) => normalizeText(value)).filter(Boolean)).size;
+
+const titleCase = (value: string): string =>
+  value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
 export function lineLooksAggressive(leg: SlipBuilderLeg): boolean {
   const line = parseLine(leg.line);
@@ -104,6 +126,235 @@ function warningLevelFor(input: {
   return 'low';
 }
 
+type SlipPatternSignals = {
+  aggressiveLegs: SlipBuilderLeg[];
+  correlatedLegs: SlipBuilderLeg[];
+  blowoutLegs: SlipBuilderLeg[];
+};
+
+type RankedFix = PreSubmitSuggestedFix & {
+  rankingScore: number;
+  alignmentScore: number;
+  riskReductionScore: number;
+  simplicityScore: number;
+};
+
+function pickLowestConfidenceLegs(legs: SlipBuilderLeg[], count: number): SlipBuilderLeg[] {
+  return [...legs]
+    .sort((a, b) => {
+      const confidenceDiff = (a.confidence ?? -1) - (b.confidence ?? -1);
+      if (confidenceDiff !== 0) return confidenceDiff;
+      const volatilityRank = { high: 0, medium: 1, low: 2 } as const;
+      const volatilityDiff = (volatilityRank[a.volatility ?? 'medium'] ?? 1) - (volatilityRank[b.volatility ?? 'medium'] ?? 1);
+      if (volatilityDiff !== 0) return volatilityDiff;
+      return a.id.localeCompare(b.id);
+    })
+    .slice(0, count);
+}
+
+function describeLegs(legs: SlipBuilderLeg[]): string {
+  const labels = legs.map((leg) => `${leg.player} ${titleCase(leg.marketType)}`);
+  if (labels.length <= 1) return labels[0] ?? 'this leg';
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')}, and ${labels.at(-1)}`;
+}
+
+function buildSuggestedFixes(input: {
+  slip: SlipBuilderLeg[];
+  patternSummary: BettorMistakePatternSummary;
+  matches: PreSubmitMatchedPattern[];
+  signals: SlipPatternSignals;
+}): PreSubmitSuggestedFix[] {
+  const fixCandidates: RankedFix[] = [];
+  const pushFix = (fix: Omit<RankedFix, 'rankingScore'>) => {
+    fixCandidates.push({ ...fix, rankingScore: fix.riskReductionScore * 100 + fix.simplicityScore * 10 + fix.alignmentScore });
+  };
+
+  const confidenceLevel: ConfidenceLevel =
+    input.patternSummary.sample_size < MIN_HISTORY_FOR_MEDIUM || input.patternSummary.confidence_level === 'low'
+      ? 'low'
+      : input.patternSummary.confidence_level;
+  const matchedTags = new Set(input.matches.map((match) => match.tag));
+
+  if (matchedTags.has('line_too_aggressive') && input.signals.aggressiveLegs.length >= 2) {
+    const aggressiveTargets = [...input.signals.aggressiveLegs]
+      .sort((a, b) => {
+        const oddsDiff = (parseOdds(b.odds) ?? Number.NEGATIVE_INFINITY) - (parseOdds(a.odds) ?? Number.NEGATIVE_INFINITY);
+        if (oddsDiff !== 0) return oddsDiff;
+        const lineDiff = (parseLine(b.line) ?? 0) - (parseLine(a.line) ?? 0);
+        if (lineDiff !== 0) return lineDiff;
+        return a.id.localeCompare(b.id);
+      })
+      .slice(0, Math.min(2, input.signals.aggressiveLegs.length));
+
+    pushFix({
+      fix_type: 'lower_threshold',
+      title: 'Lower one ladder threshold',
+      explanation:
+        confidenceLevel === 'low'
+          ? 'This recurring pattern is directionally similar, but the reviewed sample is still thin.'
+          : 'The matched pattern is aggressive ladder exposure, so the cleanest fix is to keep the angle but bring one threshold back into a more normal range.',
+      affected_legs: aggressiveTargets.map((leg) => leg.id),
+      suggested_action: `Keep the same read, but step down one of the longest ladder legs first — start with ${describeLegs(aggressiveTargets)}.`,
+      confidence_level: confidenceLevel,
+      alignmentScore: 5,
+      riskReductionScore: 5,
+      simplicityScore: 5
+    });
+
+    if (input.signals.aggressiveLegs.length >= 3 || input.slip.length >= TRIM_LEG_COUNT_THRESHOLD) {
+      const trimTargets = pickLowestConfidenceLegs(input.signals.aggressiveLegs, 2);
+      pushFix({
+        fix_type: 'trim_leg_count',
+        title: 'Trim the thinnest ladder leg',
+        explanation:
+          'When several aggressive legs sit in the same slip, removing the weakest-priced threshold usually cuts risk faster than rewriting the whole ticket.',
+        affected_legs: trimTargets.map((leg) => leg.id),
+        suggested_action: `If you want a simpler version, drop the weakest ladder leg before adding anything new — ${describeLegs(trimTargets)} is the first trim candidate.`,
+        confidence_level: confidenceLevel,
+        alignmentScore: 4,
+        riskReductionScore: 4,
+        simplicityScore: 4
+      });
+    }
+  }
+
+  if (matchedTags.has('correlated_legs') && input.signals.correlatedLegs.length >= 2) {
+    const correlationTargets = pickLowestConfidenceLegs(input.signals.correlatedLegs, Math.min(2, input.signals.correlatedLegs.length));
+    pushFix({
+      fix_type: 'reduce_correlation',
+      title: 'Break one same-script dependency',
+      explanation:
+        'The recurring miss pattern is same-script concentration, so reducing one shared player/team/game dependency is the highest-signal fix.',
+      affected_legs: correlationTargets.map((leg) => leg.id),
+      suggested_action: `Keep one core angle, but replace one dependent leg with something from a different game or player role — start with ${describeLegs(correlationTargets)}.`,
+      confidence_level: confidenceLevel,
+      alignmentScore: 5,
+      riskReductionScore: 4,
+      simplicityScore: 4
+    });
+
+    const swapTargets = input.signals.correlatedLegs.filter((leg) => AGGRESSIVE_MARKETS.has(leg.marketType)).slice(0, 2);
+    if (swapTargets.length >= 1) {
+      pushFix({
+        fix_type: 'swap_stat_type',
+        title: 'Swap one dependent stat type',
+        explanation:
+          'A role-based stat can keep the same player read while reducing how much the slip depends on one scoring script.',
+        affected_legs: swapTargets.map((leg) => leg.id),
+        suggested_action: `Instead of stacking another scoring-dependent look, consider a more independent role stat for ${describeLegs(swapTargets)} if your board already offers one.`,
+        confidence_level: confidenceLevel,
+        alignmentScore: 4,
+        riskReductionScore: 4,
+        simplicityScore: 3
+      });
+    }
+  }
+
+  if (matchedTags.has('blowout_minutes_risk') && input.signals.blowoutLegs.length >= 1) {
+    const blowoutTargets = pickLowestConfidenceLegs(input.signals.blowoutLegs, Math.min(2, input.signals.blowoutLegs.length));
+    pushFix({
+      fix_type: 'reduce_blowout_exposure',
+      title: 'Reduce starter-over blowout exposure',
+      explanation:
+        confidenceLevel === 'low'
+          ? 'The reviewed pattern is still low-confidence, so this stays a light caution instead of a strong instruction.'
+          : 'These legs already carry mismatch-style minutes pressure, so reducing exposure there aligns directly with the recurring reviewed miss.',
+      affected_legs: blowoutTargets.map((leg) => leg.id),
+      suggested_action: `If this game script stays lopsided, pull back one starter over first — ${describeLegs(blowoutTargets)} is the clearest pressure point.`,
+      confidence_level: confidenceLevel,
+      alignmentScore: 5,
+      riskReductionScore: 5,
+      simplicityScore: 4
+    });
+
+    const swapTargets = input.signals.blowoutLegs.filter((leg) => BLOWOUT_SWAP_MARKETS.has(leg.marketType)).slice(0, 2);
+    if (swapTargets.length >= 1) {
+      pushFix({
+        fix_type: 'swap_stat_type',
+        title: 'Shift away from scoring ladders',
+        explanation:
+          'When minutes downside is the recurring issue, rebounds or assists usually rely less on a perfect scoring environment than a points ladder does.',
+        affected_legs: swapTargets.map((leg) => leg.id),
+        suggested_action: `For ${describeLegs(swapTargets)}, prefer a lower-threshold or support-stat version of the same read if your current board already supports it.`,
+        confidence_level: confidenceLevel,
+        alignmentScore: 4,
+        riskReductionScore: 4,
+        simplicityScore: 3
+      });
+    }
+  }
+
+  if (input.matches.length > 0 && input.slip.length >= TRIM_LEG_COUNT_THRESHOLD) {
+    const trimTargets = pickLowestConfidenceLegs(input.slip, Math.min(2, input.slip.length - 3));
+    if (trimTargets.length > 0) {
+      pushFix({
+        fix_type: 'trim_leg_count',
+        title: 'Trim the lowest-confidence leg',
+        explanation:
+          'Once the slip gets long, a single weak leg can add more failure paths than signal. Shortening the ticket is often the simplest structural fix.',
+        affected_legs: trimTargets.map((leg) => leg.id),
+        suggested_action: `If you want to keep the main story but lower fragility, cut the weakest-confidence add-on first — ${describeLegs(trimTargets)} is the most direct trim.`,
+        confidence_level: confidenceLevel,
+        alignmentScore: 3,
+        riskReductionScore: 3,
+        simplicityScore: 4
+      });
+    }
+  }
+
+  return fixCandidates
+    .sort((a, b) => b.rankingScore - a.rankingScore || a.title.localeCompare(b.title))
+    .filter((fix, index, fixes) =>
+      fixes.findIndex(
+        (candidate) =>
+          candidate.fix_type === fix.fix_type &&
+          candidate.affected_legs.join('|') === fix.affected_legs.join('|')
+      ) === index
+    )
+    .slice(0, MAX_SUGGESTED_FIXES)
+    .map((fix) => ({
+      fix_type: fix.fix_type,
+      title: fix.title,
+      explanation: fix.explanation,
+      affected_legs: fix.affected_legs,
+      suggested_action: fix.suggested_action,
+      confidence_level: fix.confidence_level
+    }));
+}
+
+function collectSignals(slip: SlipBuilderLeg[]): SlipPatternSignals {
+  const aggressiveLegs = slip.filter(lineLooksAggressive);
+  const sameGameKey = Object.entries(
+    slip.reduce<Record<string, SlipBuilderLeg[]>>((acc, leg) => {
+      const key = normalizeText(leg.game) || 'unknown';
+      acc[key] = [...(acc[key] ?? []), leg];
+      return acc;
+    }, {})
+  ).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))[0]?.[1] ?? [];
+
+  const playerGroups = Object.values(
+    slip.reduce<Record<string, SlipBuilderLeg[]>>((acc, leg) => {
+      const key = normalizeText(leg.player);
+      if (!key) return acc;
+      acc[key] = [...(acc[key] ?? []), leg];
+      return acc;
+    }, {})
+  );
+  const duplicatedPlayers = playerGroups
+    .filter((group) => group.length >= 2)
+    .sort((a, b) => b.length - a.length || a[0]!.player.localeCompare(b[0]!.player))[0] ?? [];
+
+  const correlatedLegs = duplicatedPlayers.length >= 2
+    ? duplicatedPlayers
+    : sameGameKey.length >= 2
+      ? sameGameKey
+      : [];
+
+  const blowoutLegs = slip.filter((leg) => legLooksLikeStarterOver(leg) && blowoutSignal(leg));
+  return { aggressiveLegs, correlatedLegs, blowoutLegs };
+}
+
 export function buildPreSubmitPatternWarning(input: {
   slip: SlipBuilderLeg[];
   patternSummary: BettorMistakePatternSummary;
@@ -111,8 +362,9 @@ export function buildPreSubmitPatternWarning(input: {
   const { slip, patternSummary } = input;
   const base = {
     sample_size: patternSummary.sample_size,
-    confidence_level: patternSummary.confidence_level
-  } satisfies Pick<PreSubmitPatternWarning, 'sample_size' | 'confidence_level'>;
+    confidence_level: patternSummary.confidence_level,
+    suggested_fixes: []
+  } satisfies Pick<PreSubmitPatternWarning, 'sample_size' | 'confidence_level' | 'suggested_fixes'>;
 
   if (slip.length === 0) {
     return {
@@ -145,7 +397,7 @@ export function buildPreSubmitPatternWarning(input: {
   }
 
   const recurringTags = new Set(patternSummary.recurring_tags.map((item) => item.tag));
-  const aggressiveLegs = slip.filter(lineLooksAggressive);
+  const signals = collectSignals(slip);
   const sameGameCount = Math.max(
     0,
     ...Object.values(
@@ -162,14 +414,13 @@ export function buildPreSubmitPatternWarning(input: {
     sameGameCount >= 2 || playerDuplicateCount > 0 || teamishDuplicateCount > 0
       ? Math.max(sameGameCount, playerDuplicateCount + 1, Math.min(slip.length, teamishDuplicateCount + 1))
       : 0;
-  const blowoutLegs = slip.filter((leg) => legLooksLikeStarterOver(leg) && blowoutSignal(leg));
 
   const matches: PreSubmitMatchedPattern[] = [];
 
-  if (recurringTags.has('line_too_aggressive') && aggressiveLegs.length >= 2) {
+  if (recurringTags.has('line_too_aggressive') && signals.aggressiveLegs.length >= 2) {
     matches.push({
       tag: 'line_too_aggressive',
-      reason: `Reviewed losses repeatedly tagged aggressive lines, and this slip carries ${aggressiveLegs.length} high-threshold ladder leg${aggressiveLegs.length === 1 ? '' : 's'}.`
+      reason: `Reviewed losses repeatedly tagged aggressive lines, and this slip carries ${signals.aggressiveLegs.length} high-threshold ladder leg${signals.aggressiveLegs.length === 1 ? '' : 's'}.`
     });
   }
 
@@ -180,10 +431,10 @@ export function buildPreSubmitPatternWarning(input: {
     });
   }
 
-  if (recurringTags.has('blowout_minutes_risk') && blowoutLegs.length >= 1) {
+  if (recurringTags.has('blowout_minutes_risk') && signals.blowoutLegs.length >= 1) {
     matches.push({
       tag: 'blowout_minutes_risk',
-      reason: `Reviewed losses repeatedly tagged blowout minutes risk, and this slip includes ${blowoutLegs.length} over-style leg${blowoutLegs.length === 1 ? '' : 's'} already carrying similar script pressure.`
+      reason: `Reviewed losses repeatedly tagged blowout minutes risk, and this slip includes ${signals.blowoutLegs.length} over-style leg${signals.blowoutLegs.length === 1 ? '' : 's'} already carrying similar script pressure.`
     });
   }
 
@@ -199,6 +450,7 @@ export function buildPreSubmitPatternWarning(input: {
   }
 
   return {
+    ...base,
     warning_level: warningLevelFor({
       matchCount: matchedPatterns.length,
       confidenceLevel: patternSummary.confidence_level,
@@ -209,10 +461,15 @@ export function buildPreSubmitPatternWarning(input: {
       matches: matchedPatterns,
       sampleSize: patternSummary.sample_size,
       confidenceLevel: patternSummary.confidence_level,
-      aggressiveLegCount: aggressiveLegs.length,
+      aggressiveLegCount: signals.aggressiveLegs.length,
       correlationLegCount: correlatedLegCount,
-      blowoutLegCount: blowoutLegs.length
+      blowoutLegCount: signals.blowoutLegs.length
     }),
-    ...base
+    suggested_fixes: buildSuggestedFixes({
+      slip,
+      patternSummary,
+      matches: matchedPatterns,
+      signals
+    })
   };
 }
