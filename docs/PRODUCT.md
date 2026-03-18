@@ -61,6 +61,20 @@ ResearchBets should always:
 - UI tone stays neutral and bettor-facing: “Across 8 reviewed slips…” instead of mystical or overconfident coaching copy.
 - Future extension path: replace the local adapter with durable storage, add more weakest-leg features, or add richer learning systems later, while keeping deterministic attribution and continuity-safe history as the canonical base layer.
 
+## BEFORE-stage pattern guardrails
+
+- The slip-building surface now feeds that same reviewed pattern summary back into a compact pre-submit advisory card; it does not create a parallel history store or separate memory model.
+- Contract stays narrow and deterministic: `warning_level`, `matched_patterns[{ tag, reason }]`, `recommendation_summary`, `sample_size`, `confidence_level`, and optional `suppression_reason`.
+- Guardrails are advisory only: the card never blocks submission, never fabricates history, and only appears when both of these are true:
+  - real reviewed history exists, and
+  - the current slip deterministically resembles a recurring reviewed mistake.
+- First-pass matching rules are intentionally tight:
+  - repeated `line_too_aggressive` → current slip has multiple aggressive ladder-style threshold legs,
+  - repeated `correlated_legs` → current slip stacks same-player / same-team / same-game outcomes,
+  - repeated `blowout_minutes_risk` → current slip includes over-style legs already carrying supported blowout or mismatch signals.
+- Truthfulness rule: thin history stays thin. Small samples either suppress the warning entirely or keep the copy explicitly low-confidence.
+- Product relationship: AFTER-stage learning explains what went wrong on reviewed slips; BEFORE-stage guardrails reuse that exact deterministic memory to warn the bettor when a live draft starts to rhyme with those same mistakes.
+
 ## Positioning: not a tout product
 
 ResearchBets is not “locks,” picks spam, or guaranteed outcomes.

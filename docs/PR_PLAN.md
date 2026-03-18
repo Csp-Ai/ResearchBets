@@ -117,3 +117,15 @@
   - one isolated reviewed slip does not create a high-confidence pattern.
   - Review Panel shows a compact “Your patterns” module only when data supports it, with truthful low-confidence language otherwise.
   - implementation remains deterministic, explainable, and storage-adapter friendly for future durable history.
+
+## PR13 — BEFORE-stage pattern-aware pre-submit guardrails
+
+- **Goal**: connect deterministic AFTER-stage bettor pattern learning back into the live slip-building flow with compact advisory warnings before submit.
+- **Touched areas**: `src/core/slips/*`, `app/(product)/slip/*`, `src/components/slips/*`, focused tests, docs.
+- **Tests to run**: `npm run lint`, `npm run typecheck`, `npm run test -- src/core/slips/__tests__/preSubmitPatternWarning.test.ts src/components/slips/__tests__/PreSubmitPatternWarning.test.tsx src/components/slips/__tests__/ProBuildPanel.test.tsx src/components/slips/__tests__/SlipIntelBar.test.tsx src/core/postmortem/__tests__/patterns.test.ts`.
+- **Acceptance criteria**:
+  - pre-submit warning contract exposes `warning_level`, `matched_patterns`, `recommendation_summary`, `sample_size`, `confidence_level`, and optional `suppression_reason`.
+  - matching stays deterministic and compact, using the canonical reviewed pattern summary rather than a parallel history store.
+  - warnings are advisory only and never block slip submission.
+  - UI renders only when supported by real reviewed history plus a current-slip match, with low-confidence copy called out explicitly when needed.
+  - docs explain the relationship between AFTER-stage learning and BEFORE-stage guardrails.

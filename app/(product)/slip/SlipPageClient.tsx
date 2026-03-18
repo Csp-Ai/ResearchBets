@@ -25,6 +25,10 @@ import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
 import { SlipOptimizerPanel } from '@/src/components/slips/SlipOptimizerPanel';
+import { PreSubmitPatternWarningCard } from '@/src/components/slips/PreSubmitPatternWarning';
+import { getBettorMistakePatternSummary } from '@/src/core/postmortem/patternSource';
+import type { BettorMistakePatternSummary } from '@/src/core/postmortem/patterns';
+import { buildPreSubmitPatternWarning } from '@/src/core/slips/preSubmitPatternWarning';
 
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
@@ -72,6 +76,23 @@ export default function SlipPageClient() {
     () => Array.from(new Map(slip.map((leg) => [leg.id, leg])).values()),
     [slip]
   );
+  const [patternSummary, setPatternSummary] = useState<BettorMistakePatternSummary | null>(null);
+
+  useEffect(() => {
+    if (!isHydrated || typeof window === 'undefined') return undefined;
+
+    const refreshPatternSummary = () => {
+      setPatternSummary(getBettorMistakePatternSummary());
+    };
+
+    refreshPatternSummary();
+    window.addEventListener('storage', refreshPatternSummary);
+    window.addEventListener('focus', refreshPatternSummary);
+    return () => {
+      window.removeEventListener('storage', refreshPatternSummary);
+      window.removeEventListener('focus', refreshPatternSummary);
+    };
+  }, [isHydrated]);
 
   useEffect(() => {
     const seedPlayer = searchParams.get('seedPlayer');
@@ -204,6 +225,11 @@ export default function SlipPageClient() {
     }
   };
 
+  const preSubmitPatternWarning = useMemo(() => {
+    if (!patternSummary) return null;
+    return buildPreSubmitPatternWarning({ slip: dedupedLegs, patternSummary });
+  }, [dedupedLegs, patternSummary]);
+
   const moveLeg = (from: number, to: number) => {
     if (to < 0 || to >= dedupedLegs.length) return;
     const next = [...dedupedLegs];
@@ -229,6 +255,7 @@ export default function SlipPageClient() {
         ]}
       />
       <SlipIntelBar legs={dedupedLegs} />
+      {preSubmitPatternWarning ? <PreSubmitPatternWarningCard warning={preSubmitPatternWarning} /> : null}
       <DuringStageTracker trace_id={trace_id ?? nervous.trace_id} mode={boardMode} compact />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
