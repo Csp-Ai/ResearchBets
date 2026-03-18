@@ -72,6 +72,35 @@ const bestContextCue = (leg: CockpitBoardLeg) => {
   return null;
 };
 
+const confidenceSignal = (leg: CockpitBoardLeg): { label: string; variant: 'good' | 'neutral' | 'warn' } => {
+  if (typeof leg.confidencePct === 'number') {
+    if (leg.confidencePct >= 70) return { label: `Conf ${Math.round(leg.confidencePct)}%`, variant: 'good' };
+    if (leg.confidencePct >= 58) return { label: `Conf ${Math.round(leg.confidencePct)}%`, variant: 'neutral' };
+    return { label: `Conf ${Math.round(leg.confidencePct)}%`, variant: 'warn' };
+  }
+  if (typeof leg.hitRateL10 === 'number') {
+    if (leg.hitRateL10 >= 7) return { label: `Conf L10 ${leg.hitRateL10}/10`, variant: 'good' };
+    if (leg.hitRateL10 >= 6) return { label: `Conf L10 ${leg.hitRateL10}/10`, variant: 'neutral' };
+    return { label: `Conf L10 ${leg.hitRateL10}/10`, variant: 'warn' };
+  }
+  return { label: 'Conf watchlist', variant: 'neutral' };
+};
+
+const edgeSignal = (leg: CockpitBoardLeg): { label: string; variant: 'good' | 'neutral' | 'warn' } | null => {
+  if (typeof leg.edgeDelta !== 'number') return null;
+  if (leg.edgeDelta >= 0.06) return { label: `Edge ${formatSignedPct(leg.edgeDelta)}`, variant: 'good' };
+  if (leg.edgeDelta >= 0.03) return { label: `Edge ${formatSignedPct(leg.edgeDelta)}`, variant: 'neutral' };
+  return { label: `Edge ${formatSignedPct(leg.edgeDelta)}`, variant: 'warn' };
+};
+
+const fragilitySignal = (leg: CockpitBoardLeg): { label: string; variant: 'good' | 'neutral' | 'warn' | 'bad' } => {
+  if (leg.deadLegRisk === 'high') return { label: 'Fragility high', variant: 'bad' };
+  if (leg.deadLegRisk === 'med') return { label: 'Fragility med', variant: 'warn' };
+  if (leg.deadLegRisk === 'low') return { label: 'Fragility low', variant: 'good' };
+  if (leg.riskTag === 'watch') return { label: 'Fragility watch', variant: 'warn' };
+  return { label: 'Fragility steady', variant: 'neutral' };
+};
+
 export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const cockpitRef = useRef<HTMLElement | null>(null);
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -538,15 +567,25 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
                   </div>
                   {legs.map((leg) => {
                     const added = slipIds.has(leg.id);
+                    const confidence = confidenceSignal(leg);
+                    const edge = edgeSignal(leg);
+                    const fragility = fragilitySignal(leg);
                     return (
                       <div key={leg.id} className={`board-row ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''}`} role="listitem" onClick={() => onOpenLeg(leg)}>
                         <div className="board-row-body">
-                          <div>
-                            <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
+                          <div className="board-row-signal">
+                            <div className="board-row-priority-line">
+                              <div className="board-main">{leg.player} • {leg.market} {leg.line}</div>
+                              <div className="board-priority-metrics">
+                                <LandingChip className="board-priority-chip board-priority-odds">{leg.odds}</LandingChip>
+                                <LandingChip variant={confidence.variant} className="board-priority-chip">{confidence.label}</LandingChip>
+                                {edge ? <LandingChip variant={edge.variant} className="board-priority-chip">{edge.label}</LandingChip> : null}
+                                <LandingChip variant={fragility.variant} className="board-priority-chip">{fragility.label}</LandingChip>
+                              </div>
+                            </div>
                             <div className="board-sub">{leg.matchup} · {leg.startTime}</div>
                             <AttemptsChips leg={leg} />
                             <div className="board-evidence-stack">
-                              {typeof leg.edgeDelta === 'number' ? <LandingChip>Edge {formatSignedPct(leg.edgeDelta)}</LandingChip> : null}
                               {typeof leg.marketImpliedProb === 'number' && typeof leg.modelProb === 'number' ? <LandingChip>Model {formatPct(leg.modelProb)} vs Implied {formatPct(leg.marketImpliedProb)}</LandingChip> : null}
                               {typeof leg.hitRateL10 === 'number' ? <LandingChip>L10 {leg.hitRateL10}/10</LandingChip> : null}
                               {bestContextCue(leg) ? <LandingChip>{bestContextCue(leg)}</LandingChip> : null}
