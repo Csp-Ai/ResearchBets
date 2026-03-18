@@ -105,3 +105,15 @@
   - response and UI preserve `trace_id` + `slip_id` continuity for later comparison/logging.
   - Review Panel renders a compact weakest-leg card, cause-tag chips, and neutral bettor-facing copy.
   - implementation remains deterministic-first, with future LLM summarization optional rather than required.
+
+## PR12 — AFTER-stage bettor mistake profile layer
+
+- **Goal**: extend truthful single-slip attribution into deterministic cross-slip pattern detection for prior reviewed slips.
+- **Touched areas**: `src/core/postmortem/*`, `src/core/control/reviewIngestion.ts`, `app/(product)/control/*`, focused tests, docs.
+- **Tests to run**: `npm run lint`, `npm run typecheck`, `npm run test -- app/api/postmortem/__tests__/route.test.ts app/(product)/control/__tests__/ReviewPanel.test.tsx src/core/postmortem/__tests__/patterns.test.ts`.
+- **Acceptance criteria**:
+  - pattern summary model exposes `recurring_tags`, `common_failure_mode`, `sample_size`, `confidence_level`, `recommendation_summary`, and `recent_examples`.
+  - aggregation uses canonical `trace_id` / `slip_id` from reviewed attribution records; demo reviews and failed parses do not count.
+  - one isolated reviewed slip does not create a high-confidence pattern.
+  - Review Panel shows a compact “Your patterns” module only when data supports it, with truthful low-confidence language otherwise.
+  - implementation remains deterministic, explainable, and storage-adapter friendly for future durable history.
