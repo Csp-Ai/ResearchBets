@@ -1,25 +1,53 @@
 # Routes and truth spine
 
-## Canonical route map
+## Canonical bettor loop
 
-### BEFORE
-- `/` (cockpit front door)
-- `/today` (board)
-- `/slip` (slip workbench)
+ResearchBets public truth is the narrow bettor loop:
 
-### DURING
+`landing -> today/board -> slip -> stress-test -> track -> review`
+
+Canonical public routes:
+
+- `/` — landing/front door
+- `/today` — board
+- `/slip` — slip workbench
+- `/stress-test` — run analysis
+- `/track` — during-stage tracking
+- `/review` — after-stage review
+
+## Route classification
+
+### Canonical
+
+- `/`
+- `/today`
+- `/slip`
 - `/stress-test`
-- `/traces`
-
-### AFTER
-- `/control`
+- `/track`
 - `/review`
 
-## Alias compatibility
+### Redirect-only compatibility
 
-- `/cockpit` -> canonical cockpit landing
-- `/landing` -> compatibility redirect to canonical landing
-- `/discover`, `/research`, `/live` -> canonical targets in product surfaces
+- `/cockpit` -> `/`
+- `/landing` -> `/`
+- `/research` -> `/stress-test`
+- `/live` -> `/control?tab=live`
+
+### Dev-only / internal
+
+- `/control`
+- `/discover`
+- `/ingest`
+- `/dashboard`
+- `/tonight`
+- `/history`
+- `/community`
+- `/profile`
+- `/journal`
+- `/pending-bets`
+- `/settings`
+- `/traces`
+- `/dev/*`
 
 ## Truth spine query contract
 

@@ -36,9 +36,9 @@ describe('AppShellProduct nav hierarchy', () => {
     expect(screen.getAllByRole('link', { name: 'Review' }).length).toBeGreaterThan(0);
   });
 
-  it('labels secondary routes distinctly inside settings menu', () => {
+  it('does not surface non-canonical routes inside the public shell nav', () => {
     render(<AppShellProduct><div>child</div></AppShellProduct>);
-    expect(screen.getAllByRole('link', { name: 'Control Room (secondary)' }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: 'Discover (secondary)' }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: 'Control Room' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Discover' })).toBeNull();
   });
 });

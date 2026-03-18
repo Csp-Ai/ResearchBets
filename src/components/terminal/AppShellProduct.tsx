@@ -13,10 +13,9 @@ import { ContextBadge } from '@/src/components/nervous/ContextBadge';
 import { ContextHeaderStrip } from '@/src/components/nervous/ContextHeaderStrip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { SurfaceHeaderBar } from './SurfaceHeaderBar';
-import { listPrimaryCanonicalRoutes, listProductRoutePrefixes, listSecondaryRoutes, routeReadinessLabel } from '@/src/core/nervous/routeReadiness';
+import { listPrimaryCanonicalRoutes, listProductRoutePrefixes } from '@/src/core/nervous/routeReadiness';
 
 const BASE_NAV_ITEMS = listPrimaryCanonicalRoutes();
-const SECONDARY_ROUTES = listSecondaryRoutes();
 const PRODUCT_PREFIXES = listProductRoutePrefixes();
 const RAIL_ROUTES = BASE_NAV_ITEMS.map((item) => item.href);
 
@@ -100,11 +99,6 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
                 <Link href={nervous.toHref('/settings')} className="block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Settings</Link>
                 {developerMode ? <Link href={nervous.toHref('/dev/dashboard')} className="mt-1 block rounded px-2 py-1 text-slate-200 hover:bg-white/10">Dev dashboard</Link> : null}
-                <div className="mt-1 border-t border-white/10 pt-1">
-                  {SECONDARY_ROUTES.map((route) => (
-                    <Link key={route.href} href={nervous.toHref(route.href)} className="block rounded px-2 py-1 text-slate-300 hover:bg-white/10">{route.label} ({routeReadinessLabel(route.readiness).toLowerCase()})</Link>
-                  ))}
-                </div>
                 {process.env.NODE_ENV !== 'production' ? (
                   <button type="button" onClick={() => writeLiveModeEnabled(!liveMode)} className="mt-1 w-full rounded px-2 py-1 text-left text-slate-200 hover:bg-white/10">
                     Live Mode: {liveMode ? 'On' : 'Off'}
