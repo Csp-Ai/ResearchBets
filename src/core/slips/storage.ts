@@ -5,6 +5,11 @@ import type { SlipTrackingState, TrackedLegState } from './trackingTypes';
 
 const SLIP_TRACKING_KEY = 'rb:tracked-slips:v1';
 
+type DraftContinuity = {
+  slip_id?: string;
+  trace_id?: string;
+};
+
 function readAll(): Record<string, SlipTrackingState> {
   if (typeof window === 'undefined') return {};
   const raw = window.localStorage.getItem(SLIP_TRACKING_KEY);
@@ -39,7 +44,11 @@ export function buildSlipId(legs: SlipBuilderLeg[], createdAtIso: string) {
   return `slip_${hashString(`${base}:${createdAtIso}`)}`;
 }
 
-export function createTrackingFromDraft(legs: SlipBuilderLeg[], mode: SlipTrackingState['mode']): SlipTrackingState {
+export function createTrackingFromDraft(
+  legs: SlipBuilderLeg[],
+  mode: SlipTrackingState['mode'],
+  continuity?: DraftContinuity
+): SlipTrackingState {
   const createdAtIso = new Date().toISOString();
   const trackedLegs: TrackedLegState[] = legs.map((leg, index) => ({
     legId: leg.id,
@@ -48,7 +57,8 @@ export function createTrackingFromDraft(legs: SlipBuilderLeg[], mode: SlipTracki
     market: leg.marketType,
     line: leg.line,
     volatility: leg.volatility ?? 'medium',
-    convictionAtBuild: typeof leg.confidence === 'number' ? Math.round(leg.confidence * 100) : undefined,
+    convictionAtBuild:
+      typeof leg.confidence === 'number' ? Math.round(leg.confidence * 100) : undefined,
     outcome: 'pending',
     targetValue: Number(leg.line) || null,
     currentValue: 0,
@@ -56,7 +66,8 @@ export function createTrackingFromDraft(legs: SlipBuilderLeg[], mode: SlipTracki
   }));
 
   return computeSlipStatus({
-    slipId: buildSlipId(legs, createdAtIso),
+    slipId: continuity?.slip_id ?? buildSlipId(legs, createdAtIso),
+    trace_id: continuity?.trace_id,
     createdAtIso,
     mode,
     status: 'alive',
@@ -75,5 +86,7 @@ export function saveSlip(state: SlipTrackingState): void {
 }
 
 export function listRecentSlips(): SlipTrackingState[] {
-  return Object.values(readAll()).sort((a, b) => Date.parse(b.createdAtIso) - Date.parse(a.createdAtIso));
+  return Object.values(readAll()).sort(
+    (a, b) => Date.parse(b.createdAtIso) - Date.parse(a.createdAtIso)
+  );
 }

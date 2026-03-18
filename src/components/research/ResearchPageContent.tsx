@@ -9,8 +9,17 @@ import { computeLegRisk, runSlip } from '@/src/core/pipeline/runSlip';
 import { getLatestTraceId, runStore } from '@/src/core/run/store';
 import type { Run } from '@/src/core/run/types';
 import type { ResearchReport } from '@/src/core/evidence/evidenceSchema';
-import { mergeSnapshotHighlights, toResearchRunDTOFromRun, validateResearchRunDTO } from '@/src/core/run/researchRunDTO';
-import { LIVE_MODE_EVENT, readCoverageAgentEnabled, readDeveloperMode, readLiveModeEnabled } from '@/src/core/ui/preferences';
+import {
+  mergeSnapshotHighlights,
+  toResearchRunDTOFromRun,
+  validateResearchRunDTO
+} from '@/src/core/run/researchRunDTO';
+import {
+  LIVE_MODE_EVENT,
+  readCoverageAgentEnabled,
+  readDeveloperMode,
+  readLiveModeEnabled
+} from '@/src/core/ui/preferences';
 import type { BettorDataEnvelope } from '@/src/core/bettor/gateway.server';
 import {
   type AnalyzeLeg,
@@ -60,7 +69,8 @@ const DEMO_SLIP = `Jayson Tatum over 29.5 points (-110)
 Luka Doncic over 8.5 assists (-120)
 LeBron James over 6.5 rebounds (-105)`;
 
-const toRecentStatus = (run: Run): RecentRun['status'] => (run.status === 'complete' ? 'complete' : 'running');
+const toRecentStatus = (run: Run): RecentRun['status'] =>
+  run.status === 'complete' ? 'complete' : 'running';
 const tabs = ['analyze', 'scout', 'live'] as const;
 
 const toDeterministicDemoRun = ({
@@ -84,39 +94,45 @@ const toDeterministicDemoRun = ({
   return {
     traceId: 'demo-trace',
     steps: ['Scout', 'Risk', 'Notes'],
-    weakestLeg: deterministicLegs[2] ?? deterministicLegs[0] ?? 'LeBron James over 6.5 rebounds (-105)',
+    weakestLeg:
+      deterministicLegs[2] ?? deterministicLegs[0] ?? 'LeBron James over 6.5 rebounds (-105)',
     generatedAt: new Date().toISOString(),
     ctas: [
       { label: 'Run stress test', href: appendQuery(stressTestHref, { sport, tz, date, mode }) },
-      { label: 'Use sample slip', href: appendQuery(ingestHref, { sport, tz, date, mode, prefill: DEMO_SLIP }) },
+      {
+        label: 'Use sample slip',
+        href: appendQuery(ingestHref, { sport, tz, date, mode, prefill: DEMO_SLIP })
+      },
       { label: 'Open Board', href: appendQuery(boardHref, { sport, tz, date, mode }) }
     ]
   };
 };
 
-type HubTab = typeof tabs[number];
+type HubTab = (typeof tabs)[number];
 
-const toAnalyzeLeg = (run: Run): AnalyzeLeg[] => run.extractedLegs.map((leg) => {
-  const enriched = run.enrichedLegs.find((item) => item.extractedLegId === leg.id);
-  const riskScore = enriched?.riskScore ?? (enriched ? computeLegRisk(enriched).riskScore : 0);
-  return {
-    id: leg.id,
-    selection: leg.selection,
-    market: leg.market,
-    line: leg.line,
-    odds: leg.odds,
-    l5: enriched?.l5 ?? 0,
-    l10: enriched?.l10 ?? 0,
-    season: enriched?.season,
-    vsOpp: enriched?.vsOpp,
-    risk: riskScore >= 24 ? 'weak' : riskScore >= 10 ? 'caution' : 'strong',
-    divergence: typeof enriched?.flags.divergence === 'number' && enriched.flags.divergence > 0,
-    injuryWatch: Boolean(enriched?.flags.injury),
-    lineMoved: typeof enriched?.flags.lineMove === 'number' && Math.abs(enriched.flags.lineMove) >= 1,
-    riskFactors: enriched?.riskFactors,
-    dataSources: enriched?.dataSources
-  };
-});
+const toAnalyzeLeg = (run: Run): AnalyzeLeg[] =>
+  run.extractedLegs.map((leg) => {
+    const enriched = run.enrichedLegs.find((item) => item.extractedLegId === leg.id);
+    const riskScore = enriched?.riskScore ?? (enriched ? computeLegRisk(enriched).riskScore : 0);
+    return {
+      id: leg.id,
+      selection: leg.selection,
+      market: leg.market,
+      line: leg.line,
+      odds: leg.odds,
+      l5: enriched?.l5 ?? 0,
+      l10: enriched?.l10 ?? 0,
+      season: enriched?.season,
+      vsOpp: enriched?.vsOpp,
+      risk: riskScore >= 24 ? 'weak' : riskScore >= 10 ? 'caution' : 'strong',
+      divergence: typeof enriched?.flags.divergence === 'number' && enriched.flags.divergence > 0,
+      injuryWatch: Boolean(enriched?.flags.injury),
+      lineMoved:
+        typeof enriched?.flags.lineMove === 'number' && Math.abs(enriched.flags.lineMove) >= 1,
+      riskFactors: enriched?.riskFactors,
+      dataSources: enriched?.dataSources
+    };
+  });
 
 export default function ResearchPageContent() {
   const search = useSearchParams();
@@ -127,15 +143,17 @@ export default function ResearchPageContent() {
   const [developerMode, setDeveloperMode] = useState(false);
   const [currentRun, setCurrentRun] = useState<Run | null>(null);
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
-  const [demoRecentRun, setDemoRecentRun] = useState<RecentRunDemo | null>(() => toDeterministicDemoRun({
-    sport: nervous.sport,
-    tz: nervous.tz,
-    date: nervous.date,
-    mode: nervous.mode,
-    stressTestHref: nervous.toHref('/stress-test'),
-    ingestHref: nervous.toHref('/ingest'),
-    boardHref: nervous.toHref('/today')
-  }));
+  const [demoRecentRun, setDemoRecentRun] = useState<RecentRunDemo | null>(() =>
+    toDeterministicDemoRun({
+      sport: nervous.sport,
+      tz: nervous.tz,
+      date: nervous.date,
+      mode: nervous.mode,
+      stressTestHref: nervous.toHref('/stress-test'),
+      ingestHref: nervous.toHref('/ingest'),
+      boardHref: nervous.toHref('/today')
+    })
+  );
   const [data, setData] = useState<BettorDataEnvelope | null>(null);
   const [snapshotReport, setSnapshotReport] = useState<ResearchReport | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'done' | 'error'>('idle');
@@ -144,7 +162,7 @@ export default function ResearchPageContent() {
   const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [activeTraceId, setActiveTraceId] = useState<string>('');
   const autoDemoTriggeredRef = useRef(false);
-  const { slip } = useDraftSlip();
+  const { slip, slip_id: draftSlipId, trace_id: draftTraceId } = useDraftSlip();
 
   const tab = (search.get('tab') as HubTab) ?? 'analyze';
   const safeTab: HubTab = tabs.includes(tab) ? tab : 'analyze';
@@ -153,19 +171,30 @@ export default function ResearchPageContent() {
   const prefillKeyFromQuery = search.get('prefillKey') ?? '';
   const prefillContextKeyFromQuery = search.get('prefillContextKey') ?? '';
   const snapshotIdFromQuery = search.get('snapshotId') ?? '';
+  const slipIdFromQuery = search.get('slip_id') ?? undefined;
 
   const refreshRecent = useCallback(async () => {
     const runs = await runStore.listRuns(5);
-    setRecentRuns(runs.map((run) => ({ traceId: run.trace_id, updatedAt: run.updatedAt, status: toRecentStatus(run) })));
+    setRecentRuns(
+      runs.map((run) => ({
+        traceId: run.trace_id,
+        updatedAt: run.updatedAt,
+        status: toRecentStatus(run)
+      }))
+    );
   }, []);
 
   useEffect(() => {
     setDeveloperMode(readDeveloperMode());
     void refreshRecent();
-    const loadData = () => fetch(`/api/bettor-data?sport=${encodeURIComponent(nervous.sport)}&tz=${encodeURIComponent(nervous.tz)}&date=${encodeURIComponent(nervous.date)}`, { headers: { 'x-live-mode': readLiveModeEnabled() ? 'true' : 'false' } })
-      .then((res) => res.json())
-      .then((payload) => setData(payload as BettorDataEnvelope))
-      .catch(() => undefined);
+    const loadData = () =>
+      fetch(
+        `/api/bettor-data?sport=${encodeURIComponent(nervous.sport)}&tz=${encodeURIComponent(nervous.tz)}&date=${encodeURIComponent(nervous.date)}`,
+        { headers: { 'x-live-mode': readLiveModeEnabled() ? 'true' : 'false' } }
+      )
+        .then((res) => res.json())
+        .then((payload) => setData(payload as BettorDataEnvelope))
+        .catch(() => undefined);
 
     if (typeof window !== 'undefined') {
       void loadData();
@@ -183,18 +212,23 @@ export default function ResearchPageContent() {
       return;
     }
 
-    setDemoRecentRun(toDeterministicDemoRun({
-      sport: nervous.sport,
-      tz: nervous.tz,
-      date: nervous.date,
-      mode: nervous.mode,
-      stressTestHref: nervous.toHref('/stress-test'),
-      ingestHref: nervous.toHref('/ingest'),
-      boardHref: nervous.toHref('/today')
-    }));
+    setDemoRecentRun(
+      toDeterministicDemoRun({
+        sport: nervous.sport,
+        tz: nervous.tz,
+        date: nervous.date,
+        mode: nervous.mode,
+        stressTestHref: nervous.toHref('/stress-test'),
+        ingestHref: nervous.toHref('/ingest'),
+        boardHref: nervous.toHref('/today')
+      })
+    );
 
     let active = true;
-    fetch(`/api/research/demo-run?${new URLSearchParams({ sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }).toString()}`, { cache: 'no-store' })
+    fetch(
+      `/api/research/demo-run?${new URLSearchParams({ sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }).toString()}`,
+      { cache: 'no-store' }
+    )
       .then((res) => (res.ok ? res.json() : null))
       .then((payload) => {
         if (!active || !payload) return;
@@ -202,22 +236,23 @@ export default function ResearchPageContent() {
       })
       .catch(() => {
         if (!active) return;
-        setDemoRecentRun(toDeterministicDemoRun({
-          sport: nervous.sport,
-          tz: nervous.tz,
-          date: nervous.date,
-          mode: nervous.mode,
-          stressTestHref: nervous.toHref('/stress-test'),
-          ingestHref: nervous.toHref('/ingest'),
-          boardHref: nervous.toHref('/today')
-        }));
+        setDemoRecentRun(
+          toDeterministicDemoRun({
+            sport: nervous.sport,
+            tz: nervous.tz,
+            date: nervous.date,
+            mode: nervous.mode,
+            stressTestHref: nervous.toHref('/stress-test'),
+            ingestHref: nervous.toHref('/ingest'),
+            boardHref: nervous.toHref('/today')
+          })
+        );
       });
 
     return () => {
       active = false;
     };
   }, [recentRuns.length, nervous.date, nervous.mode, nervous.sport, nervous.tz, nervous]);
-
 
   useEffect(() => {
     if (traceFromQuery) {
@@ -234,14 +269,33 @@ export default function ResearchPageContent() {
 
     autoDemoTriggeredRef.current = true;
     setRawSlip(DEMO_SLIP);
-    void runSlip(DEMO_SLIP, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
-      setActiveTraceId(traceId);
-      await refreshRecent();
-      router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
-    }).catch(() => {
-      autoDemoTriggeredRef.current = false;
-    });
-  }, [nervous, prefillFromQuery, prefillKeyFromQuery, rawSlip, refreshRecent, router, safeTab, traceFromQuery]);
+    void runSlip(DEMO_SLIP, {
+      coverageAgentEnabled: readCoverageAgentEnabled(),
+      trace_id: draftTraceId,
+      slip_id: draftSlipId
+    })
+      .then(async (traceId) => {
+        setActiveTraceId(traceId);
+        await refreshRecent();
+        router.replace(
+          appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' })
+        );
+      })
+      .catch(() => {
+        autoDemoTriggeredRef.current = false;
+      });
+  }, [
+    draftSlipId,
+    draftTraceId,
+    nervous,
+    prefillFromQuery,
+    prefillKeyFromQuery,
+    rawSlip,
+    refreshRecent,
+    router,
+    safeTab,
+    traceFromQuery
+  ]);
   useEffect(() => {
     if (traceFromQuery) {
       void runStore.getRun(traceFromQuery).then((run) => setCurrentRun(run));
@@ -253,9 +307,15 @@ export default function ResearchPageContent() {
   useEffect(() => {
     if (prefillFromQuery) {
       setRawSlip(prefillFromQuery);
-      void runSlip(prefillFromQuery, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
+      void runSlip(prefillFromQuery, {
+        coverageAgentEnabled: readCoverageAgentEnabled(),
+        trace_id: traceFromQuery || draftTraceId,
+        slip_id: slipIdFromQuery ?? draftSlipId
+      }).then(async (traceId) => {
         await refreshRecent();
-        router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
+        router.replace(
+          appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' })
+        );
       });
       return;
     }
@@ -265,18 +325,43 @@ export default function ResearchPageContent() {
     if (!stored) return;
     window.sessionStorage.removeItem(prefillKeyFromQuery);
 
-    const stagedContextRaw = prefillContextKeyFromQuery ? window.sessionStorage.getItem(prefillContextKeyFromQuery) : null;
+    const stagedContextRaw = prefillContextKeyFromQuery
+      ? window.sessionStorage.getItem(prefillContextKeyFromQuery)
+      : null;
     if (prefillContextKeyFromQuery) {
       window.sessionStorage.removeItem(prefillContextKeyFromQuery);
     }
-    setStagedContext((stagedContextRaw ?? '').split('\n').map((line) => line.trim()).filter(Boolean).slice(0, 3));
+    setStagedContext(
+      (stagedContextRaw ?? '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+    );
 
     setRawSlip(stored);
-    void runSlip(stored, { coverageAgentEnabled: readCoverageAgentEnabled() }).then(async (traceId) => {
+    void runSlip(stored, {
+      coverageAgentEnabled: readCoverageAgentEnabled(),
+      trace_id: traceFromQuery || draftTraceId,
+      slip_id: slipIdFromQuery ?? draftSlipId
+    }).then(async (traceId) => {
       await refreshRecent();
-      router.replace(appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' }));
+      router.replace(
+        appendQuery(nervous.toHref('/stress-test', { trace_id: traceId }), { tab: 'analyze' })
+      );
     });
-  }, [prefillContextKeyFromQuery, prefillFromQuery, prefillKeyFromQuery, refreshRecent, router, nervous]);
+  }, [
+    draftSlipId,
+    draftTraceId,
+    nervous,
+    prefillContextKeyFromQuery,
+    prefillFromQuery,
+    prefillKeyFromQuery,
+    refreshRecent,
+    router,
+    slipIdFromQuery,
+    traceFromQuery
+  ]);
 
   useEffect(() => {
     const snapshotId = currentRun?.snapshotId ?? snapshotIdFromQuery;
@@ -306,23 +391,40 @@ export default function ResearchPageContent() {
   const sortedLegs = useMemo(() => {
     if (!currentRun) return legs;
     return [...legs].sort((a, b) => {
-      const left = currentRun.enrichedLegs.find((leg) => leg.extractedLegId === a.id)?.riskScore ?? 0;
-      const right = currentRun.enrichedLegs.find((leg) => leg.extractedLegId === b.id)?.riskScore ?? 0;
+      const left =
+        currentRun.enrichedLegs.find((leg) => leg.extractedLegId === a.id)?.riskScore ?? 0;
+      const right =
+        currentRun.enrichedLegs.find((leg) => leg.extractedLegId === b.id)?.riskScore ?? 0;
       return right - left;
     });
   }, [legs, currentRun]);
 
   const weakestLeg = useMemo(() => {
     if (!currentRun?.analysis.weakestLegId) return sortedLegs[0] ?? null;
-    return sortedLegs.find((leg) => leg.id === currentRun.analysis.weakestLegId) ?? sortedLegs[0] ?? null;
+    return (
+      sortedLegs.find((leg) => leg.id === currentRun.analysis.weakestLegId) ?? sortedLegs[0] ?? null
+    );
   }, [sortedLegs, currentRun]);
 
   const submitPaste = useCallback(async () => {
-    const traceId = await runSlip(rawSlip, { coverageAgentEnabled: readCoverageAgentEnabled() });
+    const traceId = await runSlip(rawSlip, {
+      coverageAgentEnabled: readCoverageAgentEnabled(),
+      trace_id: traceFromQuery || draftTraceId,
+      slip_id: slipIdFromQuery ?? draftSlipId
+    });
     setPasteOpen(false);
     await refreshRecent();
     router.push(withTraceId(nervous.toHref('/stress-test'), traceId));
-  }, [rawSlip, refreshRecent, router, nervous]);
+  }, [
+    draftSlipId,
+    draftTraceId,
+    nervous,
+    rawSlip,
+    refreshRecent,
+    router,
+    slipIdFromQuery,
+    traceFromQuery
+  ]);
 
   const runDto = useMemo(() => {
     if (!currentRun) return null;
@@ -331,11 +433,26 @@ export default function ResearchPageContent() {
     return validateResearchRunDTO(merged) ? merged : null;
   }, [currentRun, snapshotReport]);
 
-  const intelLegs = useMemo(() => (runDto?.legs?.length
-    ? runDto.legs.map((leg) => ({ id: leg.id, player: leg.player, selection: leg.selection, market: leg.market, line: leg.line, odds: leg.odds, team: leg.team }))
-    : slip), [runDto, slip]);
+  const intelLegs = useMemo(
+    () =>
+      runDto?.legs?.length
+        ? runDto.legs.map((leg) => ({
+            id: leg.id,
+            player: leg.player,
+            selection: leg.selection,
+            market: leg.market,
+            line: leg.line,
+            odds: leg.odds,
+            team: leg.team
+          }))
+        : slip,
+    [runDto, slip]
+  );
 
-  const slipHref = nervous.toHref('/slip');
+  const slipHref = nervous.toHref('/slip', {
+    trace_id: draftTraceId ?? traceFromQuery,
+    slip_id: draftSlipId ?? slipIdFromQuery
+  });
   const boardHref = appendQuery(nervous.toHref('/today'), { tab: 'board' });
   const latestRunHref = useMemo(() => {
     const latestFromStorage = () => {
@@ -355,7 +472,7 @@ export default function ResearchPageContent() {
     };
 
     const latest = getLatestTraceId() ?? latestFromStorage();
-    return latest ? withTraceId(nervous.toHref('/research'), latest) : null;
+    return latest ? withTraceId(nervous.toHref('/stress-test'), latest) : null;
   }, [nervous]);
 
   const copyReasons = useCallback(async () => {
@@ -363,8 +480,12 @@ export default function ResearchPageContent() {
     const weakestReasons = weakestLeg?.riskFactors?.slice(0, 2) ?? [];
     const bullets = [...reasons, ...weakestReasons].filter(Boolean).slice(0, 4);
     const weakestLine = weakestLeg?.selection ? `Weakest leg: ${weakestLeg.selection}` : '';
-    const uncertaintyLine = currentRun?.analysis.dataQuality?.confidenceCapReason ? `Uncertainty: ${currentRun.analysis.dataQuality.confidenceCapReason}` : '';
-    const payload = [weakestLine, ...bullets.map((entry) => `- ${entry}`), uncertaintyLine].filter(Boolean).join('\n');
+    const uncertaintyLine = currentRun?.analysis.dataQuality?.confidenceCapReason
+      ? `Uncertainty: ${currentRun.analysis.dataQuality.confidenceCapReason}`
+      : '';
+    const payload = [weakestLine, ...bullets.map((entry) => `- ${entry}`), uncertaintyLine]
+      .filter(Boolean)
+      .join('\n');
     if (!payload || typeof navigator === 'undefined' || !navigator.clipboard) {
       setCopyStatus('error');
       return;
@@ -379,7 +500,9 @@ export default function ResearchPageContent() {
   }, [runDto, currentRun, weakestLeg]);
 
   const copySlip = useCallback(async () => {
-    const legsToCopy = (runDto?.legs.map((leg) => leg.selection) ?? legs.map((leg) => leg.selection)).filter(Boolean);
+    const legsToCopy = (
+      runDto?.legs.map((leg) => leg.selection) ?? legs.map((leg) => leg.selection)
+    ).filter(Boolean);
     const payload = legsToCopy.map((leg, index) => `${index + 1}. ${leg}`).join('\n');
     if (!payload || typeof navigator === 'undefined' || !navigator.clipboard) {
       setCopySlipStatus('error');
@@ -416,26 +539,74 @@ export default function ResearchPageContent() {
         <CockpitHeader
           title="Stress Test"
           purpose="During loop: isolate the weakest leg and enforce process over impulse."
-          ctas={<>
-            <Link href={boardHref} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Build from Board</Link>
-            {latestRunHref ? <Link href={latestRunHref} className="rounded-lg border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm text-slate-950">Open latest run</Link> : null}
-            <Link href={appendQuery(nervous.toHref('/ingest'), { demo: 1 })} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Try sample slip (demo)</Link>
-          </>}
-          strip={{ mode: data?.mode ?? nervous.mode, updatedAt: currentRun?.updatedAt, traceId: traceFromQuery || activeTraceId || nervous.trace_id }}
+          ctas={
+            <>
+              <Link
+                href={boardHref}
+                className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5"
+              >
+                Build from Board
+              </Link>
+              {latestRunHref ? (
+                <Link
+                  href={latestRunHref}
+                  className="rounded-lg border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm text-slate-950"
+                >
+                  Open latest run
+                </Link>
+              ) : null}
+              <Link
+                href={appendQuery(nervous.toHref('/ingest'), { demo: 1 })}
+                className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5"
+              >
+                Try sample slip (demo)
+              </Link>
+            </>
+          }
+          strip={{
+            mode: data?.mode ?? nervous.mode,
+            updatedAt: currentRun?.updatedAt,
+            traceId: traceFromQuery || activeTraceId || nervous.trace_id
+          }}
         />
-        {activeGuardrail ? (
-          <div className="w-fit rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-100">
-            Guardrail active: {activeGuardrail.title}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {activeGuardrail ? (
+            <div className="w-fit rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-100">
+              Guardrail active: {activeGuardrail.title}
+            </div>
+          ) : null}
+          {draftSlipId || currentRun?.slipId ? (
+            <div className="w-fit rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-100">
+              Run in progress: keeping this slip on the same thread.
+            </div>
+          ) : null}
+        </div>
         <div className="flex w-fit gap-2 rounded-xl bg-slate-950/60 p-1">
           {tabs.map((candidate) => (
-            <button key={candidate} type="button" onClick={() => router.push(appendQuery(nervous.toHref('/stress-test'), { tab: candidate }))} className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>{candidate}</button>
+            <button
+              key={candidate}
+              type="button"
+              onClick={() =>
+                router.push(
+                  appendQuery(nervous.toHref('/stress-test'), {
+                    tab: candidate,
+                    trace_id: traceFromQuery || draftTraceId,
+                    slip_id: slipIdFromQuery ?? draftSlipId
+                  })
+                )
+              }
+              className={`rounded-lg px-3 py-1.5 text-sm capitalize ${safeTab === candidate ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}
+            >
+              {candidate}
+            </button>
           ))}
-        <details className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-xs text-slate-400">
-          <summary className="cursor-pointer">Details</summary>
-          <p className="mt-1">trace_id: {traceFromQuery || nervous.trace_id} · mode: {nervous.mode} · seed: {`${nervous.sport}:${nervous.date}:${nervous.tz}`}</p>
-        </details>
+          <details className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-xs text-slate-400">
+            <summary className="cursor-pointer">Details</summary>
+            <p className="mt-1">
+              trace_id: {traceFromQuery || nervous.trace_id} · mode: {nervous.mode} · seed:{' '}
+              {`${nervous.sport}:${nervous.date}:${nervous.tz}`}
+            </p>
+          </details>
         </div>
       </header>
 
@@ -452,7 +623,9 @@ export default function ResearchPageContent() {
           copyStatus={copyStatus}
           copySlipStatus={copySlipStatus}
           onPasteOpen={() => setPasteOpen(true)}
-          onTryExample={() => router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))}
+          onTryExample={() =>
+            router.push(appendQuery(nervous.toHref('/ingest'), { prefill: DEMO_SLIP }))
+          }
           onCopyReasons={() => void copyReasons()}
           onCopySlip={() => void copySlip()}
           onShareRun={() => void shareRun()}
@@ -468,23 +641,43 @@ export default function ResearchPageContent() {
       {safeTab === 'scout' ? <ScoutTabPanel data={data} /> : null}
       {safeTab === 'live' ? <LiveTabPanel data={data} /> : null}
 
-      <div id="fragility"><RecentActivityPanel
-        runs={recentRuns}
-        demoRun={demoRecentRun}
-        onOpen={(recentTraceId) => router.push(withTraceId(nervous.toHref('/stress-test'), recentTraceId))}
-      /></div>
-      <div id="correlation"><HowItWorksMini /></div>
+      <div id="fragility">
+        <RecentActivityPanel
+          runs={recentRuns}
+          demoRun={demoRecentRun}
+          onOpen={(recentTraceId) =>
+            router.push(withTraceId(nervous.toHref('/stress-test'), recentTraceId))
+          }
+        />
+      </div>
+      <div id="correlation">
+        <HowItWorksMini />
+      </div>
 
       <AdvancedDrawer developerMode={developerMode}>
-        <div className="flex flex-wrap gap-2"><Chip>Mode: {data?.mode ?? 'loading'}</Chip></div>
+        <div className="flex flex-wrap gap-2">
+          <Chip>Mode: {data?.mode ?? 'loading'}</Chip>
+        </div>
       </AdvancedDrawer>
 
       {pasteOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
           <Surface className="w-full max-w-2xl">
             <h2 className="text-lg font-semibold">Paste slip</h2>
-            <textarea className="mt-3 h-56 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm" value={rawSlip} onChange={(event) => setRawSlip(event.target.value)} placeholder="Paste each leg on a new line" />
-            <div className="mt-3 flex gap-2"><Button intent="primary" onClick={() => void submitPaste()}>Stress Test now</Button><Button intent="secondary" onClick={() => setPasteOpen(false)}>Cancel</Button></div>
+            <textarea
+              className="mt-3 h-56 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm"
+              value={rawSlip}
+              onChange={(event) => setRawSlip(event.target.value)}
+              placeholder="Paste each leg on a new line"
+            />
+            <div className="mt-3 flex gap-2">
+              <Button intent="primary" onClick={() => void submitPaste()}>
+                Stress Test now
+              </Button>
+              <Button intent="secondary" onClick={() => setPasteOpen(false)}>
+                Cancel
+              </Button>
+            </div>
           </Surface>
         </div>
       ) : null}

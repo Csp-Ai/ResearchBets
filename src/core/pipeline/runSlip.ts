@@ -9,11 +9,18 @@ import { enrichInjuries } from '@/src/core/providers/injuriesProvider';
 import { enrichOdds } from '@/src/core/providers/oddsProvider';
 import { enrichStats } from '@/src/core/providers/statsProvider';
 import { runStore } from '@/src/core/run/store';
-import type { EnrichedLeg, ExtractedLeg, ProviderMode, Run, SourceStats, VerdictAnalysis } from '@/src/core/run/types';
+import type {
+  EnrichedLeg,
+  ExtractedLeg,
+  ProviderMode,
+  Run,
+  SourceStats,
+  VerdictAnalysis
+} from '@/src/core/run/types';
 import type { SlipStructureReport } from '@/src/core/contracts/slipStructureReport';
 
-const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
-
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
 
 const normalizeSlipText = (rawSlipText: string): string => {
   return rawSlipText
@@ -32,12 +39,24 @@ const parseLine = (selection: string): number | undefined => {
   return Number(match[1]);
 };
 
-const normalizeLegs = (rawLegs: Array<{ selection: string; market?: string; line?: string; odds?: string; team?: string; player?: string; sport?: string; eventTime?: string; book?: string }>): ExtractedLeg[] => {
+const normalizeLegs = (
+  rawLegs: Array<{
+    selection: string;
+    market?: string;
+    line?: string;
+    odds?: string;
+    team?: string;
+    player?: string;
+    sport?: string;
+    eventTime?: string;
+    book?: string;
+  }>
+): ExtractedLeg[] => {
   return rawLegs.map((leg, index) => ({
     id: `leg-${index}-${leg.selection.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
     selection: leg.selection,
     market: leg.market,
-    line: leg.line ?? (parseLine(leg.selection)?.toString()),
+    line: leg.line ?? parseLine(leg.selection)?.toString(),
     odds: leg.odds,
     team: leg.team,
     player: leg.player,
@@ -47,7 +66,11 @@ const normalizeLegs = (rawLegs: Array<{ selection: string; market?: string; line
   }));
 };
 
-export function computeLegRisk(leg: EnrichedLeg): { riskScore: number; riskBand: 'low' | 'moderate' | 'high'; factors: string[] } {
+export function computeLegRisk(leg: EnrichedLeg): {
+  riskScore: number;
+  riskBand: 'low' | 'moderate' | 'high';
+  factors: string[];
+} {
   const factors: string[] = [];
   let riskScore = 0;
 
@@ -82,7 +105,8 @@ export function computeLegRisk(leg: EnrichedLeg): { riskScore: number; riskBand:
   }
 
   const normalized = Number(riskScore.toFixed(2));
-  const riskBand: 'low' | 'moderate' | 'high' = normalized >= 24 ? 'high' : normalized >= 10 ? 'moderate' : 'low';
+  const riskBand: 'low' | 'moderate' | 'high' =
+    normalized >= 24 ? 'high' : normalized >= 10 ? 'moderate' : 'low';
 
   return {
     riskScore: normalized,
@@ -91,7 +115,12 @@ export function computeLegRisk(leg: EnrichedLeg): { riskScore: number; riskBand:
   };
 }
 
-function computeConfidenceCap(enrichedLegs: EnrichedLeg[], sources: SourceStats, trustedInjuriesCoverage: 'live' | 'fallback' | 'none' = 'fallback', hasUnverifiedInjurySignal = false): number {
+function computeConfidenceCap(
+  enrichedLegs: EnrichedLeg[],
+  sources: SourceStats,
+  trustedInjuriesCoverage: 'live' | 'fallback' | 'none' = 'fallback',
+  hasUnverifiedInjurySignal = false
+): number {
   if (trustedInjuriesCoverage === 'none') return hasUnverifiedInjurySignal ? 72 : 75;
   const fallbackHeavyLegs = enrichedLegs.filter((leg) => {
     const ds = leg.dataSources;
@@ -99,8 +128,20 @@ function computeConfidenceCap(enrichedLegs: EnrichedLeg[], sources: SourceStats,
     return ds.stats === 'fallback' && ds.injuries === 'fallback' && ds.odds === 'fallback';
   }).length;
 
-  if (sources.injuries === 'fallback' && sources.odds === 'fallback' && sources.stats === 'fallback' && fallbackHeavyLegs > enrichedLegs.length / 2) return 65;
-  if (sources.stats === 'live' && sources.injuries === 'fallback' && sources.odds === 'fallback' && enrichedLegs.every((leg) => leg.dataSources?.stats === 'live')) return 75;
+  if (
+    sources.injuries === 'fallback' &&
+    sources.odds === 'fallback' &&
+    sources.stats === 'fallback' &&
+    fallbackHeavyLegs > enrichedLegs.length / 2
+  )
+    return 65;
+  if (
+    sources.stats === 'live' &&
+    sources.injuries === 'fallback' &&
+    sources.odds === 'fallback' &&
+    enrichedLegs.every((leg) => leg.dataSources?.stats === 'live')
+  )
+    return 75;
   if (sources.stats === 'live' && sources.injuries === 'live' && sources.odds === 'live') return 85;
   return 80;
 }
@@ -111,7 +152,13 @@ function buildReasonPrefix(position: number): string {
   return `Downside #${position + 1}`;
 }
 
-export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: ExtractedLeg[], sources: SourceStats, trustedInjuriesCoverage: 'live' | 'fallback' | 'none' = 'fallback', unverifiedItems: Array<{ kind: string; headline: string }> = []): VerdictAnalysis {
+export function computeVerdict(
+  enrichedLegs: EnrichedLeg[],
+  extractedLegs: ExtractedLeg[],
+  sources: SourceStats,
+  trustedInjuriesCoverage: 'live' | 'fallback' | 'none' = 'fallback',
+  unverifiedItems: Array<{ kind: string; headline: string }> = []
+): VerdictAnalysis {
   if (enrichedLegs.length === 0) {
     return {
       confidencePct: 35,
@@ -122,29 +169,40 @@ export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: Extra
     };
   }
 
-  const scored = enrichedLegs.map((leg) => {
-    const risk = computeLegRisk(leg);
-    return {
-      leg,
-      riskScore: risk.riskScore,
-      riskBand: risk.riskBand,
-      factors: risk.factors
-    };
-  }).sort((a, b) => b.riskScore - a.riskScore);
+  const scored = enrichedLegs
+    .map((leg) => {
+      const risk = computeLegRisk(leg);
+      return {
+        leg,
+        riskScore: risk.riskScore,
+        riskBand: risk.riskBand,
+        factors: risk.factors
+      };
+    })
+    .sort((a, b) => b.riskScore - a.riskScore);
 
   const weakestLegId = scored[0]?.leg.extractedLegId ?? null;
   const avgRisk = scored.reduce((sum, item) => sum + item.riskScore, 0) / scored.length;
   const baseConfidence = clamp(Math.round(100 - avgRisk * 0.9), 35, 85);
-  const unverifiedInjurySignals = unverifiedItems.filter((item) => item.kind === 'injury' || item.kind === 'suspension' || item.kind === 'status');
-  const hasUnverifiedInjurySignal = trustedInjuriesCoverage === 'none' && unverifiedInjurySignals.length >= 2;
-  const confidenceCap = computeConfidenceCap(enrichedLegs, sources, trustedInjuriesCoverage, hasUnverifiedInjurySignal);
+  const unverifiedInjurySignals = unverifiedItems.filter(
+    (item) => item.kind === 'injury' || item.kind === 'suspension' || item.kind === 'status'
+  );
+  const hasUnverifiedInjurySignal =
+    trustedInjuriesCoverage === 'none' && unverifiedInjurySignals.length >= 2;
+  const confidenceCap = computeConfidenceCap(
+    enrichedLegs,
+    sources,
+    trustedInjuriesCoverage,
+    hasUnverifiedInjurySignal
+  );
   const confidencePct = Math.min(baseConfidence, confidenceCap);
 
   const reasons = scored.slice(0, 3).map((entry, index) => {
     const extracted = extractedLegs.find((item) => item.id === entry.leg.extractedLegId);
-    const description = entry.riskScore === 0
-      ? 'No downside drivers flagged from recent form.'
-      : `${entry.factors.join(', ')}; risk ${entry.riskScore.toFixed(1)}`;
+    const description =
+      entry.riskScore === 0
+        ? 'No downside drivers flagged from recent form.'
+        : `${entry.factors.join(', ')}; risk ${entry.riskScore.toFixed(1)}`;
     return `${buildReasonPrefix(index)}: ${extracted?.selection ?? entry.leg.extractedLegId} — ${description}.`;
   });
 
@@ -155,22 +213,39 @@ export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: Extra
 
     const validLegIds = new Set(extractedLegs.map((leg) => leg.id));
     for (const reason of reasons) {
-      const hasReferencedLeg = extractedLegs.some((leg) => reason.includes(leg.selection) || reason.includes(leg.id));
-      if (!hasReferencedLeg) throw new Error('computeVerdict invariant failed: reason missing leg reference');
+      const hasReferencedLeg = extractedLegs.some(
+        (leg) => reason.includes(leg.selection) || reason.includes(leg.id)
+      );
+      if (!hasReferencedLeg)
+        throw new Error('computeVerdict invariant failed: reason missing leg reference');
     }
 
     scored.forEach((entry) => {
       if (entry.riskScore === 0) {
-        const text = reasons.find((reason) => reason.includes(entry.leg.extractedLegId) || reason.includes(extractedLegs.find((leg) => leg.id === entry.leg.extractedLegId)?.selection ?? ''));
-        if (text && /downside drivers|risk\s+0\.0/i.test(text) === false && /No downside drivers flagged/.test(text) === false) {
-          throw new Error('computeVerdict invariant failed: zero-risk leg described as downside driver');
+        const text = reasons.find(
+          (reason) =>
+            reason.includes(entry.leg.extractedLegId) ||
+            reason.includes(
+              extractedLegs.find((leg) => leg.id === entry.leg.extractedLegId)?.selection ?? ''
+            )
+        );
+        if (
+          text &&
+          /downside drivers|risk\s+0\.0/i.test(text) === false &&
+          /No downside drivers flagged/.test(text) === false
+        ) {
+          throw new Error(
+            'computeVerdict invariant failed: zero-risk leg described as downside driver'
+          );
         }
       }
-      if (!validLegIds.has(entry.leg.extractedLegId)) throw new Error('computeVerdict invariant failed: leg id missing from extracted legs');
+      if (!validLegIds.has(entry.leg.extractedLegId))
+        throw new Error('computeVerdict invariant failed: leg id missing from extracted legs');
     });
   }
 
-  const riskLabel: VerdictAnalysis['riskLabel'] = confidencePct >= 70 ? 'Strong' : confidencePct >= 55 ? 'Caution' : 'Weak';
+  const riskLabel: VerdictAnalysis['riskLabel'] =
+    confidencePct >= 70 ? 'Strong' : confidencePct >= 55 ? 'Caution' : 'Weak';
 
   return {
     confidencePct,
@@ -178,16 +253,21 @@ export function computeVerdict(enrichedLegs: EnrichedLeg[], extractedLegs: Extra
     reasons: [
       ...reasons,
       `Average per-leg risk is ${avgRisk.toFixed(1)} across ${enrichedLegs.length} legs.`,
-      confidencePct >= 70 ? 'Current build grades as playable if prices hold.' : 'Consider trimming weak legs before placing the slip.'
+      confidencePct >= 70
+        ? 'Current build grades as playable if prices hold.'
+        : 'Consider trimming weak legs before placing the slip.'
     ].slice(0, 6),
     riskLabel,
     computedAt: new Date().toISOString(),
     dataQuality: {
       trustedCoverage: trustedInjuriesCoverage,
       hasUnverified: unverifiedItems.length > 0,
-      confidenceCapReason: trustedInjuriesCoverage === 'none'
-        ? (hasUnverifiedInjurySignal ? 'Trusted injuries unavailable; unverified injury/status context can only reduce confidence.' : 'Trusted injuries unavailable; confidence capped until verified updates arrive.')
-        : undefined
+      confidenceCapReason:
+        trustedInjuriesCoverage === 'none'
+          ? hasUnverifiedInjurySignal
+            ? 'Trusted injuries unavailable; unverified injury/status context can only reduce confidence.'
+            : 'Trusted injuries unavailable; confidence capped until verified updates arrive.'
+          : undefined
     }
   };
 }
@@ -208,7 +288,12 @@ const resolveApiUrl = (path: string, baseUrl?: string): string => {
 async function emitPipelineEvent(input: {
   trace_id: string;
   slip_id?: string;
-  event_name: 'slip_enrich_started' | 'slip_enrich_done' | 'slip_scored' | 'slip_verdict_ready' | 'slip_persisted';
+  event_name:
+    | 'slip_enrich_started'
+    | 'slip_enrich_done'
+    | 'slip_scored'
+    | 'slip_verdict_ready'
+    | 'slip_persisted';
   stage: 'enrich' | 'score' | 'verdict' | 'saved';
   reason: string;
   baseUrl?: string;
@@ -231,40 +316,64 @@ async function emitPipelineEvent(input: {
           stage: input.stage,
           generatedAt: new Date().toISOString(),
           slip_id: input.slip_id,
-          reason: input.reason,
-        },
-      }),
+          reason: input.reason
+        }
+      })
     });
   } catch {
     // Keep pipeline deterministic even when event storage is unavailable.
   }
 }
 
-async function extractWithApi(slipText: string, initialTraceId: string, baseUrl?: string): Promise<ExtractApiResult> {
+async function extractWithApi(
+  slipText: string,
+  initialTraceId: string,
+  existingSlipId?: string,
+  baseUrl?: string
+): Promise<ExtractApiResult> {
   try {
     const anonSessionId = ensureAnonSessionId();
     const requestId = createClientRequestId();
     const submitPayload = await fetch(resolveApiUrl('/api/slips/submit', baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'paste', raw_text: slipText, anon_session_id: anonSessionId, request_id: requestId, trace_id: initialTraceId })
+      body: JSON.stringify({
+        source: 'paste',
+        raw_text: slipText,
+        anon_session_id: anonSessionId,
+        request_id: requestId,
+        trace_id: initialTraceId,
+        slip_id: existingSlipId
+      })
     }).then((res) => res.json());
     const submitRes = parseSlipSubmitEnvelope(submitPayload);
     if (!submitRes.success || !submitRes.data.ok) return { legs: [] };
 
     const traceId = submitRes.data.data.trace_id || initialTraceId;
-    const slipId = submitRes.data.data.slip_id;
+    const submittedSlipId = submitRes.data.data.slip_id;
 
     const extractPayload = await fetch(resolveApiUrl('/api/slips/extract', baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slip_id: slipId, request_id: createClientRequestId(), anon_session_id: anonSessionId })
+      body: JSON.stringify({
+        slip_id: submittedSlipId,
+        request_id: createClientRequestId(),
+        anon_session_id: anonSessionId
+      })
     }).then((res) => res.json());
     const extractRes = parseSlipExtractEnvelope(extractPayload);
 
     return {
-      legs: extractRes.success && extractRes.data.ok ? (extractRes.data.data.extracted_legs as Array<{ selection: string; market?: string; line?: string; odds?: string }>) : [],
-      slipId,
+      legs:
+        extractRes.success && extractRes.data.ok
+          ? (extractRes.data.data.extracted_legs as Array<{
+              selection: string;
+              market?: string;
+              line?: string;
+              odds?: string;
+            }>)
+          : [],
+      slipId: submittedSlipId,
       traceId,
       anonSessionId,
       requestId
@@ -274,9 +383,8 @@ async function extractWithApi(slipText: string, initialTraceId: string, baseUrl?
   }
 }
 
-
-
-const toBand = (value: number): 'low' | 'med' | 'high' => (value >= 70 ? 'high' : value >= 55 ? 'med' : 'low');
+const toBand = (value: number): 'low' | 'med' | 'high' =>
+  value >= 70 ? 'high' : value >= 55 ? 'med' : 'low';
 
 const mapReportLegsFromRun = (
   extracted: ExtractedLeg[],
@@ -286,22 +394,29 @@ const mapReportLegsFromRun = (
   traceId: string,
   slipId?: string
 ): SlipStructureReport => {
-  const report = buildSlipStructureReport(extracted.map((leg) => ({
-    leg_id: leg.id,
-    game_id: leg.team,
-    team: leg.team,
-    player: leg.player,
-    market: leg.market ?? 'market',
-    line: leg.line ? Number(leg.line) : undefined,
-    odds: leg.odds,
-    notes: leg.selection
-  })), {
-    trace_id: traceId,
-    slip_id: slipId,
-    mode: sources.stats === 'live' || sources.injuries === 'live' || sources.odds === 'live' ? 'live' : 'cache',
-    confidence_band: toBand(analysis.confidencePct),
-    risk_band: analysis.riskLabel === 'Strong' ? 'low' : analysis.riskLabel === 'Caution' ? 'med' : 'high'
-  });
+  const report = buildSlipStructureReport(
+    extracted.map((leg) => ({
+      leg_id: leg.id,
+      game_id: leg.team,
+      team: leg.team,
+      player: leg.player,
+      market: leg.market ?? 'market',
+      line: leg.line ? Number(leg.line) : undefined,
+      odds: leg.odds,
+      notes: leg.selection
+    })),
+    {
+      trace_id: traceId,
+      slip_id: slipId,
+      mode:
+        sources.stats === 'live' || sources.injuries === 'live' || sources.odds === 'live'
+          ? 'live'
+          : 'cache',
+      confidence_band: toBand(analysis.confidencePct),
+      risk_band:
+        analysis.riskLabel === 'Strong' ? 'low' : analysis.riskLabel === 'Caution' ? 'med' : 'high'
+    }
+  );
 
   const legRiskById = new Map(enriched.map((leg) => [leg.extractedLegId, leg]));
   report.legs = report.legs.map((leg) => {
@@ -325,7 +440,16 @@ const mapReportLegsFromRun = (
 };
 export async function runSlip(
   slipText: string,
-  options?: { coverageAgentEnabled?: boolean; trace_id?: string; traceId?: string; requestTraceId?: string; existingTraceId?: string; baseUrl?: string }
+  options?: {
+    coverageAgentEnabled?: boolean;
+    trace_id?: string;
+    traceId?: string;
+    slip_id?: string;
+    slipId?: string;
+    requestTraceId?: string;
+    existingTraceId?: string;
+    baseUrl?: string;
+  }
 ): Promise<string> {
   const normalizedSlipText = normalizeSlipText(slipText);
   const initialTraceId = canonicalTraceId({
@@ -351,9 +475,11 @@ export async function runSlip(
       riskLabel: 'Weak',
       computedAt: now
     },
+    slipId: options?.slip_id ?? options?.slipId,
     report: {
       mode: 'demo',
       trace_id: initialTraceId,
+      slip_id: options?.slip_id ?? options?.slipId,
       reasons: ['Run started.'],
       legs: [],
       correlation_edges: [],
@@ -365,37 +491,60 @@ export async function runSlip(
 
   await runStore.saveRun(initial);
 
-  const apiResult = await extractWithApi(normalizedSlipText, initialTraceId, options?.baseUrl);
+  const continuitySlipId = options?.slip_id ?? options?.slipId;
+  const apiResult = await extractWithApi(
+    normalizedSlipText,
+    initialTraceId,
+    continuitySlipId,
+    options?.baseUrl
+  );
   const resolvedTraceId = canonicalTraceId({
     explicitTraceId: options?.trace_id ?? options?.traceId,
     existingEntityTraceId: options?.existingTraceId,
     requestTraceId: apiResult.traceId ?? options?.requestTraceId
   });
   const traceChanged = resolvedTraceId !== initialTraceId;
+  const resolvedSlipId = apiResult.slipId ?? continuitySlipId;
   if (traceChanged) {
-    await runStore.saveRun({ ...initial, trace_id: resolvedTraceId, traceId: resolvedTraceId, slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
-  } else if (apiResult.slipId || apiResult.anonSessionId || apiResult.requestId) {
-    await runStore.updateRun(resolvedTraceId, { slipId: apiResult.slipId, anonSessionId: apiResult.anonSessionId, requestId: apiResult.requestId });
+    await runStore.saveRun({
+      ...initial,
+      trace_id: resolvedTraceId,
+      traceId: resolvedTraceId,
+      slipId: resolvedSlipId,
+      anonSessionId: apiResult.anonSessionId,
+      requestId: apiResult.requestId
+    });
+  } else if (resolvedSlipId || apiResult.anonSessionId || apiResult.requestId) {
+    await runStore.updateRun(resolvedTraceId, {
+      slipId: resolvedSlipId,
+      anonSessionId: apiResult.anonSessionId,
+      requestId: apiResult.requestId
+    });
   }
 
-  const extracted = normalizeLegs(apiResult.legs.length > 0 ? apiResult.legs : extractLegs(normalizedSlipText));
+  const extracted = normalizeLegs(
+    apiResult.legs.length > 0 ? apiResult.legs : extractLegs(normalizedSlipText)
+  );
   const sportRaw = extracted.find((leg) => leg.sport)?.sport?.toLowerCase();
   const inferredSport = !sportRaw;
-  const sport: 'nba' | 'nfl' | 'soccer' = sportRaw === 'nfl' || sportRaw === 'soccer' ? sportRaw : 'nba';
+  const sport: 'nba' | 'nfl' | 'soccer' =
+    sportRaw === 'nfl' || sportRaw === 'soccer' ? sportRaw : 'nba';
 
   const sources: SourceStats = { stats: 'fallback', injuries: 'fallback', odds: 'fallback' };
   const trustedContext = await getRunContext({
     sport,
-    teams: extracted.flatMap((leg) => leg.team ? [{ team: leg.team }] : []),
-    players: extracted.flatMap((leg) => leg.player ? [{ player: leg.player, team: leg.team }] : []),
-    eventIds: extracted.flatMap((leg) => leg.id ? [leg.id] : []),
+    teams: extracted.flatMap((leg) => (leg.team ? [{ team: leg.team }] : [])),
+    players: extracted.flatMap((leg) =>
+      leg.player ? [{ player: leg.player, team: leg.team }] : []
+    ),
+    eventIds: extracted.flatMap((leg) => (leg.id ? [leg.id] : [])),
     legsText: normalizedSlipText,
     coverageAgentEnabled: options?.coverageAgentEnabled
   });
 
   await emitPipelineEvent({
     trace_id: resolvedTraceId,
-    slip_id: apiResult.slipId,
+    slip_id: resolvedSlipId,
     event_name: 'slip_enrich_started',
     stage: 'enrich',
     reason: 'Enriching legs with latest stats and injury context.',
@@ -404,7 +553,11 @@ export async function runSlip(
 
   const enrichedLegs: EnrichedLeg[] = [];
   for (const leg of extracted) {
-    const [stats, injuries, odds] = await Promise.all([enrichStats(leg), enrichInjuries(leg), enrichOdds(leg)]);
+    const [stats, injuries, odds] = await Promise.all([
+      enrichStats(leg),
+      enrichInjuries(leg),
+      enrichOdds(leg)
+    ]);
     if (stats.source === 'live') sources.stats = 'live';
     if (injuries.source === 'live') sources.injuries = 'live';
     if (odds.source === 'live') sources.odds = 'live';
@@ -442,26 +595,39 @@ export async function runSlip(
 
   await emitPipelineEvent({
     trace_id: resolvedTraceId,
-    slip_id: apiResult.slipId,
+    slip_id: resolvedSlipId,
     event_name: 'slip_enrich_done',
     stage: 'enrich',
     reason: 'Leg enrichment complete.',
     baseUrl: options?.baseUrl
   });
 
-  const analysis = computeVerdict(enrichedLegs, extracted, sources, trustedContext.coverage.injuries, trustedContext.unverifiedItems ?? []);
+  const analysis = computeVerdict(
+    enrichedLegs,
+    extracted,
+    sources,
+    trustedContext.coverage.injuries,
+    trustedContext.unverifiedItems ?? []
+  );
   await emitPipelineEvent({
     trace_id: resolvedTraceId,
-    slip_id: apiResult.slipId,
+    slip_id: resolvedSlipId,
     event_name: 'slip_scored',
     stage: 'score',
     reason: 'Scoring downside and concentration risk.',
     baseUrl: options?.baseUrl
   });
-  const report = mapReportLegsFromRun(extracted, enrichedLegs, analysis, sources, resolvedTraceId, apiResult.slipId);
+  const report = mapReportLegsFromRun(
+    extracted,
+    enrichedLegs,
+    analysis,
+    sources,
+    resolvedTraceId,
+    resolvedSlipId
+  );
   await emitPipelineEvent({
     trace_id: resolvedTraceId,
-    slip_id: apiResult.slipId,
+    slip_id: resolvedSlipId,
     event_name: 'slip_verdict_ready',
     stage: 'verdict',
     reason: 'Verdict prepared with weakest-leg rationale.',
@@ -473,6 +639,7 @@ export async function runSlip(
     extractedLegs: extracted,
     enrichedLegs,
     analysis,
+    slipId: resolvedSlipId,
     report,
     sources,
     trustedContext,
@@ -485,7 +652,7 @@ export async function runSlip(
 
   await emitPipelineEvent({
     trace_id: resolvedTraceId,
-    slip_id: apiResult.slipId,
+    slip_id: resolvedSlipId,
     event_name: 'slip_persisted',
     stage: 'saved',
     reason: 'Run saved to history.',

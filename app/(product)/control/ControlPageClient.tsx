@@ -17,7 +17,11 @@ import { buildShareRunHref } from '@/src/core/trace/shareHref';
 
 const ReviewPanel = dynamic(() => import('./ReviewPanel').then((m) => m.ReviewPanel), {
   ssr: false,
-  loading: () => <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm text-slate-300">Loading review panel…</div>
+  loading: () => (
+    <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm text-slate-300">
+      Loading review panel…
+    </div>
+  )
 });
 
 type Tab = 'live' | 'review';
@@ -34,24 +38,25 @@ type PostMortemResult = {
   correlationScore: number;
   volatilityTier: 'Low' | 'Med' | 'High' | 'Extreme';
   exposureSummary: {
-    topGames: Array<{ game: string; count: number }> ;
-    topPlayers: Array<{ player: string; count: number }> ;
+    topGames: Array<{ game: string; count: number }>;
+    topPlayers: Array<{ player: string; count: number }>;
   };
 };
 
 const mockParseSlip = (fileName: string): string => {
   const key = fileName.toLowerCase();
-  if (key.includes('nba')) return 'Luka Doncic over 31.5 points (-110)\nKyrie Irving over 3.5 threes (+105)';
-  if (key.includes('nfl')) return 'Josh Allen over 1.5 pass TDs (-120)\nStefon Diggs over 74.5 receiving yards (-115)';
+  if (key.includes('nba'))
+    return 'Luka Doncic over 31.5 points (-110)\nKyrie Irving over 3.5 threes (+105)';
+  if (key.includes('nfl'))
+    return 'Josh Allen over 1.5 pass TDs (-120)\nStefon Diggs over 74.5 receiving yards (-115)';
   return 'LeBron James over 6.5 rebounds (-105)\nJayson Tatum over 29.5 points (-110)';
 };
-
 
 export function ControlPageClient() {
   const search = useSearchParams();
   const initialTab = search.get('tab') === 'review' ? 'review' : 'live';
   const [tab, setTab] = useState<Tab>(initialTab);
-  const { slip } = useDraftSlip();
+  const { slip, slip_id: draftSlipId, trace_id: draftTraceId } = useDraftSlip();
   const nervous = useNervousSystem();
   const [outcome, setOutcome] = useState<'win' | 'loss' | 'push'>('loss');
   const [postmortem, setPostmortem] = useState<PostMortemResult | null>(null);
@@ -66,36 +71,46 @@ export function ControlPageClient() {
     return Math.round((avg - 0.6) * 100);
   }, [slip]);
 
+  const runReview = useCallback(
+    async (file?: File) => {
+      const slipText = mockParseSlip(file?.name ?? 'upload.png');
+      const [{ runSlip }, { runStore }, { toResearchRunDTOFromRun }] = await Promise.all([
+        import('@/src/core/pipeline/runSlip'),
+        import('@/src/core/run/store'),
+        import('@/src/core/run/researchRunDTO')
+      ]);
+      const traceId = await runSlip(slipText, {
+        trace_id: draftTraceId ?? nervous.trace_id,
+        slip_id: draftSlipId
+      });
+      const run = await runStore.getRun(traceId);
+      if (!run) return;
 
-  const runReview = useCallback(async (file?: File) => {
-    const slipText = mockParseSlip(file?.name ?? 'upload.png');
-    const [{ runSlip }, { runStore }, { toResearchRunDTOFromRun }] = await Promise.all([
-      import('@/src/core/pipeline/runSlip'),
-      import('@/src/core/run/store'),
-      import('@/src/core/run/researchRunDTO')
-    ]);
-    const traceId = await runSlip(slipText);
-    const run = await runStore.getRun(traceId);
-    if (!run) return;
+      const dto = toResearchRunDTOFromRun(run);
+      setRetroDto(dto);
+      setUploadName(file?.name ?? 'upload.png');
 
-    const dto = toResearchRunDTOFromRun(run);
-    setRetroDto(dto);
-    setUploadName(file?.name ?? 'upload.png');
-
-    const response = await fetch('/api/postmortem', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ legs: dto.legs, outcome })
-    });
-    const payload = await response.json() as PostMortemResult;
-    setPostmortem(payload);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('rb:last-postmortem', JSON.stringify({ uploadName: file?.name, dto, payload }));
-    }
-  }, [outcome]);
+      const response = await fetch('/api/postmortem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ legs: dto.legs, outcome })
+      });
+      const payload = (await response.json()) as PostMortemResult;
+      setPostmortem(payload);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          'rb:last-postmortem',
+          JSON.stringify({ uploadName: file?.name, dto, payload })
+        );
+      }
+    },
+    [outcome]
+  );
 
   useEffect(() => {
-    void import('@/src/core/run/store').then(({ runStore }) => runStore.listRuns(1)).then((runs) => setLatestTrace(runs[0]?.traceId ?? null));
+    void import('@/src/core/run/store')
+      .then(({ runStore }) => runStore.listRuns(1))
+      .then((runs) => setLatestTrace(runs[0]?.trace_id ?? null));
   }, []);
 
   useEffect(() => {
@@ -126,17 +141,49 @@ export function ControlPageClient() {
         purpose="After loop: track live posture, review outcomes, and feed back process fixes."
         ctas={
           <>
-            <Link href={nervous.toHref('/today')} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Build from Board</Link>
-            {latestTrace ? <Link href={appendQuery(nervous.toHref('/stress-test'), { trace_id: latestTrace })} className="rounded-lg border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm text-slate-950">Open latest run</Link> : null}
-            <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5">Try sample slip (demo)</Link>
+            <Link
+              href={nervous.toHref('/today')}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5"
+            >
+              Build from Board
+            </Link>
+            {latestTrace ? (
+              <Link
+                href={appendQuery(nervous.toHref('/stress-test'), {
+                  trace_id: latestTrace,
+                  slip_id: draftSlipId
+                })}
+                className="rounded-lg border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-sm text-slate-950"
+              >
+                Open latest run
+              </Link>
+            ) : null}
+            <Link
+              href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-slate-100 hover:bg-white/5"
+            >
+              Try sample slip (demo)
+            </Link>
           </>
         }
         strip={{ mode: nervous.mode, traceId: latestTrace ?? nervous.trace_id }}
       />
 
       <div className="flex gap-2 rounded-xl bg-slate-900/70 p-1 w-fit">
-        <button type="button" onClick={() => setTab('live')} className={`rounded-lg px-3 py-1.5 text-sm ${tab === 'live' ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>Live</button>
-        <button type="button" onClick={() => setTab('review')} className={`rounded-lg px-3 py-1.5 text-sm ${tab === 'review' ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}>Review</button>
+        <button
+          type="button"
+          onClick={() => setTab('live')}
+          className={`rounded-lg px-3 py-1.5 text-sm ${tab === 'live' ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}
+        >
+          Live
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('review')}
+          className={`rounded-lg px-3 py-1.5 text-sm ${tab === 'review' ? 'bg-cyan-400 text-slate-950' : 'text-slate-300'}`}
+        >
+          Review
+        </button>
       </div>
 
       {tab === 'live' ? (
@@ -148,25 +195,64 @@ export function ControlPageClient() {
               <AliveEmptyState
                 title="No active run yet"
                 message="Open latest run, try a deterministic sample, or build from Board to start live tracking."
-                actions={<>
-                  {latestTrace ? <Link href={appendQuery(nervous.toHref('/stress-test'), { trace: latestTrace })} className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950">Open latest run</Link> : null}
-                  <Link href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })} className="rounded border border-white/20 px-3 py-2 text-sm">Try sample slip (demo)</Link>
-                  <Link href={nervous.toHref('/today')} className="rounded border border-white/20 px-3 py-2 text-sm">Build from Board</Link>
-                </>}
+                actions={
+                  <>
+                    {latestTrace ? (
+                      <Link
+                        href={appendQuery(nervous.toHref('/stress-test'), {
+                          trace_id: latestTrace,
+                          slip_id: draftSlipId
+                        })}
+                        className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950"
+                      >
+                        Open latest run
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={appendQuery(nervous.toHref('/stress-test'), { demo: '1' })}
+                      className="rounded border border-white/20 px-3 py-2 text-sm"
+                    >
+                      Try sample slip (demo)
+                    </Link>
+                    <Link
+                      href={nervous.toHref('/today')}
+                      className="rounded border border-white/20 px-3 py-2 text-sm"
+                    >
+                      Build from Board
+                    </Link>
+                  </>
+                }
               />
               <section className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm text-slate-300">
                 <h3 className="text-sm font-semibold text-slate-100">Run timeline</h3>
-                <p className="mt-1 text-xs text-slate-400">Demo sample: Scout submitted → legs extracted → weakest-leg note recorded.</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Demo sample: Scout submitted → legs extracted → weakest-leg note recorded.
+                </p>
               </section>
             </>
           ) : (
             <>
-              <p className="text-sm text-slate-300">Pregame → live confidence delta: <span className={riskDelta >= 0 ? 'text-emerald-300' : 'text-amber-300'}>{riskDelta >= 0 ? '+' : ''}{riskDelta}%</span></p>
+              <p className="text-sm text-slate-300">
+                Pregame → live confidence delta:{' '}
+                <span className={riskDelta >= 0 ? 'text-emerald-300' : 'text-amber-300'}>
+                  {riskDelta >= 0 ? '+' : ''}
+                  {riskDelta}%
+                </span>
+              </p>
               <ul className="space-y-2 text-sm">
                 {slip.map((leg) => (
-                  <li key={leg.id} className="rounded-lg border border-white/10 bg-slate-950/50 p-3">
-                    <p className="font-medium">{leg.player} {leg.marketType} {leg.line} {leg.odds ?? ''}</p>
-                    <p className="text-xs text-slate-400">Game status: Monitoring • Risk shift: {riskDelta >= 0 ? 'stable/up' : 'watchlist'} • Hedge: {riskDelta < -5 ? 'consider' : 'not needed'}</p>
+                  <li
+                    key={leg.id}
+                    className="rounded-lg border border-white/10 bg-slate-950/50 p-3"
+                  >
+                    <p className="font-medium">
+                      {leg.player} {leg.marketType} {leg.line} {leg.odds ?? ''}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Game status: Monitoring • Risk shift:{' '}
+                      {riskDelta >= 0 ? 'stable/up' : 'watchlist'} • Hedge:{' '}
+                      {riskDelta < -5 ? 'consider' : 'not needed'}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -178,27 +264,63 @@ export function ControlPageClient() {
       {tab === 'review' ? (
         <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
           <h2 className="text-lg font-semibold">Review</h2>
-          <p className="text-sm text-slate-300">Upload a FanDuel screenshot for demo OCR parsing and deterministic postmortem classification.</p>
+          <p className="text-sm text-slate-300">
+            Upload a FanDuel screenshot for demo OCR parsing and deterministic postmortem
+            classification.
+          </p>
           <div className="flex flex-wrap items-center gap-2">
-            <input type="file" accept="image/*" onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              void runReview(file);
-            }} className="text-sm" />
-            <select value={outcome} onChange={(e) => setOutcome(e.target.value as 'win' | 'loss' | 'push')} className="rounded border border-white/20 bg-slate-950 px-2 py-1 text-sm">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                void runReview(file);
+              }}
+              className="text-sm"
+            />
+            <select
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value as 'win' | 'loss' | 'push')}
+              className="rounded border border-white/20 bg-slate-950 px-2 py-1 text-sm"
+            >
               <option value="win">Win</option>
               <option value="loss">Loss</option>
               <option value="push">Push</option>
             </select>
-            <button type="button" onClick={() => void runReview()} className="rounded bg-cyan-400 px-3 py-1.5 text-sm font-medium text-slate-950">Run sample review</button>
+            <button
+              type="button"
+              onClick={() => void runReview()}
+              className="rounded bg-cyan-400 px-3 py-1.5 text-sm font-medium text-slate-950"
+            >
+              Run sample review
+            </button>
           </div>
 
-          <ReviewPanel retroDto={retroDto} uploadName={uploadName} postmortem={postmortem} shareStatus={shareStatus} onShare={() => void shareRun()} />
+          <ReviewPanel
+            retroDto={retroDto}
+            uploadName={uploadName}
+            postmortem={postmortem}
+            shareStatus={shareStatus}
+            onShare={() => void shareRun()}
+          />
           {postmortem ? (
             <div className="grid gap-2 md:grid-cols-3">
-              <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-xs">Postmortem card preview ready.</div>
-              <button type="button" className="rounded-lg border border-white/20 bg-slate-950/50 p-3 text-xs text-left">Rebuild without weakest legs</button>
-              <button type="button" className="rounded-lg border border-white/20 bg-slate-950/50 p-3 text-xs text-left">Log journal note</button>
+              <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-xs">
+                Postmortem card preview ready.
+              </div>
+              <button
+                type="button"
+                className="rounded-lg border border-white/20 bg-slate-950/50 p-3 text-xs text-left"
+              >
+                Rebuild without weakest legs
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-white/20 bg-slate-950/50 p-3 text-xs text-left"
+              >
+                Log journal note
+              </button>
             </div>
           ) : null}
         </div>

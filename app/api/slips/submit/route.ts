@@ -20,14 +20,23 @@ export async function POST(request: Request) {
   const traceContext = getTraceContext(request);
   const parsed = SlipSubmitRequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Invalid slip payload.' }, trace_id: traceContext.trace_id, traceId: traceContext.trace_id }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: 'invalid_payload', message: 'Invalid slip payload.' },
+        trace_id: traceContext.trace_id,
+        traceId: traceContext.trace_id
+      },
+      { status: 400 }
+    );
   }
 
   try {
     const body = parsed.data;
     const store = getRuntimeStore();
 
-    const anonSessionId = body.anon_session_id || body.anon_id || body.spine?.anon_id || randomUUID();
+    const anonSessionId =
+      body.anon_session_id || body.anon_id || body.spine?.anon_id || randomUUID();
     const userId = body.user_id ?? body.spine?.user_id ?? null;
     const requestId = body.request_id ?? randomUUID();
 
@@ -37,27 +46,32 @@ export async function POST(request: Request) {
         tz: body.spine?.tz ?? traceContext.tz,
         date: body.spine?.date ?? traceContext.date,
         mode: body.spine?.mode ?? traceContext.mode,
-        anon_session_id: anonSessionId,
+        anon_session_id: anonSessionId
       },
       {
         sport: 'NBA',
         tz: 'America/Phoenix',
         date: new Date().toISOString().slice(0, 10),
         mode: 'demo',
-        anon_session_id: anonSessionId,
-      },
+        anon_session_id: anonSessionId
+      }
     );
 
     const trace = ensureTraceMeta(baseSpine, 'user', body.trace_id ?? traceContext.trace_id);
 
-    const rawText = body.raw_text && body.raw_text.trim().length > 0
-      ? body.raw_text
-      : (body.legs
-        ? body.legs.map((leg) => `${String(leg.player ?? 'Player')} ${String(leg.marketType ?? leg.market ?? 'prop')} ${String(leg.line ?? '')} ${String(leg.odds ?? '')}`.trim()).join('\n')
-        : 'Draft slip submitted');
+    const rawText =
+      body.raw_text && body.raw_text.trim().length > 0
+        ? body.raw_text
+        : body.legs
+          ? body.legs
+              .map((leg) =>
+                `${String(leg.player ?? 'Player')} ${String(leg.marketType ?? leg.market ?? 'prop')} ${String(leg.line ?? '')} ${String(leg.odds ?? '')}`.trim()
+              )
+              .join('\n')
+          : 'Draft slip submitted';
 
     const checksum = createHash('sha256').update(rawText).digest('hex');
-    const id = randomUUID();
+    const id = body.slip_id ?? randomUUID();
 
     await store.createSlipSubmission({
       id,
@@ -70,7 +84,7 @@ export async function POST(request: Request) {
       extractedLegs: (body.legs ?? null) as Record<string, unknown>[] | null,
       traceId: trace.trace_id,
       requestId,
-      checksum,
+      checksum
     });
 
     const parsedSlip = parseSlipText(rawText);
@@ -81,43 +95,71 @@ export async function POST(request: Request) {
       const { data: userData } = await supabase.auth.getUser();
       const authUserId = userData.user?.id ?? userId ?? null;
       if (authUserId) {
-        const { data: savedSlip } = await supabase.from('slips').insert({ user_id: authUserId, source_type: sourceType, raw_text: rawText, raw_json: { confidence: parsedSlip.confidence } }).select('id').single();
+        const { data: savedSlip } = await supabase
+          .from('slips')
+          .insert({
+            user_id: authUserId,
+            source_type: sourceType,
+            raw_text: rawText,
+            raw_json: { confidence: parsedSlip.confidence }
+          })
+          .select('id')
+          .single();
         if (savedSlip?.id && parsedSlip.legs.length > 0) {
-          await supabase.from('legs').insert(parsedSlip.legs.map((leg) => ({ slip_id: savedSlip.id, sport: leg.sport, league: leg.league, event_date: leg.eventDate, team_or_player: leg.teamOrPlayer, market_type: leg.marketType, line: leg.line, odds: leg.odds, book: leg.book })));
+          await supabase
+            .from('legs')
+            .insert(
+              parsedSlip.legs.map((leg) => ({
+                slip_id: savedSlip.id,
+                sport: leg.sport,
+                league: leg.league,
+                event_date: leg.eventDate,
+                team_or_player: leg.teamOrPlayer,
+                market_type: leg.marketType,
+                line: leg.line,
+                odds: leg.odds,
+                book: leg.book
+              }))
+            );
         }
         if (savedSlip?.id && sourceType === 'shared') {
           const feedback = buildSharedSlipFeedback(parsedSlip.legs);
-          await supabase.from('feedback_items').insert({ slip_id: savedSlip.id, type: 'agent_feedback', body: feedback.body });
+          await supabase
+            .from('feedback_items')
+            .insert({ slip_id: savedSlip.id, type: 'agent_feedback', body: feedback.body });
         }
       }
     } catch {
       // Keep deterministic runtime flow alive when Supabase is not configured.
     }
 
-    await new DbEventEmitter(store).emit({
-      event_name: 'slip_submitted',
-      timestamp: new Date().toISOString(),
-      request_id: requestId,
-      trace_id: trace.trace_id,
-      session_id: anonSessionId,
-      user_id: userId,
-      agent_id: 'slip_ingestion',
-      model_version: 'runtime-deterministic-v1',
-      properties: {
-        phase: 'BEFORE',
-        slip_id: id,
-        checksum,
-        sport: baseSpine.sport,
-        mode: baseSpine.mode,
-        tz: baseSpine.tz,
-        date: baseSpine.date,
-        anon_session_id: baseSpine.anon_session_id,
-        legs_count: parsedSlip.legs.length,
-        parse_confidence: parsedSlip.confidence,
-        needs_review: parsedSlip.legs.length === 0,
-        source_type: sourceType,
+    await new DbEventEmitter(store).emit(
+      {
+        event_name: 'slip_submitted',
+        timestamp: new Date().toISOString(),
+        request_id: requestId,
+        trace_id: trace.trace_id,
+        session_id: anonSessionId,
+        user_id: userId,
+        agent_id: 'slip_ingestion',
+        model_version: 'runtime-deterministic-v1',
+        properties: {
+          phase: 'BEFORE',
+          slip_id: id,
+          checksum,
+          sport: baseSpine.sport,
+          mode: baseSpine.mode,
+          tz: baseSpine.tz,
+          date: baseSpine.date,
+          anon_session_id: baseSpine.anon_session_id,
+          legs_count: parsedSlip.legs.length,
+          parse_confidence: parsedSlip.confidence,
+          needs_review: parsedSlip.legs.length === 0,
+          source_type: sourceType
+        }
       },
-    }, baseSpine);
+      baseSpine
+    );
 
     const spine: ContextSpine = { ...baseSpine, trace_id: trace.trace_id, slip_id: id };
     const response = SlipSubmitResultSchema.parse({
@@ -126,16 +168,32 @@ export async function POST(request: Request) {
       anon_id: anonSessionId,
       spine,
       trace,
-      parse: { confidence: parsedSlip.confidence, legs_count: parsedSlip.legs.length, needs_review: parsedSlip.legs.length === 0 },
+      parse: {
+        confidence: parsedSlip.confidence,
+        legs_count: parsedSlip.legs.length,
+        needs_review: parsedSlip.legs.length === 0
+      }
     });
     return NextResponse.json({
       ok: true,
-      data: { ...response, traceId: response.trace_id, trace: { ...trace, traceId: trace.trace_id } },
+      data: {
+        ...response,
+        traceId: response.trace_id,
+        trace: { ...trace, traceId: trace.trace_id }
+      },
       trace_id: trace.trace_id,
       traceId: trace.trace_id,
       provenance: { mode: baseSpine.mode, generatedAt: new Date().toISOString() }
     });
   } catch {
-    return NextResponse.json({ ok: false, error: { code: 'submit_failed', message: 'Failed to submit slip.' }, trace_id: traceContext.trace_id, traceId: traceContext.trace_id }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: 'submit_failed', message: 'Failed to submit slip.' },
+        trace_id: traceContext.trace_id,
+        traceId: traceContext.trace_id
+      },
+      { status: 500 }
+    );
   }
 }

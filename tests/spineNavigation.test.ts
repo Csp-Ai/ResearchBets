@@ -7,7 +7,8 @@ const baseSpine = {
   tz: 'America/New_York',
   date: '2026-02-27',
   mode: 'demo' as const,
-  trace_id: 'trace-123'
+  trace_id: 'trace-123',
+  slip_id: 'slip-123'
 };
 
 describe('spine navigation primitives', () => {
@@ -17,6 +18,7 @@ describe('spine navigation primitives', () => {
 
     expect(parsed.searchParams.get('sport')).toBe('NBA');
     expect(parsed.searchParams.get('trace_id')).toBe('trace-123');
+    expect(parsed.searchParams.get('slip_id')).toBe('slip-123');
     expect(parsed.searchParams.get('tab')).toBe('live');
     expect(parsed.searchParams.get('source')).toBe('cockpit');
   });
@@ -24,7 +26,8 @@ describe('spine navigation primitives', () => {
   it('keeps active location spine params on client', () => {
     vi.stubGlobal('window', {
       location: {
-        search: '?sport=NFL&tz=America/Chicago&date=2026-03-01&mode=live&trace_id=trace-live'
+        search:
+          '?sport=NFL&tz=America/Chicago&date=2026-03-01&mode=live&trace_id=trace-live&slip_id=slip-live'
       }
     });
 
@@ -34,6 +37,7 @@ describe('spine navigation primitives', () => {
     expect(parsed.searchParams.get('sport')).toBe('NFL');
     expect(parsed.searchParams.get('mode')).toBe('live');
     expect(parsed.searchParams.get('trace_id')).toBe('trace-live');
+    expect(parsed.searchParams.get('slip_id')).toBe('slip-live');
     expect(parsed.searchParams.get('refresh')).toBe('1');
 
     vi.unstubAllGlobals();
