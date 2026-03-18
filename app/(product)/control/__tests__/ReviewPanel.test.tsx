@@ -27,6 +27,7 @@ describe('ReviewPanel', () => {
           provenance: { source: 'DEMO' }
         }}
         uploadName="sample.png"
+        reviewMode="live"
         postmortem={null}
         shareStatus="idle"
         onShare={vi.fn()}
@@ -34,5 +35,7 @@ describe('ReviewPanel', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
+    expect(screen.getByText(/real review ingestion path/i)).toBeTruthy();
+    expect(screen.getByText(/trace_id: trace-1/i)).toBeTruthy();
   });
 });

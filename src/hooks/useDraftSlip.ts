@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import {
   DraftSlipStore,
   type DraftSlipIdentity,

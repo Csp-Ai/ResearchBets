@@ -5,24 +5,9 @@ import { presentRecommendation } from '@/src/core/slips/recommendationPresentati
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 
-type PostMortemResult = {
-  ok: boolean;
-  classification: {
-    process: string;
-    correlationMiss: boolean;
-    injuryImpact: boolean;
-    lineValueMiss: boolean;
-  };
-  notes: string[];
-  correlationScore: number;
-  volatilityTier: 'Low' | 'Med' | 'High' | 'Extreme';
-  exposureSummary: {
-    topGames: Array<{ game: string; count: number }>;
-    topPlayers: Array<{ player: string; count: number }>;
-  };
-};
+import type { ReviewPostMortemResult } from '@/src/core/control/reviewIngestion';
 
-const buildNextTimeAdjustments = (postmortem: PostMortemResult): string[] => {
+const buildNextTimeAdjustments = (postmortem: ReviewPostMortemResult): string[] => {
   const topGame = postmortem.exposureSummary.topGames[0];
   const bullets: string[] = [];
   if (topGame && topGame.count >= 4) bullets.push(`${topGame.count}-leg concentration in ${topGame.game}: split across 2+ games or hedge live after first quarter.`);
@@ -36,12 +21,14 @@ export function ReviewPanel({
   retroDto,
   uploadName,
   postmortem,
+  reviewMode,
   shareStatus,
   onShare
 }: {
   retroDto: ResearchRunDTO | null;
   uploadName: string;
-  postmortem: PostMortemResult | null;
+  reviewMode: 'live' | 'demo' | null;
+  postmortem: ReviewPostMortemResult | null;
   shareStatus: 'idle' | 'done' | 'error';
   onShare: () => void;
 }) {
@@ -68,7 +55,8 @@ export function ReviewPanel({
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm space-y-2">
       <SlipIntelBar legs={reviewIntelLegs} />
-      <p className="font-medium">Parsed slip ({uploadName || 'sample'}): {retroDto.legs.length} legs</p>
+      <p className="font-medium">{reviewMode === 'demo' ? 'Demo sample review' : 'Parsed review input'} ({uploadName || 'sample'}): {retroDto.legs.length} legs</p>
+      <p className="text-xs text-slate-400">{reviewMode === 'demo' ? 'This result came from the explicit demo/sample fallback.' : 'This result came from the real review ingestion path (uploaded/pasted input → parse/extract → postmortem).'} Continuity trace_id: {retroDto.trace_id ?? 'unknown'}{retroDto.slip_id ? ` · slip_id: ${retroDto.slip_id}` : ''}</p>
       <p>What happened: <span className="text-cyan-300">{postmortem?.classification.process ?? 'Running…'}</span></p>
       <p>Verdict: {presentRecommendation(retroDto.verdict.decision)} · Fragility {retroDto.verdict.fragility_score}/100 · Correlation {retroDto.verdict.correlation_flag ? 'High' : 'Managed'}</p>
       <p>Weakest leg: {weakestLegLabel}</p>
