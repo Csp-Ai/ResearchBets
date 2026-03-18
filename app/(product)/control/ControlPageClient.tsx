@@ -17,6 +17,7 @@ import {
   REVIEW_DEMO_SAMPLE_NAME,
   REVIEW_DEMO_SAMPLE_TEXT,
   type ReviewPostMortemResult,
+  type ReviewProvenance,
   runReviewIngestion
 } from '@/src/core/control/reviewIngestion';
 import { buildShareRunHref } from '@/src/core/trace/shareHref';
@@ -42,13 +43,15 @@ export function ControlPageClient() {
   const [postmortem, setPostmortem] = useState<ReviewPostMortemResult | null>(null);
   const [retroDto, setRetroDto] = useState<ResearchRunDTO | null>(null);
   const [reviewInputLabel, setReviewInputLabel] = useState('');
-  const [reviewMode, setReviewMode] = useState<'live' | 'demo' | null>(null);
+  const [reviewProvenance, setReviewProvenance] = useState<ReviewProvenance | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewStatus, setReviewStatus] = useState<'idle' | 'running'>('idle');
   const [ocrStatus, setOcrStatus] = useState<string | null>(null);
   const [latestTrace, setLatestTrace] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'done' | 'error'>('idle');
   const [reviewText, setReviewText] = useState('');
+  const [reviewSourceType, setReviewSourceType] = useState<'pasted_text' | 'screenshot_ocr'>('pasted_text');
+  const [ocrExtractedText, setOcrExtractedText] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const riskDelta = useMemo(() => {
@@ -62,16 +65,19 @@ export function ControlPageClient() {
       text,
       mode,
       sourceHint,
-      inputLabel
+      inputLabel,
+      hadManualEdits = false
     }: {
       text: string;
       mode: 'paste' | 'screenshot' | 'demo';
       sourceHint: 'paste' | 'screenshot' | 'demo';
       inputLabel: string;
+      hadManualEdits?: boolean;
     }) => {
       setReviewStatus('running');
       setReviewError(null);
       setOcrStatus(null);
+      setReviewProvenance(null);
       try {
         const [{ runSlip }, { runStore }, { toResearchRunDTOFromRun }] = await Promise.all([
           import('@/src/core/pipeline/runSlip'),
@@ -84,6 +90,7 @@ export function ControlPageClient() {
           mode,
           sourceHint,
           inputLabel,
+          hadManualEdits,
           continuity: {
             trace_id: draftTraceId ?? nervous.trace_id,
             slip_id: draftSlipId
@@ -94,7 +101,7 @@ export function ControlPageClient() {
 
         setRetroDto(result.dto);
         setReviewInputLabel(result.inputLabel);
-        setReviewMode(result.mode === 'demo' ? 'demo' : 'live');
+        setReviewProvenance(result.provenance);
         setPostmortem(result.postmortem);
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(
@@ -110,8 +117,8 @@ export function ControlPageClient() {
       } catch (error) {
         setRetroDto(null);
         setPostmortem(null);
-        setReviewMode(mode === 'demo' ? 'demo' : 'live');
         setReviewInputLabel(inputLabel);
+        setReviewProvenance(error instanceof Error && 'provenance' in error ? (error as { provenance?: ReviewProvenance }).provenance ?? null : null);
         setReviewError(error instanceof Error ? error.message : 'Review ingestion failed.');
       } finally {
         setReviewStatus('idle');
@@ -132,14 +139,14 @@ export function ControlPageClient() {
         setOcrStatus('Reading screenshot…');
         const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
         const text = await runOcr(file, (progress) => setOcrStatus(progress));
+        setReviewSourceType('screenshot_ocr');
+        setOcrExtractedText(text);
+        setReviewInputLabel(file.name);
         setReviewText(text);
-        await runReview({
-          text,
-          mode: 'screenshot',
-          sourceHint: 'screenshot',
-          inputLabel: file.name
-        });
+        setReviewError(null);
       } catch (error) {
+        setReviewSourceType('screenshot_ocr');
+        setOcrExtractedText(null);
         setReviewError(
           error instanceof Error
             ? error.message
@@ -149,7 +156,7 @@ export function ControlPageClient() {
         setOcrStatus(null);
       }
     },
-    [runReview]
+    []
   );
 
   useEffect(() => {
@@ -323,7 +330,10 @@ export function ControlPageClient() {
               <span className="text-xs uppercase tracking-wide text-slate-400">Review input</span>
               <textarea
                 value={reviewText}
-                onChange={(event) => setReviewText(event.target.value)}
+                onChange={(event) => {
+                  setReviewSourceType(reviewSourceType === 'screenshot_ocr' ? 'screenshot_ocr' : 'pasted_text');
+                  setReviewText(event.target.value);
+                }}
                 className="h-28 w-full rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-100"
                 placeholder="Paste the real slip text you want to review…"
               />
@@ -352,15 +362,16 @@ export function ControlPageClient() {
                 onClick={() =>
                   void runReview({
                     text: reviewText,
-                    mode: 'paste',
-                    sourceHint: 'paste',
-                    inputLabel: 'Pasted review input'
+                    mode: reviewSourceType === 'screenshot_ocr' ? 'screenshot' : 'paste',
+                    sourceHint: reviewSourceType === 'screenshot_ocr' ? 'screenshot' : 'paste',
+                    inputLabel: reviewSourceType === 'screenshot_ocr' ? (reviewInputLabel || 'Screenshot review input') : 'Pasted review input',
+                    hadManualEdits: reviewSourceType === 'screenshot_ocr' && ocrExtractedText != null && reviewText.trim() !== ocrExtractedText.trim()
                   })
                 }
                 disabled={reviewStatus === 'running' || !reviewText.trim()}
                 className="rounded bg-cyan-400 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {reviewStatus === 'running' ? 'Running review…' : 'Run real review'}
+                {reviewStatus === 'running' ? 'Running review…' : reviewSourceType === 'screenshot_ocr' ? 'Run review from extracted text' : 'Run real review'}
               </button>
               <button
                 type="button"
@@ -393,13 +404,22 @@ export function ControlPageClient() {
             {draftSlipId ?? 'when available'}.
           </p>
           {ocrStatus ? <p className="text-xs text-slate-300">{ocrStatus}</p> : null}
+          {reviewSourceType === 'screenshot_ocr' ? (
+            <div className="rounded-lg border border-white/10 bg-slate-950/40 p-3 text-sm text-slate-300">
+              <p className="font-medium text-slate-100">Screenshot extraction preview</p>
+              <p className="mt-1 text-xs text-slate-400">Review the extracted text before postmortem. Edit anything that OCR missed, then rerun the real review.</p>
+              <p className="mt-2 text-xs text-slate-400">Retry tips: crop tighter around the slip, improve contrast, avoid partial screenshots, or paste the slip text directly if you have it.</p>
+              {ocrExtractedText ? (
+                <p className="mt-2 text-xs text-slate-400">Current source: screenshot OCR{reviewText.trim() !== ocrExtractedText.trim() ? ' · manual edits pending' : ''}</p>
+              ) : null}
+            </div>
+          ) : null}
           {reviewError ? (
             <div className="rounded-lg border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
               <p className="font-medium">Real review could not be parsed.</p>
               <p className="mt-1">{reviewError}</p>
               <p className="mt-1 text-xs text-rose-100/80">
-                You can edit the input and retry, or choose “Run demo sample review” for the
-                clearly labeled sample flow.
+                Edit the extracted text and rerun when OCR is weak or partial. Demo review stays separate if you just want the sample flow.
               </p>
             </div>
           ) : null}
@@ -407,7 +427,7 @@ export function ControlPageClient() {
           <ReviewPanel
             retroDto={retroDto}
             uploadName={reviewInputLabel}
-            reviewMode={reviewMode}
+            provenance={reviewProvenance}
             postmortem={postmortem}
             shareStatus={shareStatus}
             onShare={() => void shareRun()}

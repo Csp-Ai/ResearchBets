@@ -29,6 +29,8 @@ ResearchBets should always:
 3. **Lifecycle continuity** — board → slip → stress-test → control stays connected.
 4. **Process feedback loop** — postmortem always outputs “what failed” and “what to change.”
 5. **Truthful review ingestion** — AFTER-stage review defaults to the real parse/extract path; demo review is labeled as sample-only fallback.
+6. **Visible provenance** — review output tells bettors whether it came from pasted text, screenshot OCR, or the demo sample, plus parse status, confidence availability, and continuity ids.
+7. **Manual recovery before postmortem** — when OCR/parse quality is weak, bettors can correct extracted text and rerun the real review instead of being quietly routed to demo.
 
 ## Positioning: not a tout product
 
@@ -51,5 +53,6 @@ It is a bettor operating system for decision quality:
 2. Add 2–3 props, then jump to `/slip`.
 3. Show `SlipIntelBar` and call out correlation + volatility.
 4. Click **Stress Test** to open `/stress-test` and show verdict.
-5. Switch to `/control?tab=review`, upload sample image, run postmortem.
-6. End on “what failed / what to change next time” outputs.
+5. Switch to `/control?tab=review`, upload a sample image, verify the OCR preview, optionally correct the text, then run postmortem.
+6. Point out the provenance strip so users can see source type, parse status, confidence availability, and continuity ids.
+7. End on “what failed / what to change next time” outputs.

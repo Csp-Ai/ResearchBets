@@ -2,6 +2,18 @@ import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 
 export type ReviewOutcome = 'win' | 'loss' | 'push';
 export type ReviewInputMode = 'paste' | 'screenshot' | 'demo';
+export type ReviewSourceType = 'pasted_text' | 'screenshot_ocr' | 'demo_sample';
+export type ReviewParseStatus = 'success' | 'partial' | 'failed';
+
+export type ReviewProvenance = {
+  source_type: ReviewSourceType;
+  parse_status: ReviewParseStatus;
+  parse_confidence: number | null;
+  had_manual_edits: boolean;
+  trace_id: string | null;
+  slip_id: string | null;
+  generated_at: string;
+};
 
 export type ReviewPostMortemResult = {
   ok: boolean;
@@ -22,11 +34,19 @@ export type ReviewPostMortemResult = {
   };
 };
 
+type ParsedLeg = {
+  parseConfidence?: 'high' | 'medium' | 'low';
+  needsReview?: boolean;
+};
+
 export type ReviewParseTicket = {
   rawSlipText: string;
   trace_id?: string;
   slip_id?: string;
-  legs: Array<unknown>;
+  legs: Array<ParsedLeg>;
+  parse_confidence?: number | null;
+  extraction_confidence?: number | null;
+  parse_status?: ReviewParseStatus;
 };
 
 export type ReviewResult = {
@@ -37,6 +57,7 @@ export type ReviewResult = {
   slip_id?: string;
   mode: ReviewInputMode;
   inputLabel: string;
+  provenance: ReviewProvenance;
 };
 
 export const REVIEW_DEMO_SAMPLE_NAME = 'Sample review (demo)';
@@ -46,11 +67,13 @@ LeBron James over 6.5 rebounds (-105)`;
 
 export class ReviewIngestionError extends Error {
   code: 'parse_failed' | 'run_missing' | 'postmortem_failed';
+  provenance?: ReviewProvenance;
 
-  constructor(code: ReviewIngestionError['code'], message: string) {
+  constructor(code: ReviewIngestionError['code'], message: string, provenance?: ReviewProvenance) {
     super(message);
     this.name = 'ReviewIngestionError';
     this.code = code;
+    this.provenance = provenance;
   }
 }
 
@@ -64,6 +87,46 @@ type ReviewDeps = {
   fetchImpl?: typeof fetch;
 };
 
+const toSourceType = (mode: ReviewInputMode): ReviewSourceType => {
+  if (mode === 'screenshot') return 'screenshot_ocr';
+  if (mode === 'demo') return 'demo_sample';
+  return 'pasted_text';
+};
+
+const resolveParseStatus = (ticket?: ReviewParseTicket | null): ReviewParseStatus => {
+  if (!ticket || !Array.isArray(ticket.legs) || ticket.legs.length === 0) return 'failed';
+  if (ticket.parse_status) return ticket.parse_status;
+
+  const hasWeakLeg = ticket.legs.some((leg) => leg?.needsReview || leg?.parseConfidence === 'low');
+  return hasWeakLeg ? 'partial' : 'success';
+};
+
+const resolveParseConfidence = (ticket?: ReviewParseTicket | null): number | null => {
+  if (!ticket) return null;
+  if (typeof ticket.parse_confidence === 'number') return ticket.parse_confidence;
+  if (typeof ticket.extraction_confidence === 'number') return ticket.extraction_confidence;
+  return null;
+};
+
+const buildProvenance = (
+  input: { mode: ReviewInputMode; hadManualEdits?: boolean },
+  details: {
+    parseTicket?: ReviewParseTicket | null;
+    trace_id?: string | null;
+    slip_id?: string | null;
+    generated_at?: string;
+    parse_status?: ReviewParseStatus;
+  }
+): ReviewProvenance => ({
+  source_type: toSourceType(input.mode),
+  parse_status: details.parse_status ?? resolveParseStatus(details.parseTicket),
+  parse_confidence: resolveParseConfidence(details.parseTicket),
+  had_manual_edits: Boolean(input.hadManualEdits),
+  trace_id: details.trace_id ?? details.parseTicket?.trace_id ?? null,
+  slip_id: details.slip_id ?? details.parseTicket?.slip_id ?? null,
+  generated_at: details.generated_at ?? new Date().toISOString()
+});
+
 export async function runReviewIngestion(
   input: {
     text: string;
@@ -71,6 +134,7 @@ export async function runReviewIngestion(
     mode: ReviewInputMode;
     sourceHint: 'paste' | 'screenshot' | 'demo';
     inputLabel: string;
+    hadManualEdits?: boolean;
     continuity?: { trace_id?: string; slip_id?: string };
   },
   deps: ReviewDeps
@@ -91,14 +155,26 @@ export async function runReviewIngestion(
   if (!parseResponse.ok || !parsePayload.ok || !parsePayload.data) {
     throw new ReviewIngestionError(
       'parse_failed',
-      parsePayload.error?.message ?? 'Could not parse this review input yet. Try editing the text or use the demo sample instead.'
+      parsePayload.error?.message ?? 'Could not parse this review input yet. Try editing the text or use the demo sample instead.',
+      buildProvenance(input, {
+        trace_id: input.continuity?.trace_id ?? null,
+        slip_id: input.continuity?.slip_id ?? null,
+        parse_status: 'failed'
+      })
     );
   }
 
+  const parseStatus = resolveParseStatus(parsePayload.data);
   if (!Array.isArray(parsePayload.data.legs) || parsePayload.data.legs.length === 0) {
     throw new ReviewIngestionError(
       'parse_failed',
-      'No reviewable legs were detected from this input. Paste clearer slip text or try the demo sample instead.'
+      'No reviewable legs were detected from this input. Paste clearer slip text or try the demo sample instead.',
+      buildProvenance(input, {
+        parseTicket: parsePayload.data,
+        trace_id: input.continuity?.trace_id ?? parsePayload.data.trace_id ?? null,
+        slip_id: input.continuity?.slip_id ?? parsePayload.data.slip_id ?? null,
+        parse_status: 'failed'
+      })
     );
   }
 
@@ -110,7 +186,13 @@ export async function runReviewIngestion(
   if (!run) {
     throw new ReviewIngestionError(
       'run_missing',
-      'Review analysis did not finish. Try again, or use the demo sample if you just want to explore the flow.'
+      'Review analysis did not finish. Try again, or use the demo sample if you just want to explore the flow.',
+      buildProvenance(input, {
+        parseTicket: parsePayload.data,
+        trace_id: input.continuity?.trace_id ?? parsePayload.data.trace_id ?? traceId,
+        slip_id: input.continuity?.slip_id ?? parsePayload.data.slip_id ?? null,
+        parse_status: parseStatus
+      })
     );
   }
 
@@ -130,7 +212,13 @@ export async function runReviewIngestion(
   if (!postmortemResponse.ok || !('ok' in postmortemPayload) || postmortemPayload.ok !== true) {
     throw new ReviewIngestionError(
       'postmortem_failed',
-      ('error' in postmortemPayload ? postmortemPayload.error?.message : undefined) ?? 'Postmortem review failed. The parsed slip was kept, but the after-action summary could not be generated.'
+      ('error' in postmortemPayload ? postmortemPayload.error?.message : undefined) ?? 'Postmortem review failed. The parsed slip was kept, but the after-action summary could not be generated.',
+      buildProvenance(input, {
+        parseTicket: parsePayload.data,
+        trace_id: dto.trace_id ?? traceId,
+        slip_id: dto.slip_id ?? null,
+        parse_status: parseStatus
+      })
     );
   }
 
@@ -141,6 +229,14 @@ export async function runReviewIngestion(
     trace_id: dto.trace_id ?? traceId,
     slip_id: dto.slip_id,
     mode: input.mode,
-    inputLabel: input.inputLabel
+    inputLabel: input.inputLabel,
+    provenance: buildProvenance(input, {
+      parseTicket: parsePayload.data,
+      trace_id: dto.trace_id ?? traceId,
+      slip_id: dto.slip_id ?? null,
+      parse_status: parseStatus
+    })
   };
 }
+
+export { buildProvenance, resolveParseConfidence, resolveParseStatus };
