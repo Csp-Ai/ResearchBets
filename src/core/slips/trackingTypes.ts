@@ -23,6 +23,7 @@ export type TrackedLegState = TrackedLeg & {
 
 export type SlipTrackingState = {
   slipId: string;
+  trace_id?: string;
   createdAtIso: string;
   mode: 'demo' | 'cache' | 'live';
   status: SlipStatus;

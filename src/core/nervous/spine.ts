@@ -5,6 +5,7 @@ export type SpineMode = Mode;
 
 export type Spine = {
   trace_id?: string;
+  slip_id?: string;
   sport: string;
   tz: string;
   date: string;
@@ -14,10 +15,11 @@ export type Spine = {
 
 export type QuerySpine = Spine;
 
-export const SPINE_KEYS = ['trace_id', 'sport', 'tz', 'date', 'mode', 'tab'] as const;
+export const SPINE_KEYS = ['trace_id', 'slip_id', 'sport', 'tz', 'date', 'mode', 'tab'] as const;
 
 export const SpineSchema = z.object({
   trace_id: z.string().min(1).optional(),
+  slip_id: z.string().min(1).optional(),
   sport: z.string().min(1),
   tz: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -35,7 +37,7 @@ const TZ_ALIASES: Record<string, string> = {
   MT: 'America/Denver',
   MST: 'America/Phoenix',
   PT: 'America/Los_Angeles',
-  PST: 'America/Los_Angeles',
+  PST: 'America/Los_Angeles'
 };
 
 const todayInTz = (tz: string) => {
@@ -69,6 +71,7 @@ export const DEFAULT_SPINE: Spine = {
   date: todayInTz(DEFAULT_TZ),
   mode: 'live',
   trace_id: undefined,
+  slip_id: undefined,
   tab: undefined
 };
 
@@ -128,13 +131,14 @@ export function normalizeSpineWithWarnings(input: unknown): SpineNormalizationRe
   const record = asRecord(input);
   const warnings: string[] = [];
   const trace_id = clean(record.trace_id ?? record.traceId ?? record.trace) ?? undefined;
+  const slip_id = clean(record.slip_id ?? record.slipId) ?? undefined;
   const sport = (clean(record.sport) ?? DEFAULT_SPINE.sport).toUpperCase();
   const tz = resolveTz(clean(record.tz), warnings);
   const date = resolveDate(clean(record.date), tz, warnings);
   const mode = resolveMode(clean(record.mode), warnings);
   const tab = clean(record.tab) ?? undefined;
 
-  const parse = SpineSchema.safeParse({ trace_id, sport, tz, date, mode, tab });
+  const parse = SpineSchema.safeParse({ trace_id, slip_id, sport, tz, date, mode, tab });
   if (parse.success) return { spine: parse.data, warnings };
 
   warnings.push('spine_invalid:defaulted');
@@ -143,12 +147,13 @@ export function normalizeSpineWithWarnings(input: unknown): SpineNormalizationRe
       ...DEFAULT_SPINE,
       sport,
       trace_id,
+      slip_id,
       tab,
       tz,
       mode,
-      date,
+      date
     },
-    warnings,
+    warnings
   };
 }
 
@@ -159,6 +164,7 @@ export function normalizeSpine(input: unknown): Spine {
 export function parseSpineFromSearch(sp: URLSearchParams): Partial<Spine> {
   return {
     trace_id: sp.get('trace_id') ?? sp.get('traceId') ?? undefined,
+    slip_id: sp.get('slip_id') ?? sp.get('slipId') ?? undefined,
     sport: sp.get('sport') ?? undefined,
     tz: sp.get('tz') ?? undefined,
     date: sp.get('date') ?? undefined,

@@ -54,6 +54,7 @@ Canonical public routes:
 All navigation should preserve:
 
 - `trace_id`
+- `slip_id`
 - `sport`
 - `tz`
 - `date`

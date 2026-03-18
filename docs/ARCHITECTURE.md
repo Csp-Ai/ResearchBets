@@ -24,10 +24,10 @@
 
 1. Board UI loads unified board payload through `src/core/board/boardService.server.ts` (`/api/today`, `/api/bettor-data`, stress scout consumers).
 2. User taps add/analyze, writing legs via draft storage/store.
-3. Slip page reads draft legs using `useDraftSlip`/`DraftSlipStore`.
+3. Slip page reads draft legs and early continuity identity (`slip_id`, `trace_id`) using `useDraftSlip`/`DraftSlipStore`.
 4. `SlipIntelBar` computes correlation + fragility in real time.
-5. User launches stress test; serialized draft text is sent to `/stress-test` prefill.
-6. `runSlip` executes submit/extract/enrichment/verdict and persists run state.
+5. User launches stress test; serialized draft text and continuity identity are sent into `/stress-test`.
+6. `runSlip` reuses the pre-issued identity, then executes submit/extract/enrichment/verdict and persists the same run state.
 
 ### B) Postmortem review path
 
@@ -77,7 +77,6 @@ Product contract: UI must display degraded/demo context explicitly instead of im
   - provider keys (`ODDS_API_KEY`, `SPORTSDATA_API_KEY`) as needed
 - `scripts/env-check.mjs` enforces strict checks in CI/production/live mode and relaxed checks for local demo mode.
 
-
 ## Landing mode resolution
 
 - `src/core/live/modeResolver.server.ts` is the shared server-safe resolver for landing mode decisions.
@@ -105,9 +104,9 @@ Current audit sources to reference (do not duplicate fully):
 
 Key current truth from audits: audit manifests can lag route changes; treat route handlers in `app/` as source of truth when drift appears.
 
-
 ### Canonical continuity spine
-- Query continuity now uses `src/core/nervous/spine.ts` and `src/core/nervous/routes.ts` for normalized keys (`sport,tz,date,mode,gameId,propId,slipId,trace_id`).
+
+- Query continuity now uses `src/core/nervous/spine.ts` and `src/core/nervous/routes.ts` for normalized keys (`sport,tz,date,mode,slip_id,trace_id,tab`).
 - Navigation should use `nervous.toHref(...)` so context carries through board → slip → stress → control journeys.
 
 ## Bettor account-to-settle loop (MVP)
@@ -160,7 +159,6 @@ Positioning statement: **ResearchBets outputs leads, not payouts.**
 
 Determinism guarantee: all `/tonight` and landing lead computations are pure against `TodayPayload`, avoid randomization, and remain demo-safe when providers are unavailable.
 
-
 ## DURING: Slip tracking module
 
 - Route split: `app/track/page.tsx` + `app/track/TrackPageClient.tsx` for the DURING command center.
@@ -183,7 +181,6 @@ Determinism guarantee: all `/tonight` and landing lead computations are pure aga
 - DURING-to-AFTER bridge: `src/components/track/DuringCoach.tsx` writes draft coach snapshots, and settlement attaches the latest snapshot for “what coach saw vs what happened.”
 - Edge aggregation: `src/core/review/edgeProfile.ts` derives local-only tendencies from postmortems (win rate, near-miss rate, high-fragility share, coverage-gap share, top miss tags, killer stat types).
 - UI surfaces: `/track` includes a Settle panel; `/review` renders the Edge Profile card + recent postmortem table.
-
 
 ## Landing architecture map
 

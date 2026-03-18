@@ -32,7 +32,6 @@ const statusTone: Record<SlipTrackingState['status'], string> = {
   settled: 'bg-slate-600/30 text-slate-100 border-slate-400/40'
 };
 
-
 export function readTrackSlipIdFromQuery(params: URLSearchParams): string {
   const canonical = params.get('slip_id');
   if (canonical) return canonical;
@@ -49,6 +48,7 @@ export function TrackPageClient() {
   const params = useSearchParams();
   const slipId = readTrackSlipIdFromQuery(params);
   const continuityTag = readTrackContinuityTagFromQuery(params);
+  const traceIdFromQuery = params.get('trace_id') ?? params.get('traceId') ?? '';
   const [state, setState] = useState<SlipTrackingState | null>(null);
   const [saved, setSaved] = useState(false);
   const [sampleLoading, setSampleLoading] = useState(false);
@@ -76,10 +76,23 @@ export function TrackPageClient() {
   }, [state]);
 
   const analysis = useMemo(() => {
-    if (!state) return { failureLeg: null as SlipTrackingState['legs'][number] | null, wouldHaveHit: [], runbacks: [] as SlipTrackingState['legs'], grudgeGuard: undefined as string | undefined };
+    if (!state)
+      return {
+        failureLeg: null as SlipTrackingState['legs'][number] | null,
+        wouldHaveHit: [],
+        runbacks: [] as SlipTrackingState['legs'],
+        grudgeGuard: undefined as string | undefined
+      };
     const derived = deriveSlipLearningHighlights(state);
-    const wouldHaveHit = state.legs.filter((leg) => leg.outcome === 'hit' && leg.legId !== state.eliminatedByLegId);
-    return { failureLeg: derived.weakestLeg, wouldHaveHit, runbacks: derived.runbackCandidates, grudgeGuard: derived.grudgeGuard };
+    const wouldHaveHit = state.legs.filter(
+      (leg) => leg.outcome === 'hit' && leg.legId !== state.eliminatedByLegId
+    );
+    return {
+      failureLeg: derived.weakestLeg,
+      wouldHaveHit,
+      runbacks: derived.runbackCandidates,
+      grudgeGuard: derived.grudgeGuard
+    };
   }, [state]);
 
   const onSaveJournal = () => {
@@ -95,33 +108,44 @@ export function TrackPageClient() {
       router.push(appendQuery(nervous.toHref('/tonight'), {}));
       return;
     }
-    const tracking = createTrackingFromDraft(draft, 'demo');
+    const identity = DraftSlipStore.getIdentity();
+    const tracking = createTrackingFromDraft(draft, 'demo', identity);
     saveSlip(tracking);
-    router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slip_id: tracking.slipId }));
+    const nextTraceId =
+      tracking.trace_id ?? identity.trace_id ?? traceIdFromQuery ?? nervous.trace_id;
+    router.push(
+      appendQuery(nervous.toHref('/track'), { slip_id: tracking.slipId, trace_id: nextTraceId })
+    );
   };
 
   const onTracked = () => {
     setShowTrackedToast(true);
-    router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { tracked: 1 }));
+    router.push(
+      appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), {
+        tracked: 1
+      })
+    );
   };
 
   const onSampleSlip = async () => {
     setSampleLoading(true);
     try {
       const response = await fetch(nervous.toHref('/api/today'));
-      const payload = await response.json() as { ok?: boolean; data?: TodayPayload };
+      const payload = (await response.json()) as { ok?: boolean; data?: TodayPayload };
       if (!payload.ok || !payload.data) return;
 
-      const board: BoardProp[] = payload.data.games.flatMap((game, gameIndex) => game.propsPreview.map((prop, propIndex) => ({
-        id: prop.id,
-        player: prop.player,
-        market: prop.market,
-        line: prop.line ?? '0.5',
-        odds: prop.odds ?? '-110',
-        hitRateL10: prop.hitRateL10 ?? (56 + ((gameIndex + propIndex) % 20)),
-        riskTag: prop.riskTag ?? (((gameIndex + propIndex) % 3 === 0) ? 'watch' : 'stable'),
-        gameId: game.id
-      })));
+      const board: BoardProp[] = payload.data.games.flatMap((game, gameIndex) =>
+        game.propsPreview.map((prop, propIndex) => ({
+          id: prop.id,
+          player: prop.player,
+          market: prop.market,
+          line: prop.line ?? '0.5',
+          odds: prop.odds ?? '-110',
+          hitRateL10: prop.hitRateL10 ?? 56 + ((gameIndex + propIndex) % 20),
+          riskTag: prop.riskTag ?? ((gameIndex + propIndex) % 3 === 0 ? 'watch' : 'stable'),
+          gameId: game.id
+        }))
+      );
 
       const slateSummary = buildSlateSummary(payload.data);
       const reactiveWindow = detectReactiveWindow(payload.data);
@@ -148,19 +172,35 @@ export function TrackPageClient() {
       }));
 
       DraftSlipStore.setSlip(legs);
-      const tracking = createTrackingFromDraft(legs, payload.data.mode);
+      const identity = DraftSlipStore.getIdentity();
+      const tracking = createTrackingFromDraft(legs, payload.data.mode, identity);
       saveSlip(tracking);
-      router.push(appendQuery(withTraceId(nervous.toHref('/track'), nervous.trace_id ?? 'trace_demo_track'), { slip_id: tracking.slipId }));
+      const nextTraceId =
+        tracking.trace_id ?? identity.trace_id ?? traceIdFromQuery ?? nervous.trace_id;
+      router.push(
+        appendQuery(nervous.toHref('/track'), { slip_id: tracking.slipId, trace_id: nextTraceId })
+      );
     } finally {
       setSampleLoading(false);
     }
   };
 
-  const runHeader = deriveRunHeader({ trace_id: nervous.trace_id, mode: state?.mode });
+  const runHeader = deriveRunHeader({
+    trace_id: state?.trace_id ?? traceIdFromQuery ?? nervous.trace_id,
+    mode: state?.mode
+  });
   const surfaceMode = (state?.mode ?? nervous.mode) as 'demo' | 'cache' | 'live';
-  const modeNote = surfaceMode === 'demo' ? 'Demo mode (live feeds off)' : surfaceMode === 'cache' ? 'Using cached slate' : 'Live feeds active';
+  const modeNote =
+    surfaceMode === 'demo'
+      ? 'Demo mode (live feeds off)'
+      : surfaceMode === 'cache'
+        ? 'Using cached slate'
+        : 'Live feeds active';
   const sourceQuality = getSourceQualityCopy({ mode: surfaceMode });
-  const continuityLabel = continuityTag === 'staged_ticket' ? 'Continuation active: Staged from Board → Tracking run' : 'Tracking run';
+  const continuityLabel =
+    continuityTag === 'staged_ticket'
+      ? 'Continuation active: Staged from Board → Tracking run'
+      : 'Tracking run';
 
   if (!state) {
     const hasDraft = DraftSlipStore.getSlip().length > 0;
@@ -171,7 +211,11 @@ export function TrackPageClient() {
         <DuringStageTracker trace_id={nervous.trace_id} mode={surfaceMode} />
         <DecisionThreadStrip
           activeStage="track"
-          contextLabel={continuityTag === 'staged_ticket' ? 'Continuation: this tracking run follows your staged board decision and stays in the learning loop.' : 'Track keeps the learning loop live from verdict to outcome.'}
+          contextLabel={
+            continuityTag === 'staged_ticket'
+              ? 'Continuation: this tracking run follows your staged board decision and stays in the learning loop.'
+              : 'Track keeps the learning loop live from verdict to outcome.'
+          }
         />
         {showTrackedToast ? <p className="text-xs text-emerald-200">Slip tracked.</p> : null}
         <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-6">
@@ -183,11 +227,24 @@ export function TrackPageClient() {
           ) : null}
           <h1 className="text-xl font-semibold">No tracked slip yet</h1>
           <p className="mt-2 text-sm text-slate-300">{modeNote}</p>
-          <p className="mt-1 text-xs text-slate-400" title={sourceQuality.detail}>{sourceQuality.label}</p>
-          <p className="mt-1 text-sm text-slate-300">Track a slip to continue the same decision thread through outcome and learning.</p>
+          <p className="mt-1 text-xs text-slate-400" title={sourceQuality.detail}>
+            {sourceQuality.label}
+          </p>
+          <p className="mt-1 text-sm text-slate-300">
+            Track a slip to continue the same decision thread through outcome and learning.
+          </p>
           <p className="mt-1 text-xs text-cyan-100">{continuityLabel}</p>
-          <TrackSlipInput onTracked={onTracked} onOpenDraft={onTrackLatestDraft} onTrySample={onSampleSlip} sampleLoading={sampleLoading} />
-          {!hasDraft ? <p className="mt-2 text-xs text-slate-400">No draft found yet. Build one in Tonight and come back.</p> : null}
+          <TrackSlipInput
+            onTracked={onTracked}
+            onOpenDraft={onTrackLatestDraft}
+            onTrySample={onSampleSlip}
+            sampleLoading={sampleLoading}
+          />
+          {!hasDraft ? (
+            <p className="mt-2 text-xs text-slate-400">
+              No draft found yet. Build one in Tonight and come back.
+            </p>
+          ) : null}
         </section>
       </section>
     );
@@ -199,7 +256,11 @@ export function TrackPageClient() {
       <DuringStageTracker trace_id={nervous.trace_id} mode={surfaceMode} />
       <DecisionThreadStrip
         activeStage="track"
-        contextLabel={continuityTag === 'staged_ticket' ? 'Continuation: this tracking run follows your staged board decision and stays in the learning loop.' : 'Track keeps the learning loop live from verdict to outcome.'}
+        contextLabel={
+          continuityTag === 'staged_ticket'
+            ? 'Continuation: this tracking run follows your staged board decision and stays in the learning loop.'
+            : 'Track keeps the learning loop live from verdict to outcome.'
+        }
       />
       <header className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
         {isHydratingTicket ? (
@@ -208,14 +269,31 @@ export function TrackPageClient() {
             <Skeleton className="h-6 w-32 rounded-full" />
           </div>
         ) : null}
-        <p className="text-xs text-slate-400">Slip ID: {state.slipId} · {runHeader.modeLabel} · {modeNote}</p>
+        <p className="text-xs text-slate-400">
+          Slip ID: {state.slipId} · {runHeader.modeLabel} · {modeNote}
+        </p>
         <p className="text-xs text-cyan-100">{continuityLabel}</p>
-        <p className="text-xs text-slate-500" title={sourceQuality.detail}>{sourceQuality.label}</p>
+        <p className="text-xs text-slate-500" title={sourceQuality.detail}>
+          {sourceQuality.label}
+        </p>
         <div className="flex items-center gap-2">
-          <span className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}>{state.status}</span>
-          {state.eliminatedByLegId ? <span className="text-sm text-rose-100">Eliminated by: {state.legs.find((leg) => leg.legId === state.eliminatedByLegId)?.player}</span> : null}
+          <span
+            className={`rounded-full border px-3 py-1 text-xs uppercase ${statusTone[state.status]}`}
+          >
+            {state.status}
+          </span>
+          {state.eliminatedByLegId ? (
+            <span className="text-sm text-rose-100">
+              Eliminated by:{' '}
+              {state.legs.find((leg) => leg.legId === state.eliminatedByLegId)?.player}
+            </span>
+          ) : null}
         </div>
-        {state.status === 'eliminated' ? <p className="text-sm text-slate-300">Ticket busted, but keep tracking remaining legs for learning.</p> : null}
+        {state.status === 'eliminated' ? (
+          <p className="text-sm text-slate-300">
+            Ticket busted, but keep tracking remaining legs for learning.
+          </p>
+        ) : null}
       </header>
 
       <section className="rounded-xl border border-slate-700 bg-slate-950/60 p-4">
@@ -224,17 +302,28 @@ export function TrackPageClient() {
           {state.legs.map((leg) => (
             <li key={leg.legId} className="rounded border border-slate-700 p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p>{leg.player} · {leg.market} {leg.line}</p>
+                <p>
+                  {leg.player} · {leg.market} {leg.line}
+                </p>
                 <div className="flex gap-2 text-xs">
                   <span className="rounded border border-white/20 px-2 py-0.5">{leg.outcome}</span>
-                  <span className="rounded border border-amber-300/30 px-2 py-0.5">{leg.volatility}</span>
+                  <span className="rounded border border-amber-300/30 px-2 py-0.5">
+                    {leg.volatility}
+                  </span>
                 </div>
               </div>
               {typeof leg.currentValue === 'number' && typeof leg.targetValue === 'number' ? (
                 <div className="mt-2">
-                  <p className="text-xs text-slate-300">Progress: {leg.currentValue} / {leg.targetValue}</p>
+                  <p className="text-xs text-slate-300">
+                    Progress: {leg.currentValue} / {leg.targetValue}
+                  </p>
                   <div className="mt-1 h-2 rounded bg-slate-800">
-                    <div className="h-2 rounded bg-cyan-400" style={{ width: `${Math.min(100, Math.max(0, (leg.currentValue / Math.max(0.01, leg.targetValue)) * 100))}%` }} />
+                    <div
+                      className="h-2 rounded bg-cyan-400"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (leg.currentValue / Math.max(0.01, leg.targetValue)) * 100))}%`
+                      }}
+                    />
                   </div>
                 </div>
               ) : null}
@@ -243,26 +332,52 @@ export function TrackPageClient() {
         </ul>
       </section>
 
-      {(state.status === 'eliminated' || state.status === 'settled') ? (
+      {state.status === 'eliminated' || state.status === 'settled' ? (
         <section className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
           <h2 className="text-lg font-semibold">Postmortem Summary</h2>
-          {analysis.failureLeg ? <p className="text-sm">Failure leg: {analysis.failureLeg.player} ({analysis.failureLeg.missType ?? 'unknown'})</p> : null}
+          {analysis.failureLeg ? (
+            <p className="text-sm">
+              Failure leg: {analysis.failureLeg.player} ({analysis.failureLeg.missType ?? 'unknown'}
+              )
+            </p>
+          ) : null}
           <p className="text-sm">Would-have-hit legs: {analysis.wouldHaveHit.length}</p>
           <ul className="list-disc pl-5 text-sm text-slate-300">
-            {analysis.wouldHaveHit.map((leg) => <li key={leg.legId}>{leg.player} {leg.market} {leg.line}</li>)}
+            {analysis.wouldHaveHit.map((leg) => (
+              <li key={leg.legId}>
+                {leg.player} {leg.market} {leg.line}
+              </li>
+            ))}
           </ul>
           <p className="text-sm">Runback candidates: {analysis.runbacks.length}</p>
           <ul className="list-disc pl-5 text-sm text-slate-300">
-            {analysis.runbacks.map((leg) => <li key={`runback-${leg.legId}`}>{leg.player} {leg.market} {leg.line}</li>)}
+            {analysis.runbacks.map((leg) => (
+              <li key={`runback-${leg.legId}`}>
+                {leg.player} {leg.market} {leg.line}
+              </li>
+            ))}
           </ul>
-          <p className="rounded border border-amber-300/40 bg-amber-500/10 p-2 text-sm text-amber-100">{analysis.grudgeGuard ?? 'Do not auto-blacklist. Need sample size.'}</p>
+          <p className="rounded border border-amber-300/40 bg-amber-500/10 p-2 text-sm text-amber-100">
+            {analysis.grudgeGuard ?? 'Do not auto-blacklist. Need sample size.'}
+          </p>
         </section>
       ) : null}
 
       <div className="flex items-center gap-2">
-        <button type="button" className="rounded border border-cyan-400/70 bg-cyan-500/10 px-4 py-2 text-sm" onClick={onSaveJournal}>Save to Journal</button>
+        <button
+          type="button"
+          className="rounded border border-cyan-400/70 bg-cyan-500/10 px-4 py-2 text-sm"
+          onClick={onSaveJournal}
+        >
+          Save to Journal
+        </button>
         {saved ? <span className="text-xs text-emerald-300">Saved</span> : null}
-        <Link href={appendQuery(nervous.toHref('/journal'), {})} className="text-xs underline text-slate-300">Open Journal</Link>
+        <Link
+          href={appendQuery(nervous.toHref('/journal'), {})}
+          className="text-xs underline text-slate-300"
+        >
+          Open Journal
+        </Link>
       </div>
     </section>
   );

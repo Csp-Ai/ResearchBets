@@ -6,7 +6,10 @@ import Link from 'next/link';
 
 import { GamesToday, mapPropToLeg, type TodayGame } from '@/features/dashboard/GamesToday';
 import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
-import { SCOUT_ANALYZE_PREFILL_STORAGE_KEY, serializeDraftSlip } from '@/src/core/slips/serializeDraftSlip';
+import {
+  SCOUT_ANALYZE_PREFILL_STORAGE_KEY,
+  serializeDraftSlip
+} from '@/src/core/slips/serializeDraftSlip';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { createTrackingFromDraft, saveSlip } from '@/src/core/slips/storage';
@@ -57,14 +60,18 @@ function getScoutDraftLegs(games: TodayGame[]): SlipBuilderLeg[] {
 }
 
 export default function SlipPageClient() {
-  const { slip, isHydrated, addLeg, removeLeg, clearSlip, setSlip } = useDraftSlip();
+  const { slip, slip_id, trace_id, isHydrated, addLeg, removeLeg, clearSlip, setSlip } =
+    useDraftSlip();
   const [games, setGames] = useState<TodayGame[]>([]);
   const [boardMode, setBoardMode] = useState<'live' | 'cache' | 'demo'>('demo');
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle');
   const router = useRouter();
   const searchParams = useSearchParams();
   const nervous = useNervousSystem();
-  const dedupedLegs = useMemo(() => Array.from(new Map(slip.map((leg) => [leg.id, leg])).values()), [slip]);
+  const dedupedLegs = useMemo(
+    () => Array.from(new Map(slip.map((leg) => [leg.id, leg])).values()),
+    [slip]
+  );
 
   useEffect(() => {
     const seedPlayer = searchParams.get('seedPlayer');
@@ -85,13 +92,66 @@ export default function SlipPageClient() {
   useEffect(() => {
     fetch(nervous.toHref('/api/today'))
       .then((res) => (res.ok ? res.json() : null))
-      .then((payload: { ok?: boolean; data?: { mode: 'live'|'cache'|'demo'; games: Array<{id:string;matchup:string;startTime:string}>; board: Array<{id:string;gameId:string;player:string;market:string;line:string;odds?:string}> } } | null) => {
-        if (!payload?.ok || !payload.data) return;
-        const data = payload.data;
-        setBoardMode(data.mode);
-        const asTodayPayload: TodayPayload = { mode: data.mode, generatedAt: new Date().toISOString(), leagues: ['NBA','NFL','MLB','Soccer','UFC','NHL'], games: data.games.map((g) => ({ id: g.id, league: 'NBA', status: 'upcoming', startTime: g.startTime, matchup: g.matchup, teams: g.matchup.split('@').map((v) => v.trim()), bookContext: 'Unified board resolver', provenance: 'normalized_board', lastUpdated: new Date().toISOString(), propsPreview: data.board.filter((b) => b.gameId === g.id).map((b) => ({ id: b.id, player: b.player, market: b.market as TodayPayload['games'][number]['propsPreview'][number]['market'], line: b.line, odds: b.odds, rationale: ['Board signal'], provenance: 'normalized_board', lastUpdated: new Date().toISOString() })) })), board: data.board.map((b) => ({ ...b, market: b.market as TodayPayload['games'][number]['propsPreview'][number]['market'], rationale: ['Board signal'], provenance: 'normalized_board', lastUpdated: new Date().toISOString() })) };
-        setGames(mapTodayPayload(asTodayPayload));
-      })
+      .then(
+        (
+          payload: {
+            ok?: boolean;
+            data?: {
+              mode: 'live' | 'cache' | 'demo';
+              games: Array<{ id: string; matchup: string; startTime: string }>;
+              board: Array<{
+                id: string;
+                gameId: string;
+                player: string;
+                market: string;
+                line: string;
+                odds?: string;
+              }>;
+            };
+          } | null
+        ) => {
+          if (!payload?.ok || !payload.data) return;
+          const data = payload.data;
+          setBoardMode(data.mode);
+          const asTodayPayload: TodayPayload = {
+            mode: data.mode,
+            generatedAt: new Date().toISOString(),
+            leagues: ['NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'],
+            games: data.games.map((g) => ({
+              id: g.id,
+              league: 'NBA',
+              status: 'upcoming',
+              startTime: g.startTime,
+              matchup: g.matchup,
+              teams: g.matchup.split('@').map((v) => v.trim()),
+              bookContext: 'Unified board resolver',
+              provenance: 'normalized_board',
+              lastUpdated: new Date().toISOString(),
+              propsPreview: data.board
+                .filter((b) => b.gameId === g.id)
+                .map((b) => ({
+                  id: b.id,
+                  player: b.player,
+                  market:
+                    b.market as TodayPayload['games'][number]['propsPreview'][number]['market'],
+                  line: b.line,
+                  odds: b.odds,
+                  rationale: ['Board signal'],
+                  provenance: 'normalized_board',
+                  lastUpdated: new Date().toISOString()
+                }))
+            })),
+            board: data.board.map((b) => ({
+              ...b,
+              market: b.market as TodayPayload['games'][number]['propsPreview'][number]['market'],
+              rationale: ['Board signal'],
+              provenance: 'normalized_board',
+              lastUpdated: new Date().toISOString()
+            }))
+          };
+          setGames(mapTodayPayload(asTodayPayload));
+        }
+      )
       .catch(() => undefined);
   }, [nervous]);
 
@@ -106,19 +166,34 @@ export default function SlipPageClient() {
     const prefillText = serializeDraftSlip(dedupedLegs);
     if (!prefillText) return;
     window.sessionStorage.setItem(SCOUT_ANALYZE_PREFILL_STORAGE_KEY, prefillText);
-    router.push(appendQuery(nervous.toHref('/stress-test'), { tab: 'analyze', prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY }));
+    router.push(
+      appendQuery(nervous.toHref('/stress-test'), {
+        tab: 'analyze',
+        prefillKey: SCOUT_ANALYZE_PREFILL_STORAGE_KEY,
+        trace_id,
+        slip_id
+      })
+    );
   };
 
   const onTrackSlip = () => {
     if (dedupedLegs.length === 0) return;
-    const tracking = createTrackingFromDraft(dedupedLegs, boardMode);
+    const tracking = createTrackingFromDraft(dedupedLegs, boardMode, { slip_id, trace_id });
     saveSlip(tracking);
-    router.push(appendQuery(nervous.toHref('/track'), { slip_id: tracking.slipId }));
+    router.push(
+      appendQuery(nervous.toHref('/track'), {
+        slip_id: tracking.slipId,
+        trace_id: tracking.trace_id ?? trace_id
+      })
+    );
   };
 
   const onCopyLegs = async () => {
     if (typeof window === 'undefined' || dedupedLegs.length === 0) return;
-    const copyLines = dedupedLegs.map((leg, index) => `${index + 1}. ${leg.player} ${leg.marketType} ${leg.line}${leg.odds ? ` (${leg.odds})` : ''}`);
+    const copyLines = dedupedLegs.map(
+      (leg, index) =>
+        `${index + 1}. ${leg.player} ${leg.marketType} ${leg.line}${leg.odds ? ` (${leg.odds})` : ''}`
+    );
     try {
       await navigator.clipboard.writeText(copyLines.join('\n'));
       setCopyState('done');
@@ -142,7 +217,11 @@ export default function SlipPageClient() {
     <section className="mx-auto max-w-7xl space-y-3">
       <TruthSpineHeader
         title="Draft Slip"
-        subtitle="During loop: stage the ticket, enforce concentration checks, then analyze."
+        subtitle={
+          slip_id
+            ? 'Run in progress: your staged ticket keeps the same thread into Analyze and Track.'
+            : 'During loop: stage the ticket, enforce concentration checks, then analyze.'
+        }
         actions={[
           { label: 'Build from Board', href: nervous.toHref('/today'), tone: 'primary' },
           { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) },
@@ -150,22 +229,40 @@ export default function SlipPageClient() {
         ]}
       />
       <SlipIntelBar legs={dedupedLegs} />
-      <DuringStageTracker trace_id={nervous.trace_id} mode={boardMode} compact />
+      <DuringStageTracker trace_id={trace_id ?? nervous.trace_id} mode={boardMode} compact />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
           {games.length === 0 ? (
             <AliveEmptyState
               title="Today's prop board is empty"
               message="No board rows are loaded yet. Go to Board to add props, or seed a deterministic sample in demo mode."
-              note={boardMode === 'demo' ? 'Demo mode (live feeds off).' : 'Waiting for live events — showing deterministic demo signals when needed.'}
-              actions={(
+              note={
+                boardMode === 'demo'
+                  ? 'Demo mode (live feeds off).'
+                  : 'Waiting for live events — showing deterministic demo signals when needed.'
+              }
+              actions={
                 <>
-                  <Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Go to Board to add props</Link>
-                  {boardMode === 'demo' ? <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded border border-white/20 px-3 py-1.5">Seed sample props</Link> : null}
+                  <Link
+                    href={nervous.toHref('/today')}
+                    className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950"
+                  >
+                    Go to Board to add props
+                  </Link>
+                  {boardMode === 'demo' ? (
+                    <Link
+                      href={appendQuery(nervous.toHref('/slip'), { sample: '1' })}
+                      className="rounded border border-white/20 px-3 py-1.5"
+                    >
+                      Seed sample props
+                    </Link>
+                  ) : null}
                 </>
-              )}
+              }
             />
-          ) : <GamesToday games={games} onAddLeg={addLeg} />}
+          ) : (
+            <GamesToday games={games} onAddLeg={addLeg} />
+          )}
         </div>
         <div className="xl:sticky xl:top-4 xl:h-fit space-y-3">
           <CardSurface className="space-y-4 p-4">
@@ -184,41 +281,121 @@ export default function SlipPageClient() {
               <AliveEmptyState
                 title="Start with one board action"
                 message="Add 2–3 leads from Board or load a sample; then we stage your ticket for Analyze and Track."
-                actions={<><Link href={nervous.toHref('/today')} className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950">Build from Board</Link><Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="rounded border border-white/20 px-3 py-1.5 text-slate-100">Try sample</Link></>}
+                actions={
+                  <>
+                    <Link
+                      href={nervous.toHref('/today')}
+                      className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950"
+                    >
+                      Build from Board
+                    </Link>
+                    <Link
+                      href={appendQuery(nervous.toHref('/slip'), { sample: '1' })}
+                      className="rounded border border-white/20 px-3 py-1.5 text-slate-100"
+                    >
+                      Try sample
+                    </Link>
+                  </>
+                }
               />
             ) : null}
             <ul className="space-y-2">
-              {isHydrated ? dedupedLegs.map((leg, index) => (
-                <li key={leg.id} className="row-shell">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0"><p className="text-sm font-semibold text-slate-100">{index + 1}. {leg.player}</p><p className="text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p></div>
-                    <div className="flex items-center gap-1">
-                      <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px]" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</Button>
-                      <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px]" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</Button>
-                      <Button intent="ghost" className="min-h-0 px-2 py-1 text-[11px] text-rose-100" onClick={() => removeLeg(leg.id)}>Remove</Button>
-                    </div>
-                  </div>
-                  <div className="mt-1">
-                    <Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">{leg.volatility ?? 'watch'}</Badge>
-                  </div>
-                </li>
-              )) : null}
+              {isHydrated
+                ? dedupedLegs.map((leg, index) => (
+                    <li key={leg.id} className="row-shell">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-100">
+                            {index + 1}. {leg.player}
+                          </p>
+                          <p className="text-xs text-slate-300">
+                            {leg.marketType.toUpperCase()} {leg.line}{' '}
+                            <span className="mono-number">{leg.odds ?? '—'}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            intent="ghost"
+                            className="min-h-0 px-2 py-1 text-[11px]"
+                            onClick={() => moveLeg(index, index - 1)}
+                            disabled={index === 0}
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            intent="ghost"
+                            className="min-h-0 px-2 py-1 text-[11px]"
+                            onClick={() => moveLeg(index, index + 1)}
+                            disabled={index === dedupedLegs.length - 1}
+                          >
+                            ↓
+                          </Button>
+                          <Button
+                            intent="ghost"
+                            className="min-h-0 px-2 py-1 text-[11px] text-rose-100"
+                            onClick={() => removeLeg(leg.id)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-1">
+                        <Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">
+                          {leg.volatility ?? 'watch'}
+                        </Badge>
+                      </div>
+                    </li>
+                  ))
+                : null}
             </ul>
-            <Button intent="ghost" className="w-full text-sm text-slate-200 disabled:opacity-40" onClick={onCopyLegs} disabled={dedupedLegs.length === 0 || !isHydrated}>Copy legs {copyState === 'done' ? '✓' : copyState === 'error' ? '(copy unavailable in this browser)' : ''}</Button>
+            <Button
+              intent="ghost"
+              className="w-full text-sm text-slate-200 disabled:opacity-40"
+              onClick={onCopyLegs}
+              disabled={dedupedLegs.length === 0 || !isHydrated}
+            >
+              Copy legs{' '}
+              {copyState === 'done'
+                ? '✓'
+                : copyState === 'error'
+                  ? '(copy unavailable in this browser)'
+                  : ''}
+            </Button>
           </CardSurface>
-          <SlipBuilder legs={dedupedLegs} onLegsChange={(nextLegs) => {
-            if (nextLegs.length === 0) {
-              clearSlip();
-              return;
-            }
-            setSlip(nextLegs);
-          }} />
+          <SlipBuilder
+            legs={dedupedLegs}
+            onLegsChange={(nextLegs) => {
+              if (nextLegs.length === 0) {
+                clearSlip();
+                return;
+              }
+              setSlip(nextLegs);
+            }}
+          />
           <ProBuildPanel legs={dedupedLegs} onApply={setSlip} />
           <SlipOptimizerPanel legs={dedupedLegs} />
           <div className="grid grid-cols-1 gap-3">
-            <Button intent="secondary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onTrackSlip} disabled={dedupedLegs.length === 0}>Track ({dedupedLegs.length})</Button>
-            <Button intent="primary" className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40" onClick={onAnalyzeSlip} disabled={dedupedLegs.length === 0}>Analyze ({dedupedLegs.length})</Button>
-            {dedupedLegs.length === 0 ? <p className="text-xs text-slate-400">Actions unlock once at least one leg is added.</p> : null}
+            <Button
+              intent="secondary"
+              className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onTrackSlip}
+              disabled={dedupedLegs.length === 0}
+            >
+              Track ({dedupedLegs.length})
+            </Button>
+            <Button
+              intent="primary"
+              className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onAnalyzeSlip}
+              disabled={dedupedLegs.length === 0}
+            >
+              Analyze ({dedupedLegs.length})
+            </Button>
+            {dedupedLegs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                Actions unlock once at least one leg is added.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
