@@ -4,11 +4,11 @@ ResearchBets is a bettor cockpit for running a full loop: build a slip, stress t
 
 ## Canonical entry + continuity spine
 
-- Canonical entry: `/`
-- Cockpit alias: `/cockpit`
-- Compatibility redirect: `/landing`
-- Legacy aliases: `/discover`, `/research`, `/live` route to canonical cockpit surfaces
-- Core workflow routes: `/slip`, `/stress-test`, `/control`
+- Canonical public entry: `/`
+- Canonical bettor loop: `landing -> today/board -> slip -> stress-test -> track -> review`
+- Canonical workflow routes: `/today`, `/slip`, `/stress-test`, `/track`, `/review`
+- Redirect-only compatibility routes: `/cockpit`, `/landing`, `/research`, `/live`
+- Dev/internal surfaces stay out of public navigation: `/control`, `/discover`, `/ingest`, `/dashboard`, `/tonight`, `/history`, `/community`
 
 Truth spine query params are preserved across navigation:
 

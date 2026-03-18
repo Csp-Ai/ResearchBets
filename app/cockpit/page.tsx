@@ -1,5 +1,11 @@
-import { CanonicalLanding } from '@/app/_components/CanonicalLanding';
+import { redirect } from 'next/navigation';
 
-export default function CockpitPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
-  return <CanonicalLanding searchParams={searchParams} />;
+import { buildRedirectWithQuery } from '@/src/core/routing/preserveQueryRedirect';
+
+export default function CockpitPage({
+  searchParams
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  redirect(buildRedirectWithQuery('/', searchParams));
 }
