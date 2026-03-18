@@ -5,7 +5,7 @@ import { presentRecommendation } from '@/src/core/slips/recommendationPresentati
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 
-import type { ReviewPostMortemResult } from '@/src/core/control/reviewIngestion';
+import type { ReviewPostMortemResult, ReviewProvenance } from '@/src/core/control/reviewIngestion';
 
 const buildNextTimeAdjustments = (postmortem: ReviewPostMortemResult): string[] => {
   const topGame = postmortem.exposureSummary.topGames[0];
@@ -17,18 +17,35 @@ const buildNextTimeAdjustments = (postmortem: ReviewPostMortemResult): string[] 
   return bullets.slice(0, 3);
 };
 
+const SOURCE_LABELS: Record<ReviewProvenance['source_type'], string> = {
+  pasted_text: 'Pasted text',
+  screenshot_ocr: 'Screenshot OCR',
+  demo_sample: 'Demo sample'
+};
+
+const PARSE_STATUS_LABELS: Record<ReviewProvenance['parse_status'], string> = {
+  success: 'Parse complete',
+  partial: 'Parse partial',
+  failed: 'Parse failed'
+};
+
+const formatConfidence = (confidence: number | null) => {
+  if (typeof confidence !== 'number') return 'Confidence unavailable';
+  return confidence <= 1 ? `${Math.round(confidence * 100)}% confidence` : `${Math.round(confidence)}% confidence`;
+};
+
 export function ReviewPanel({
   retroDto,
   uploadName,
   postmortem,
-  reviewMode,
+  provenance,
   shareStatus,
   onShare
 }: {
   retroDto: ResearchRunDTO | null;
   uploadName: string;
-  reviewMode: 'live' | 'demo' | null;
   postmortem: ReviewPostMortemResult | null;
+  provenance: ReviewProvenance | null;
   shareStatus: 'idle' | 'done' | 'error';
   onShare: () => void;
 }) {
@@ -42,7 +59,7 @@ export function ReviewPanel({
     team: leg.team
   })) ?? [];
 
-  if (!retroDto) return null;
+  if (!retroDto || !provenance) return null;
 
   const postmortemReasons = selectTopReasons(rankReasons(retroDto.verdict.reasons, {
     correlation: retroDto.verdict.correlation_flag,
@@ -52,11 +69,30 @@ export function ReviewPanel({
     ?? retroDto.legs.find((leg) => leg.id === retroDto.verdict.weakest_leg_id)?.player
     ?? 'Unknown leg';
 
+  const originLabel = provenance.source_type === 'demo_sample' ? 'Demo sample review' : 'Real parsed review';
+  const continuityTraceId = provenance.trace_id ?? retroDto.trace_id ?? 'Unavailable';
+  const continuitySlipId = provenance.slip_id ?? retroDto.slip_id ?? 'Unavailable';
+
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/50 p-3 text-sm space-y-2">
+      <div className="rounded-lg border border-white/10 bg-slate-900/70 p-3">
+        <p className="font-medium">{originLabel} ({uploadName || 'sample'}): {retroDto.legs.length} legs</p>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+          <span className="rounded-full border border-white/10 px-2 py-1">{SOURCE_LABELS[provenance.source_type]}</span>
+          <span className="rounded-full border border-white/10 px-2 py-1">{PARSE_STATUS_LABELS[provenance.parse_status]}</span>
+          <span className="rounded-full border border-white/10 px-2 py-1">{formatConfidence(provenance.parse_confidence)}</span>
+          {provenance.had_manual_edits ? <span className="rounded-full border border-cyan-400/30 px-2 py-1 text-cyan-200">Manual edits applied</span> : null}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          {provenance.source_type === 'demo_sample'
+            ? 'This review came from the explicit demo sample path.'
+            : 'This review came from the real review path: parse/extract → canonical slip run → postmortem.'}
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          trace_id: {continuityTraceId} · slip_id: {continuitySlipId}
+        </p>
+      </div>
       <SlipIntelBar legs={reviewIntelLegs} />
-      <p className="font-medium">{reviewMode === 'demo' ? 'Demo sample review' : 'Parsed review input'} ({uploadName || 'sample'}): {retroDto.legs.length} legs</p>
-      <p className="text-xs text-slate-400">{reviewMode === 'demo' ? 'This result came from the explicit demo/sample fallback.' : 'This result came from the real review ingestion path (uploaded/pasted input → parse/extract → postmortem).'} Continuity trace_id: {retroDto.trace_id ?? 'unknown'}{retroDto.slip_id ? ` · slip_id: ${retroDto.slip_id}` : ''}</p>
       <p>What happened: <span className="text-cyan-300">{postmortem?.classification.process ?? 'Running…'}</span></p>
       <p>Verdict: {presentRecommendation(retroDto.verdict.decision)} · Fragility {retroDto.verdict.fragility_score}/100 · Correlation {retroDto.verdict.correlation_flag ? 'High' : 'Managed'}</p>
       <p>Weakest leg: {weakestLegLabel}</p>

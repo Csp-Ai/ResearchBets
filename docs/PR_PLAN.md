@@ -21,12 +21,14 @@
 
 ## PR3 — AFTER-stage truthful review ingestion
 
-- **Goal**: make Control Room review default to the real parse/extract pipeline while keeping demo review explicit.
-- **Touched areas**: `app/(product)/control/*`, `/api/postmortem`, review ingestion helpers/tests, continuity handoff docs.
-- **Tests to run**: `npm run test -- reviewIngestion ReviewPanel postmortem parseText runSlip`.
+- **Goal**: make Control Room review default to the real parse/extract pipeline while keeping demo review explicit. This follow-up hardening pass adds provenance metadata, confidence visibility, and a manual OCR recovery loop without softening truthfulness.
+- **Touched areas**: `app/(product)/control/*`, review ingestion helpers/tests, OCR recovery UX, continuity handoff docs.
+- **Tests to run**: `npm run test -- reviewIngestion ReviewPanel ControlPageClient`.
 - **Acceptance criteria**:
   - default review path uses pasted/uploaded input plus real parse/extract-backed ingestion.
-  - demo/sample review is clearly labeled and never silently substitutes for failed real ingestion.
+  - review output exposes structured provenance (`source_type`, `parse_status`, nullable `parse_confidence`, `had_manual_edits`, `trace_id`, `slip_id`, `generated_at`).
+  - screenshot OCR supports an extracted-text preview and manual correction rerun before postmortem.
+  - real review failure stays visibly failed/partial; demo/sample review is clearly labeled and never silently substitutes for failed real ingestion.
   - existing `trace_id`/`slip_id` continuity is preserved into review/postmortem where available.
 
 ## PR4 — Spine-aware API URL helper

@@ -36,7 +36,9 @@
 3. The parsed text is then sent through the canonical submit/extract-backed stress pipeline (`runSlip`) using the existing `trace_id`/`slip_id` when available.
 4. Client posts the resulting extracted `dto.legs` plus continuity metadata to `/api/postmortem`.
 5. API returns deterministic classification + slip-intelligence metrics grounded in the real parsed/extracted review input.
-6. A separate, explicitly labeled demo sample review remains available only as fallback.
+6. Control Room stores a structured review provenance object (`source_type`, `parse_status`, nullable `parse_confidence`, continuity ids, `had_manual_edits`, `generated_at`) and renders it in the review panel.
+7. Screenshot OCR now pauses before postmortem with an extracted-text preview + manual correction loop; failed real ingestion stays visibly failed and never auto-swaps to demo.
+8. A separate, explicitly labeled demo sample review remains available only through the sample action.
 
 ## Provenance model
 
@@ -181,6 +183,7 @@ Determinism guarantee: all `/tonight` and landing lead computations are pure aga
 - DURING-to-AFTER bridge: `src/components/track/DuringCoach.tsx` writes draft coach snapshots, and settlement attaches the latest snapshot for “what coach saw vs what happened.”
 - Edge aggregation: `src/core/review/edgeProfile.ts` derives local-only tendencies from postmortems (win rate, near-miss rate, high-fragility share, coverage-gap share, top miss tags, killer stat types).
 - UI surfaces: `/track` includes a Settle panel; `/review` renders the Edge Profile card + recent postmortem table.
+- Control Room AFTER-stage review (`app/(product)/control/*`, `src/core/control/reviewIngestion.ts`) now separates four truthful states: real review success, real review partial parse, real review failure, and explicit demo sample. Screenshot OCR can stop for manual correction before postmortem, while provenance stays attached to the resulting review output.
 
 ## Landing architecture map
 

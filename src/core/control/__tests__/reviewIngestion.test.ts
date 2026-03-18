@@ -54,7 +54,7 @@ describe('runReviewIngestion', () => {
               rawSlipText: 'Jayson Tatum over 29.5 points (-110)',
               trace_id: 'trace-review-1',
               slip_id: '00000000-0000-0000-0000-000000000111',
-              legs: [{ rawText: 'Jayson Tatum over 29.5 points (-110)' }]
+              legs: [{ rawText: 'Jayson Tatum over 29.5 points (-110)', parseConfidence: 'high' }]
             }
           }),
           { status: 200 }
@@ -124,6 +124,77 @@ describe('runReviewIngestion', () => {
     expect(result.dto.trace_id).toBe('trace-review-1');
     expect(result.postmortem.ok).toBe(true);
     expect(result.mode).toBe('paste');
+    expect(result.provenance).toMatchObject({
+      source_type: 'pasted_text',
+      parse_status: 'success',
+      parse_confidence: null,
+      had_manual_edits: false,
+      trace_id: 'trace-review-1',
+      slip_id: '00000000-0000-0000-0000-000000000111'
+    });
+  });
+
+  it('creates screenshot provenance with partial parse status and manual edit tracking when confidence is unavailable', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              rawSlipText: 'OCR text',
+              trace_id: 'trace-screenshot-review',
+              slip_id: '00000000-0000-0000-0000-000000000222',
+              legs: [{ rawText: 'Messy OCR line', parseConfidence: 'low', needsReview: true }]
+            }
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            classification: {
+              process: 'Some details still need review',
+              correlationMiss: false,
+              injuryImpact: false,
+              lineValueMiss: false
+            },
+            notes: ['OCR kept one unresolved leg.'],
+            correlationScore: 0,
+            volatilityTier: 'Low',
+            exposureSummary: { topGames: [], topPlayers: [] }
+          }),
+          { status: 200 }
+        )
+      );
+
+    const result = await runReviewIngestion(
+      {
+        text: 'OCR text corrected by hand',
+        outcome: 'loss',
+        mode: 'screenshot',
+        sourceHint: 'screenshot',
+        inputLabel: 'slip.png',
+        hadManualEdits: true
+      },
+      {
+        fetchImpl: fetchMock as typeof fetch,
+        runSlip: vi.fn(async () => 'trace-screenshot-review'),
+        runStore: { getRun: vi.fn(async () => ({ id: 'run-screenshot' })) } as unknown as typeof import('@/src/core/run/store').runStore,
+        toResearchRunDTOFromRun: vi.fn(() => makeDto({ trace_id: 'trace-screenshot-review', run_id: 'trace-screenshot-review', slip_id: '00000000-0000-0000-0000-000000000222' }))
+      }
+    );
+
+    expect(result.provenance).toMatchObject({
+      source_type: 'screenshot_ocr',
+      parse_status: 'partial',
+      parse_confidence: null,
+      had_manual_edits: true,
+      trace_id: 'trace-screenshot-review',
+      slip_id: '00000000-0000-0000-0000-000000000222'
+    });
   });
 
   it('keeps demo review explicit and separate from the default live/review path', async () => {
@@ -136,7 +207,8 @@ describe('runReviewIngestion', () => {
             data: {
               rawSlipText: REVIEW_DEMO_SAMPLE_TEXT,
               trace_id: 'trace-demo-review',
-              legs: [{ rawText: 'demo leg' }]
+              legs: [{ rawText: 'demo leg', parseConfidence: 'high' }],
+              parse_confidence: 0.88
             }
           }),
           { status: 200 }
@@ -180,6 +252,11 @@ describe('runReviewIngestion', () => {
     expect(result.mode).toBe('demo');
     expect(result.inputLabel).toBe(REVIEW_DEMO_SAMPLE_NAME);
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject({ mode: 'demo' });
+    expect(result.provenance).toMatchObject({
+      source_type: 'demo_sample',
+      parse_status: 'success',
+      parse_confidence: 0.88
+    });
   });
 
   it('returns a truthful parse failure instead of silently swapping to fake success', async () => {
@@ -211,7 +288,12 @@ describe('runReviewIngestion', () => {
       )
     ).rejects.toMatchObject({
       code: 'parse_failed',
-      message: 'Could not parse this slip yet.'
+      message: 'Could not parse this slip yet.',
+      provenance: expect.objectContaining({
+        source_type: 'pasted_text',
+        parse_status: 'failed',
+        parse_confidence: null
+      })
     });
   });
 });
