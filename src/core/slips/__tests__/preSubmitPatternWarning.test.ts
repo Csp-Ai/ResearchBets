@@ -43,14 +43,17 @@ describe('buildPreSubmitPatternWarning', () => {
     expect(warning.warning_level).toBe('none');
     expect(warning.suppression_reason).toBe('no_reviewed_history');
     expect(warning.recommendation_summary).toMatch(/no reviewed slip history yet/i);
+    expect(warning.suggested_fixes).toEqual([]);
   });
 
-  it('matches repeated aggressive line patterns against multiple ladder legs', () => {
+  it('generates aggressive ladder fixes and ranks the lower-threshold fix first', () => {
     const warning = buildPreSubmitPatternWarning({
       slip: [
-        makeLeg({ id: '1', player: 'A', marketType: 'points', line: '31.5', odds: '+135', game: 'A @ B' }),
-        makeLeg({ id: '2', player: 'B', marketType: 'threes', line: '4.5', odds: '+125', game: 'C @ D' }),
-        makeLeg({ id: '3', player: 'C', marketType: 'rebounds', line: '9.5', game: 'E @ F' })
+        makeLeg({ id: '1', player: 'A', marketType: 'points', line: '31.5', odds: '+135', confidence: 0.52, game: 'A @ B' }),
+        makeLeg({ id: '2', player: 'B', marketType: 'threes', line: '4.5', odds: '+150', confidence: 0.43, game: 'C @ D' }),
+        makeLeg({ id: '3', player: 'C', marketType: 'assists', line: '10.5', odds: '+120', confidence: 0.61, game: 'E @ F' }),
+        makeLeg({ id: '4', player: 'D', marketType: 'rebounds', line: '9.5', confidence: 0.74, game: 'G @ H' }),
+        makeLeg({ id: '5', player: 'E', marketType: 'points', line: '18.5', confidence: 0.77, game: 'I @ J' })
       ],
       patternSummary: makePatternSummary({
         recurring_tags: [{ tag: 'line_too_aggressive', count: 3, percentage: 0.6 }],
@@ -62,20 +65,27 @@ describe('buildPreSubmitPatternWarning', () => {
 
     expect(warning.warning_level).toBe('medium');
     expect(warning.matched_patterns).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ tag: 'line_too_aggressive' })
-      ])
+      expect.arrayContaining([expect.objectContaining({ tag: 'line_too_aggressive' })])
     );
     expect(warning.recommendation_summary).toMatch(/aggressive ladders/i);
-    expect(warning.recommendation_summary).toMatch(/2 similar threshold legs/i);
+    expect(warning.recommendation_summary).toMatch(/3 similar threshold legs/i);
+    expect(warning.suggested_fixes.map((fix) => fix.fix_type)).toEqual([
+      'lower_threshold',
+      'trim_leg_count'
+    ]);
+    expect(warning.suggested_fixes[0]).toMatchObject({
+      fix_type: 'lower_threshold',
+      confidence_level: 'medium',
+      affected_legs: ['2', '1']
+    });
   });
 
-  it('matches repeated correlated-leg patterns against one-script stacks', () => {
+  it('generates correlated-stack fixes from same-script exposure', () => {
     const warning = buildPreSubmitPatternWarning({
       slip: [
-        makeLeg({ id: '1', player: 'Jayson Tatum', marketType: 'points', game: 'LAL @ BOS' }),
-        makeLeg({ id: '2', player: 'Jayson Tatum', marketType: 'rebounds', game: 'LAL @ BOS' }),
-        makeLeg({ id: '3', player: 'Jaylen Brown', marketType: 'points', game: 'LAL @ BOS' })
+        makeLeg({ id: '1', player: 'Jayson Tatum', marketType: 'points', confidence: 0.51, game: 'LAL @ BOS' }),
+        makeLeg({ id: '2', player: 'Jayson Tatum', marketType: 'rebounds', confidence: 0.42, game: 'LAL @ BOS' }),
+        makeLeg({ id: '3', player: 'Jaylen Brown', marketType: 'points', confidence: 0.47, game: 'LAL @ BOS' })
       ],
       patternSummary: makePatternSummary({
         recurring_tags: [{ tag: 'correlated_legs', count: 4, percentage: 0.67 }],
@@ -89,9 +99,14 @@ describe('buildPreSubmitPatternWarning', () => {
     expect(warning.matched_patterns[0]?.tag).toBe('correlated_legs');
     expect(warning.recommendation_summary).toMatch(/correlated stacks/i);
     expect(warning.recommendation_summary).toMatch(/3 legs tied/i);
+    expect(warning.suggested_fixes.map((fix) => fix.fix_type)).toEqual([
+      'reduce_correlation',
+      'swap_stat_type'
+    ]);
+    expect(warning.suggested_fixes[0]?.suggested_action).toMatch(/different game or player role/i);
   });
 
-  it('matches blowout-minute patterns only when current slip carries supported script signals', () => {
+  it('generates blowout-risk fixes only when current slip carries supported script signals', () => {
     const warning = buildPreSubmitPatternWarning({
       slip: [
         makeLeg({
@@ -99,11 +114,22 @@ describe('buildPreSubmitPatternWarning', () => {
           player: 'Tyrese Haliburton',
           marketType: 'points',
           line: '24.5',
+          confidence: 0.48,
           game: 'IND @ CHA',
           deadLegRisk: 'high',
           deadLegReasons: ['blowout risk', 'minutes could dip in a mismatch']
         }),
-        makeLeg({ id: '2', player: 'Myles Turner', marketType: 'rebounds', game: 'IND @ CHA' })
+        makeLeg({
+          id: '2',
+          player: 'Buddy Hield',
+          marketType: 'threes',
+          line: '3.5',
+          confidence: 0.41,
+          game: 'IND @ CHA',
+          deadLegRisk: 'med',
+          deadLegReasons: ['mismatch pressure']
+        }),
+        makeLeg({ id: '3', player: 'Myles Turner', marketType: 'rebounds', confidence: 0.66, game: 'IND @ CHA' })
       ],
       patternSummary: makePatternSummary({
         recurring_tags: [{ tag: 'blowout_minutes_risk', count: 3, percentage: 0.75 }],
@@ -114,19 +140,51 @@ describe('buildPreSubmitPatternWarning', () => {
     });
 
     expect(warning.matched_patterns).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ tag: 'blowout_minutes_risk' })
-      ])
+      expect.arrayContaining([expect.objectContaining({ tag: 'blowout_minutes_risk' })])
     );
     expect(warning.recommendation_summary).toMatch(/stable minutes/i);
-    expect(warning.recommendation_summary).toMatch(/1 leg with blowout-style script risk/i);
+    expect(warning.recommendation_summary).toMatch(/2 legs with blowout-style script risk/i);
+    expect(warning.suggested_fixes.map((fix) => fix.fix_type)).toEqual([
+      'reduce_blowout_exposure',
+      'swap_stat_type'
+    ]);
   });
 
-  it('keeps truthful low-confidence messaging when history is still limited', () => {
+  it('caps suggested fixes at three highest-signal options when multiple patterns match', () => {
     const warning = buildPreSubmitPatternWarning({
       slip: [
-        makeLeg({ id: '1', player: 'A', marketType: 'points', line: '31.5', odds: '+135', game: 'A @ B' }),
-        makeLeg({ id: '2', player: 'B', marketType: 'assists', line: '10.5', odds: '+120', game: 'C @ D' })
+        makeLeg({ id: '1', player: 'Jayson Tatum', marketType: 'points', line: '32.5', odds: '+145', confidence: 0.52, game: 'LAL @ BOS', deadLegRisk: 'high', deadLegReasons: ['blowout risk'] }),
+        makeLeg({ id: '2', player: 'Jayson Tatum', marketType: 'assists', line: '10.5', odds: '+125', confidence: 0.44, game: 'LAL @ BOS' }),
+        makeLeg({ id: '3', player: 'Jaylen Brown', marketType: 'points', line: '29.5', odds: '+130', confidence: 0.41, game: 'LAL @ BOS' }),
+        makeLeg({ id: '4', player: 'Derrick White', marketType: 'threes', line: '4.5', odds: '+155', confidence: 0.38, game: 'LAL @ BOS', deadLegRisk: 'med', deadLegReasons: ['mismatch pressure'] }),
+        makeLeg({ id: '5', player: 'Aaron Gordon', marketType: 'rebounds', line: '7.5', confidence: 0.73, game: 'DEN @ PHX' })
+      ],
+      patternSummary: makePatternSummary({
+        recurring_tags: [
+          { tag: 'line_too_aggressive', count: 4, percentage: 0.67 },
+          { tag: 'correlated_legs', count: 4, percentage: 0.67 },
+          { tag: 'blowout_minutes_risk', count: 3, percentage: 0.5 }
+        ],
+        common_failure_mode: 'mixed_repeated_misses',
+        sample_size: 7,
+        confidence_level: 'high'
+      })
+    });
+
+    expect(warning.warning_level).toBe('high');
+    expect(warning.suggested_fixes).toHaveLength(3);
+    expect(warning.suggested_fixes.map((fix) => fix.fix_type)).toEqual([
+      'lower_threshold',
+      'reduce_blowout_exposure',
+      'reduce_correlation'
+    ]);
+  });
+
+  it('keeps truthful low-confidence fix messaging when history is still limited', () => {
+    const warning = buildPreSubmitPatternWarning({
+      slip: [
+        makeLeg({ id: '1', player: 'A', marketType: 'points', line: '31.5', odds: '+135', confidence: 0.45, game: 'A @ B' }),
+        makeLeg({ id: '2', player: 'B', marketType: 'assists', line: '10.5', odds: '+120', confidence: 0.49, game: 'C @ D' })
       ],
       patternSummary: makePatternSummary({
         recurring_tags: [{ tag: 'line_too_aggressive', count: 2, percentage: 1 }],
@@ -138,5 +196,10 @@ describe('buildPreSubmitPatternWarning', () => {
 
     expect(warning.warning_level).toBe('low');
     expect(warning.recommendation_summary).toMatch(/limited history: this warning is low-confidence/i);
+    expect(warning.suggested_fixes[0]).toMatchObject({
+      fix_type: 'lower_threshold',
+      confidence_level: 'low'
+    });
+    expect(warning.suggested_fixes[0]?.explanation).toMatch(/sample is still thin/i);
   });
 });

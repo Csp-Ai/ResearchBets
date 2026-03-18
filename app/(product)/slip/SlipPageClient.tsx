@@ -25,7 +25,10 @@ import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
 import { SlipOptimizerPanel } from '@/src/components/slips/SlipOptimizerPanel';
-import { PreSubmitPatternWarningCard } from '@/src/components/slips/PreSubmitPatternWarning';
+import {
+  PreSubmitPatternWarningCard,
+  PreSubmitSuggestedFixesCard
+} from '@/src/components/slips/PreSubmitPatternWarning';
 import { getBettorMistakePatternSummary } from '@/src/core/postmortem/patternSource';
 import type { BettorMistakePatternSummary } from '@/src/core/postmortem/patterns';
 import { buildPreSubmitPatternWarning } from '@/src/core/slips/preSubmitPatternWarning';
@@ -256,6 +259,7 @@ export default function SlipPageClient() {
       />
       <SlipIntelBar legs={dedupedLegs} />
       {preSubmitPatternWarning ? <PreSubmitPatternWarningCard warning={preSubmitPatternWarning} /> : null}
+      {preSubmitPatternWarning ? <PreSubmitSuggestedFixesCard warning={preSubmitPatternWarning} /> : null}
       <DuringStageTracker trace_id={trace_id ?? nervous.trace_id} mode={boardMode} compact />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
