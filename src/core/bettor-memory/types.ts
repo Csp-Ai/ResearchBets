@@ -1,4 +1,4 @@
-export type VerificationStatus = 'verified' | 'unverified' | 'needs_review';
+export type VerificationStatus = 'uploaded' | 'parse_pending' | 'parsed_demo' | 'parsed_unverified' | 'needs_review' | 'verified' | 'rejected' | 'unverified';
 export type ParseStatus = 'pending' | 'parsed' | 'partial' | 'failed';
 export type ArtifactType =
   | 'slip_screenshot'
@@ -6,6 +6,7 @@ export type ArtifactType =
   | 'bet_result_screenshot'
   | 'unknown_betting_artifact';
 export type SlipStatus = 'open' | 'won' | 'lost' | 'pushed' | 'cashed_out' | 'partial' | 'unknown';
+export type DataSourceProvenance = 'raw_upload' | 'parser_output' | 'demo_parse' | 'bettor_verified';
 export type PostmortemTag =
   | 'correlated_same_game'
   | 'longshot_parlay'
@@ -21,6 +22,14 @@ export type BettorIdentity =
   | 'volume_grinder'
   | 'ladder_hunter';
 
+export type ReviewFieldState = 'confirmed' | 'edited' | 'unknown';
+export type FieldReview<T> = { value: T | null; state: ReviewFieldState; note?: string | null };
+export type ReviewAuditSnapshot = {
+  parse_snapshot: Record<string, unknown> | null;
+  verified_snapshot: Record<string, unknown> | null;
+  last_reviewed_at: string | null;
+};
+
 export type BettorArtifactRecord = {
   artifact_id: string;
   bettor_id: string;
@@ -33,8 +42,12 @@ export type BettorArtifactRecord = {
   parser_version: string | null;
   confidence_score: number | null;
   verification_status: VerificationStatus;
+  parser_confidence_label?: 'high' | 'medium' | 'low' | 'unknown';
+  data_source: DataSourceProvenance;
   raw_extracted_text: string | null;
   raw_parse_json: Record<string, unknown> | null;
+  review_notes_json?: Record<string, unknown> | null;
+  last_reviewed_at?: string | null;
   preview_metadata: { width: number | null; height: number | null; mime_type: string | null; size_bytes: number | null };
 };
 
@@ -54,6 +67,10 @@ export type ParsedSlipLegRecord = {
   confidence_score: number | null;
   verification_status: VerificationStatus;
   normalized_market_label: string | null;
+  data_source?: DataSourceProvenance;
+  parse_snapshot_json?: Record<string, unknown> | null;
+  verified_snapshot_json?: Record<string, unknown> | null;
+  last_reviewed_at?: string | null;
 };
 
 export type ParsedSlipRecord = {
@@ -74,7 +91,11 @@ export type ParsedSlipRecord = {
   confidence_score: number | null;
   parse_quality: ParseStatus;
   verification_status: VerificationStatus;
+  data_source?: DataSourceProvenance;
   raw_source_reference: string | null;
+  parse_snapshot_json?: Record<string, unknown> | null;
+  verified_snapshot_json?: Record<string, unknown> | null;
+  last_reviewed_at?: string | null;
   created_at: string;
   updated_at: string;
   legs: ParsedSlipLegRecord[];
@@ -102,6 +123,10 @@ export type AccountActivityImportRecord = {
   verification_status: VerificationStatus;
   parse_quality: ParseStatus;
   confidence_score: number | null;
+  data_source?: DataSourceProvenance;
+  parse_snapshot_json?: Record<string, unknown> | null;
+  verified_snapshot_json?: Record<string, unknown> | null;
+  last_reviewed_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -133,6 +158,72 @@ export type BettorProfileRecord = {
   historical_aggregates: Record<string, number | string | null>;
   created_at: string;
   updated_at: string;
+};
+
+export type ArtifactReviewSlipLeg = ParsedSlipLegRecord & {
+  fields: {
+    player_name: FieldReview<string>;
+    team_name: FieldReview<string>;
+    market_type: FieldReview<string>;
+    line: FieldReview<number>;
+    over_under_or_side: FieldReview<string>;
+    odds: FieldReview<number>;
+    result: FieldReview<'won' | 'lost' | 'pushed' | 'unknown'>;
+    event_descriptor: FieldReview<string>;
+    sport: FieldReview<string>;
+    league: FieldReview<string>;
+    normalized_market_label: FieldReview<string>;
+  };
+};
+
+export type ArtifactReviewSlip = ParsedSlipRecord & {
+  fields: {
+    sportsbook: FieldReview<string>;
+    placed_at: FieldReview<string>;
+    settled_at: FieldReview<string>;
+    stake: FieldReview<number>;
+    payout: FieldReview<number>;
+    potential_payout: FieldReview<number>;
+    odds: FieldReview<number>;
+    status: FieldReview<SlipStatus>;
+    sport: FieldReview<string>;
+    league: FieldReview<string>;
+  };
+  legs: ArtifactReviewSlipLeg[];
+};
+
+export type ArtifactReviewAccountActivity = AccountActivityImportRecord & {
+  fields: {
+    source_sportsbook: FieldReview<string>;
+    beginning_balance: FieldReview<number>;
+    end_balance: FieldReview<number>;
+    deposited: FieldReview<number>;
+    played_staked: FieldReview<number>;
+    won_returned: FieldReview<number>;
+    withdrawn: FieldReview<number>;
+    rebated: FieldReview<number>;
+    promotions_awarded: FieldReview<number>;
+    promotions_played: FieldReview<number>;
+    promotions_expired: FieldReview<number>;
+    bets_placed: FieldReview<number>;
+    bets_won: FieldReview<number>;
+    activity_window_start: FieldReview<string>;
+    activity_window_end: FieldReview<string>;
+  };
+};
+
+export type ArtifactReviewRecord = {
+  artifact: BettorArtifactRecord & { preview_url: string | null };
+  slip: ArtifactReviewSlip | null;
+  accountActivity: ArtifactReviewAccountActivity | null;
+  review: ReviewAuditSnapshot & {
+    verification_status: VerificationStatus;
+    parser_confidence: number | null;
+    parser_confidence_label: 'high' | 'medium' | 'low' | 'unknown';
+    data_source: DataSourceProvenance;
+    needs_human_review: boolean;
+    review_reason: string;
+  };
 };
 
 export type BettorMemorySnapshot = {

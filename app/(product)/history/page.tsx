@@ -8,24 +8,26 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 
 type HistoryPayload = {
   credibility: { label: string; detail: string };
-  artifacts: Array<{ artifact_id: string; artifact_type: string; source_sportsbook: string | null; upload_timestamp: string; verification_status: string; parse_status: string }>;
-  slips: Array<{ slip_id: string; sportsbook: string | null; status: string; leg_count: number; verification_status: string; created_at: string; legs: Array<{ normalized_market_label: string | null; market_type: string | null }> }>;
-  accountActivity: Array<{ activity_import_id: string; source_sportsbook: string | null; verification_status: string; activity_window_start: string | null; activity_window_end: string | null }>;
-  postmortems: Array<{ postmortem_id: string; outcome_summary: string; advisory_tags: string[]; created_at: string }>;
+  artifacts: Array<{ artifact_id: string; artifact_type: string; source_sportsbook: string | null; upload_timestamp: string; verification_status: string; parse_status: string; parser_confidence_label?: string }>;
+  slips: Array<{ slip_id: string; source_artifact_id: string | null; sportsbook: string | null; status: string; leg_count: number; verification_status: string; created_at: string; legs: Array<{ normalized_market_label: string | null; market_type: string | null }> }>;
+  accountActivity: Array<{ activity_import_id: string; source_artifact_id: string | null; source_sportsbook: string | null; verification_status: string; activity_window_start: string | null; activity_window_end: string | null }>;
+  postmortems: Array<{ postmortem_id: string; outcome_summary: string; advisory_tags: string[]; created_at: string; confidence_score: number | null; evidence: Array<{ basis: string; note: string }> }>;
 };
+
+const verificationOptions = ['', 'verified', 'needs_review', 'parsed_demo', 'parsed_unverified', 'rejected'];
 
 export default function HistoryPage() {
   const nervous = useNervousSystem();
   const [payload, setPayload] = useState<HistoryPayload | null>(null);
   const [sportsbook, setSportsbook] = useState('');
-  const [verified, setVerified] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState('');
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (sportsbook) params.set('sportsbook', sportsbook);
-    if (verified) params.set('verified', verified);
+    if (verificationStatus) params.set('verification_status', verificationStatus);
     return params.toString();
-  }, [sportsbook, verified]);
+  }, [sportsbook, verificationStatus]);
 
   useEffect(() => {
     void fetch(`/api/bettor-memory/history${query ? `?${query}` : ''}`, { cache: 'no-store' }).then((res) => res.json()).then(setPayload);
@@ -35,8 +37,8 @@ export default function HistoryPage() {
     <section className="mx-auto max-w-6xl space-y-4 py-4 pb-24">
       <header className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
         <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">Bettor history archive</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-100">Saved uploads, parsed slips, account imports, and post-mortems</h1>
-        <p className="mt-2 text-sm text-slate-300">Save your slip. Preserve your history. Review it later. Build intelligence from it.</p>
+        <h1 className="mt-2 text-3xl font-semibold text-slate-100">Saved uploads, review-needed artifacts, verified records, and post-mortems</h1>
+        <p className="mt-2 text-sm text-slate-300">Review queues stay explicit so bettor memory can prefer trustworthy records without erasing the raw evidence.</p>
         <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
           <p className="font-medium text-slate-100">{payload?.credibility.label ?? 'Loading...'}</p>
           <p className="mt-1">{payload?.credibility.detail ?? 'Loading archive basis.'}</p>
@@ -45,36 +47,47 @@ export default function HistoryPage() {
 
       <section className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm">
         <input className="rounded border border-white/20 bg-slate-950 px-3 py-2" placeholder="Filter sportsbook" value={sportsbook} onChange={(e) => setSportsbook(e.target.value)} />
-        <select className="rounded border border-white/20 bg-slate-950 px-3 py-2" value={verified} onChange={(e) => setVerified(e.target.value)}>
-          <option value="">All verification states</option>
-          <option value="true">Verified only</option>
-          <option value="false">Needs review / unverified</option>
+        <select className="rounded border border-white/20 bg-slate-950 px-3 py-2" value={verificationStatus} onChange={(e) => setVerificationStatus(e.target.value)}>
+          {verificationOptions.map((option) => <option key={option || 'all'} value={option}>{option ? option.replace(/_/g, ' ') : 'All verification states'}</option>)}
         </select>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-          <h2 className="text-lg font-semibold text-slate-100">Artifacts</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-100">Artifacts</h2>
+            <span className="text-xs text-slate-400">Open any artifact to review the screenshot and parsed structure.</span>
+          </div>
           <div className="mt-3 space-y-2">
             {(payload?.artifacts ?? []).map((artifact) => (
-              <article key={artifact.artifact_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
-                <p className="font-medium text-slate-100">{artifact.artifact_type.replace(/_/g, ' ')}</p>
-                <p className="text-xs">{artifact.source_sportsbook ?? 'Sportsbook unknown'} · {artifact.parse_status} · {artifact.verification_status}</p>
-                <p className="mt-1 text-xs">Uploaded {new Date(artifact.upload_timestamp).toLocaleString()}</p>
-              </article>
+              <Link key={artifact.artifact_id} href={appendQuery(nervous.toHref(`/history/${artifact.artifact_id}`), {})} className="block rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300 hover:border-cyan-400/40">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-100">{artifact.artifact_type.replace(/_/g, ' ')}</p>
+                    <p className="text-xs">{artifact.source_sportsbook ?? 'Sportsbook unknown'} · {artifact.parse_status} · {artifact.verification_status}</p>
+                    <p className="mt-1 text-xs">Uploaded {new Date(artifact.upload_timestamp).toLocaleString()}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-1 text-[11px] ${artifact.verification_status === 'verified' ? 'bg-emerald-400/20 text-emerald-200' : 'bg-amber-400/20 text-amber-200'}`}>{artifact.parser_confidence_label ?? 'unknown'} confidence</span>
+                </div>
+              </Link>
             ))}
             {payload?.artifacts?.length === 0 ? <p className="text-sm text-slate-400">No uploads saved yet.</p> : null}
           </div>
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-          <h2 className="text-lg font-semibold text-slate-100">Parsed slips</h2>
+          <h2 className="text-lg font-semibold text-slate-100">Parsed / verified slips</h2>
           <div className="mt-3 space-y-2">
             {(payload?.slips ?? []).map((slip) => (
               <article key={slip.slip_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
-                <p className="font-medium text-slate-100">{slip.sportsbook ?? 'Sportsbook unknown'} · {slip.leg_count}-leg slip</p>
-                <p className="text-xs">{slip.status} · {slip.verification_status}</p>
-                <p className="mt-1 text-xs">Markets: {slip.legs.map((leg) => leg.normalized_market_label ?? leg.market_type ?? 'Unknown').join(', ')}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-100">{slip.sportsbook ?? 'Sportsbook unknown'} · {slip.leg_count}-leg slip</p>
+                    <p className="text-xs">{slip.status} · {slip.verification_status}</p>
+                    <p className="mt-1 text-xs">Markets: {slip.legs.map((leg) => leg.normalized_market_label ?? leg.market_type ?? 'Unknown').join(', ')}</p>
+                  </div>
+                  {slip.source_artifact_id ? <Link className="rounded border border-white/20 px-3 py-2 text-xs" href={appendQuery(nervous.toHref(`/history/${slip.source_artifact_id}`), {})}>Open artifact</Link> : null}
+                </div>
               </article>
             ))}
             {payload?.slips?.length === 0 ? <p className="text-sm text-slate-400">No parsed slips yet.</p> : null}
@@ -86,9 +99,14 @@ export default function HistoryPage() {
           <div className="mt-3 space-y-2">
             {(payload?.accountActivity ?? []).map((item) => (
               <article key={item.activity_import_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
-                <p className="font-medium text-slate-100">{item.source_sportsbook ?? 'Sportsbook unknown'}</p>
-                <p className="text-xs">{item.verification_status}</p>
-                <p className="mt-1 text-xs">Window {item.activity_window_start?.slice(0, 10) ?? '—'} → {item.activity_window_end?.slice(0, 10) ?? '—'}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-100">{item.source_sportsbook ?? 'Sportsbook unknown'}</p>
+                    <p className="text-xs">{item.verification_status}</p>
+                    <p className="mt-1 text-xs">Window {item.activity_window_start?.slice(0, 10) ?? '—'} → {item.activity_window_end?.slice(0, 10) ?? '—'}</p>
+                  </div>
+                  {item.source_artifact_id ? <Link className="rounded border border-white/20 px-3 py-2 text-xs" href={appendQuery(nervous.toHref(`/history/${item.source_artifact_id}`), {})}>Review import</Link> : null}
+                </div>
               </article>
             ))}
             {payload?.accountActivity?.length === 0 ? <p className="text-sm text-slate-400">No account activity imports yet.</p> : null}
@@ -102,6 +120,7 @@ export default function HistoryPage() {
               <article key={item.postmortem_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
                 <p className="font-medium text-slate-100">{item.outcome_summary}</p>
                 <p className="mt-1 text-xs">Signals: {item.advisory_tags.join(', ') || 'No deterministic tags yet'}</p>
+                <p className="mt-1 text-xs">Evidence: {(item.evidence?.[0]?.basis ?? 'unknown').replace(/_/g, ' ')}</p>
                 <p className="mt-1 text-xs">Created {new Date(item.created_at).toLocaleString()}</p>
               </article>
             ))}

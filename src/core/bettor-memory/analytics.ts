@@ -5,6 +5,7 @@ import type {
   ParsedSlipRecord,
   PostmortemTag,
 } from './types';
+import { preferVerifiedRecords } from './review';
 
 export type PerformanceSummary = {
   netResult: number;
@@ -36,7 +37,7 @@ const weekKey = (value: string) => {
 };
 
 export function computePerformanceSummary(slips: ParsedSlipRecord[]): PerformanceSummary {
-  const settled = slips.filter(isSettled);
+  const settled = preferVerifiedRecords(slips).filter(isSettled);
   const totalStaked = settled.reduce((sum, slip) => sum + stakedForSlip(slip), 0);
   const totalReturned = settled.reduce((sum, slip) => sum + returnedForSlip(slip), 0);
   const winCount = settled.filter((slip) => slip.status === 'won').length;
@@ -55,7 +56,7 @@ export function computePerformanceSummary(slips: ParsedSlipRecord[]): Performanc
 
 export function computeWeeklyRollups(slips: ParsedSlipRecord[]): WeeklyRollup[] {
   const rows = new Map<string, { week: string; netResult: number; totalStaked: number }>();
-  for (const slip of slips.filter(isSettled)) {
+  for (const slip of preferVerifiedRecords(slips).filter(isSettled)) {
     const key = weekKey(slip.settled_at ?? slip.created_at);
     const row = rows.get(key) ?? { week: key, netResult: 0, totalStaked: 0 };
     row.netResult += returnedForSlip(slip) - stakedForSlip(slip);
@@ -73,7 +74,7 @@ export function computeWeeklyRollups(slips: ParsedSlipRecord[]): WeeklyRollup[] 
 
 function aggregateCategory(slips: ParsedSlipRecord[], getKey: (slip: ParsedSlipRecord) => string): CategoryPerformance[] {
   const grouped = new Map<string, ParsedSlipRecord[]>();
-  for (const slip of slips.filter(isSettled)) {
+  for (const slip of preferVerifiedRecords(slips).filter(isSettled)) {
     const key = getKey(slip);
     grouped.set(key, [...(grouped.get(key) ?? []), slip]);
   }
@@ -89,7 +90,7 @@ export const computeSportsbookPerformance = (slips: ParsedSlipRecord[]) => aggre
 
 export function computeActivityHeatmap(slips: ParsedSlipRecord[]): HeatmapCell[] {
   const grouped = new Map<string, HeatmapCell>();
-  for (const slip of slips) {
+  for (const slip of preferVerifiedRecords(slips)) {
     const day = (slip.placed_at ?? slip.created_at).slice(0, 10);
     const current = grouped.get(day) ?? { day, count: 0, stake: 0 };
     current.count += 1;
@@ -100,7 +101,7 @@ export function computeActivityHeatmap(slips: ParsedSlipRecord[]): HeatmapCell[]
 }
 
 export function classifyBettorIdentity(slips: ParsedSlipRecord[]): BettorIdentity {
-  const settled = slips.filter(isSettled);
+  const settled = preferVerifiedRecords(slips).filter(isSettled);
   const longshotShare = settled.filter((slip) => (slip.odds ?? 0) >= 400 || slip.leg_count >= 4).length / Math.max(1, settled.length);
   const averageLegs = settled.reduce((sum, slip) => sum + slip.leg_count, 0) / Math.max(1, settled.length);
   const liveShare = settled.filter((slip) => /live/i.test(slip.raw_source_reference ?? '')).length / Math.max(1, settled.length);
@@ -112,7 +113,7 @@ export function classifyBettorIdentity(slips: ParsedSlipRecord[]): BettorIdentit
 }
 
 export function generateAdvisorySignals(slips: ParsedSlipRecord[]): AdvisorySignal[] {
-  const settled = slips.filter(isSettled).sort((a, b) => (a.settled_at ?? a.created_at).localeCompare(b.settled_at ?? b.created_at));
+  const settled = preferVerifiedRecords(slips).filter(isSettled).sort((a, b) => (a.settled_at ?? a.created_at).localeCompare(b.settled_at ?? b.created_at));
   const result: AdvisorySignal[] = [];
   const stakes = settled.map((slip) => stakedForSlip(slip));
   const avgStake = stakes.reduce((sum, stake) => sum + stake, 0) / Math.max(1, stakes.length);
@@ -143,10 +144,11 @@ export function generatePostmortemTags(slip: ParsedSlipRecord, history: ParsedSl
 export function summarizeCredibility(snapshot: BettorMemorySnapshot): BettorMemorySnapshot['credibility'] {
   if (snapshot.mode === 'demo') return { basis: 'demo_data', label: 'Demo data', detail: 'No verified bettor account is connected yet. ResearchBets is showing deterministic sample history.' };
   const verifiedArtifacts = snapshot.artifacts.filter((artifact) => artifact.verification_status === 'verified').length;
-  const unverified = snapshot.artifacts.filter((artifact) => artifact.verification_status !== 'verified').length;
-  if (verifiedArtifacts > 0 && unverified === 0) return { basis: 'verified_imported_history', label: 'Verified imported history', detail: 'Insights are based on saved bettor history with verified records.' };
-  if (verifiedArtifacts > 0 && unverified > 0) return { basis: 'partial_data', label: 'Partial data', detail: 'Insights combine verified history with unverified screenshot parsing. Review low-confidence fields before acting.' };
-  return { basis: 'unverified_screenshot_parsing', label: 'Unverified screenshot parsing', detail: 'Insights are based on screenshot parsing and require review before they should be treated as complete.' };
+  const reviewNeeded = snapshot.artifacts.filter((artifact) => ['needs_review', 'parsed_demo', 'parsed_unverified', 'parse_pending', 'uploaded'].includes(artifact.verification_status)).length;
+  const rejected = snapshot.artifacts.filter((artifact) => artifact.verification_status === 'rejected').length;
+  if (verifiedArtifacts > 0 && reviewNeeded === 0) return { basis: 'verified_imported_history', label: 'Verified imported history', detail: rejected > 0 ? 'Insights are based on bettor-verified records; rejected artifacts are excluded from active analytics.' : 'Insights are based on saved bettor history with verified records.' };
+  if (verifiedArtifacts > 0 && reviewNeeded > 0) return { basis: 'partial_data', label: 'Partial verified coverage', detail: 'Insights prioritize bettor-verified records, but some uploads still need human review before they should be trusted.' };
+  return { basis: 'unverified_screenshot_parsing', label: 'Review-needed parsing', detail: 'Insights currently rely on unverified or demo parsing. Advisory strength is intentionally downgraded until records are bettor-verified.' };
 }
 
 export function buildStoredPostmortems(slips: ParsedSlipRecord[]): BettorPostmortemRecord[] {
@@ -161,7 +163,7 @@ export function buildStoredPostmortems(slips: ParsedSlipRecord[]): BettorPostmor
     market_concentration_notes: generatePostmortemTags(slip, slips).includes('market_concentration') ? ['This slip concentrated exposure in one market family.'] : [],
     slip_size_notes: slip.leg_count >= 4 ? ['4+ leg slips remain a high-variance construction.'] : ['Compact slip size limited correlation risk.'],
     confidence_score: slip.confidence_score,
-    evidence: [{ basis: slip.verification_status === 'verified' ? 'verified_history' : 'unverified_parse', note: slip.verification_status === 'verified' ? 'Based on verified stored slip data.' : 'Based on parsed screenshot data that still needs review.' }],
+    evidence: [{ basis: slip.verification_status === 'verified' ? 'verified_history' : slip.data_source === 'demo_parse' ? 'demo_inference' : 'unverified_parse', note: slip.verification_status === 'verified' ? 'Based on verified stored slip data.' : slip.data_source === 'demo_parse' ? 'Based on demo parser scaffolding that still requires bettor review.' : 'Based on parsed screenshot data that still needs review.' }],
     advisory_tags: generatePostmortemTags(slip, slips),
     created_at: slip.updated_at,
   }));
