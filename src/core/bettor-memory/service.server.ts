@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 
 import { buildStoredPostmortems, classifyBettorIdentity, generateAdvisorySignals, summarizeCredibility } from './analytics';
 import { buildDemoBettorMemory } from './demo';
+import { buildTextExtraction, mapCandidateActivityToRecord, mapCandidateLegToRecord, mapCandidateSlipToRecord, runParser } from './parser';
 import { buildAccountActivityReviewFields, buildSlipLegReviewFields, buildSlipReviewFields, deriveDataSourceProvenance, deriveParserConfidenceLabel, deriveVerificationStatus, preferVerifiedRecords } from './review';
 import type { AccountActivityImportRecord, ArtifactReviewRecord, ArtifactType, BettorArtifactRecord, BettorMemorySnapshot, ParsedSlipLegRecord, ParsedSlipRecord, VerificationStatus } from './types';
 import { getSupabaseServiceClient } from '@/src/core/supabase/service';
@@ -122,13 +123,18 @@ export async function saveUploadedArtifact(input: { bettorId: string; file: File
     source_sportsbook: input.sourceSportsbook ?? null,
     upload_timestamp: new Date().toISOString(),
     parse_status: 'pending',
-    parser_version: 'demo-parser-v1',
+    parser_version: 'parser-runtime/1.0.0',
+    parser_adapter: null,
     confidence_score: null,
     verification_status: 'uploaded',
     parser_confidence_label: 'unknown',
     data_source: 'raw_upload',
     raw_extracted_text: null,
     raw_parse_json: null,
+    normalized_parse_json: null,
+    parser_warnings_json: null,
+    parser_errors_json: null,
+    parser_provenance_json: null,
     review_notes_json: null,
     last_reviewed_at: null,
     preview_metadata: { width: input.width ?? null, height: input.height ?? null, mime_type: input.file.type || null, size_bytes: input.file.size },
@@ -138,36 +144,68 @@ export async function saveUploadedArtifact(input: { bettorId: string; file: File
   return normalizeArtifact(inserted.data as BettorArtifactRecord);
 }
 
-export async function persistDemoParse(input: { bettorId: string; artifactId: string; artifactType: ArtifactType; rawText?: string | null; sourceSportsbook?: string | null; }): Promise<{ slip?: ParsedSlipRecord; accountActivity?: AccountActivityImportRecord }> {
+export async function parseArtifact(input: { bettorId: string; artifactId: string; artifactType: ArtifactType; rawText?: string | null; sourceSportsbook?: string | null; }): Promise<{ parser_mode: 'adapter' | 'generic_fallback' | 'demo'; parser_result: Record<string, unknown>; slip?: ParsedSlipRecord; accountActivity?: AccountActivityImportRecord }> {
   const supabase = getSupabaseServiceClient();
   await ensureProfileRow(input.bettorId);
-  const parseJson = { source: 'demo_parser', explicit_demo: true, uncertainty: 'Parser output is deterministic demo scaffolding and requires bettor verification.' };
-  await supabase.from('bettor_artifacts').update({ parse_status: 'partial', parser_version: 'demo-parser-v1', confidence_score: 0.48, verification_status: 'parsed_demo', data_source: 'demo_parse', raw_extracted_text: input.rawText ?? null, raw_parse_json: parseJson }).eq('artifact_id', input.artifactId);
+  const extraction = buildTextExtraction(input.rawText);
+  const parserResult = runParser({ artifact_type: input.artifactType, source_sportsbook_hint: input.sourceSportsbook ?? null, extraction });
 
-  if (input.artifactType === 'account_activity_screenshot') {
-    const activity: Omit<AccountActivityImportRecord, 'created_at' | 'updated_at'> = {
-      activity_import_id: randomUUID(), bettor_id: input.bettorId, source_artifact_id: input.artifactId, source_sportsbook: input.sourceSportsbook ?? null, beginning_balance: 500, end_balance: 535, deposited: 100, played_staked: 75, won_returned: 110, withdrawn: 0, rebated: 0, promotions_awarded: 10, promotions_played: 5, promotions_expired: 0, bets_placed: 3, bets_won: 2, activity_window_start: new Date(Date.now() - 7 * 86400000).toISOString(), activity_window_end: new Date().toISOString(), verification_status: 'needs_review', parse_quality: 'partial', confidence_score: 0.4, data_source: 'demo_parse', parse_snapshot_json: parseJson, verified_snapshot_json: null, last_reviewed_at: null,
-    };
-    const inserted = await supabase.from('bettor_account_activity_imports').insert(activity).select('*').single();
+  const isDemo = parserResult.recommended_next_state === 'parsed_demo';
+  const verificationStatus: VerificationStatus = isDemo
+    ? 'parsed_demo'
+    : parserResult.recommended_next_state === 'parsed_unverified'
+      ? 'parsed_unverified'
+      : 'needs_review';
+  const parserMode = parserResult.adapter.name === 'generic_fallback' ? 'generic_fallback' : isDemo ? 'demo' : 'adapter';
+
+  await supabase.from('bettor_artifacts').update({
+    parse_status: parserResult.parse_status,
+    parser_version: parserResult.adapter.version,
+    parser_adapter: parserResult.adapter.name,
+    confidence_score: parserResult.confidence_score,
+    verification_status: verificationStatus,
+    data_source: isDemo ? 'demo_parse' : parserResult.parse_status === 'failed' ? 'raw_upload' : 'parser_output',
+    raw_extracted_text: input.rawText ?? null,
+    raw_parse_json: { adapter: parserResult.adapter, classification: parserResult.classification, raw_adapter_output: parserResult.raw_adapter_output, state: parserResult.state, explicit_demo: isDemo },
+    normalized_parse_json: parserResult.normalized as unknown as Record<string, unknown>,
+    parser_warnings_json: parserResult.warnings,
+    parser_errors_json: parserResult.errors,
+    parser_provenance_json: { ...parserResult.provenance, recommended_next_state: parserResult.recommended_next_state },
+  }).eq('artifact_id', input.artifactId).eq('bettor_id', input.bettorId);
+
+  if (parserResult.normalized.account_activity) {
+    const existingDelete = await supabase.from('bettor_account_activity_imports').delete().eq('bettor_id', input.bettorId).eq('source_artifact_id', input.artifactId);
+    if (existingDelete.error) throw existingDelete.error;
+    const activityPayload = { activity_import_id: randomUUID(), ...mapCandidateActivityToRecord(parserResult.normalized.account_activity, input.bettorId, input.artifactId, verificationStatus), data_source: isDemo ? 'demo_parse' : 'parser_output' };
+    const inserted = await supabase.from('bettor_account_activity_imports').insert(activityPayload).select('*').single();
     if (inserted.error) throw inserted.error;
-    return { accountActivity: normalizeActivity(inserted.data as AccountActivityImportRecord) };
+    return { parser_mode: parserMode, parser_result: parserResult as unknown as Record<string, unknown>, accountActivity: normalizeActivity(inserted.data as AccountActivityImportRecord) };
   }
 
-  const createdAt = new Date().toISOString();
-  const slipId = randomUUID();
-  const verification: VerificationStatus = 'needs_review';
-  const slip: Omit<ParsedSlipRecord, 'legs'> = {
-    slip_id: slipId, bettor_id: input.bettorId, source_artifact_id: input.artifactId, sportsbook: input.sourceSportsbook ?? 'Unknown', placed_at: createdAt, settled_at: null, stake: 25, payout: null, potential_payout: 62.5, odds: 150, status: 'open', leg_count: 2, sport: 'Basketball', league: 'NBA', confidence_score: 0.48, parse_quality: 'partial', verification_status: verification, data_source: 'demo_parse', raw_source_reference: input.rawText ?? 'demo_parser', parse_snapshot_json: parseJson, verified_snapshot_json: null, last_reviewed_at: null, created_at: createdAt, updated_at: createdAt,
-  };
-  const insertedSlip = await supabase.from('bettor_slips').insert(slip).select('*').single();
-  if (insertedSlip.error) throw insertedSlip.error;
-  const legs: ParsedSlipLegRecord[] = [
-    { leg_id: randomUUID(), slip_id: slipId, player_name: 'Unverified Player 1', team_name: null, market_type: 'Points', line: 22.5, over_under_or_side: 'over', odds: -110, result: null, event_descriptor: 'Needs review', sport: 'Basketball', league: 'NBA', confidence_score: 0.44, verification_status: verification, normalized_market_label: 'Points', data_source: 'demo_parse', parse_snapshot_json: parseJson, verified_snapshot_json: null, last_reviewed_at: null },
-    { leg_id: randomUUID(), slip_id: slipId, player_name: 'Unverified Player 2', team_name: null, market_type: 'Rebounds', line: 8.5, over_under_or_side: 'over', odds: -115, result: null, event_descriptor: 'Needs review', sport: 'Basketball', league: 'NBA', confidence_score: 0.42, verification_status: verification, normalized_market_label: 'Rebounds', data_source: 'demo_parse', parse_snapshot_json: parseJson, verified_snapshot_json: null, last_reviewed_at: null },
-  ];
-  const insertedLegs = await supabase.from('bettor_slip_legs').insert(legs).select('*');
-  if (insertedLegs.error) throw insertedLegs.error;
-  return { slip: normalizeSlip({ ...(insertedSlip.data as ParsedSlipRecord), legs: insertedLegs.data as ParsedSlipLegRecord[] }) };
+  if (parserResult.normalized.slip) {
+    const deleteLegs = await supabase.from('bettor_slips').select('slip_id').eq('bettor_id', input.bettorId).eq('source_artifact_id', input.artifactId);
+    const slipIds = (deleteLegs.data ?? []).map((row: { slip_id: string }) => row.slip_id);
+    if (slipIds.length) {
+      const legDelete = await supabase.from('bettor_slip_legs').delete().in('slip_id', slipIds);
+      if (legDelete.error) throw legDelete.error;
+      const slipDelete = await supabase.from('bettor_slips').delete().in('slip_id', slipIds);
+      if (slipDelete.error) throw slipDelete.error;
+    }
+    const createdAt = new Date().toISOString();
+    const slipId = randomUUID();
+    const slipPayload = { slip_id: slipId, ...mapCandidateSlipToRecord(parserResult.normalized.slip, input.bettorId, input.artifactId, verificationStatus), data_source: isDemo ? 'demo_parse' : 'parser_output', created_at: createdAt, updated_at: createdAt };
+    const insertedSlip = await supabase.from('bettor_slips').insert(slipPayload).select('*').single();
+    if (insertedSlip.error) throw insertedSlip.error;
+    const legPayloads = parserResult.normalized.slip.legs.map((leg) => ({ leg_id: randomUUID(), ...mapCandidateLegToRecord(leg, slipId, verificationStatus), data_source: isDemo ? 'demo_parse' : 'parser_output' }));
+    if (legPayloads.length > 0) {
+      const insertedLegs = await supabase.from('bettor_slip_legs').insert(legPayloads).select('*');
+      if (insertedLegs.error) throw insertedLegs.error;
+      return { parser_mode: parserMode, parser_result: parserResult as unknown as Record<string, unknown>, slip: normalizeSlip({ ...(insertedSlip.data as ParsedSlipRecord), legs: insertedLegs.data as ParsedSlipLegRecord[] }) };
+    }
+    return { parser_mode: parserMode, parser_result: parserResult as unknown as Record<string, unknown>, slip: normalizeSlip({ ...(insertedSlip.data as ParsedSlipRecord), legs: [] }) };
+  }
+
+  return { parser_mode: parserMode, parser_result: parserResult as unknown as Record<string, unknown> };
 }
 
 export async function createArtifactPreviewUrl(bettorId: string, artifactId: string) {
@@ -209,6 +247,11 @@ export async function getArtifactReviewRecord(bettorId: string, artifactId: stri
       data_source: normalizedArtifact.data_source,
       needs_human_review: normalizedArtifact.verification_status !== 'verified',
       review_reason: normalizedArtifact.verification_status === 'verified' ? 'Verified bettor-reviewed record is active in analytics.' : 'Ambiguous parser output should be checked field-by-field before it influences bettor memory.',
+      parser_adapter: normalizedArtifact.parser_adapter ?? null,
+      recommended_next_state: ((normalizedArtifact.parser_provenance_json as { recommended_next_state?: ArtifactReviewRecord['review']['recommended_next_state'] } | null)?.recommended_next_state ?? null),
+      parser_warnings: normalizedArtifact.parser_warnings_json ?? [],
+      parser_errors: normalizedArtifact.parser_errors_json ?? [],
+      parser_provenance: normalizedArtifact.parser_provenance_json ?? null,
     },
   };
 }

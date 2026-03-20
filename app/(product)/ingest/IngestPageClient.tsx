@@ -106,14 +106,14 @@ export default function IngestionPage() {
       const uploadResponse = await fetch('/api/bettor-memory/upload', { method: 'POST', body: form });
       const uploadPayload = await uploadResponse.json().catch(() => ({}));
       if (uploadResponse.ok && uploadPayload?.artifact?.artifact_id) {
-        setArtifactStatus('Saved to bettor history. Running demo parser contract next.');
+        setArtifactStatus('Saved to bettor history. Running sportsbook parser adapters next.');
         const parseResponse = await fetch('/api/bettor-memory/parse-demo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ artifact_id: uploadPayload.artifact.artifact_id, artifact_type: artifactType, raw_text: slipText, source_sportsbook: null })
         });
         const parsePayload = await parseResponse.json().catch(() => ({}));
-        if (parseResponse.ok) setArtifactStatus('Saved to bettor history. Parsed with partial confidence. Unverified fields require review.');
+        if (parseResponse.ok) setArtifactStatus(`Saved to bettor history. Parser mode: ${parsePayload?.parser_mode ?? 'unknown'}. Review unverified fields before trusting them.`);
         else setArtifactStatus(parsePayload?.error ?? 'Upload saved, but parser contract did not complete.');
       } else {
         setArtifactStatus(uploadPayload?.error ?? 'Upload could not be persisted. Continuing with local OCR only.');

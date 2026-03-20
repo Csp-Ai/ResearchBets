@@ -184,7 +184,10 @@ export default function ArtifactReviewPage() {
           <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
             <p className="font-medium text-slate-100">Parser truth label</p>
             <p className="mt-1">{draft?.review?.review_reason}</p>
-            <p className="mt-2">Confidence: {draft?.review?.parser_confidence_label} {draft?.review?.parser_confidence != null ? `(${Math.round(draft.review.parser_confidence * 100)}%)` : ''}</p>
+            <p className="mt-2">Parser: {draft?.review?.parser_adapter ? draft.review.parser_adapter.replace(/_/g, ' ') : 'pending'} · Confidence: {draft?.review?.parser_confidence_label} {draft?.review?.parser_confidence != null ? `(${Math.round(draft.review.parser_confidence * 100)}%)` : ''}</p>
+            <p className="mt-2">Recommended next state: {draft?.review?.recommended_next_state ?? 'needs_review'}</p>
+            {draft?.review?.parser_warnings?.length ? <ul className="mt-2 list-disc space-y-1 pl-4">{draft.review.parser_warnings.slice(0, 3).map((warning, index) => <li key={`${warning.code}-${index}`}>{warning.message}</li>)}</ul> : null}
+            {draft?.review?.parser_errors?.length ? <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-200">{draft.review.parser_errors.slice(0, 2).map((error, index) => <li key={`${error.code}-${index}`}>{error.message}</li>)}</ul> : null}
             <p className="mt-2">{unknownHint}</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">

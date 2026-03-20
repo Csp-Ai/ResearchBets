@@ -98,5 +98,6 @@ Audit and operations docs:
 
 - Bettor profile persistence now extends the existing `profiles` table with timezone, preferred sportsbooks, bettor identity, advisory signals, and historical aggregate fields.
 - Screenshot uploads persist into the `bettor-artifacts` storage bucket and `bettor_artifacts` table. Parsed outputs save into `bettor_slips`, `bettor_slip_legs`, `bettor_account_activity_imports`, and `bettor_postmortems`.
+- Bettor-memory parsing now runs through a sportsbook parser adapter registry (`FanDuel`, `DraftKings`, `PrizePicks`, plus a conservative generic fallback). Adapter provenance, parser warnings/errors, normalized candidate output, and review-needed recommendations persist alongside the raw upload without replacing bettor verification.
 - When OCR/parser certainty is unavailable, the app uses an explicit `demo-parser-v1` contract and labels outputs as `needs_review` instead of presenting them as verified truth.
 - `/profile` now acts as the bettor-facing Performance Intelligence surface, while `/history` acts as the bettor memory archive.

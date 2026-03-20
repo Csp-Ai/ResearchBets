@@ -7,6 +7,10 @@ export type ArtifactType =
   | 'unknown_betting_artifact';
 export type SlipStatus = 'open' | 'won' | 'lost' | 'pushed' | 'cashed_out' | 'partial' | 'unknown';
 export type DataSourceProvenance = 'raw_upload' | 'parser_output' | 'demo_parse' | 'bettor_verified';
+export type ParserAdapterName = 'fanduel' | 'draftkings' | 'prizepicks' | 'generic_fallback' | 'demo_parser';
+export type ParserWarningCategory = 'classification_weak' | 'ocr_limited' | 'field_missing' | 'field_ambiguous' | 'layout_mismatch' | 'unsupported_artifact' | 'unsupported_market';
+export type ParserErrorCategory = 'adapter_selection_failed' | 'ocr_missing' | 'artifact_not_supported' | 'layout_unreadable' | 'parse_contract_failed';
+export type ParserRecommendedNextState = 'needs_review' | 'parsed_unverified' | 'parsed_demo' | 'parse_failed';
 export type PostmortemTag =
   | 'correlated_same_game'
   | 'longshot_parlay'
@@ -40,12 +44,17 @@ export type BettorArtifactRecord = {
   upload_timestamp: string;
   parse_status: ParseStatus;
   parser_version: string | null;
+  parser_adapter?: ParserAdapterName | null;
   confidence_score: number | null;
   verification_status: VerificationStatus;
   parser_confidence_label?: 'high' | 'medium' | 'low' | 'unknown';
   data_source: DataSourceProvenance;
   raw_extracted_text: string | null;
   raw_parse_json: Record<string, unknown> | null;
+  normalized_parse_json?: Record<string, unknown> | null;
+  parser_warnings_json?: Array<{ category: ParserWarningCategory; code: string; message: string; field?: string | null; leg_index?: number | null }> | null;
+  parser_errors_json?: Array<{ category: ParserErrorCategory; code: string; message: string; recoverable: boolean }> | null;
+  parser_provenance_json?: Record<string, unknown> | null;
   review_notes_json?: Record<string, unknown> | null;
   last_reviewed_at?: string | null;
   preview_metadata: { width: number | null; height: number | null; mime_type: string | null; size_bytes: number | null };
@@ -223,6 +232,11 @@ export type ArtifactReviewRecord = {
     data_source: DataSourceProvenance;
     needs_human_review: boolean;
     review_reason: string;
+    parser_adapter?: ParserAdapterName | null;
+    recommended_next_state?: ParserRecommendedNextState | null;
+    parser_warnings?: Array<{ category: ParserWarningCategory; code: string; message: string; field?: string | null; leg_index?: number | null }>;
+    parser_errors?: Array<{ category: ParserErrorCategory; code: string; message: string; recoverable: boolean }>;
+    parser_provenance?: Record<string, unknown> | null;
   };
 };
 
