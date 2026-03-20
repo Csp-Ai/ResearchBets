@@ -8,7 +8,7 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 
 type HistoryPayload = {
   credibility: { label: string; detail: string };
-  artifacts: Array<{ artifact_id: string; artifact_type: string; source_sportsbook: string | null; upload_timestamp: string; verification_status: string; parse_status: string; parser_confidence_label?: string }>;
+  artifacts: Array<{ artifact_id: string; artifact_type: string; source_sportsbook: string | null; upload_timestamp: string; verification_status: string; parse_status: string; parser_confidence_label?: string; parser_adapter?: string | null; parser_warnings_json?: Array<{ message: string }> | null }>;
   slips: Array<{ slip_id: string; source_artifact_id: string | null; sportsbook: string | null; status: string; leg_count: number; verification_status: string; created_at: string; legs: Array<{ normalized_market_label: string | null; market_type: string | null }> }>;
   accountActivity: Array<{ activity_import_id: string; source_artifact_id: string | null; source_sportsbook: string | null; verification_status: string; activity_window_start: string | null; activity_window_end: string | null }>;
   postmortems: Array<{ postmortem_id: string; outcome_summary: string; advisory_tags: string[]; created_at: string; confidence_score: number | null; evidence: Array<{ basis: string; note: string }> }>;
@@ -65,6 +65,7 @@ export default function HistoryPage() {
                   <div>
                     <p className="font-medium text-slate-100">{artifact.artifact_type.replace(/_/g, ' ')}</p>
                     <p className="text-xs">{artifact.source_sportsbook ?? 'Sportsbook unknown'} · {artifact.parse_status} · {artifact.verification_status}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">Parser: {artifact.parser_adapter ? artifact.parser_adapter.replace(/_/g, ' ') : 'pending'}{artifact.parser_warnings_json?.length ? ` · ${artifact.parser_warnings_json.length} warning${artifact.parser_warnings_json.length === 1 ? '' : 's'}` : ''}</p>
                     <p className="mt-1 text-xs">Uploaded {new Date(artifact.upload_timestamp).toLocaleString()}</p>
                   </div>
                   <span className={`rounded-full px-2 py-1 text-[11px] ${artifact.verification_status === 'verified' ? 'bg-emerald-400/20 text-emerald-200' : 'bg-amber-400/20 text-amber-200'}`}>{artifact.parser_confidence_label ?? 'unknown'} confidence</span>
