@@ -67,6 +67,7 @@ describe('/api/postmortem POST', () => {
     expect(payload.attribution.cause_tags).toEqual(expect.arrayContaining(['line_too_aggressive', 'correlated_legs']));
     expect(payload.report.attribution).toEqual(payload.attribution);
     expect(payload.report.failure_forecast.top_reasons.length).toBeGreaterThan(0);
+    expect(payload.credibility.label).toBe('Mixed coverage');
   });
 
   it('assigns blowout and role-mismatch tags when usage context drifts', async () => {
@@ -132,5 +133,6 @@ describe('/api/postmortem POST', () => {
     expect(payload.ok).toBe(true);
     expect(payload.attribution).toBeNull();
     expect(payload.report.attribution).toBeUndefined();
+    expect(payload.credibility.partialCoverage).toBe(false);
   });
 });

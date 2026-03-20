@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { attachAttributionToReport } from '@/src/core/contracts/slipStructureReport';
 import type { SlipStructureReport } from '@/src/core/contracts/slipStructureReport';
-import { getSlipForPostmortem } from '@/src/core/bettor-memory/service.server';
+import { getBettorMemorySnapshot, getSlipForPostmortem } from '@/src/core/bettor-memory/service.server';
 import { computePostmortemAttribution, type PostmortemLegInput } from '@/src/core/postmortem/attribution';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
 import { getSupabaseServerClient } from '@/src/core/supabase/server';
@@ -23,26 +23,33 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as PostmortemRequestBody;
   let legs = Array.isArray(body.legs) ? body.legs : [];
   let sourceQuality: 'verified' | 'partial' | 'demo' = body.mode === 'demo' ? 'demo' : 'partial';
+  let storedCoverage: Awaited<ReturnType<typeof getBettorMemorySnapshot>>['coverage'] | null = null;
 
   if (body.slip_id) {
-    const supabase = await getSupabaseServerClient();
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      const storedSlip = await getSlipForPostmortem(data.user.id, body.slip_id);
-      if (storedSlip && (storedSlip.verification_status === 'verified' || legs.length === 0)) {
-        legs = storedSlip.legs.map((leg) => ({
-          id: leg.leg_id,
-          selection: leg.player_name ?? leg.team_name ?? leg.market_type ?? 'Unknown leg',
-          market: leg.normalized_market_label ?? leg.market_type ?? undefined,
-          line: leg.line != null ? String(leg.line) : undefined,
-          odds: leg.odds != null ? String(leg.odds) : undefined,
-          team: leg.team_name ?? undefined,
-          player: leg.player_name ?? undefined,
-          game: leg.event_descriptor ?? undefined,
-          riskFlags: [storedSlip.verification_status === 'verified' ? 'verified history' : 'review needed'],
-        }));
-        sourceQuality = storedSlip.verification_status === 'verified' ? 'verified' : storedSlip.data_source === 'demo_parse' ? 'demo' : 'partial';
+    try {
+      const supabase = await getSupabaseServerClient();
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const snapshot = await getBettorMemorySnapshot(data.user.id);
+        storedCoverage = snapshot.coverage;
+        const storedSlip = await getSlipForPostmortem(data.user.id, body.slip_id);
+        if (storedSlip && (storedSlip.verification_status === 'verified' || legs.length === 0)) {
+          legs = storedSlip.legs.map((leg) => ({
+            id: leg.leg_id,
+            selection: leg.player_name ?? leg.team_name ?? leg.market_type ?? 'Unknown leg',
+            market: leg.normalized_market_label ?? leg.market_type ?? undefined,
+            line: leg.line != null ? String(leg.line) : undefined,
+            odds: leg.odds != null ? String(leg.odds) : undefined,
+            team: leg.team_name ?? undefined,
+            player: leg.player_name ?? undefined,
+            game: leg.event_descriptor ?? undefined,
+            riskFlags: [storedSlip.verification_status === 'verified' ? 'verified history' : 'review needed'],
+          }));
+          sourceQuality = storedSlip.verification_status === 'verified' ? 'verified' : storedSlip.data_source === 'demo_parse' ? 'demo' : 'partial';
+        }
       }
+    } catch {
+      storedCoverage = null;
     }
   }
 
@@ -79,6 +86,17 @@ export async function POST(req: Request) {
     parse_status: body.parse_status
   });
 
+  const sourceQualityLabel = sourceQuality === 'verified'
+    ? 'Mostly verified'
+    : sourceQuality === 'demo'
+      ? 'Demo/fallback heavy'
+      : storedCoverage?.labels.postmortem.label ?? 'Mixed coverage';
+  const sourceQualityDetail = sourceQuality === 'verified'
+    ? 'Post-mortem signals are based mostly on verified settled slips.'
+    : sourceQuality === 'demo'
+      ? 'Post-mortem signals are limited by demo/fallback inputs.'
+      : storedCoverage?.postmortemSourceQuality.detail ?? 'Post-mortem signals are limited by partial review coverage.';
+
   return NextResponse.json({
     ok: true,
     trace_id: body.trace_id,
@@ -90,6 +108,16 @@ export async function POST(req: Request) {
     volatilityTier: report.risk_band === 'high' ? 'High' : report.risk_band === 'med' ? 'Med' : 'Low',
     advisoryStrength: sourceQuality === 'verified' ? 'strong' : sourceQuality === 'partial' ? 'guarded' : 'tentative',
     sourceQuality,
+    credibility: {
+      label: sourceQualityLabel,
+      detail: sourceQualityDetail,
+      verifiedSettledSlips: storedCoverage?.settledSlips.verified.count ?? (sourceQuality === 'verified' ? 1 : 0),
+      unverifiedSettledSlips: storedCoverage ? storedCoverage.settledSlips.total - storedCoverage.settledSlips.verified.count : sourceQuality === 'verified' ? 0 : legs.length > 0 ? 1 : 0,
+      demoSettledSlips: storedCoverage?.settledSlips.demoFallback.count ?? (sourceQuality === 'demo' ? 1 : 0),
+      verifiedCoveragePct: storedCoverage?.settledSlips.verified.percent ?? (sourceQuality === 'verified' ? 100 : 0),
+      bucket: storedCoverage?.labels.postmortem.bucket ?? (sourceQuality === 'verified' ? 'mostly_verified' : sourceQuality === 'demo' ? 'demo_fallback_heavy' : 'mixed_coverage'),
+      partialCoverage: storedCoverage?.settledSlips.partialCoverage ?? (body.parse_status === 'partial'),
+    },
     exposureSummary: {
       topGames: report.script_clusters.map((cluster) => ({ game: cluster.label, count: cluster.leg_ids.length })),
       topPlayers: []
