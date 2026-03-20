@@ -1,4 +1,5 @@
 import { buildStoredPostmortems, classifyBettorIdentity, generateAdvisorySignals, summarizeCredibility } from './analytics';
+import { computeBettorMemoryCredibility } from './credibility';
 import type { BettorMemorySnapshot, ParsedSlipRecord } from './types';
 
 const demoParseSnapshot = { source: 'demo', explicit_demo: true, uncertainty: 'Deterministic demo parse; bettor review required.' };
@@ -38,8 +39,10 @@ export function buildDemoBettorMemory(): BettorMemorySnapshot {
     ],
     postmortems: buildStoredPostmortems(demoSlips),
     mode: 'demo',
-    credibility: { basis: 'demo_data', label: 'Demo data', detail: 'Deterministic demo records are shown until a bettor account saves verified uploads.' }
+    credibility: { basis: 'demo_data', label: 'Demo data', detail: 'Deterministic demo records are shown until a bettor account saves verified uploads.' },
+    coverage: {} as BettorMemorySnapshot['coverage']
   };
+  snapshot.coverage = computeBettorMemoryCredibility(snapshot);
   snapshot.credibility = summarizeCredibility(snapshot);
   return snapshot;
 }

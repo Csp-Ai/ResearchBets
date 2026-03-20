@@ -140,6 +140,17 @@ export type AccountActivityImportRecord = {
   updated_at: string;
 };
 
+export type BettorPostmortemCredibility = {
+  label: string;
+  bucket: 'mostly_verified' | 'mixed_coverage' | 'review_heavy' | 'parser_limited' | 'demo_fallback_heavy';
+  basis: 'verified_records' | 'parser_records' | 'demo_records' | 'missing_records' | 'mixed_records' | 'partial_records';
+  verified_settled_slips: number;
+  unverified_settled_slips: number;
+  demo_settled_slips: number;
+  partial_coverage: boolean;
+  detail: string;
+};
+
 export type BettorPostmortemRecord = {
   postmortem_id: string;
   bettor_id: string;
@@ -153,6 +164,7 @@ export type BettorPostmortemRecord = {
   confidence_score: number | null;
   evidence: { basis: 'verified_history' | 'unverified_parse' | 'demo_inference'; note: string }[];
   advisory_tags: PostmortemTag[];
+  credibility?: BettorPostmortemCredibility;
   created_at: string;
 };
 
@@ -240,6 +252,91 @@ export type ArtifactReviewRecord = {
   };
 };
 
+export type BettorMemoryCoverageSlice = {
+  count: number;
+  percent: number;
+  partial: boolean;
+  label: string;
+};
+
+export type BettorMemoryCoverageBreakdown = {
+  scope: 'artifacts' | 'parsed_slips' | 'settled_slips' | 'account_activity_imports' | 'postmortems' | 'profile_metrics_inputs';
+  total: number;
+  verified: BettorMemoryCoverageSlice;
+  parserDerived: BettorMemoryCoverageSlice;
+  demoFallback: BettorMemoryCoverageSlice;
+  reviewNeeded: BettorMemoryCoverageSlice;
+  parseFailedOrMissing: BettorMemoryCoverageSlice;
+  partialCoverage: boolean;
+};
+
+export type BettorMemorySourceQualityMix = {
+  totalInputs: number;
+  verifiedInputs: number;
+  parserDerivedInputs: number;
+  demoFallbackInputs: number;
+  missingInputs: number;
+  partialInputs: number;
+  verifiedPercent: number;
+  parserDerivedPercent: number;
+  demoFallbackPercent: number;
+  missingPercent: number;
+  partialPercent: number;
+  basis: 'verified_records' | 'parser_records' | 'demo_records' | 'missing_records' | 'mixed_records' | 'partial_records';
+  label: string;
+  detail: string;
+};
+
+export type BettorMemorySurfaceCredibilityLabel = {
+  surface: 'profile' | 'history' | 'postmortem' | 'analytics';
+  bucket: 'mostly_verified' | 'mixed_coverage' | 'review_heavy' | 'parser_limited' | 'demo_fallback_heavy';
+  label: string;
+  detail: string;
+  verifiedPercent: number;
+  partial: boolean;
+};
+
+export type BettorMemoryReviewNextGuidance = {
+  code: 'settled_slips_need_review' | 'recent_slips_unverified' | 'parse_failures_present' | 'demo_artifacts_present' | 'profile_mostly_verified' | 'postmortem_limited' | 'market_parser_derived';
+  label: string;
+  detail: string;
+  priority: 'high' | 'medium' | 'low';
+};
+
+export type BettorMemoryCredibilitySummary = {
+  overall: BettorMemoryCoverageBreakdown;
+  parsedSlips: BettorMemoryCoverageBreakdown;
+  settledSlips: BettorMemoryCoverageBreakdown;
+  accountActivityImports: BettorMemoryCoverageBreakdown;
+  postmortems: BettorMemoryCoverageBreakdown;
+  profileMetricsInputs: BettorMemoryCoverageBreakdown;
+  analyticsSourceQuality: BettorMemorySourceQualityMix;
+  postmortemSourceQuality: BettorMemorySourceQualityMix;
+  labels: Record<'profile' | 'history' | 'postmortem' | 'analytics', BettorMemorySurfaceCredibilityLabel>;
+  reviewNext: BettorMemoryReviewNextGuidance[];
+  counts: {
+    artifacts: number;
+    parsedSlips: number;
+    settledSlips: number;
+    accountActivityImports: number;
+    postmortems: number;
+    verifiedArtifacts: number;
+    verifiedSlips: number;
+    verifiedSettledSlips: number;
+    reviewNeededArtifacts: number;
+    parserDerivedSlips: number;
+    demoFallbackArtifacts: number;
+    parseFailedArtifacts: number;
+  };
+  thresholds: {
+    mostlyVerifiedMinPct: number;
+    mixedCoverageMinPct: number;
+    reviewHeavyMinPct: number;
+    demoFallbackHeavyMinPct: number;
+    parserLimitedMaxVerifiedPct: number;
+  };
+};
+
 export type BettorMemorySnapshot = {
   profile: BettorProfileRecord;
   artifacts: BettorArtifactRecord[];
@@ -252,4 +349,5 @@ export type BettorMemorySnapshot = {
     label: string;
     detail: string;
   };
+  coverage: BettorMemoryCredibilitySummary;
 };

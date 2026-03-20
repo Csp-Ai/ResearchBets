@@ -1,11 +1,13 @@
 import type {
   BettorIdentity,
   BettorMemorySnapshot,
+  BettorPostmortemCredibility,
   BettorPostmortemRecord,
   ParsedSlipRecord,
   PostmortemTag,
 } from './types';
 import { preferVerifiedRecords } from './review';
+import { computeBettorMemoryCredibility } from './credibility';
 
 export type PerformanceSummary = {
   netResult: number;
@@ -142,13 +144,33 @@ export function generatePostmortemTags(slip: ParsedSlipRecord, history: ParsedSl
 }
 
 export function summarizeCredibility(snapshot: BettorMemorySnapshot): BettorMemorySnapshot['credibility'] {
+  const coverage = snapshot.coverage ?? computeBettorMemoryCredibility(snapshot);
   if (snapshot.mode === 'demo') return { basis: 'demo_data', label: 'Demo data', detail: 'No verified bettor account is connected yet. ResearchBets is showing deterministic sample history.' };
-  const verifiedArtifacts = snapshot.artifacts.filter((artifact) => artifact.verification_status === 'verified').length;
-  const reviewNeeded = snapshot.artifacts.filter((artifact) => ['needs_review', 'parsed_demo', 'parsed_unverified', 'parse_pending', 'uploaded'].includes(artifact.verification_status)).length;
+  const verifiedArtifacts = coverage.overall.verified.count;
+  const reviewNeeded = coverage.overall.reviewNeeded.count;
   const rejected = snapshot.artifacts.filter((artifact) => artifact.verification_status === 'rejected').length;
   if (verifiedArtifacts > 0 && reviewNeeded === 0) return { basis: 'verified_imported_history', label: 'Verified imported history', detail: rejected > 0 ? 'Insights are based on bettor-verified records; rejected artifacts are excluded from active analytics.' : 'Insights are based on saved bettor history with verified records.' };
   if (verifiedArtifacts > 0 && reviewNeeded > 0) return { basis: 'partial_data', label: 'Partial verified coverage', detail: 'Insights prioritize bettor-verified records, but some uploads still need human review before they should be trusted.' };
   return { basis: 'unverified_screenshot_parsing', label: 'Review-needed parsing', detail: 'Insights currently rely on unverified or demo parsing. Advisory strength is intentionally downgraded until records are bettor-verified.' };
+}
+
+function buildPostmortemCredibility(slip: ParsedSlipRecord): BettorPostmortemCredibility {
+  const verified = slip.verification_status === 'verified' ? 1 : 0;
+  const demo = slip.data_source === 'demo_parse' ? 1 : 0;
+  const unverified = verified ? 0 : 1;
+  const basis = verified ? 'verified_records' : demo ? 'demo_records' : 'parser_records';
+  const label = verified ? 'Mostly verified' : demo ? 'Demo/fallback heavy' : 'Mixed coverage';
+  const bucket = verified ? 'mostly_verified' : demo ? 'demo_fallback_heavy' : 'mixed_coverage';
+  return {
+    label,
+    bucket,
+    basis,
+    verified_settled_slips: verified,
+    unverified_settled_slips: unverified,
+    demo_settled_slips: demo,
+    partial_coverage: slip.parse_quality === 'partial',
+    detail: verified ? 'This post-mortem is backed by a verified settled slip.' : demo ? 'This post-mortem still depends on demo/fallback parsing.' : 'This post-mortem uses parser-derived slip data that still needs review.',
+  };
 }
 
 export function buildStoredPostmortems(slips: ParsedSlipRecord[]): BettorPostmortemRecord[] {
@@ -165,6 +187,7 @@ export function buildStoredPostmortems(slips: ParsedSlipRecord[]): BettorPostmor
     confidence_score: slip.confidence_score,
     evidence: [{ basis: slip.verification_status === 'verified' ? 'verified_history' : slip.data_source === 'demo_parse' ? 'demo_inference' : 'unverified_parse', note: slip.verification_status === 'verified' ? 'Based on verified stored slip data.' : slip.data_source === 'demo_parse' ? 'Based on demo parser scaffolding that still requires bettor review.' : 'Based on parsed screenshot data that still needs review.' }],
     advisory_tags: generatePostmortemTags(slip, slips),
+    credibility: buildPostmortemCredibility(slip),
     created_at: slip.updated_at,
   }));
 }

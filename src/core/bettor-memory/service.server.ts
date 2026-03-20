@@ -3,6 +3,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 
 import { buildStoredPostmortems, classifyBettorIdentity, generateAdvisorySignals, summarizeCredibility } from './analytics';
+import { computeBettorMemoryCredibility } from './credibility';
 import { buildDemoBettorMemory } from './demo';
 import { buildTextExtraction, mapCandidateActivityToRecord, mapCandidateLegToRecord, mapCandidateSlipToRecord, runParser } from './parser';
 import { buildAccountActivityReviewFields, buildSlipLegReviewFields, buildSlipReviewFields, deriveDataSourceProvenance, deriveParserConfidenceLabel, deriveVerificationStatus, preferVerifiedRecords } from './review';
@@ -100,7 +101,9 @@ export async function getBettorMemorySnapshot(bettorId?: string | null): Promise
     postmortems: ((postmortems ?? []) as BettorMemorySnapshot['postmortems']).length > 0 ? (postmortems as BettorMemorySnapshot['postmortems']) : buildStoredPostmortems(mappedSlips),
     mode: 'live',
     credibility: { basis: 'partial_data', label: 'Loading', detail: 'Loading bettor memory.' },
+    coverage: {} as BettorMemorySnapshot['coverage'],
   };
+  snapshot.coverage = computeBettorMemoryCredibility(snapshot);
   snapshot.credibility = summarizeCredibility(snapshot);
   return snapshot;
 }

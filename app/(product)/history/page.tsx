@@ -8,10 +8,16 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 
 type HistoryPayload = {
   credibility: { label: string; detail: string };
+  coverage: {
+    counts: { artifacts: number; verifiedArtifacts: number; reviewNeededArtifacts: number; parseFailedArtifacts: number; demoFallbackArtifacts: number; verifiedSettledSlips: number };
+    overall: { verified: { percent: number }; reviewNeeded: { count: number }; parseFailedOrMissing: { count: number }; demoFallback: { count: number } };
+    labels: { history: { label: string; detail: string }; postmortem: { label: string; detail: string } };
+    reviewNext: Array<{ code: string; label: string; detail: string; priority: 'high' | 'medium' | 'low' }>;
+  };
   artifacts: Array<{ artifact_id: string; artifact_type: string; source_sportsbook: string | null; upload_timestamp: string; verification_status: string; parse_status: string; parser_confidence_label?: string; parser_adapter?: string | null; parser_warnings_json?: Array<{ message: string }> | null }>;
   slips: Array<{ slip_id: string; source_artifact_id: string | null; sportsbook: string | null; status: string; leg_count: number; verification_status: string; created_at: string; legs: Array<{ normalized_market_label: string | null; market_type: string | null }> }>;
   accountActivity: Array<{ activity_import_id: string; source_artifact_id: string | null; source_sportsbook: string | null; verification_status: string; activity_window_start: string | null; activity_window_end: string | null }>;
-  postmortems: Array<{ postmortem_id: string; outcome_summary: string; advisory_tags: string[]; created_at: string; confidence_score: number | null; evidence: Array<{ basis: string; note: string }> }>;
+  postmortems: Array<{ postmortem_id: string; outcome_summary: string; advisory_tags: string[]; created_at: string; confidence_score: number | null; evidence: Array<{ basis: string; note: string }>; credibility?: { label: string; detail: string; verified_settled_slips: number; unverified_settled_slips: number; demo_settled_slips: number } }>;
 };
 
 const verificationOptions = ['', 'verified', 'needs_review', 'parsed_demo', 'parsed_unverified', 'rejected'];
@@ -44,6 +50,53 @@ export default function HistoryPage() {
           <p className="mt-1">{payload?.credibility.detail ?? 'Loading archive basis.'}</p>
         </div>
       </header>
+
+      <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">Archive credibility</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-100">{payload?.coverage.labels.history.label ?? 'Loading archive credibility'}</h2>
+            <p className="mt-1 text-sm text-slate-300">{payload?.coverage.labels.history.detail ?? 'Loading coverage explanation.'}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-right text-xs text-slate-300">
+            <p className="font-medium text-slate-100">{payload ? `${payload.coverage.overall.verified.percent}% verified artifacts` : '—'}</p>
+            <p>{payload ? `${payload.coverage.counts.reviewNeededArtifacts} artifacts still need review` : 'Loading review queue'}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
+          {[
+            ['Total artifacts', payload ? String(payload.coverage.counts.artifacts) : '—'],
+            ['Verified artifacts', payload ? String(payload.coverage.counts.verifiedArtifacts) : '—'],
+            ['Review-needed artifacts', payload ? String(payload.coverage.counts.reviewNeededArtifacts) : '—'],
+            ['Parse-failed artifacts', payload ? String(payload.coverage.counts.parseFailedArtifacts) : '—'],
+            ['Demo/fallback artifacts', payload ? String(payload.coverage.counts.demoFallbackArtifacts) : '—'],
+          ].map(([label, value]) => (
+            <article key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+              <p className="mt-2 text-lg font-semibold text-slate-100">{value}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+            <p className="font-medium text-slate-100">Where review effort helps most</p>
+            <p className="mt-2">{payload?.coverage.labels.postmortem.detail ?? 'Loading post-mortem coverage.'}</p>
+            <p className="mt-2">Verified settled slips: {payload?.coverage.counts.verifiedSettledSlips ?? 0}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+            <p className="font-medium text-slate-100">Review next</p>
+            <div className="mt-2 space-y-2">
+              {(payload?.coverage.reviewNext ?? []).slice(0, 4).map((item) => (
+                <div key={item.code} className="rounded-lg border border-white/10 bg-slate-950/40 p-3">
+                  <p className="font-medium text-slate-100">{item.label}</p>
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-400">{item.priority} priority</p>
+                  <p className="mt-2 text-xs">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm">
         <input className="rounded border border-white/20 bg-slate-950 px-3 py-2" placeholder="Filter sportsbook" value={sportsbook} onChange={(e) => setSportsbook(e.target.value)} />
@@ -122,6 +175,7 @@ export default function HistoryPage() {
                 <p className="font-medium text-slate-100">{item.outcome_summary}</p>
                 <p className="mt-1 text-xs">Signals: {item.advisory_tags.join(', ') || 'No deterministic tags yet'}</p>
                 <p className="mt-1 text-xs">Evidence: {(item.evidence?.[0]?.basis ?? 'unknown').replace(/_/g, ' ')}</p>
+                {item.credibility ? <p className="mt-1 text-xs">{item.credibility.label} · {item.credibility.verified_settled_slips} verified / {item.credibility.unverified_settled_slips} unverified</p> : null}
                 <p className="mt-1 text-xs">Created {new Date(item.created_at).toLocaleString()}</p>
               </article>
             ))}

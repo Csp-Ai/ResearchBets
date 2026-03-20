@@ -7,7 +7,20 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 
 type SummaryPayload = Awaited<ReturnType<typeof fetch>> extends never ? never : {
-  snapshot: { profile: { display_name: string | null; username: string | null; bettor_identity: string | null }; credibility: { label: string; detail: string }; mode: 'live' | 'demo' };
+  snapshot: {
+    profile: { display_name: string | null; username: string | null; bettor_identity: string | null };
+    credibility: { label: string; detail: string };
+    coverage: {
+      counts: { verifiedSlips: number; reviewNeededArtifacts: number; parseFailedArtifacts: number; demoFallbackArtifacts: number };
+      parsedSlips: { verified: { percent: number; count: number }; reviewNeeded: { count: number }; parserDerived: { percent: number; count: number } };
+      profileMetricsInputs: { verified: { percent: number; count: number }; total: number; partialCoverage: boolean };
+      analyticsSourceQuality: { label: string; detail: string };
+      postmortemSourceQuality: { label: string; detail: string };
+      labels: { profile: { label: string; detail: string } };
+      reviewNext: Array<{ code: string; label: string; detail: string; priority: 'high' | 'medium' | 'low' }>;
+    };
+    mode: 'live' | 'demo';
+  };
   performance: { netResult: number; totalStaked: number; totalReturned: number; roiPct: number; betCount: number; winCount: number; winRatePct: number };
   weekly: Array<{ week: string; netResult: number; cumulativeNet: number }>;
   byMarket: Array<{ label: string; winRatePct: number; roiPct: number; betCount: number }>;
@@ -28,6 +41,7 @@ export default function ProfilePage() {
   }, []);
 
   const hero = payload?.performance;
+  const coverage = payload?.snapshot.coverage;
 
   return (
     <section className="mx-auto max-w-6xl space-y-4 py-4 pb-24">
@@ -40,6 +54,55 @@ export default function ProfilePage() {
           <p className="mt-1">{payload?.snapshot.credibility.detail ?? 'Loading bettor memory basis.'}</p>
         </div>
       </header>
+
+      <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">Verified coverage</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-100">{coverage?.labels.profile.label ?? 'Loading coverage'}</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-300">{coverage?.analyticsSourceQuality.detail ?? 'Loading profile source quality.'}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-right text-xs text-slate-300">
+            <p className="font-medium text-slate-100">{coverage ? `${coverage.profileMetricsInputs.verified.percent}% verified inputs` : '—'}</p>
+            <p>{coverage ? `${coverage.profileMetricsInputs.verified.count} of ${coverage.profileMetricsInputs.total} settled slip inputs` : 'Loading settled coverage'}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
+          {[
+            ['Verified slips', coverage ? String(coverage.counts.verifiedSlips) : '—'],
+            ['Review-needed artifacts', coverage ? String(coverage.counts.reviewNeededArtifacts) : '—'],
+            ['Parse-failed artifacts', coverage ? String(coverage.counts.parseFailedArtifacts) : '—'],
+            ['Demo/fallback artifacts', coverage ? String(coverage.counts.demoFallbackArtifacts) : '—'],
+            ['Parser-derived slips', coverage ? `${coverage.parsedSlips.parserDerived.percent}%` : '—'],
+          ].map(([label, value]) => (
+            <article key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+              <p className="mt-2 text-lg font-semibold text-slate-100">{value}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+            <p className="font-medium text-slate-100">What the dashboard is based on</p>
+            <p className="mt-2">{coverage?.labels.profile.detail ?? 'Loading profile credibility.'}</p>
+            <p className="mt-2">{coverage?.postmortemSourceQuality.detail ?? 'Loading post-mortem credibility.'}</p>
+            {coverage?.profileMetricsInputs.partialCoverage ? <p className="mt-2 text-amber-200">Profile metric coverage is partial because some settled inputs are incomplete.</p> : null}
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+            <p className="font-medium text-slate-100">Review next</p>
+            <div className="mt-2 space-y-2">
+              {(coverage?.reviewNext ?? []).slice(0, 3).map((item) => (
+                <div key={item.code} className="rounded-lg border border-white/10 bg-slate-950/40 p-3">
+                  <p className="font-medium text-slate-100">{item.label}</p>
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-400">{item.priority} priority</p>
+                  <p className="mt-2 text-xs text-slate-300">{item.detail}</p>
+                </div>
+              ))}
+              {coverage?.reviewNext?.length === 0 ? <p className="text-sm text-slate-400">No review guidance yet.</p> : null}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-3 md:grid-cols-4">
         {[
@@ -97,13 +160,13 @@ export default function ProfilePage() {
           <section key={title} className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
             <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
             <div className="mt-3 space-y-2 text-sm text-slate-300">
-              {(rows as SummaryPayload['byMarket']).map((row) => (
+              {rows.map((row) => (
                 <div key={row.label} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
                   <p className="font-medium text-slate-100">{row.label}</p>
                   <p className="text-xs">{row.betCount} tracked slips · {row.winRatePct}% hit rate · {row.roiPct}% ROI</p>
                 </div>
               ))}
-              {(rows as SummaryPayload['byMarket']).length === 0 ? <p className="text-sm text-slate-400">No rows yet.</p> : null}
+              {rows.length === 0 ? <p className="text-sm text-slate-400">No rows yet.</p> : null}
             </div>
           </section>
         ))}

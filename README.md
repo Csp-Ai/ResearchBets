@@ -101,3 +101,4 @@ Audit and operations docs:
 - Bettor-memory parsing now runs through a sportsbook parser adapter registry (`FanDuel`, `DraftKings`, `PrizePicks`, plus a conservative generic fallback). Adapter provenance, parser warnings/errors, normalized candidate output, and review-needed recommendations persist alongside the raw upload without replacing bettor verification.
 - When OCR/parser certainty is unavailable, the app uses an explicit `demo-parser-v1` contract and labels outputs as `needs_review` instead of presenting them as verified truth.
 - `/profile` now acts as the bettor-facing Performance Intelligence surface, while `/history` acts as the bettor memory archive.
+- `/profile`, `/history`, and `/api/postmortem` now expose deterministic verified-coverage metadata so bettors can see how much of analytics and post-mortems are backed by bettor-reviewed records versus parser/demo/failure states.
