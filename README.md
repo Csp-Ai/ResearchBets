@@ -93,3 +93,10 @@ Audit and operations docs:
 - Add deep technical content to `docs/*` and link from here.
 - Preserve truth spine continuity in page and API links.
 - Keep demo mode deterministic and secret-safe.
+
+## Bettor memory foundation
+
+- Bettor profile persistence now extends the existing `profiles` table with timezone, preferred sportsbooks, bettor identity, advisory signals, and historical aggregate fields.
+- Screenshot uploads persist into the `bettor-artifacts` storage bucket and `bettor_artifacts` table. Parsed outputs save into `bettor_slips`, `bettor_slip_legs`, `bettor_account_activity_imports`, and `bettor_postmortems`.
+- When OCR/parser certainty is unavailable, the app uses an explicit `demo-parser-v1` contract and labels outputs as `needs_review` instead of presenting them as verified truth.
+- `/profile` now acts as the bettor-facing Performance Intelligence surface, while `/history` acts as the bettor memory archive.

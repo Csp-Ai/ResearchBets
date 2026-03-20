@@ -206,3 +206,11 @@ Determinism guarantee: all `/tonight` and landing lead computations are pure aga
 - Copy policy on landing: neutral system status only; avoid `demo/beta/prototype/experimental` UI wording.
 - Spine continuity for CTA links: `nervous.toHref`, `appendQuery`, and `withTraceId`.
 - Flow: `/` -> `/today` -> `/slip|/ingest` -> `/stress-test?tab=analyze` -> `/track` -> `/traces/[trace_id]`.
+
+## Bettor memory architecture
+
+- Canonical bettor identity remains the existing `profiles` table. The bettor memory foundation extends that profile instead of introducing a separate parallel user system.
+- Persistent upload artifacts live in Supabase storage bucket `bettor-artifacts` plus relational metadata in `bettor_artifacts`. This keeps original uploads separate from parsed or inferred data.
+- Parsed slips and legs persist in `bettor_slips` and `bettor_slip_legs`. Sportsbook account screenshots persist in `bettor_account_activity_imports`. Stored settled reviews persist in `bettor_postmortems`.
+- Server-only persistence and storage logic live in `src/core/bettor-memory/service.server.ts`. Deterministic analytics and classification live in `src/core/bettor-memory/analytics.ts`. Demo fallback snapshots live in `src/core/bettor-memory/demo.ts`.
+- Current parser integration is explicit demo fallback: uploads are real and durable, but parsed fields may be marked `needs_review` with `parser_mode: demo` until a sportsbook-specific OCR/parser pipeline is integrated.
