@@ -1,92 +1,119 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import { appendQuery } from '@/src/components/landing/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { Button } from '@/src/components/ui/button';
 
-
-const deriveComparison = (title: string) => {
-  const key = title.toLowerCase();
-  const weakest = key.includes('reb') ? 'Rebounds leg' : key.includes('assist') ? 'Assists leg' : 'Late leg variance';
-  const largest = key.includes('points') ? 'Points edge cluster' : 'Primary scorer prop';
-  const divergence = key.includes('under') ? 'RB leaned over while your slip played under.' : 'RB and your slip mostly aligned; one leg diverged in market type.';
-  return { weakest, largest, divergence };
-};
-
-type SlipRow = {
-  id: string;
-  source_type: 'self' | 'shared';
-  title: string;
-  created_at: string;
-  settlement: { status: string; settled_at?: string | null; pnl?: number | null } | null;
+type HistoryPayload = {
+  credibility: { label: string; detail: string };
+  artifacts: Array<{ artifact_id: string; artifact_type: string; source_sportsbook: string | null; upload_timestamp: string; verification_status: string; parse_status: string }>;
+  slips: Array<{ slip_id: string; sportsbook: string | null; status: string; leg_count: number; verification_status: string; created_at: string; legs: Array<{ normalized_market_label: string | null; market_type: string | null }> }>;
+  accountActivity: Array<{ activity_import_id: string; source_sportsbook: string | null; verification_status: string; activity_window_start: string | null; activity_window_end: string | null }>;
+  postmortems: Array<{ postmortem_id: string; outcome_summary: string; advisory_tags: string[]; created_at: string }>;
 };
 
 export default function HistoryPage() {
-  const [slips, setSlips] = useState<SlipRow[]>([]);
-  const [workingSlipId, setWorkingSlipId] = useState<string | null>(null);
-  const [banner, setBanner] = useState<string | null>(null);
   const nervous = useNervousSystem();
+  const [payload, setPayload] = useState<HistoryPayload | null>(null);
+  const [sportsbook, setSportsbook] = useState('');
+  const [verified, setVerified] = useState('');
 
-  const load = async () => {
-    const response = await fetch('/api/history-bets', { cache: 'no-store' });
-    const payload = await response.json();
-    setSlips(payload.slips ?? []);
-  };
+  const query = useMemo(() => {
+    const params = new URLSearchParams();
+    if (sportsbook) params.set('sportsbook', sportsbook);
+    if (verified) params.set('verified', verified);
+    return params.toString();
+  }, [sportsbook, verified]);
 
   useEffect(() => {
-    void load();
-  }, []);
-
-  const runSettle = async (slipId: string) => {
-    setWorkingSlipId(slipId);
-    const response = await fetch('/api/history-bets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slip_id: slipId, mode: nervous.mode === 'live' ? 'live' : 'demo' }),
-    });
-    const payload = await response.json();
-    setBanner(payload.banner ?? (response.ok ? 'Settlement complete.' : payload.error ?? 'Settlement unavailable right now.'));
-    setWorkingSlipId(null);
-    await load();
-  };
-
-  const badge = (status?: string) => {
-    if (status === 'settled') return 'Settled';
-    if (status === 'partial') return 'Needs review';
-    return 'Pending settle';
-  };
+    void fetch(`/api/bettor-memory/history${query ? `?${query}` : ''}`, { cache: 'no-store' }).then((res) => res.json()).then(setPayload);
+  }, [query]);
 
   return (
-    <section className="mx-auto max-w-2xl space-y-4 py-4 pb-24">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Recent uploads</h1>
-        <p className="text-sm text-slate-300">Track old slips, settle outcomes, and keep notes in one place.</p>
+    <section className="mx-auto max-w-6xl space-y-4 py-4 pb-24">
+      <header className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">Bettor history archive</p>
+        <h1 className="mt-2 text-3xl font-semibold text-slate-100">Saved uploads, parsed slips, account imports, and post-mortems</h1>
+        <p className="mt-2 text-sm text-slate-300">Save your slip. Preserve your history. Review it later. Build intelligence from it.</p>
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+          <p className="font-medium text-slate-100">{payload?.credibility.label ?? 'Loading...'}</p>
+          <p className="mt-1">{payload?.credibility.detail ?? 'Loading archive basis.'}</p>
+        </div>
       </header>
-      {banner ? <p className="rounded border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200">{banner}</p> : null}
-      <div className="space-y-2">
-        {slips.map((slip) => (
-          <article key={slip.id} className="rounded-xl border border-white/15 bg-slate-950/50 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-medium text-slate-100">{slip.title}</h2>
-              <span className="rounded bg-white/10 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-200">{badge(slip.settlement?.status)}</span>
-            </div>
-            <p className="mt-1 text-xs text-slate-400">{slip.source_type === 'shared' ? 'Shared slip/text' : 'My slip'} • {new Date(slip.created_at).toLocaleString()}</p>
-            {(() => { const comparison = deriveComparison(slip.title); return (<div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-2 text-xs text-slate-300"><p className="font-medium text-slate-100">Your Slip vs RB Suggested</p><p className="mt-1"><span className="text-rose-200">Weakest leg:</span> {comparison.weakest}</p><p><span className="text-cyan-200">Largest edge:</span> {comparison.largest}</p><p><span className="text-amber-200">Divergence:</span> {comparison.divergence}</p></div>); })()}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button intent="secondary" onClick={() => void runSettle(slip.id)} disabled={workingSlipId === slip.id}>{workingSlipId === slip.id ? 'Settling…' : 'Run settle'}</Button>
-              <Link className="rounded border border-white/15 px-3 py-2 text-xs" href={appendQuery(nervous.toHref('/slip'), { id: slip.id })}>Open slip</Link>
-            </div>
-          </article>
-        ))}
-        {slips.length === 0 ? <p className="text-sm text-slate-400">No uploads yet. Start with “Upload slip”.</p> : null}
+
+      <section className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm">
+        <input className="rounded border border-white/20 bg-slate-950 px-3 py-2" placeholder="Filter sportsbook" value={sportsbook} onChange={(e) => setSportsbook(e.target.value)} />
+        <select className="rounded border border-white/20 bg-slate-950 px-3 py-2" value={verified} onChange={(e) => setVerified(e.target.value)}>
+          <option value="">All verification states</option>
+          <option value="true">Verified only</option>
+          <option value="false">Needs review / unverified</option>
+        </select>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+          <h2 className="text-lg font-semibold text-slate-100">Artifacts</h2>
+          <div className="mt-3 space-y-2">
+            {(payload?.artifacts ?? []).map((artifact) => (
+              <article key={artifact.artifact_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+                <p className="font-medium text-slate-100">{artifact.artifact_type.replace(/_/g, ' ')}</p>
+                <p className="text-xs">{artifact.source_sportsbook ?? 'Sportsbook unknown'} · {artifact.parse_status} · {artifact.verification_status}</p>
+                <p className="mt-1 text-xs">Uploaded {new Date(artifact.upload_timestamp).toLocaleString()}</p>
+              </article>
+            ))}
+            {payload?.artifacts?.length === 0 ? <p className="text-sm text-slate-400">No uploads saved yet.</p> : null}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+          <h2 className="text-lg font-semibold text-slate-100">Parsed slips</h2>
+          <div className="mt-3 space-y-2">
+            {(payload?.slips ?? []).map((slip) => (
+              <article key={slip.slip_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+                <p className="font-medium text-slate-100">{slip.sportsbook ?? 'Sportsbook unknown'} · {slip.leg_count}-leg slip</p>
+                <p className="text-xs">{slip.status} · {slip.verification_status}</p>
+                <p className="mt-1 text-xs">Markets: {slip.legs.map((leg) => leg.normalized_market_label ?? leg.market_type ?? 'Unknown').join(', ')}</p>
+              </article>
+            ))}
+            {payload?.slips?.length === 0 ? <p className="text-sm text-slate-400">No parsed slips yet.</p> : null}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+          <h2 className="text-lg font-semibold text-slate-100">Account activity imports</h2>
+          <div className="mt-3 space-y-2">
+            {(payload?.accountActivity ?? []).map((item) => (
+              <article key={item.activity_import_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+                <p className="font-medium text-slate-100">{item.source_sportsbook ?? 'Sportsbook unknown'}</p>
+                <p className="text-xs">{item.verification_status}</p>
+                <p className="mt-1 text-xs">Window {item.activity_window_start?.slice(0, 10) ?? '—'} → {item.activity_window_end?.slice(0, 10) ?? '—'}</p>
+              </article>
+            ))}
+            {payload?.accountActivity?.length === 0 ? <p className="text-sm text-slate-400">No account activity imports yet.</p> : null}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+          <h2 className="text-lg font-semibold text-slate-100">Post-mortems</h2>
+          <div className="mt-3 space-y-2">
+            {(payload?.postmortems ?? []).map((item) => (
+              <article key={item.postmortem_id} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-300">
+                <p className="font-medium text-slate-100">{item.outcome_summary}</p>
+                <p className="mt-1 text-xs">Signals: {item.advisory_tags.join(', ') || 'No deterministic tags yet'}</p>
+                <p className="mt-1 text-xs">Created {new Date(item.created_at).toLocaleString()}</p>
+              </article>
+            ))}
+            {payload?.postmortems?.length === 0 ? <p className="text-sm text-slate-400">No stored post-mortems yet.</p> : null}
+          </div>
+        </section>
       </div>
+
       <div className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-slate-950/95 p-3">
-        <div className="mx-auto flex max-w-2xl gap-2">
-          <Link className="flex-1 rounded bg-cyan-400 px-3 py-2 text-center text-sm font-semibold text-slate-950" href={appendQuery(nervous.toHref('/ingest'), { source: 'history_cta' })}>Upload slip</Link>
-          <Link className="flex-1 rounded border border-white/20 px-3 py-2 text-center text-sm" href={appendQuery(nervous.toHref('/today'), { tab: 'board' })}>Build from Board</Link>
+        <div className="mx-auto flex max-w-6xl gap-2">
+          <Link className="flex-1 rounded bg-cyan-400 px-3 py-2 text-center text-sm font-semibold text-slate-950" href={appendQuery(nervous.toHref('/ingest'), { source: 'archive' })}>Upload artifact</Link>
+          <Link className="flex-1 rounded border border-white/20 px-3 py-2 text-center text-sm" href={appendQuery(nervous.toHref('/profile'), {})}>Open performance</Link>
         </div>
       </div>
     </section>

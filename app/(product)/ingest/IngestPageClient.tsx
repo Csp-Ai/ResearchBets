@@ -28,6 +28,8 @@ export default function IngestionPage() {
   const [isOcrRunning, setIsOcrRunning] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
   const [ocrError, setOcrError] = useState<string | null>(null);
+  const [artifactStatus, setArtifactStatus] = useState<string | null>(null);
+  const [artifactType, setArtifactType] = useState<'slip_screenshot' | 'account_activity_screenshot' | 'bet_result_screenshot' | 'unknown_betting_artifact'>('slip_screenshot');
   const ocrWorkerRef = useRef<{ terminate: () => Promise<unknown> } | null>(null);
   const ocrAbortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -64,6 +66,7 @@ export default function IngestionPage() {
 
   const onUploadClick = () => {
     setOcrError(null);
+    setArtifactStatus(null);
     fileInputRef.current?.click();
   };
 
@@ -92,8 +95,32 @@ export default function IngestionPage() {
     setIsOcrRunning(true);
     setOcrProgress('Reading text… 0%');
     setOcrError(null);
+    setArtifactStatus('Saving original upload to bettor history…');
     const abortController = new AbortController();
     ocrAbortControllerRef.current = abortController;
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('artifact_type', artifactType);
+      const uploadResponse = await fetch('/api/bettor-memory/upload', { method: 'POST', body: form });
+      const uploadPayload = await uploadResponse.json().catch(() => ({}));
+      if (uploadResponse.ok && uploadPayload?.artifact?.artifact_id) {
+        setArtifactStatus('Saved to bettor history. Running demo parser contract next.');
+        const parseResponse = await fetch('/api/bettor-memory/parse-demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artifact_id: uploadPayload.artifact.artifact_id, artifact_type: artifactType, raw_text: slipText, source_sportsbook: null })
+        });
+        const parsePayload = await parseResponse.json().catch(() => ({}));
+        if (parseResponse.ok) setArtifactStatus('Saved to bettor history. Parsed with partial confidence. Unverified fields require review.');
+        else setArtifactStatus(parsePayload?.error ?? 'Upload saved, but parser contract did not complete.');
+      } else {
+        setArtifactStatus(uploadPayload?.error ?? 'Upload could not be persisted. Continuing with local OCR only.');
+      }
+    } catch {
+      setArtifactStatus('Upload could not be persisted. Continuing with local OCR only.');
+    }
 
     try {
       const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
@@ -129,16 +156,22 @@ export default function IngestionPage() {
         <p className="text-sm text-slate-300">Paste your old slip or someone else&apos;s text. We save first, parse second, and keep flow moving.</p>
       </header>
 
-      <div className="flex gap-2 text-xs">
+      <div className="flex flex-wrap gap-2 text-xs">
         <button type="button" onClick={() => setSourceType('self')} className={`rounded-full px-3 py-1 ${sourceType === 'self' ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>My slip</button>
         <button type="button" onClick={() => setSourceType('shared')} className={`rounded-full px-3 py-1 ${sourceType === 'shared' ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>Shared slip/text</button>
       </div>
 
       <Surface className="space-y-4">
+        <div className="flex flex-wrap gap-2 text-xs">
+          {(['slip_screenshot', 'account_activity_screenshot', 'bet_result_screenshot', 'unknown_betting_artifact'] as const).map((type) => (
+            <button key={type} type="button" onClick={() => setArtifactType(type)} className={`rounded-full px-3 py-1 ${artifactType === type ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>{type.replace(/_/g, ' ')}</button>
+          ))}
+        </div>
         <textarea className="h-56 w-full rounded-lg border border-default bg-canvas p-3 font-mono text-xs" value={slipText} onChange={(event) => setSlipText(event.target.value)} placeholder="Paste each leg on a new line" />
         <input ref={fileInputRef} hidden type="file" accept="image/png,image/jpeg" onChange={(event) => { void onFileChange(event); }} />
         {ocrProgress !== null ? <p className="text-sm text-slate-300">{ocrProgress}</p> : null}
         {status ? <p className="text-sm text-slate-300">{status}</p> : null}
+        {artifactStatus ? <p className="text-sm text-slate-300">{artifactStatus}</p> : null}
         {ocrError ? <p className="text-sm text-danger">{ocrError}</p> : null}
         <div className="flex flex-wrap gap-2">
           <Button intent="secondary" onClick={onUploadClick} disabled={loading || isOcrRunning}>Upload screenshot</Button>
