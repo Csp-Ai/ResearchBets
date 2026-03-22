@@ -384,7 +384,7 @@ describe('cockpit route integration', () => {
     await screen.findAllByText(/J. Tatum/);
 
     expect(screen.getAllByText('Active Ticket').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Live ticket command surface/i)).toBeTruthy();
+    expect(screen.getByText(/Live ticket command center/i)).toBeTruthy();
     expect(screen.getByText(/Ticket pressure/i)).toBeTruthy();
     expect(screen.getByRole('link', { name: /open live tracking/i })).toBeTruthy();
   });

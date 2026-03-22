@@ -12,21 +12,26 @@ import {
   buildOpenTickets,
   computeExposureSummary,
   type LiveCoverageMap,
-  type LiveLegState,
   type LiveLegUpdate,
   type OpenTicket
 } from '@/src/core/live/openTickets';
 import { settleTicket } from '@/src/core/review/settlement';
+import { deriveLiveCommandSurface } from '@/src/core/cockpit/ticketLoop';
 import type { TicketSettlementStatus } from '@/src/core/review/types';
 import { listRecentSlips } from '@/src/core/slips/storage';
 import { listTrackedTickets } from '@/src/core/track/store';
 import type { TrackedTicket } from '@/src/core/track/types';
 
-const statusTone: Record<LiveLegState['status'], string> = {
-  ahead: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
-  on_pace: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100',
-  behind: 'border-amber-400/40 bg-amber-500/10 text-amber-100',
-  needs_spike: 'border-rose-400/40 bg-rose-500/10 text-rose-100'
+const liveStatusTone: Record<string, string> = {
+  cleared: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
+  'ahead of pace': 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
+  'needs one event': 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100',
+  'on pace': 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100',
+  'in progress': 'border-slate-400/40 bg-slate-500/10 text-slate-100',
+  'slightly behind': 'border-amber-300/40 bg-amber-500/10 text-amber-100',
+  'awaiting movement': 'border-amber-300/40 bg-amber-500/10 text-amber-100',
+  'behind pace': 'border-amber-400/40 bg-amber-500/10 text-amber-100',
+  critical: 'border-rose-400/40 bg-rose-500/10 text-rose-100'
 };
 
 export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) {
@@ -137,8 +142,10 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   return (
     <CardSurface className="p-4" data-testid="open-tickets-panel">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Open Tickets</h2>
-        <p className="text-xs text-slate-400">Live ticket terminal</p>
+        <h2 className="text-lg font-semibold">Live Ticket Command Center</h2>
+        <p className="text-xs text-slate-400">
+          Track what is carrying the ticket and what can break it.
+        </p>
       </div>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
@@ -211,26 +218,71 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
           <ul className="mt-3 space-y-3">
             {tickets.slice(0, 5).map((ticket, index) => {
               const isExpanded = !!expanded[ticket.ticketId];
+              const command = deriveLiveCommandSurface(ticket);
               return (
                 <li
                   key={ticket.ticketId}
                   className="row-shell space-y-2"
                   data-testid={`ticket-${index + 1}`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{ticket.title}</p>
-                    <p className="text-xs text-slate-300">
-                      <span className="mono-number">{ticket.odds}</span> ·{' '}
-                      <span className="mono-number">{ticket.wager}</span> · {ticket.onPaceCount}/
-                      {ticket.legs.length} legs on pace
-                    </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+                        Live ticket command center
+                      </p>
+                      <p className="text-sm font-medium">{ticket.title}</p>
+                      <p className="mt-1 text-xs text-slate-300">
+                        <span className="mono-number">{ticket.odds}</span> ·{' '}
+                        <span className="mono-number">{ticket.wager}</span> · {ticket.onPaceCount}/
+                        {ticket.legs.length} legs carrying
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+                      <div className="font-semibold">
+                        Ticket pressure: {command?.ticketPressure.label ?? 'Stable'}
+                      </div>
+                      <div className="mt-1 max-w-xs text-cyan-50/90">
+                        {command?.ticketPressure.detail ?? 'Ticket is waiting for more separation.'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="rounded-md border border-cyan-300/30 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-100">
-                    <span className="font-semibold">Now</span>: Closest{' '}
-                    {ticket.legs[0]?.player ?? '—'} · Kill risk {ticket.weakestLeg.player} · Cashout{' '}
-                    {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number'
-                      ? `$${ticket.cashoutValue.toFixed(2)}`
-                      : 'unavailable'}
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <article className="rounded-lg border border-emerald-400/20 bg-emerald-500/5 p-3 text-xs">
+                      <p className="uppercase tracking-[0.18em] text-emerald-200/80">
+                        Strongest leg
+                      </p>
+                      <p className="mt-2 font-semibold text-slate-100">
+                        {command?.strongestLeg
+                          ? `${command.strongestLeg.player} ${command.strongestLeg.marketLabel} — ${command.strongestLeg.status}`
+                          : 'Waiting for a carrying leg'}
+                      </p>
+                      <p className="mt-1 text-slate-300">
+                        {command?.strongestLeg?.why ?? 'The ticket has not separated yet.'}
+                      </p>
+                    </article>
+                    <article className="rounded-lg border border-rose-400/20 bg-rose-500/5 p-3 text-xs">
+                      <p className="uppercase tracking-[0.18em] text-rose-200/80">Weakest leg</p>
+                      <p className="mt-2 font-semibold text-slate-100">
+                        {command?.weakestLeg
+                          ? `${command.weakestLeg.player} ${command.weakestLeg.marketLabel} — ${command.weakestLeg.status}`
+                          : 'Waiting for a weak spot'}
+                      </p>
+                      <p className="mt-1 text-slate-300">
+                        {command?.primaryFailurePoint ?? 'No failure point identified yet.'}
+                      </p>
+                    </article>
+                    <article className="rounded-lg border border-white/10 bg-slate-950/60 p-3 text-xs">
+                      <p className="uppercase tracking-[0.18em] text-slate-400">What to watch</p>
+                      <p className="mt-2 font-semibold text-slate-100">
+                        {command?.gameScript ?? 'Watch for the next meaningful swing.'}
+                      </p>
+                      <p className="mt-1 text-slate-300">
+                        Cashout{' '}
+                        {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number'
+                          ? `$${ticket.cashoutValue.toFixed(2)}`
+                          : 'unavailable'}
+                      </p>
+                    </article>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
                     {getLoopTrustBadges(ticket.provenance).map((badge) => (
@@ -241,9 +293,9 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                         {badge.label}
                       </span>
                     ))}
-                    {sweatMode ? (
+                    {command?.ticketPressure ? (
                       <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1">
-                        Weakest: {ticket.weakestLeg.player}
+                        {command.ticketPressure.label}
                       </span>
                     ) : null}
                     {ticket.cashoutAvailable && typeof ticket.cashoutValue === 'number' ? (
@@ -267,13 +319,35 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
 
                   <DuringCoach ticket={ticket} compact={!sweatMode} />
 
-                  <button
-                    type="button"
-                    className="mt-2 rounded border border-white/20 px-2 py-1 text-xs"
-                    onClick={() => openSettle(ticket)}
-                  >
-                    Settle
-                  </button>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Link
+                      href={appendQuery(nervous.toHref('/track'), {
+                        slip_id: ticket.slip_id,
+                        trace_id: ticket.trace_id
+                      })}
+                      className="rounded border border-cyan-300/40 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-100"
+                    >
+                      {command?.nextActionLabel ?? 'Continue tracking'}
+                    </Link>
+                    <button
+                      type="button"
+                      className="rounded border border-white/20 px-2 py-1 text-xs"
+                      onClick={() => openSettle(ticket)}
+                    >
+                      Settle
+                    </button>
+                    {ticket.trace_id ? (
+                      <Link
+                        href={appendQuery(nervous.toHref('/review'), {
+                          trace_id: ticket.trace_id,
+                          slip_id: ticket.slip_id
+                        })}
+                        className="rounded border border-white/20 px-2 py-1 text-xs"
+                      >
+                        Open review
+                      </Link>
+                    ) : null}
+                  </div>
 
                   {ticket.rawSlipText ? (
                     <details className="mt-2 text-xs text-slate-300">
@@ -298,40 +372,49 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     className={`collapse-shell ${sweatMode && isExpanded ? 'collapse-shell-open mt-2' : ''}`}
                   >
                     <ul className="space-y-2 text-xs">
-                      {ticket.legs.map((leg) => (
-                        <li key={leg.legId} className="rounded border border-slate-700 p-2">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p>
-                              {leg.player} · {leg.marketType} {leg.currentValue.toFixed(1)}/
-                              {leg.threshold}
+                      {ticket.legs.map((leg) => {
+                        const commandLeg = command?.legs.find((item) => item.legId === leg.legId);
+                        return (
+                          <li key={leg.legId} className="rounded border border-slate-700 p-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p>
+                                {leg.player} · {leg.marketType} {leg.currentValue.toFixed(1)}/
+                                {leg.threshold}
+                              </p>
+                              <span
+                                className={`rounded-full border px-2 py-0.5 ${
+                                  liveStatusTone[commandLeg?.status ?? 'in progress'] ??
+                                  liveStatusTone['in progress']
+                                }`}
+                              >
+                                {commandLeg?.status ?? 'in progress'}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-slate-300">
+                              {commandLeg?.progressLabel ??
+                                `Pace proj: ${leg.paceProjection.toFixed(1)} · Remaining ${leg.requiredRemaining.toFixed(1)}`}
                             </p>
-                            <span
-                              className={`rounded-full border px-2 py-0.5 ${statusTone[leg.status]}`}
-                            >
-                              {leg.status.replace('_', ' ')}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-slate-300">
-                            Pace proj: {leg.paceProjection.toFixed(1)} · Remaining{' '}
-                            {leg.requiredRemaining.toFixed(1)}
-                          </p>
-                          <div className="mt-1 flex gap-2">
-                            <span className="rounded border border-white/20 px-1.5 py-0.5">
-                              {leg.volatility}
-                            </span>
-                            {leg.minutesRisk ? (
-                              <span className="rounded border border-amber-300/30 px-1.5 py-0.5">
-                                Minutes risk (margin)
+                            <p className="mt-1 text-slate-400">
+                              {commandLeg?.why ?? 'Live status will update as the game moves.'}
+                            </p>
+                            <div className="mt-1 flex gap-2">
+                              <span className="rounded border border-white/20 px-1.5 py-0.5">
+                                {leg.volatility}
                               </span>
-                            ) : null}
-                            {leg.coverage.coverage === 'missing' ? (
-                              <span className="rounded border border-slate-300/30 px-1.5 py-0.5 text-slate-300">
-                                {leg.coverage.reason ?? 'coverage unavailable'}
-                              </span>
-                            ) : null}
-                          </div>
-                        </li>
-                      ))}
+                              {leg.minutesRisk ? (
+                                <span className="rounded border border-amber-300/30 px-1.5 py-0.5">
+                                  Minutes risk (margin)
+                                </span>
+                              ) : null}
+                              {leg.coverage.coverage === 'missing' ? (
+                                <span className="rounded border border-slate-300/30 px-1.5 py-0.5 text-slate-300">
+                                  {leg.coverage.reason ?? 'coverage unavailable'}
+                                </span>
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 </li>

@@ -16,8 +16,11 @@ describe('OpenTicketsPanel', () => {
     render(<OpenTicketsPanel mode="demo" />);
 
     expect(screen.getByTestId('open-tickets-panel')).toBeTruthy();
-    expect(screen.getByText('Open Tickets')).toBeTruthy();
+    expect(screen.getByText('Live Ticket Command Center')).toBeTruthy();
     expect(screen.getByText(/Tracked ticket #1/)).toBeTruthy();
+    expect(screen.getAllByText(/Strongest leg/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Weakest leg/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Ticket pressure:/i)).toBeTruthy();
     expect(screen.getByTestId('exposure-row')).toBeTruthy();
   });
 
@@ -27,10 +30,31 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
-      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+      legs: [
+        {
+          legId: 'leg-1',
+          league: 'NBA',
+          player: 'Player',
+          marketType: 'points',
+          threshold: 10.5,
+          direction: 'over',
+          source: 'fanduel',
+          parseConfidence: 'high'
+        }
+      ]
     });
 
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, data: { updates: { 'leg-1': { currentValue: 6.2, liveMargin: 11, elapsedGameMinutes: 18, quarter: 2 } } } }) }));
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: {
+          updates: {
+            'leg-1': { currentValue: 6.2, liveMargin: 11, elapsedGameMinutes: 18, quarter: 2 }
+          }
+        }
+      })
+    }));
     vi.stubGlobal('fetch', fetchMock);
 
     const demoPanel = render(<OpenTicketsPanel mode="demo" />);
@@ -49,7 +73,18 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
-      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+      legs: [
+        {
+          legId: 'leg-1',
+          league: 'NBA',
+          player: 'Player',
+          marketType: 'points',
+          threshold: 10.5,
+          direction: 'over',
+          source: 'fanduel',
+          parseConfidence: 'high'
+        }
+      ]
     });
 
     render(<OpenTicketsPanel mode="demo" />);
@@ -66,15 +101,26 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
-      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+      legs: [
+        {
+          legId: 'leg-1',
+          league: 'NBA',
+          player: 'Player',
+          marketType: 'points',
+          threshold: 10.5,
+          direction: 'over',
+          source: 'fanduel',
+          parseConfidence: 'high'
+        }
+      ]
     });
 
     render(<OpenTicketsPanel mode="demo" />);
     fireEvent.click(screen.getByRole('button', { name: 'Hide details' }));
 
     expect(screen.queryByRole('button', { name: 'Expand legs' })).toBeNull();
-    expect(screen.getByText(/Closest:/)).toBeTruthy();
-    expect(screen.getByText(/Kill risk:/)).toBeTruthy();
+    expect(screen.getAllByText(/Strongest leg/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Weakest leg/i).length).toBeGreaterThan(0);
     expect(screen.queryByText('Suggested actions')).toBeNull();
   });
 
@@ -84,7 +130,18 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
-      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'assists', threshold: 5.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+      legs: [
+        {
+          legId: 'leg-1',
+          league: 'NBA',
+          player: 'Player',
+          marketType: 'assists',
+          threshold: 5.5,
+          direction: 'over',
+          source: 'fanduel',
+          parseConfidence: 'high'
+        }
+      ]
     });
 
     render(<OpenTicketsPanel mode="demo" />);
@@ -102,16 +159,45 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
-      legs: [{ legId: 'leg-1', league: 'NBA', player: 'Player', marketType: 'points', threshold: 10.5, direction: 'over', source: 'fanduel', parseConfidence: 'high' }]
+      legs: [
+        {
+          legId: 'leg-1',
+          league: 'NBA',
+          player: 'Player',
+          marketType: 'points',
+          threshold: 10.5,
+          direction: 'over',
+          source: 'fanduel',
+          parseConfidence: 'high'
+        }
+      ]
     });
 
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, data: { updates: { 'leg-1': { currentValue: 6.2, liveMargin: 11, elapsedGameMinutes: 18, quarter: 2 } }, coverage: { 'ticket-coverage': { coverage: 'partial', legs: { 'leg-1': { coverage: 'missing', reason: 'no_game_id' } } } } } }) }));
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: {
+          updates: {
+            'leg-1': { currentValue: 6.2, liveMargin: 11, elapsedGameMinutes: 18, quarter: 2 }
+          },
+          coverage: {
+            'ticket-coverage': {
+              coverage: 'partial',
+              legs: { 'leg-1': { coverage: 'missing', reason: 'no_game_id' } }
+            }
+          }
+        }
+      })
+    }));
     vi.stubGlobal('fetch', fetchMock);
 
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     render(<OpenTicketsPanel mode="live" />);
 
-    await waitFor(() => expect(screen.getAllByText('Partial live coverage').length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText('Partial live coverage').length).toBeGreaterThan(0)
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Expand legs' }));
     expect(screen.getByText('no_game_id')).toBeTruthy();
   });
