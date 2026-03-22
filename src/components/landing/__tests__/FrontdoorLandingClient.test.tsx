@@ -34,6 +34,9 @@ describe('FrontdoorLandingClient live modes', () => {
     expect(screen.getAllByText('Demo mode (live feeds off)').length).toBeGreaterThan(0);
     expect(screen.getByTestId('live-nervous-system-strip')).toBeTruthy();
     expect(screen.getByText(/Fast add/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Structural Risk Terminal for parlays.' })).toBeTruthy();
+    expect(screen.getByTestId('north-star-panel')).toBeTruthy();
+    expect(screen.getByText(/Compress 45 minutes of parlay research into a fast, truthful risk read./)).toBeTruthy();
   });
 
   it('renders quick slip rail empty state actions when no legs', async () => {
