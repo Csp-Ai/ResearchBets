@@ -255,8 +255,8 @@ export function FrontdoorLandingClient() {
   return (
     <CockpitShell>
       <CockpitHeader
-        title="Detect fragile parlays before they burn you."
-        purpose={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Process over hype: review board signals, then run BEFORE / DURING / AFTER.'}
+        title="Structural Risk Terminal for parlays."
+        purpose={today.status === 'next' && today.nextAvailableStartTime ? `Next slate begins at ${new Date(today.nextAvailableStartTime).toLocaleString()}` : 'Verdict first: stage the board, stress the slip, then learn BEFORE / DURING / AFTER.'}
         ctas={<RunStatusPill traceId={activeTraceId} mode={resolvedMode} providerHealth={today.providerHealth} generatedAt={today.generatedAt ?? new Date().toISOString()} seedHint={`${nervous.sport}:${nervous.date}:${nervous.tz}`} />}
         strip={{
           mode: today.provenance?.mode ?? today.mode,
@@ -276,6 +276,27 @@ export function FrontdoorLandingClient() {
           <Chip variant="neutral" title={modePresentation.tooltip}>{modePresentation.label}</Chip>
           <Chip className="text-cyan-100">Fast add · {fastAddState}</Chip>
         </div>
+
+        <Panel className="mb-3 border-cyan-400/20 bg-slate-950/70" data-testid="north-star-panel">
+          <PanelHeader
+            title="North Star"
+            subtitle="Compress 45 minutes of parlay research into a fast, truthful risk read."
+          />
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">Before</p>
+              <p className="mt-1 text-sm text-slate-100">Stage high-signal legs from the board without losing the truth spine.</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">During</p>
+              <p className="mt-1 text-sm text-slate-100">Expose correlation, fragility, and weakest-leg pressure before the ticket is live.</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">After</p>
+              <p className="mt-1 text-sm text-slate-100">Carry the lesson forward with calibration and postmortem accountability.</p>
+            </div>
+          </div>
+        </Panel>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)] lg:items-start">
           <div>
