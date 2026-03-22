@@ -1,7 +1,8 @@
+import { CanonicalLanding as CanonicalLandingImpl } from '@/app/_components/CanonicalLanding';
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 function CanonicalLanding({ searchParams }: { searchParams?: SearchParams }) {
-  const { CanonicalLanding: CanonicalLandingImpl } = require('@/app/_components/CanonicalLanding') as typeof import('@/app/_components/CanonicalLanding');
   return <CanonicalLandingImpl searchParams={searchParams} />;
 }
 

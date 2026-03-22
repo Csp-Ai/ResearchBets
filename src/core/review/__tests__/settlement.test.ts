@@ -54,7 +54,14 @@ describe('settlement flow persistence', () => {
   });
 
   it('writes postmortem, dedupes by ticketId, and attaches coach snapshot', () => {
-    saveDraftPostmortem({ ticketId: 'ticket-1', savedAt: '2026-01-01T00:30:00.000Z', killLeg: 'Player A assists', reasons: ['Behind pace'], fragilityScore: 72, coverageSummary: 'full:1/1' });
+    saveDraftPostmortem({
+      ticketId: 'ticket-1',
+      savedAt: '2026-01-01T00:30:00.000Z',
+      killLeg: 'Player A assists',
+      reasons: ['Behind pace'],
+      fragilityScore: 72,
+      coverageSummary: 'full:1/1'
+    });
 
     settleTicket({ ticket, status: 'lost', finalValues: { 'leg-1': 4 }, cashoutTaken: 6.25 });
     settleTicket({ ticket, status: 'lost', finalValues: { 'leg-1': 4.5 }, cashoutTaken: 5.5 });
@@ -63,5 +70,32 @@ describe('settlement flow persistence', () => {
     expect(records).toHaveLength(1);
     expect(records[0]?.coachSnapshot?.killLeg).toContain('Player A');
     expect(records[0]?.cashoutTaken).toBe(5.5);
+  });
+
+  it('preserves tracked lineage and provenance when saving postmortems', () => {
+    const lineageTicket: OpenTicket = {
+      ...ticket,
+      ticketId: 'ticket-lineage-1',
+      trace_id: 'trace-lineage-1',
+      run_id: 'trace-lineage-1',
+      slip_id: 'slip-lineage-1',
+      mode: 'cache',
+      provenance: { mode: 'cache', source_type: 'parser_derived', review_state: 'reviewed' }
+    };
+
+    const record = settleTicket({
+      ticket: lineageTicket,
+      status: 'lost',
+      finalValues: { 'leg-1': 4 }
+    });
+
+    expect(record.trace_id).toBe('trace-lineage-1');
+    expect(record.run_id).toBe('trace-lineage-1');
+    expect(record.slip_id).toBe('slip-lineage-1');
+    expect(record.provenance).toEqual({
+      mode: 'cache',
+      source_type: 'parser_derived',
+      review_state: 'reviewed'
+    });
   });
 });

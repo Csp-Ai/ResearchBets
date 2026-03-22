@@ -1,5 +1,7 @@
+import type { LoopProvenance } from '@/src/core/bettor-loop/provenance';
 import type { Lineage } from '@/src/core/lineage/lineage';
 import type { MarketType } from '@/src/core/markets/marketType';
+import type { TodayMode } from '@/src/core/today/types';
 
 export type ParseConfidence = 'high' | 'medium' | 'low';
 
@@ -40,5 +42,6 @@ export type TrackedTicket = {
   sport?: Lineage['sport'];
   tz?: Lineage['tz'];
   date?: Lineage['date'];
-  mode?: Lineage['mode'];
+  mode?: TodayMode;
+  provenance?: LoopProvenance;
 };

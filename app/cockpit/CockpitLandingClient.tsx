@@ -427,6 +427,7 @@ export default function CockpitLandingClient({
     if (typeof window === 'undefined')
       return { ticket: null, postmortem: null as PostmortemRecord | null };
 
+    const storageTick = trackedTicketTick;
     const trackedTickets = listTrackedTickets();
     const postmortems = listPostmortems();
     const continuityTraceId = analysis.traceId || draftTraceId || nervous.trace_id;
@@ -436,7 +437,7 @@ export default function CockpitLandingClient({
           (draftSlipId && ticket.slip_id === draftSlipId) ||
           (continuityTraceId && ticket.trace_id === continuityTraceId)
       ) ??
-      trackedTickets[0] ??
+      (storageTick >= 0 ? trackedTickets[0] : null) ??
       null;
 
     const matchingPostmortem =
