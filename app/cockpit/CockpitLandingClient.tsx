@@ -988,7 +988,7 @@ export default function CockpitLandingClient({
                   <div className="ticket-summary-compact">
                     {ticketModeState === 'live' && liveCommand ? (
                       <>
-                        <span>{liveCommand.ticketPressure} pressure</span>
+                        <span>{liveCommand.ticketPressure.label}</span>
                         <span>
                           {
                             liveCommand.legs.filter(
@@ -1044,7 +1044,7 @@ export default function CockpitLandingClient({
                       </h3>
                       <p>
                         {liveCommand.strongestLeg
-                          ? `${liveCommand.strongestLeg.progressLabel}. ${liveCommand.strongestLeg.riskNote}`
+                          ? `${liveCommand.strongestLeg.progressLabel}. ${liveCommand.strongestLeg.why}`
                           : 'The ticket has not separated yet.'}
                       </p>
                     </article>
@@ -1059,8 +1059,8 @@ export default function CockpitLandingClient({
                     </article>
                     <article className="ticket-insight-block">
                       <span className="ticket-insight-kicker">Ticket pressure</span>
-                      <strong>{liveCommand.ticketPressure}</strong>
-                      <p>{liveCommand.recommendation}</p>
+                      <strong>{liveCommand.ticketPressure.label}</strong>
+                      <p>{liveCommand.ticketPressure.detail}</p>
                     </article>
                   </div>
 
@@ -1082,7 +1082,7 @@ export default function CockpitLandingClient({
                             {leg.player} · {leg.marketLabel}
                           </div>
                           <div className="ticket-leg-sub">{leg.progressLabel}</div>
-                          <div className="ticket-leg-sub">{leg.riskNote}</div>
+                          <div className="ticket-leg-sub">{leg.why}</div>
                         </div>
                         <span
                           className={`live-leg-status live-status-${leg.status.replace(/\s+/g, '-')}`}

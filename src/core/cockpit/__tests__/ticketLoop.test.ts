@@ -70,28 +70,30 @@ const baseTicket: OpenTicket = {
 describe('ticketLoop', () => {
   it('classifies bettor-readable live statuses conservatively', () => {
     expect(classifyBettorLegStatus(baseTicket.legs[0]!)).toBe('cleared');
-    expect(classifyBettorLegStatus(baseTicket.legs[1]!)).toBe('behind');
+    expect(classifyBettorLegStatus(baseTicket.legs[1]!)).toBe('behind pace');
     expect(
       classifyBettorLegStatus({ ...baseTicket.legs[1]!, requiredRemaining: 1, currentValue: 5.5 })
-    ).toBe('one event away');
+    ).toBe('needs one event');
     expect(
       classifyBettorLegStatus({
         ...baseTicket.legs[1]!,
         status: 'needs_spike',
         requiredRemaining: 1.5
       })
-    ).toBe('needs movement');
+    ).toBe('awaiting movement');
   });
 
   it('builds a live command surface with strongest leg, weakest leg, and pressure', () => {
     const surface = deriveLiveCommandSurface(baseTicket);
 
     expect(surface?.stage).toBe('live');
+    expect(surface?.headline).toMatch(/command center/i);
     expect(surface?.strongestLeg?.player).toBe('Jamal Murray');
     expect(surface?.weakestLeg?.player).toBe('Aaron Gordon');
-    expect(surface?.attention).toMatch(/carries the most failure risk/i);
+    expect(surface?.ticketPressure.label).toBe('Carrying well, one weak spot remains');
+    expect(surface?.attention).toMatch(/Strongest leg/i);
     expect(surface?.legs.map((leg) => leg.status)).toEqual(
-      expect.arrayContaining(['cleared', 'behind'])
+      expect.arrayContaining(['cleared', 'behind pace'])
     );
   });
 
