@@ -13,26 +13,25 @@ export function SlipIntelBar({ legs, className = '' }: { legs: SlipIntelLeg[]; c
   if (legs.length < 2) return null;
 
   return (
-    <section className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${className}`} data-testid="slip-risk-panel">
+    <section className={`rounded-[20px] border border-white/8 bg-white/[0.025] p-4 ${className}`} data-testid="slip-risk-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="m-0 text-sm font-semibold text-slate-100">{presentRecommendation(risk.recommendation)}</p>
-          <p className="mt-1 text-sm text-slate-300">
-            Correlation {risk.correlationFlag ? 'high' : 'managed'} · Fragility {risk.fragilityScore}/100 · Weakest {risk.weakestLeg}
-          </p>
+        <div className="space-y-1">
+          <p className="m-0 text-[11px] uppercase tracking-[0.14em] text-slate-400">Supporting readout</p>
+          <p className="m-0 text-sm font-semibold text-slate-100">{presentRecommendation(risk.recommendation)} signal · {risk.riskLabel} risk</p>
+          <p className="m-0 text-sm text-slate-300">{risk.dominantRiskFactor}</p>
         </div>
         <button
           type="button"
-          className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-slate-200 transition hover:border-cyan-400"
+          className="rounded-full border border-white/12 px-3 py-1.5 text-xs text-slate-200 transition hover:border-cyan-400"
           onClick={() => setOpen((value) => !value)}
         >
-          {open ? 'Hide details' : 'Show details'}
+          {open ? 'Hide detail' : 'Show detail'}
         </button>
       </div>
 
       {open ? (
-        <div className="mt-3 space-y-3 text-xs text-slate-300">
-          <p className="m-0">Confidence {risk.confidencePct}% · Risk {risk.riskLabel} · Volatility {risk.volatilitySummary}</p>
+        <div className="mt-3 grid gap-3 text-xs text-slate-300">
+          <p className="m-0">Weakest leg {risk.weakestLeg} · Fragility {risk.fragilityScore}/100 · Correlation {risk.correlationFlag ? 'elevated' : 'managed'}</p>
           <ul className="m-0 list-disc space-y-1 pl-5">
             {risk.reasonBullets.map((hint) => <li key={hint}>{hint}</li>)}
           </ul>

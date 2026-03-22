@@ -93,7 +93,7 @@ describe('cockpit route integration', () => {
     expect(screen.getByTestId('mobile-slip-bar')).toBeTruthy();
     expect(screen.getByTestId('slip-sheet').className).not.toContain('open');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open slip' }));
+    fireEvent.click(screen.getByRole('button', { name: /open draft ticket/i }));
     expect(screen.getByTestId('slip-sheet').className).toContain('open');
   });
 

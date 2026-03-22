@@ -17,7 +17,8 @@ describe('SlipIntelBar', () => {
     );
 
     expect(screen.getByTestId('slip-risk-panel')).toBeTruthy();
-    expect(screen.getByText(/Weakest/i)).toBeTruthy();
+    expect(screen.getByText(/supporting readout/i)).toBeTruthy();
+    expect(screen.getByText(/signal/i)).toBeTruthy();
   });
 
   it('never renders n/a text in risk panel output', () => {
