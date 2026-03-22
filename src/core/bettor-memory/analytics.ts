@@ -144,13 +144,30 @@ export function generatePostmortemTags(slip: ParsedSlipRecord, history: ParsedSl
 }
 
 export function summarizeCredibility(snapshot: BettorMemorySnapshot): BettorMemorySnapshot['credibility'] {
-  const coverage = snapshot.coverage ?? computeBettorMemoryCredibility(snapshot);
+  const coverage = computeBettorMemoryCredibility(snapshot);
   if (snapshot.mode === 'demo') return { basis: 'demo_data', label: 'Demo data', detail: 'No verified bettor account is connected yet. ResearchBets is showing deterministic sample history.' };
   const verifiedArtifacts = coverage.overall.verified.count;
   const reviewNeeded = coverage.overall.reviewNeeded.count;
   const rejected = snapshot.artifacts.filter((artifact) => artifact.verification_status === 'rejected').length;
-  if (verifiedArtifacts > 0 && reviewNeeded === 0) return { basis: 'verified_imported_history', label: 'Verified imported history', detail: rejected > 0 ? 'Insights are based on bettor-verified records; rejected artifacts are excluded from active analytics.' : 'Insights are based on saved bettor history with verified records.' };
-  if (verifiedArtifacts > 0 && reviewNeeded > 0) return { basis: 'partial_data', label: 'Partial verified coverage', detail: 'Insights prioritize bettor-verified records, but some uploads still need human review before they should be trusted.' };
+  const demoFallback = coverage.overall.demoFallback.count;
+  if (verifiedArtifacts > 0 && reviewNeeded === 0 && demoFallback === 0) {
+    return {
+      basis: 'verified_imported_history',
+      label: 'Verified imported history',
+      detail: rejected > 0
+        ? 'Insights are based on bettor-verified records; rejected artifacts are excluded from active analytics.'
+        : 'Insights are based on saved bettor history with verified records.',
+    };
+  }
+  if (verifiedArtifacts > 0 && (reviewNeeded > 0 || demoFallback > 0)) {
+    return {
+      basis: 'partial_data',
+      label: 'Partial verified coverage',
+      detail: demoFallback > 0
+        ? 'Insights prioritize bettor-verified records, but demo or fallback imports are still mixed in and should be reviewed before they are trusted.'
+        : 'Insights prioritize bettor-verified records, but some uploads still need human review before they should be trusted.',
+    };
+  }
   return { basis: 'unverified_screenshot_parsing', label: 'Review-needed parsing', detail: 'Insights currently rely on unverified or demo parsing. Advisory strength is intentionally downgraded until records are bettor-verified.' };
 }
 

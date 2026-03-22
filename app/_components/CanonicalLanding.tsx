@@ -1,4 +1,6 @@
-import CockpitLandingClient from '@/app/cockpit/CockpitLandingClient';
+import dynamic from 'next/dynamic';
+
+const CockpitLandingClient = dynamic(() => import('@/app/cockpit/CockpitLandingClient'));
 import { NervousSystemProvider } from '@/src/components/nervous/NervousSystemContext';
 import { normalizeSpine } from '@/src/core/nervous/spine';
 
