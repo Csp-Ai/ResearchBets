@@ -4,10 +4,22 @@ import { asMarketType } from '../markets/marketType';
 export type ExtractedLeg = {
   selection: string;
   market?: string;
+  line?: string;
   odds?: string;
+  team?: string;
+  player?: string;
+  sport?: string;
+  eventTime?: string;
+  book?: string;
+  matchup?: string;
+  game_id?: string;
+  event_id?: string;
+  home?: string;
+  away?: string;
 };
 
-const LINE_PATTERN = /^(?<selection>[A-Za-z0-9 .@+-]+?)(?:\s+(?<market>spread|total|moneyline|points|threes|rebounds|assists|ra|pra))?(?:\s+(?<odds>[+-]\d{3}))?$/i;
+const LINE_PATTERN =
+  /^(?<selection>[A-Za-z0-9 .@+-]+?)(?:\s+(?<market>spread|total|moneyline|points|threes|rebounds|assists|ra|pra))?(?:\s+(?<odds>[+-]\d{3}))?$/i;
 
 export const extractLegs = (rawText: string): ExtractedLeg[] => {
   try {
@@ -15,13 +27,25 @@ export const extractLegs = (rawText: string): ExtractedLeg[] => {
     if (Array.isArray(parsed)) {
       return parsed
         .filter((item) => typeof item === 'object' && item !== null)
-        .map((item) => ({
-          selection: String((item as Record<string, unknown>).selection ?? 'Unknown'),
-          market: (item as Record<string, unknown>).market
-            ? asMarketType(String((item as Record<string, unknown>).market), 'points')
-            : undefined,
-          odds: (item as Record<string, unknown>).odds ? String((item as Record<string, unknown>).odds) : undefined,
-        }));
+        .map((item) => {
+          const record = item as Record<string, unknown>;
+          return {
+            selection: String(record.selection ?? 'Unknown'),
+            market: record.market ? asMarketType(String(record.market), 'points') : undefined,
+            line: record.line ? String(record.line) : undefined,
+            odds: record.odds ? String(record.odds) : undefined,
+            team: record.team ? String(record.team) : undefined,
+            player: record.player ? String(record.player) : undefined,
+            sport: record.sport ? String(record.sport) : undefined,
+            eventTime: record.eventTime ? String(record.eventTime) : undefined,
+            book: record.book ? String(record.book) : undefined,
+            matchup: record.matchup ? String(record.matchup) : undefined,
+            game_id: record.game_id ? String(record.game_id) : undefined,
+            event_id: record.event_id ? String(record.event_id) : undefined,
+            home: record.home ? String(record.home) : undefined,
+            away: record.away ? String(record.away) : undefined
+          };
+        });
     }
   } catch {
     // noop; falls through to line parser
@@ -40,7 +64,7 @@ export const extractLegs = (rawText: string): ExtractedLeg[] => {
       return {
         selection,
         market: match.groups.market ? asMarketType(match.groups.market, 'points') : undefined,
-        odds: match.groups.odds,
+        odds: match.groups.odds
       };
     });
 };

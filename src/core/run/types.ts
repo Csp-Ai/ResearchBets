@@ -14,6 +14,11 @@ export interface ExtractedLeg {
   sport?: string;
   eventTime?: string;
   book?: string;
+  matchup?: string;
+  game_id?: string;
+  event_id?: string;
+  home?: string;
+  away?: string;
 }
 
 export interface EnrichedLeg {
