@@ -4,14 +4,30 @@ import { POST } from '@/app/api/slips/parseText/route';
 
 describe('/api/slips/parseText', () => {
   it('parses ladder and decimal props with confidence', async () => {
-    const response = await POST(new Request('http://localhost:3000/api/slips/parseText', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: 'Spencer Dinwiddie TO SCORE 25+ POINTS\nOVER 5.5 ASSISTS', sourceHint: 'paste' })
-    }));
+    const response = await POST(
+      new Request('http://localhost:3000/api/slips/parseText', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: 'Spencer Dinwiddie TO SCORE 25+ POINTS\nOVER 5.5 ASSISTS',
+          sourceHint: 'paste'
+        })
+      })
+    );
 
     expect(response.status).toBe(200);
-    const payload = await response.json() as { ok: boolean; data: { legs: Array<{ marketType: string; threshold: number; direction: string; parseConfidence: string; ladder?: boolean }> } };
+    const payload = (await response.json()) as {
+      ok: boolean;
+      data: {
+        legs: Array<{
+          marketType: string;
+          threshold: number;
+          direction: string;
+          parseConfidence: string;
+          ladder?: boolean;
+        }>;
+      };
+    };
     expect(payload.ok).toBe(true);
     expect(payload.data.legs[0]?.marketType).toBe('points');
     expect(payload.data.legs[0]?.threshold).toBe(25);
@@ -22,29 +38,76 @@ describe('/api/slips/parseText', () => {
   });
 
   it('keeps unparsed legs for review', async () => {
-    const response = await POST(new Request('http://localhost:3000/api/slips/parseText', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: '???? weird line', sourceHint: 'paste' })
-    }));
+    const response = await POST(
+      new Request('http://localhost:3000/api/slips/parseText', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '???? weird line', sourceHint: 'paste' })
+      })
+    );
 
-    const payload = await response.json() as { ok: boolean; data: { legs: Array<{ rawText?: string; parseConfidence: string }> } };
+    const payload = (await response.json()) as {
+      ok: boolean;
+      data: { legs: Array<{ rawText?: string; parseConfidence: string }> };
+    };
     expect(payload.ok).toBe(true);
     expect(payload.data.legs[0]?.rawText).toContain('weird line');
     expect(payload.data.legs[0]?.parseConfidence).toBe('low');
   });
 
   it('attaches trace lineage when trace_id is provided', async () => {
-    const response = await POST(new Request('http://localhost:3000/api/slips/parseText', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: 'OVER 5.5 ASSISTS', sourceHint: 'paste', trace_id: 'trace-track-1' })
-    }));
+    const response = await POST(
+      new Request('http://localhost:3000/api/slips/parseText', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: 'OVER 5.5 ASSISTS',
+          sourceHint: 'paste',
+          trace_id: 'trace-track-1'
+        })
+      })
+    );
 
-    const payload = await response.json() as { ok: boolean; data: { trace_id?: string; run_id?: string } };
+    const payload = (await response.json()) as {
+      ok: boolean;
+      data: { trace_id?: string; run_id?: string };
+    };
     expect(payload.ok).toBe(true);
     expect(payload.data.trace_id).toBe('trace-track-1');
     expect(payload.data.run_id).toBe('trace-track-1');
   });
 
+  it('attaches slip_id and parser provenance from the canonical spine', async () => {
+    const response = await POST(
+      new Request(
+        'http://localhost:3000/api/slips/parseText?mode=cache&sport=NBA&tz=UTC&date=2026-03-22&slip_id=slip-track-2',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: 'OVER 5.5 ASSISTS',
+            sourceHint: 'paste',
+            trace_id: 'trace-track-2'
+          })
+        }
+      )
+    );
+
+    const payload = (await response.json()) as {
+      ok: boolean;
+      data: {
+        slip_id?: string;
+        mode?: string;
+        provenance?: { source_type?: string; review_state?: string };
+      };
+    };
+
+    expect(payload.ok).toBe(true);
+    expect(payload.data.slip_id).toBe('slip-track-2');
+    expect(payload.data.mode).toBe('cache');
+    expect(payload.data.provenance).toMatchObject({
+      source_type: 'parser_derived',
+      review_state: 'unreviewed'
+    });
+  });
 });

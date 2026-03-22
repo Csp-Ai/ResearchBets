@@ -3,6 +3,9 @@ import type { TrackedTicket } from '@/src/core/track/types';
 
 const STORE_KEY = 'rb:tracked-tickets:v1';
 
+const asTrackedMode = (value: unknown): TrackedTicket['mode'] =>
+  value === 'live' || value === 'cache' || value === 'demo' ? value : undefined;
+
 type TrackedTicketStore = {
   version: 1;
   tickets: TrackedTicket[];
@@ -18,7 +21,7 @@ function migrateTicket(ticket: TrackedTicket): TrackedTicket {
     sport: ticket.sport,
     tz: ticket.tz,
     date: ticket.date,
-    mode: ticket.mode,
+    mode: ticket.mode
   });
 
   return {
@@ -30,7 +33,7 @@ function migrateTicket(ticket: TrackedTicket): TrackedTicket {
     sport: lineage.sport,
     tz: lineage.tz,
     date: lineage.date,
-    mode: lineage.mode,
+    mode: asTrackedMode(lineage.mode)
   };
 }
 
@@ -47,7 +50,9 @@ function readStore(): TrackedTicketStore {
     return {
       version: 1,
       tickets: parsed.tickets
-        .filter((ticket) => ticket && Array.isArray(ticket.legs) && typeof ticket.ticketId === 'string')
+        .filter(
+          (ticket) => ticket && Array.isArray(ticket.legs) && typeof ticket.ticketId === 'string'
+        )
         .map((ticket) => migrateTicket(ticket as TrackedTicket))
     };
   } catch {

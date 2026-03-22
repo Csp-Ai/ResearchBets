@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { getLoopTrustBadges } from '@/src/core/bettor-loop/provenance';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
@@ -25,30 +26,83 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
           return (
             <li key={record.ticketId} className="row-shell">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={record.status === 'won' ? 'success' : record.status === 'lost' ? 'danger' : 'neutral'}>{record.status.toUpperCase()}</Badge>
+                <Badge
+                  variant={
+                    record.status === 'won'
+                      ? 'success'
+                      : record.status === 'lost'
+                        ? 'danger'
+                        : 'neutral'
+                  }
+                >
+                  {record.status.toUpperCase()}
+                </Badge>
                 <span className="text-xs text-slate-300">{killer}</span>
-                <span className="mono-number text-xs text-amber-100">Gap {Math.abs(missedBy).toFixed(1)}</span>
+                <span className="mono-number text-xs text-amber-100">
+                  Gap {Math.abs(missedBy).toFixed(1)}
+                </span>
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-1 text-cyan-100">Lesson: {killer.replaceAll('_', ' ')}</span>
-                <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-amber-100">Next time: {record.nextTimeRule?.title ?? 'Keep sizing disciplined'}</span>
+                {getLoopTrustBadges(record.provenance).map((badge) => (
+                  <span
+                    key={badge.label}
+                    className="rounded-full border border-white/15 px-2 py-1 text-slate-200"
+                  >
+                    {badge.label}
+                  </span>
+                ))}
+                <span className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-2 py-1 text-cyan-100">
+                  Lesson: {killer.replaceAll('_', ' ')}
+                </span>
+                <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-amber-100">
+                  Next time: {record.nextTimeRule?.title ?? 'Keep sizing disciplined'}
+                </span>
               </div>
-              <button type="button" className={`disclosure-button mt-2 ${isOpen ? 'disclosure-open' : ''}`} onClick={() => setOpen((prev) => ({ ...prev, [record.ticketId]: !isOpen }))}><span>{isOpen ? 'Hide detail' : 'Expand detail'}</span><span className="disclosure-caret">⌄</span></button>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Trace {record.trace_id ?? '—'} · Slip {record.slip_id ?? '—'}
+              </p>
+              <button
+                type="button"
+                className={`disclosure-button mt-2 ${isOpen ? 'disclosure-open' : ''}`}
+                onClick={() => setOpen((prev) => ({ ...prev, [record.ticketId]: !isOpen }))}
+              >
+                <span>{isOpen ? 'Hide detail' : 'Expand detail'}</span>
+                <span className="disclosure-caret">⌄</span>
+              </button>
               {isOpen ? (
                 <div className="mt-2 space-y-2">
                   <div className="overflow-hidden rounded-md border border-white/10">
                     <table className="w-full text-left text-xs text-slate-300">
                       <thead className="bg-slate-900/70 text-slate-400">
-                        <tr><th className="px-2 py-1">Leg</th><th className="px-2 py-1">Target</th><th className="px-2 py-1">Final</th><th className="px-2 py-1">Delta</th><th className="px-2 py-1">Tags</th></tr>
+                        <tr>
+                          <th className="px-2 py-1">Leg</th>
+                          <th className="px-2 py-1">Target</th>
+                          <th className="px-2 py-1">Final</th>
+                          <th className="px-2 py-1">Delta</th>
+                          <th className="px-2 py-1">Tags</th>
+                        </tr>
                       </thead>
                       <tbody>
-                        {record.legs.map((leg) => <tr key={leg.legId} className="border-t border-white/10"><td className="px-2 py-1">{leg.player}</td><td className="mono-number px-2 py-1">{leg.target}</td><td className="mono-number px-2 py-1">{leg.finalValue ?? '—'}</td><td className="mono-number px-2 py-1">{leg.delta.toFixed(1)}</td><td className="px-2 py-1">{leg.missTags.join(', ') || '—'}</td></tr>)}
+                        {record.legs.map((leg) => (
+                          <tr key={leg.legId} className="border-t border-white/10">
+                            <td className="px-2 py-1">{leg.player}</td>
+                            <td className="mono-number px-2 py-1">{leg.target}</td>
+                            <td className="mono-number px-2 py-1">{leg.finalValue ?? '—'}</td>
+                            <td className="mono-number px-2 py-1">{leg.delta.toFixed(1)}</td>
+                            <td className="px-2 py-1">{leg.missTags.join(', ') || '—'}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
                   {record.nextTimeRule ? (
-                    <div className="rounded-md border border-cyan-400/30 bg-cyan-400/10 p-2" data-testid="next-time-card">
-                      <p className="text-xs font-semibold text-cyan-100">Next Time: {record.nextTimeRule.title}</p>
+                    <div
+                      className="rounded-md border border-cyan-400/30 bg-cyan-400/10 p-2"
+                      data-testid="next-time-card"
+                    >
+                      <p className="text-xs font-semibold text-cyan-100">
+                        Next Time: {record.nextTimeRule.title}
+                      </p>
                       <p className="mt-1 text-xs text-slate-200">{record.nextTimeRule.body}</p>
                       <Button
                         intent="secondary"
@@ -58,9 +112,15 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
                           setAppliedByTicket((prev) => ({ ...prev, [record.ticketId]: true }));
                         }}
                       >
-                        {appliedByTicket[record.ticketId] ? 'Guardrail applied ✓' : 'Apply as Guardrail'}
+                        {appliedByTicket[record.ticketId]
+                          ? 'Guardrail applied ✓'
+                          : 'Apply as Guardrail'}
                       </Button>
-                      {appliedByTicket[record.ticketId] ? <p className="mt-1 text-xs text-emerald-200">Saved to your local guardrails.</p> : null}
+                      {appliedByTicket[record.ticketId] ? (
+                        <p className="mt-1 text-xs text-emerald-200">
+                          Saved to your local guardrails.
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

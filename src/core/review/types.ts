@@ -1,3 +1,4 @@
+import type { LoopProvenance } from '@/src/core/bettor-loop/provenance';
 import type { Lineage } from '@/src/core/lineage/lineage';
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { CoverageLevel } from '@/src/core/review/missTagger';
@@ -34,6 +35,7 @@ export type PostmortemRecord = {
   trace_id?: Lineage['trace_id'];
   run_id?: Lineage['run_id'];
   slip_id?: Lineage['slip_id'];
+  provenance?: LoopProvenance;
   createdAt: string;
   settledAt: string;
   status: TicketSettlementStatus;

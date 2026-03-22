@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { buildLoopProvenance } from '@/src/core/bettor-loop/provenance';
 import { normalizeLineage } from '@/src/core/lineage/lineage';
 import { parseSlipTextToLegs } from '@/src/core/track/slipParser';
 import type { TrackedTicket } from '@/src/core/track/types';
@@ -13,8 +14,11 @@ const schema = z.object({
   sourceHint: z.string().trim().min(1).optional(),
   trace_id: z.string().trim().min(1).optional(),
   anon_session_id: z.string().trim().min(1).optional(),
-  slip_id: z.string().trim().min(1).optional(),
+  slip_id: z.string().trim().min(1).optional()
 });
+
+const asTodayMode = (value: unknown): 'live' | 'cache' | 'demo' =>
+  value === 'live' || value === 'cache' || value === 'demo' ? value : 'demo';
 
 function buildTicketId(raw: string, createdAt: string) {
   const digest = createHash('sha256').update(`${raw}:${createdAt}`).digest('hex');
@@ -24,7 +28,10 @@ function buildTicketId(raw: string, createdAt: string) {
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Expected non-empty text.' } }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'invalid_payload', message: 'Expected non-empty text.' } },
+      { status: 400 }
+    );
   }
 
   const createdAt = new Date().toISOString();
@@ -33,15 +40,15 @@ export async function POST(request: Request) {
   const traceId = parsed.data.trace_id ?? spine.trace_id;
   const lineage = traceId
     ? normalizeLineage({
-      trace_id: traceId,
-      ticketId: buildTicketId(parsed.data.text, createdAt),
-      anon_session_id: parsed.data.anon_session_id ?? spine.anon_session_id,
-      slip_id: parsed.data.slip_id ?? spine.slip_id,
-      sport: spine.sport,
-      tz: spine.tz,
-      date: spine.date,
-      mode: spine.mode,
-    })
+        trace_id: traceId,
+        ticketId: buildTicketId(parsed.data.text, createdAt),
+        anon_session_id: parsed.data.anon_session_id ?? spine.anon_session_id,
+        slip_id: parsed.data.slip_id ?? spine.slip_id,
+        sport: spine.sport,
+        tz: spine.tz,
+        date: spine.date,
+        mode: spine.mode
+      })
     : null;
 
   const ticket: TrackedTicket = {
@@ -57,7 +64,13 @@ export async function POST(request: Request) {
     sport: lineage?.sport,
     tz: lineage?.tz,
     date: lineage?.date,
-    mode: lineage?.mode,
+    mode: asTodayMode(lineage?.mode),
+    provenance: buildLoopProvenance({
+      mode: asTodayMode(lineage?.mode),
+      sourceType:
+        sourceHint === 'paste' || sourceHint === 'screenshot' ? 'parser_derived' : 'manual_entry',
+      reviewState: 'unreviewed'
+    })
   };
 
   return NextResponse.json({ ok: true, data: ticket });
