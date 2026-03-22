@@ -11,7 +11,7 @@ export type TrackedLeg = {
   notes?: string;
 };
 
-export type LegOutcome = 'pending' | 'hit' | 'miss' | 'void';
+export type LegOutcome = 'pending' | 'hit' | 'miss' | 'void' | 'push';
 
 export type TrackedLegState = TrackedLeg & {
   outcome: LegOutcome;

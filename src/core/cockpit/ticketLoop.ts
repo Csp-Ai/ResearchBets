@@ -1,5 +1,6 @@
 import type { OpenTicket, LiveLegState } from '@/src/core/live/openTickets';
 import type { PostmortemRecord } from '@/src/core/review/types';
+import type { SlipTrackingState, TrackedLegState } from '@/src/core/slips/trackingTypes';
 
 export type BettorLegStatus =
   | 'cleared'
@@ -11,14 +12,17 @@ export type BettorLegStatus =
   | 'in progress'
   | 'awaiting movement'
   | 'needs one event';
+export type AfterLegStatus = 'cleared' | 'breaking leg' | 'missed' | 'void' | 'push';
+export type CommandLegStatus = BettorLegStatus | AfterLegStatus;
 export type TicketLoopStage = 'setup' | 'analysis' | 'live' | 'after';
 export type TicketPressureTone = 'steady' | 'watch' | 'urgent';
+export type AfterOutcomeTone = 'positive' | 'neutral' | 'caution' | 'negative';
 
 export type LiveCommandLeg = {
   legId: string;
   player: string;
   marketLabel: string;
-  status: BettorLegStatus;
+  status: CommandLegStatus;
   progressLabel: string;
   why: string;
   isStrongest: boolean;
@@ -37,6 +41,18 @@ export type TicketPressureSummary = {
   tone: TicketPressureTone;
 };
 
+export type AfterCommandSurface = {
+  outcomeLabel: 'Won' | 'Lost' | 'Partial' | 'Void' | 'Mixed' | 'Review';
+  outcomeTone: AfterOutcomeTone;
+  closingHeadline: string;
+  decidedBy: string;
+  winningLegHighlight: LiveCommandLeg | null;
+  breakingLegHighlight: LiveCommandLeg | null;
+  nearMissHighlight: string | null;
+  lesson: string;
+  nextActionHref: string;
+};
+
 export type LiveCommandSurface = {
   stage: TicketLoopStage;
   headline: string;
@@ -49,7 +65,29 @@ export type LiveCommandSurface = {
   primaryFailurePoint: string;
   recommendation: string;
   nextActionLabel: string;
+  nextActionHref?: string;
   legs: LiveCommandLeg[];
+  after?: AfterCommandSurface;
+};
+
+type AfterSourceLeg = {
+  legId: string;
+  player: string;
+  marketLabel: string;
+  status: AfterLegStatus;
+  delta?: number | null;
+  why: string;
+  lesson?: string;
+};
+
+type AfterSource = {
+  ticketId: string;
+  trace_id?: string;
+  slip_id?: string;
+  provenanceHint?: string;
+  legs: AfterSourceLeg[];
+  nextTimeTitle?: string;
+  nextTimeBody?: string;
 };
 
 const rank: Record<BettorLegStatus, number> = {
@@ -64,8 +102,314 @@ const rank: Record<BettorLegStatus, number> = {
   critical: 8
 };
 
+const afterRank: Record<AfterLegStatus, number> = {
+  'breaking leg': 0,
+  missed: 1,
+  push: 2,
+  void: 3,
+  cleared: 4
+};
+
+const stablePressure: TicketPressureSummary = {
+  label: 'Stable',
+  detail: 'The ticket is settled and ready for review.',
+  tone: 'steady'
+};
+
 const toMarketLabel = (leg: Pick<LiveLegState, 'marketType' | 'threshold'>) =>
   `${leg.marketType} ${leg.threshold}`;
+
+function buildAfterHref(basePath: string, input: { trace_id?: string; slip_id?: string }) {
+  const params = new URLSearchParams();
+  if (input.trace_id) params.set('trace_id', input.trace_id);
+  if (input.slip_id) params.set('slip_id', input.slip_id);
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
+}
+
+function isNearMiss(delta?: number | null) {
+  return typeof delta === 'number' && delta < 0 && Math.abs(delta) <= 1;
+}
+
+function toAfterOutcomeLabel(legs: AfterSourceLeg[]): AfterCommandSurface['outcomeLabel'] {
+  const missed = legs.filter(
+    (leg) => leg.status === 'breaking leg' || leg.status === 'missed'
+  ).length;
+  const cleared = legs.filter((leg) => leg.status === 'cleared').length;
+  const voided = legs.filter((leg) => leg.status === 'void' || leg.status === 'push').length;
+
+  if (legs.length === 0) return 'Review';
+  if (cleared === legs.length) return 'Won';
+  if (voided === legs.length) return 'Void';
+  if (missed > 0 && cleared === 0 && voided === 0) return 'Lost';
+  if (missed === 0 && cleared > 0 && voided > 0) return 'Partial';
+  if (missed > 0 && (cleared > 0 || voided > 0)) return 'Mixed';
+  return 'Review';
+}
+
+function toAfterOutcomeTone(label: AfterCommandSurface['outcomeLabel']): AfterOutcomeTone {
+  if (label === 'Won') return 'positive';
+  if (label === 'Void' || label === 'Review') return 'neutral';
+  if (label === 'Partial' || label === 'Mixed') return 'caution';
+  return 'negative';
+}
+
+function sortAfterLegs(legs: AfterSourceLeg[]) {
+  return [...legs].sort((a, b) => {
+    const statusGap = afterRank[a.status] - afterRank[b.status];
+    if (statusGap !== 0) return statusGap;
+    const deltaA = typeof a.delta === 'number' ? a.delta : Number.POSITIVE_INFINITY;
+    const deltaB = typeof b.delta === 'number' ? b.delta : Number.POSITIVE_INFINITY;
+    return deltaA - deltaB;
+  });
+}
+
+function describeDecidingLeg(
+  leg: AfterSourceLeg | null,
+  outcomeLabel: AfterCommandSurface['outcomeLabel']
+) {
+  if (!leg) {
+    return outcomeLabel === 'Won'
+      ? 'Every leg cleared, so no single break point decided the ticket.'
+      : 'No single deciding leg was preserved for review.';
+  }
+  if (leg.status === 'breaking leg') {
+    return `${leg.player} ${leg.marketLabel} broke the ticket.`;
+  }
+  if (leg.status === 'missed') {
+    return `${leg.player} ${leg.marketLabel} missed and kept the ticket from closing cleanly.`;
+  }
+  if (leg.status === 'push') {
+    return `${leg.player} ${leg.marketLabel} pushed, so the payout depended on the remaining legs.`;
+  }
+  if (leg.status === 'void') {
+    return `${leg.player} ${leg.marketLabel} voided, so the closing result came from the rest of the slip.`;
+  }
+  return `${leg.player} ${leg.marketLabel} helped carry the close.`;
+}
+
+function buildClosingHeadline(
+  outcomeLabel: AfterCommandSurface['outcomeLabel'],
+  winningLeg: AfterSourceLeg | null,
+  breakingLeg: AfterSourceLeg | null,
+  brokenCount: number
+) {
+  if (outcomeLabel === 'Won') {
+    return winningLeg
+      ? `Ticket closed cleanly behind ${winningLeg.player}.`
+      : 'Ticket closed cleanly with every leg home.';
+  }
+  if (outcomeLabel === 'Lost') {
+    if (brokenCount <= 1 && breakingLeg) return `Ticket ended on ${breakingLeg.player}.`;
+    return `Ticket ended with ${brokenCount} breaking legs.`;
+  }
+  if (outcomeLabel === 'Partial') return 'Ticket closed with wins plus void/push relief.';
+  if (outcomeLabel === 'Mixed')
+    return 'Ticket closed mixed with one result cluster doing the damage.';
+  if (outcomeLabel === 'Void') return 'Ticket closed without a graded edge.';
+  return 'Outcome review is ready.';
+}
+
+function buildNearMissHighlight(source: AfterSource, breakingLeg: AfterSourceLeg | null) {
+  const nearMiss = source.legs.find((leg) => isNearMiss(leg.delta));
+  if (!nearMiss) {
+    return breakingLeg
+      ? 'Near-miss evidence was not preserved, so keep the review at the leg-result level.'
+      : null;
+  }
+  const gap = Math.abs(nearMiss.delta ?? 0).toFixed(1);
+  return `${nearMiss.player} ${nearMiss.marketLabel} finished ${gap} short, so the ticket was closer than the final result alone suggests.`;
+}
+
+function buildLesson(
+  source: AfterSource,
+  outcomeLabel: AfterCommandSurface['outcomeLabel'],
+  breakingLeg: AfterSourceLeg | null
+) {
+  if (source.nextTimeBody) return source.nextTimeBody;
+  if (breakingLeg?.lesson) return breakingLeg.lesson;
+  if (outcomeLabel === 'Won')
+    return 'Bank the process note: strongest-leg support held through settlement, so keep the same build discipline next run.';
+  if (outcomeLabel === 'Void')
+    return 'No graded edge was preserved here, so avoid forcing a lesson beyond the recorded void/push result.';
+  if (outcomeLabel === 'Partial' || outcomeLabel === 'Mixed')
+    return 'Separate the clearing legs from the broken cluster before you rebuild; the slip did not fail as one clean story.';
+  return 'Review the breaking leg first, then decide whether the miss was process, price, or pure variance before the next slip.';
+}
+
+function buildNextAction(
+  source: AfterSource,
+  outcomeLabel: AfterCommandSurface['outcomeLabel']
+): Pick<AfterCommandSurface, 'nextActionHref'> & { label: string } {
+  if (source.trace_id || source.slip_id) {
+    return {
+      label: 'Open review',
+      nextActionHref: buildAfterHref('/control', {
+        trace_id: source.trace_id,
+        slip_id: source.slip_id
+      })
+    };
+  }
+  return {
+    label: outcomeLabel === 'Won' ? 'Build next slip' : 'Open archive',
+    nextActionHref: outcomeLabel === 'Won' ? '/cockpit' : '/history'
+  };
+}
+
+function toAfterCommandLeg(
+  leg: AfterSourceLeg,
+  strongest: AfterSourceLeg | null,
+  weakest: AfterSourceLeg | null
+): LiveCommandLeg {
+  return {
+    legId: leg.legId,
+    player: leg.player,
+    marketLabel: leg.marketLabel,
+    status: leg.status,
+    progressLabel:
+      typeof leg.delta === 'number'
+        ? `${leg.status} · ${leg.delta >= 0 ? '+' : ''}${leg.delta.toFixed(1)} vs line`
+        : leg.status,
+    why: leg.why,
+    isStrongest: strongest?.legId === leg.legId,
+    isWeakest: weakest?.legId === leg.legId
+  };
+}
+
+function deriveAfterSourceFromPostmortem(postmortem: PostmortemRecord): AfterSource {
+  const missedLegIds = new Set(postmortem.legs.filter((leg) => !leg.hit).map((leg) => leg.legId));
+  const firstBreakingLegId = postmortem.legs.find((leg) => !leg.hit)?.legId;
+  return {
+    ticketId: postmortem.ticketId,
+    trace_id: postmortem.trace_id,
+    slip_id: postmortem.slip_id,
+    provenanceHint: postmortem.provenance?.source_type,
+    nextTimeTitle: postmortem.nextTimeRule?.title,
+    nextTimeBody: postmortem.nextTimeRule?.body,
+    legs: postmortem.legs.map((leg) => ({
+      legId: leg.legId,
+      player: leg.player,
+      marketLabel: `${leg.statType} ${leg.target}`,
+      status: leg.hit ? 'cleared' : leg.legId === firstBreakingLegId ? 'breaking leg' : 'missed',
+      delta: leg.delta,
+      why: leg.hit ? 'Cleared and carried its share of the ticket.' : leg.missNarrative,
+      lesson: leg.lessonHint
+    }))
+  };
+}
+
+function toTrackingLegStatus(leg: TrackedLegState, firstBreakingLegId?: string): AfterLegStatus {
+  if (leg.outcome === 'void') return 'void';
+  if (leg.outcome === 'push') return 'push';
+  if (leg.outcome === 'hit') return 'cleared';
+  if (leg.outcome === 'miss') return leg.legId === firstBreakingLegId ? 'breaking leg' : 'missed';
+  return 'missed';
+}
+
+function deriveAfterSourceFromTracking(state: SlipTrackingState): AfterSource {
+  const firstBreakingLegId =
+    state.eliminatedByLegId ?? state.legs.find((leg) => leg.outcome === 'miss')?.legId;
+  return {
+    ticketId: state.slipId,
+    trace_id: state.trace_id,
+    slip_id: state.slipId,
+    legs: state.legs
+      .filter((leg) => leg.outcome !== 'pending')
+      .map((leg) => {
+        const targetValue =
+          typeof leg.targetValue === 'number' ? leg.targetValue : Number(leg.line);
+        const currentValue = typeof leg.currentValue === 'number' ? leg.currentValue : null;
+        const delta =
+          Number.isFinite(targetValue) && typeof currentValue === 'number'
+            ? Number((currentValue - targetValue).toFixed(1))
+            : null;
+        return {
+          legId: leg.legId,
+          player: leg.player,
+          marketLabel: `${leg.market} ${leg.line}`,
+          status: toTrackingLegStatus(leg, firstBreakingLegId),
+          delta,
+          why:
+            leg.outcome === 'hit'
+              ? 'Cleared and stayed on the right side of settlement.'
+              : leg.outcome === 'void'
+                ? 'Voided at settlement, so it stopped affecting the ticket.'
+                : leg.outcome === 'push'
+                  ? 'Pushed at the number, so the other legs decided the close.'
+                  : leg.missType
+                    ? `${leg.missType} miss closed this leg short of the line.`
+                    : 'Closed short of the line at settlement.',
+          lesson:
+            leg.outcome === 'miss'
+              ? leg.missType === 'variance' || leg.missType === 'unknown'
+                ? 'Treat this as variance first; do not auto-blacklist the angle from one result.'
+                : 'Tag the break reason before rebuilding the same exposure cluster.'
+              : undefined
+        };
+      })
+  };
+}
+
+export function deriveAfterCommandSurface(
+  sourceInput: PostmortemRecord | SlipTrackingState | null | undefined
+): LiveCommandSurface | null {
+  if (!sourceInput) return null;
+  const source =
+    'settledAt' in sourceInput
+      ? deriveAfterSourceFromPostmortem(sourceInput)
+      : deriveAfterSourceFromTracking(sourceInput);
+  const sortedLegs = sortAfterLegs(source.legs);
+  const breakingLeg =
+    sortedLegs.find((leg) => leg.status === 'breaking leg' || leg.status === 'missed') ?? null;
+  const winningLeg =
+    [...source.legs]
+      .filter((leg) => leg.status === 'cleared')
+      .sort(
+        (a, b) => (b.delta ?? Number.NEGATIVE_INFINITY) - (a.delta ?? Number.NEGATIVE_INFINITY)
+      )[0] ?? null;
+  const outcomeLabel = toAfterOutcomeLabel(source.legs);
+  const outcomeTone = toAfterOutcomeTone(outcomeLabel);
+  const brokenCount = source.legs.filter(
+    (leg) => leg.status === 'breaking leg' || leg.status === 'missed'
+  ).length;
+  const nextAction = buildNextAction(source, outcomeLabel);
+  const annotated = source.legs.map((leg) => toAfterCommandLeg(leg, winningLeg, breakingLeg));
+  const winningLegHighlight = annotated.find((leg) => leg.isStrongest) ?? null;
+  const breakingLegHighlight = annotated.find((leg) => leg.isWeakest) ?? null;
+  const decidedBy = describeDecidingLeg(breakingLeg, outcomeLabel);
+  const nearMissHighlight = buildNearMissHighlight(source, breakingLeg);
+  const lesson = buildLesson(source, outcomeLabel, breakingLeg);
+
+  return {
+    stage: 'after',
+    headline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
+    badge: outcomeLabel,
+    attention: decidedBy,
+    ticketPressure: stablePressure,
+    gameScript:
+      source.provenanceHint === 'demo_sample'
+        ? 'Demo settlement stays deterministic so the review keeps the same command language.'
+        : 'Settlement closes the same loop: strongest leg, weakest leg, and the deciding swing stay visible.',
+    strongestLeg: winningLegHighlight,
+    weakestLeg: breakingLegHighlight,
+    primaryFailurePoint: breakingLegHighlight?.why ?? decidedBy,
+    recommendation: lesson,
+    nextActionLabel: nextAction.label,
+    nextActionHref: nextAction.nextActionHref,
+    legs: annotated,
+    after: {
+      outcomeLabel,
+      outcomeTone,
+      closingHeadline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
+      decidedBy,
+      winningLegHighlight,
+      breakingLegHighlight,
+      nearMissHighlight,
+      lesson,
+      nextActionHref: nextAction.nextActionHref
+    }
+  };
+}
 
 export function classifyBettorLegStatus(leg: LiveLegState): BettorLegStatus {
   if (leg.currentValue >= leg.threshold) return 'cleared';
@@ -212,33 +556,7 @@ export function deriveLiveCommandSurface(
   ticket: OpenTicket | null,
   postmortem?: PostmortemRecord | null
 ): LiveCommandSurface | null {
-  if (!ticket) {
-    if (postmortem) {
-      return {
-        stage: 'after',
-        headline: 'Outcome review ready',
-        badge:
-          postmortem.status === 'won' ? 'Won' : postmortem.status === 'lost' ? 'Lost' : 'Review',
-        attention:
-          postmortem.narrative[1] ??
-          postmortem.narrative[0] ??
-          'Review the result and note the main swing leg.',
-        ticketPressure: {
-          label: 'Stable',
-          detail: 'The ticket is settled and ready for review.',
-          tone: 'steady'
-        },
-        gameScript: postmortem.narrative[2] ?? 'Outcome is settled.',
-        strongestLeg: null,
-        weakestLeg: null,
-        primaryFailurePoint: postmortem.narrative[1] ?? 'Outcome settled.',
-        recommendation: 'Open postmortem to see why the ticket won or failed.',
-        nextActionLabel: 'Open review',
-        legs: []
-      };
-    }
-    return null;
-  }
+  if (!ticket) return deriveAfterCommandSurface(postmortem);
 
   const commandLegs = ticket.legs.map(toCommandLeg);
   const strongestRaw = selectStrongestLeg(ticket.legs);
