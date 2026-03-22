@@ -200,6 +200,135 @@ describe('runSlip pipeline', () => {
     expect(run?.report?.slip_id).toBe(continuity.slip_id);
   });
 
+  it('preserves richer extracted leg metadata through API extraction and report building', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/slips/submit')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-rich',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000066',
+              trace_id: 'trace-rich',
+              anon_id: 'anon-1',
+              spine: {},
+              trace: {},
+              parse: { confidence: 0.9, legs_count: 2, needs_review: false }
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url.includes('/api/slips/extract')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-rich',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000066',
+              trace_id: 'trace-rich',
+              leg_insights: [],
+              extracted_legs: [
+                {
+                  selection: 'Jalen Brunson over 7.5 assists',
+                  market: 'assists',
+                  line: '7.5',
+                  odds: '-110',
+                  player: 'Jalen Brunson',
+                  team: 'NYK',
+                  sport: 'NBA',
+                  matchup: 'NYK @ BOS',
+                  game_id: 'game-nyk-bos',
+                  book: 'FanDuel'
+                },
+                {
+                  selection: 'Jayson Tatum over 29.5 points',
+                  market: 'points',
+                  line: '29.5',
+                  odds: '-115',
+                  player: 'Jayson Tatum',
+                  team: 'BOS',
+                  sport: 'NBA',
+                  matchup: 'NYK @ BOS',
+                  game_id: 'game-nyk-bos'
+                }
+              ]
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const traceId = await runSlip('ignored because API extraction is mocked');
+    const run = await runStore.getRun(traceId);
+
+    expect(run?.extractedLegs[0]?.matchup).toBe('NYK @ BOS');
+    expect(run?.extractedLegs[0]?.game_id).toBe('game-nyk-bos');
+    expect(run?.extractedLegs[0]?.book).toBe('FanDuel');
+    expect(run?.report?.legs).toHaveLength(2);
+    expect(new Set(run?.report?.legs.map((leg) => leg.game_id))).toEqual(new Set(['game-nyk-bos']));
+    expect(run?.report?.script_clusters[0]?.leg_ids).toHaveLength(2);
+  });
+
+  it('keeps minimal extracted leg inputs working when API metadata is sparse', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/slips/submit')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-minimal',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000067',
+              trace_id: 'trace-minimal',
+              anon_id: 'anon-2',
+              spine: {},
+              trace: {},
+              parse: { confidence: 0.7, legs_count: 1, needs_review: false }
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url.includes('/api/slips/extract')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-minimal',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000067',
+              trace_id: 'trace-minimal',
+              leg_insights: [],
+              extracted_legs: [
+                { selection: 'LeBron James over 6.5 rebounds', market: 'rebounds', odds: '-105' }
+              ]
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const traceId = await runSlip('LeBron James over 6.5 rebounds (-105)');
+    const run = await runStore.getRun(traceId);
+
+    expect(run?.extractedLegs).toHaveLength(1);
+    expect(run?.extractedLegs[0]?.selection).toContain('LeBron James');
+    expect(run?.report?.legs).toHaveLength(1);
+  });
+
   it('computeVerdict keeps weakest leg aligned with sorted risk and reason wording', () => {
     const extracted = [
       { id: 'a', selection: 'Leg A' },

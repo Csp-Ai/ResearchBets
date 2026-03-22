@@ -3,7 +3,7 @@ import { parseSlipExtractEnvelope, parseSlipSubmitEnvelope } from '@/src/core/sl
 import { extractLegs } from '@/src/core/slips/extract';
 import { getRunContext } from '@/src/core/context/getRunContext';
 import { canonicalTraceId } from '@/src/core/trace/canonicalTraceId';
-import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
+import { buildSlipStructureReport, inferGameKey } from '@/src/core/slips/slipIntelligence';
 
 import { enrichInjuries } from '@/src/core/providers/injuriesProvider';
 import { enrichOdds } from '@/src/core/providers/oddsProvider';
@@ -50,6 +50,11 @@ const normalizeLegs = (
     sport?: string;
     eventTime?: string;
     book?: string;
+    matchup?: string;
+    game_id?: string;
+    event_id?: string;
+    home?: string;
+    away?: string;
   }>
 ): ExtractedLeg[] => {
   return rawLegs.map((leg, index) => ({
@@ -62,7 +67,12 @@ const normalizeLegs = (
     player: leg.player,
     sport: leg.sport ?? 'NBA',
     eventTime: leg.eventTime,
-    book: leg.book
+    book: leg.book,
+    matchup: leg.matchup,
+    game_id: leg.game_id,
+    event_id: leg.event_id,
+    home: leg.home,
+    away: leg.away
   }));
 };
 
@@ -273,7 +283,22 @@ export function computeVerdict(
 }
 
 type ExtractApiResult = {
-  legs: Array<{ selection: string; market?: string; line?: string; odds?: string }>;
+  legs: Array<{
+    selection: string;
+    market?: string;
+    line?: string;
+    odds?: string;
+    team?: string;
+    player?: string;
+    sport?: string;
+    eventTime?: string;
+    book?: string;
+    matchup?: string;
+    game_id?: string;
+    event_id?: string;
+    home?: string;
+    away?: string;
+  }>;
   slipId?: string;
   traceId?: string;
   anonSessionId?: string;
@@ -371,6 +396,16 @@ async function extractWithApi(
               market?: string;
               line?: string;
               odds?: string;
+              team?: string;
+              player?: string;
+              sport?: string;
+              eventTime?: string;
+              book?: string;
+              matchup?: string;
+              game_id?: string;
+              event_id?: string;
+              home?: string;
+              away?: string;
             }>)
           : [],
       slipId: submittedSlipId,
@@ -397,7 +432,14 @@ const mapReportLegsFromRun = (
   const report = buildSlipStructureReport(
     extracted.map((leg) => ({
       leg_id: leg.id,
-      game_id: leg.team,
+      game_id: inferGameKey({
+        game: leg.game_id,
+        game_id: leg.game_id,
+        event_id: leg.event_id,
+        matchup: leg.matchup,
+        home: leg.home,
+        away: leg.away
+      }),
       team: leg.team,
       player: leg.player,
       market: leg.market ?? 'market',
