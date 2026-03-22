@@ -27,9 +27,9 @@ describe('cockpit route client', () => {
   it('renders core cockpit sections', async () => {
     renderWithProviders(<CockpitLandingClient />);
 
-    expect(screen.getByRole('heading', { level: 1, name: "Tonight's Board" })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1, name: "Tonight's Board" }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Tonight's Board").length).toBeGreaterThan(0);
-    expect(screen.getByText('Draft Ticket')).toBeTruthy();
+    expect(screen.getAllByText('Draft Ticket').length).toBeGreaterThan(0);
     expect((await screen.findAllByText(/J. Tatum/)).length).toBeGreaterThan(0);
   });
 });

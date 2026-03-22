@@ -25,6 +25,7 @@ import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useRunEvents } from '@/src/core/events/useRunEvents';
 import { ensureTraceId } from '@/src/core/trace/trace_id';
 import type { ResearchProvenance } from '@/src/core/run/researchRunDTO';
+import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 
 import './cockpit.css';
 
@@ -36,6 +37,26 @@ type ScoutSignal = {
   note: string;
   context: string;
   leg: CockpitBoardLeg;
+};
+
+type TicketSummaryTone = 'balanced' | 'correlation' | 'volatility' | 'setup';
+
+type TicketSummaryState = {
+  countLabel: string;
+  shapeLabel: string;
+  recommendation: string;
+  nextAction: string;
+  tone: TicketSummaryTone;
+  weakestPreviewTitle: string;
+  weakestPreviewBody: string;
+  weakestDetailTitle: string;
+  weakestDetailBody: string;
+  correlationValue: string;
+  correlationBody: string;
+  fragilityValue: string;
+  fragilityBody: string;
+  analysisReady: boolean;
+  showInsightBlocks: boolean;
 };
 
 const COCKPIT_MARKETS: MarketType[] = ['spread', 'total', 'moneyline', 'ra', 'points', 'threes', 'rebounds', 'assists', 'pra'];
@@ -80,6 +101,10 @@ const boardNote = (leg: CockpitBoardLeg) => {
   return leg.deadLegReasons?.[0] ?? leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? null;
 };
 
+const countLabel = (count: number) => `${count} ${count === 1 ? 'leg' : 'legs'}`;
+const fragilityBand = (value: number | null) => value == null ? 'Waiting' : value >= 65 ? 'Elevated' : value >= 40 ? 'Watch' : 'Stable';
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
 export default function CockpitLandingClient({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const cockpitRef = useRef<HTMLElement | null>(null);
   const pasteInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -115,9 +140,9 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
   const [analysis, setAnalysis] = useState({
     running: false,
     weakestId: '',
-    weakestLabel: '—',
+    weakestLabel: '',
     traceId: nervous.trace_id,
-    corrLabel: '—',
+    corrLabel: '',
     fragility: null as number | null,
     reasons: [] as string[],
     stage: 'Before' as Stage,
@@ -325,6 +350,115 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
     };
   }, [slip]);
 
+  const riskSummary = useMemo(() => deriveSlipRiskSummary(slip.map((leg) => ({
+    id: leg.id,
+    player: leg.player,
+    market: leg.marketType,
+    marketType: leg.marketType,
+    line: leg.line,
+    odds: leg.odds,
+    game: leg.game
+  }))), [slip]);
+
+  const ticketSummary = useMemo<TicketSummaryState>(() => {
+    if (legCount === 0) {
+      return {
+        countLabel: '0 legs',
+        shapeLabel: 'Build a 2–4 leg ticket',
+        recommendation: 'Add legs from Tonight’s Board to expose weakest-leg and correlation pressure before lock.',
+        nextAction: 'Start with two angles, then let analysis show the break point before you add more.',
+        tone: 'setup',
+        weakestPreviewTitle: 'Weakest leg will appear after analysis',
+        weakestPreviewBody: 'Add legs and run analysis to surface the main failure point before lock.',
+        weakestDetailTitle: 'Weakest leg insight',
+        weakestDetailBody: 'No insight yet. The ticket needs 2–4 legs before weakest-leg pressure becomes useful.',
+        correlationValue: 'Waiting on shape',
+        correlationBody: 'Correlation pressure will read once the ticket has enough legs to compare environments.',
+        fragilityValue: 'Waiting on shape',
+        fragilityBody: 'Fragility index unlocks after you build a compact ticket and run analysis.',
+        analysisReady: false,
+        showInsightBlocks: false
+      };
+    }
+
+    const sameGameEdges = riskSummary.correlationReason.toLowerCase().includes('stack') || riskSummary.correlationFlag;
+    const highVol = riskSummary.highVolatilityLegs >= 2;
+    const shapeLabel = sameGameEdges
+      ? 'Correlation-heavy build'
+      : highVol
+        ? 'High-volatility shape'
+        : legCount >= 3
+          ? 'Balanced ticket'
+          : 'Balanced start';
+
+    const recommendation = legCount < 2
+      ? 'Add one more leg to unlock weakest-leg and pressure analysis.'
+      : sameGameEdges
+        ? 'Run analysis before adding another leg tied to the same script.'
+        : highVol
+          ? 'Run analysis before locking more volatility into this ticket.'
+          : 'Run analysis now to confirm the weakest leg before lock.';
+
+    const nextAction = legCount < 2
+      ? 'One more leg turns this into an analysis-ready ticket.'
+      : analysis.stage === 'Before'
+        ? 'This ticket is ready. Run analysis to surface the main failure point.'
+        : analysis.running
+          ? 'Analysis is running. Stay on the ticket — pressure readouts are updating.'
+          : analysis.reasons[0] ?? 'Review the readout, then decide whether to trim or lock.';
+
+    const weakestDetailTitle = analysis.stage !== 'Before' && analysis.weakestLabel
+      ? `Weakest leg: ${analysis.weakestLabel}`
+      : 'Weakest leg will appear after analysis';
+    const weakestDetailBody = analysis.stage !== 'Before' && analysis.weakestLabel
+      ? analysis.reasons[0] ?? `${analysis.weakestLabel} carries the most pressure in the current ticket shape.`
+      : 'Add legs and run analysis to surface the main failure point before lock.';
+
+    const correlationValue = legCount < 2
+      ? 'Developing'
+      : analysis.stage !== 'Before' && analysis.corrLabel
+        ? analysis.corrLabel
+        : riskSummary.correlationFlag
+          ? 'Elevated'
+          : 'Managed';
+
+    const correlationBody = legCount < 2
+      ? 'A second leg unlocks correlation pressure so you can see whether the story is compact or crowded.'
+      : riskSummary.correlationFlag
+        ? riskSummary.correlationReason
+        : 'No major correlation clusters detected in the current build.';
+
+    const fragilityValue = legCount < 2
+      ? 'Building'
+      : analysis.stage !== 'Before'
+        ? `${fragilityBand(analysis.fragility)}${analysis.fragility != null ? ` · ${analysis.fragility}` : ''}`
+        : `${capitalize(riskSummary.riskLabel.toLowerCase())} setup · ${riskSummary.fragilityScore}`;
+
+    const fragilityBody = legCount < 2
+      ? 'Fragility sharpens after one more leg and a full analysis run.'
+      : riskSummary.highVolatilityLegs >= 2
+        ? `${riskSummary.highVolatilityLegs} legs carry high volatility and can fail together.`
+        : riskSummary.dominantRiskFactor;
+
+    return {
+      countLabel: countLabel(legCount),
+      shapeLabel,
+      recommendation,
+      nextAction,
+      tone: sameGameEdges ? 'correlation' : highVol ? 'volatility' : 'balanced',
+      weakestPreviewTitle: 'Weakest leg will appear after analysis',
+      weakestPreviewBody: 'Run analysis to reveal the leg most likely to crack this shape.',
+      weakestDetailTitle,
+      weakestDetailBody,
+      correlationValue,
+      correlationBody,
+      fragilityValue,
+      fragilityBody,
+      analysisReady: legCount >= 2,
+      showInsightBlocks: legCount >= 1
+    };
+  }, [analysis.corrLabel, analysis.fragility, analysis.reasons, analysis.running, analysis.stage, analysis.weakestLabel, legCount, riskSummary]);
+
   const { statusText } = useRunEvents(analysis.traceId ?? nervous.trace_id);
 
   const runStressTest = async () => {
@@ -380,7 +514,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
       setAnalysis({
         running: false,
         weakestId: weakestFromRun?.leg_id ?? weakestLeg?.leg_id ?? '',
-        weakestLabel: weakestFromRun?.player ?? weakestLeg?.player ?? '—',
+        weakestLabel: weakestFromRun?.player ?? weakestLeg?.player ?? '',
         traceId: runTraceId,
         corrLabel,
         fragility: typeof runDto?.verdict?.fragility_score === 'number'
@@ -524,46 +658,93 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
           <Panel className={`desktop-ticket-panel cockpit-ticket-panel ${ticketHeaderPulse ? 'ticket-header-pulse' : ''}`} id="ticket-panel">
             <PanelHeader
               title="Draft Ticket"
-              subtitle={legCount === 0 ? 'Add 2–4 legs to pressure test' : (analysis.traceId ? statusText : 'Ready to run')}
-              action={<span ref={ticketBadgeRef} className="leg-count-badge" aria-live="polite">{legCount} {legCount === 1 ? 'leg' : 'legs'}</span>}
+              subtitle={legCount === 0 ? 'Decision room opens at 2–4 legs' : (analysis.traceId ? statusText : 'Shape the ticket, then run analysis')}
+              action={<span ref={ticketBadgeRef} className="leg-count-badge" aria-live="polite">{ticketSummary.countLabel}</span>}
             />
 
-            <div className="ticket-body">
+            <div className={`ticket-body ticket-tone-${ticketSummary.tone}`}>
+              <section className="ticket-summary-card" aria-label="Draft ticket summary">
+                <div className="ticket-summary-topline">
+                  <span className="ticket-summary-kicker">Decision room</span>
+                  <span className={`ticket-status-pill ${ticketSummary.analysisReady ? 'ready' : 'setup'}`}>{ticketSummary.analysisReady ? 'Analysis-ready' : 'Setup state'}</span>
+                </div>
+                <div className="ticket-summary-headline-row">
+                  <div>
+                    <p className="ticket-summary-count">{ticketSummary.countLabel}</p>
+                    <h3 className="ticket-summary-headline">{ticketSummary.shapeLabel}</h3>
+                  </div>
+                  <div className="ticket-summary-compact">
+                    <span>Hit est. {compactLine.hitEstimate}</span>
+                    <span>Gap {compactLine.gap}</span>
+                  </div>
+                </div>
+                <p className="ticket-summary-recommendation">{ticketSummary.recommendation}</p>
+                <p className="ticket-summary-next">{ticketSummary.nextAction}</p>
+              </section>
+
               {legCount === 0 ? (
-                <div className="ticket-empty">
-                  <div className="ticket-empty-text">Add 2–4 legs to pressure test.</div>
-                  <p className="ticket-empty-subcopy">Your draft ticket updates immediately as you build from the board.</p>
+                <div className="ticket-empty ticket-empty-state">
+                  <div className="ticket-empty-text">Build a 2–4 leg ticket to expose weakest-leg and correlation pressure before lock.</div>
+                  <p className="ticket-empty-subcopy">Add legs from Tonight&apos;s Board. The ticket will sharpen into risk posture, pressure points, and a clear next action as soon as it has shape.</p>
+                  <div className="ticket-empty-preview" aria-label="Draft ticket unlocks">
+                    <div className="ticket-preview-item">
+                      <span className="ticket-preview-label">When you add legs</span>
+                      <strong>Ticket shape becomes readable</strong>
+                    </div>
+                    <div className="ticket-preview-item">
+                      <span className="ticket-preview-label">When you run analysis</span>
+                      <strong>Weakest leg and correlation pressure surface</strong>
+                    </div>
+                  </div>
                   <TicketEmptyCoach sampleHref={spineHref('/cockpit', nervous, { mode: 'demo', trace_id: analysis.traceId || nervous.trace_id })} />
                 </div>
               ) : (
-                <div className="ticket-legs" role="list">
-                  {slip.map((leg) => (
-                    <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
-                      <div>
-                        <div className="ticket-leg-main">{leg.player} · {leg.marketType} {leg.line}</div>
-                        <div className="ticket-leg-sub">{leg.game ?? '—'} · {leg.odds}</div>
-                      </div>
-                      <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {legCount >= 2 ? (
                 <>
-                  <SlipIntelBar
-                    legs={slip.map((leg) => ({ id: leg.id, player: leg.player, marketType: leg.marketType, line: leg.line, odds: leg.odds, game: leg.game }))}
-                    className="ticket-intel"
-                  />
-                  <div className="ticket-summary-grid">
-                    <div className="ticket-summary-item"><span>Weakest leg</span><strong>{analysis.weakestLabel}</strong></div>
-                    <div className="ticket-summary-item"><span>Correlation pressure</span><strong>{analysis.corrLabel}</strong></div>
-                    <div className="ticket-summary-item"><span>Fragility index</span><strong>{analysis.fragility ?? '—'}</strong></div>
+                  <div className="ticket-legs-header">
+                    <p className="ticket-legs-label">Current build</p>
+                    <p className="ticket-legs-hint">Every add lands here immediately. Trim fast, then decide when to run.</p>
+                  </div>
+                  <div className="ticket-legs" role="list">
+                    {slip.map((leg) => (
+                      <div key={leg.id} className={`ticket-leg ${analysis.weakestId === leg.id ? 'weakest target-lock heat' : ''}`}>
+                        <div>
+                          <div className="ticket-leg-main">{leg.player} · {leg.marketType} {leg.line}</div>
+                          <div className="ticket-leg-sub">{leg.game ?? '—'} · {leg.odds}</div>
+                        </div>
+                        <button className="remove-btn" onClick={() => onRemove(leg.id)} aria-label={`Remove ${leg.player}`}>✕</button>
+                      </div>
+                    ))}
                   </div>
                 </>
+              )}
+
+              {ticketSummary.showInsightBlocks ? (
+                <section className="ticket-insight-grid" aria-label="Draft ticket insights">
+                  <article className="ticket-insight-block ticket-insight-feature">
+                    <span className="ticket-insight-kicker">Signature insight</span>
+                    <h3>{analysis.stage !== 'Before' && analysis.weakestLabel ? ticketSummary.weakestDetailTitle : ticketSummary.weakestPreviewTitle}</h3>
+                    <p>{analysis.stage !== 'Before' && analysis.weakestLabel ? ticketSummary.weakestDetailBody : ticketSummary.weakestPreviewBody}</p>
+                  </article>
+                  <article className="ticket-insight-block">
+                    <span className="ticket-insight-kicker">Correlation pressure</span>
+                    <strong>{ticketSummary.correlationValue}</strong>
+                    <p>{ticketSummary.correlationBody}</p>
+                  </article>
+                  <article className="ticket-insight-block">
+                    <span className="ticket-insight-kicker">Fragility index</span>
+                    <strong>{ticketSummary.fragilityValue}</strong>
+                    <p>{ticketSummary.fragilityBody}</p>
+                  </article>
+                </section>
               ) : null}
 
-              {analysis.reasons.length > 0 ? <p className="ticket-reasons">{analysis.reasons.join(' · ')}</p> : null}
+              {legCount >= 2 ? (
+                <SlipIntelBar
+                  legs={slip.map((leg) => ({ id: leg.id, player: leg.player, marketType: leg.marketType, line: leg.line, odds: leg.odds, game: leg.game }))}
+                  className="ticket-intel"
+                />
+              ) : null}
+
               {analysis.traceId && analysis.stage !== 'Before' && !analysis.running ? (
                 <RunIntegrityPanel
                   traceId={analysis.traceId}
@@ -628,8 +809,8 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
 
         <section className="mobile-slip-bar" aria-label="Slip Bar" data-testid="mobile-slip-bar">
           <div>
-            <p className="mobile-slip-count">Draft Ticket · {legCount} {legCount === 1 ? 'leg' : 'legs'}</p>
-            <p className="mobile-slip-line">Add 2–4 legs, then run analysis.</p>
+            <p className="mobile-slip-count">Draft Ticket · {ticketSummary.countLabel}</p>
+            <p className="mobile-slip-line">{ticketSummary.analysisReady ? ticketSummary.recommendation : 'Add 2–4 legs, then run analysis.'}</p>
           </div>
           <button ref={mobileTicketCtaRef} className="ui-button ui-button-primary focus-glow" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: true }))}>Open Draft Ticket</button>
         </section>
@@ -641,8 +822,17 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             <button className="remove-btn" onClick={() => setUi((p) => ({ ...p, slipSheetOpen: false }))} aria-label="Close slip drawer">✕</button>
           </div>
           <div className="slip-sheet-body">
+            <section className="ticket-summary-card mobile-ticket-summary" aria-label="Mobile draft ticket summary">
+              <div className="ticket-summary-topline">
+                <span className="ticket-summary-kicker">Decision room</span>
+                <span className={`ticket-status-pill ${ticketSummary.analysisReady ? 'ready' : 'setup'}`}>{ticketSummary.analysisReady ? 'Analysis-ready' : 'Setup state'}</span>
+              </div>
+              <p className="ticket-summary-count">{ticketSummary.countLabel}</p>
+              <h3 className="ticket-summary-headline">{ticketSummary.shapeLabel}</h3>
+              <p className="ticket-summary-recommendation">{ticketSummary.recommendation}</p>
+            </section>
             {legCount === 0 ? (
-              <div className="ticket-empty"><div className="ticket-empty-text">Add 2–4 legs to pressure test.</div></div>
+              <div className="ticket-empty"><div className="ticket-empty-text">Build a 2–4 leg ticket to reveal the main pressure point before lock.</div></div>
             ) : (
               <div className="ticket-legs" role="list">
                 {slip.map((leg) => (
@@ -668,7 +858,7 @@ export default function CockpitLandingClient({ searchParams }: { searchParams?: 
             )}
           </div>
           <div className="slip-sheet-actions">
-            <button className={`ui-button ui-button-primary focus-glow ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={() => { if (stressEnabled) void runStressTest(); }}>Run analysis</button>
+            <button className={`ui-button ui-button-primary focus-glow ${stressEnabled ? '' : 'disabled'}`} aria-disabled={!stressEnabled} onClick={() => { if (stressEnabled) void runStressTest(); }}>{stressEnabled ? 'Run analysis' : 'Add one more leg'}</button>
             <Link href={spineHref('/cockpit', nervous, { mode: 'demo' })} className="ui-button ui-button-secondary focus-glow">Try sample slip</Link>
           </div>
         </aside>

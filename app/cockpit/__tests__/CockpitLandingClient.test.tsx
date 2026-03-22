@@ -48,7 +48,8 @@ describe('CockpitLandingClient canonical landing invariants', () => {
 
     expect(screen.getByRole('button', { name: /build from board/i })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /^paste slip$/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/add 2–4 legs to pressure test/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/build a 2–4 leg ticket to expose weakest-leg and correlation pressure before lock/i)).toBeTruthy();
+    expect(screen.getAllByText(/decision room/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { level: 2, name: /signals/i })).toBeTruthy();
 
     const cockpitSection = screen.getByLabelText('Bettor cockpit: board and draft ticket');
