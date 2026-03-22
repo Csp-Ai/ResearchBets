@@ -37,36 +37,34 @@ vi.mock('@/app/cockpit/hooks/useCockpitToday', () => ({
 }));
 
 describe('CockpitLandingClient canonical landing invariants', () => {
-  it('renders CockpitHeader with a single above-fold nervous truth strip and primary run CTA', async () => {
+  it('renders a bettor-first hero with a single dominant board workflow and draft ticket destination', async () => {
     renderWithProviders(<CockpitLandingClient />);
 
-    expect(screen.getByRole('heading', { level: 1, name: "Tonight's Board" })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1, name: "Tonight's Board" }).length).toBeGreaterThan(0);
 
     const header = screen.getByRole('banner');
     const strips = within(header).getAllByTestId('live-nervous-system-strip');
     expect(strips).toHaveLength(1);
 
+    expect(screen.getByRole('button', { name: /build from board/i })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /^paste slip$/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/add 2–4 legs to pressure test/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { level: 2, name: /signals/i })).toBeTruthy();
+
     const cockpitSection = screen.getByLabelText('Bettor cockpit: board and draft ticket');
     expect(within(cockpitSection).queryByText(/live credibility/i)).toBeNull();
     expect(within(cockpitSection).queryByText(/provider pipeline/i)).toBeNull();
-
-    const runButtons = screen.getAllByRole('button', { name: /run analysis/i });
-    expect(runButtons.length).toBeGreaterThan(0);
-    expect(runButtons[0]?.className).toContain('ui-button-primary');
   });
 
-
-  it('keeps preview diagnostics below fold and renders PreviewStrip when disclosure is expanded', async () => {
+  it('keeps diagnostics collapsed and unrendered until analysis has run', async () => {
     renderWithProviders(<CockpitLandingClient />);
 
-    const disclosure = screen.getAllByTestId('cockpit-details-disclosure')[0];
-    expect(disclosure).toBeTruthy();
-    expect(within(disclosure as HTMLElement).queryByTestId('preview-strip')).toBeTruthy();
+    const disclosure = screen.getAllByTestId('cockpit-details-disclosure')[0] as HTMLElement;
+    expect(within(disclosure).queryByTestId('preview-strip')).toBeNull();
+    expect(within(disclosure).queryByText('Demo mode (live feeds off)')).toBeNull();
+    expect(within(disclosure).getByText(/show system details after analysis/i)).toBeTruthy();
 
-    const summary = within(disclosure as HTMLElement).getByText('Details and diagnostics');
-    fireEvent.click(summary);
-
-    expect(within(disclosure as HTMLElement).getByTestId('preview-strip')).toBeTruthy();
-    expect(within(disclosure as HTMLElement).getByText('Demo mode (live feeds off)')).toBeTruthy();
+    fireEvent.click(within(disclosure).getByText(/show system details after analysis/i));
+    expect(within(disclosure).queryByTestId('preview-strip')).toBeNull();
   });
 });

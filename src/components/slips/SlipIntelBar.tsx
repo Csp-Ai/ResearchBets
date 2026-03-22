@@ -9,31 +9,34 @@ import { presentRecommendation } from '@/src/core/slips/recommendationPresentati
 export function SlipIntelBar({ legs, className = '' }: { legs: SlipIntelLeg[]; className?: string }) {
   const [open, setOpen] = useState(false);
   const risk = useMemo(() => deriveSlipRiskSummary(legs), [legs]);
-  const showPanel = legs.length >= 2;
 
-  if (!showPanel) return null;
+  if (legs.length < 2) return null;
 
   return (
-    <section className={`rounded-xl border border-cyan-900/70 bg-slate-950/50 p-3 ${className}`} data-testid="slip-risk-panel">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-full border border-cyan-500/40 px-2 py-1">{presentRecommendation(risk.recommendation)}</span>
-        <span className="rounded-full border border-white/20 px-2 py-1">Confidence {risk.confidencePct}%</span>
-        <span className="rounded-full border border-rose-500/40 px-2 py-1">Risk {risk.riskLabel}</span>
-        <span className="rounded-full border border-amber-500/40 px-2 py-1">Weakest {risk.weakestLeg}</span>
-        <span className="rounded-full border border-white/20 px-2 py-1">Fragility {risk.fragilityScore}/100</span>
-        <span className="rounded-full border border-white/20 px-2 py-1">Correlation {risk.correlationFlag ? 'High' : 'Managed'}</span>
-        <button type="button" className="rounded-full border border-white/20 px-2 py-1 text-slate-200 hover:border-cyan-400" onClick={() => setOpen((value) => !value)}>
-          {open ? 'Hide risk detail' : 'Open risk detail'}
+    <section className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${className}`} data-testid="slip-risk-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="m-0 text-sm font-semibold text-slate-100">{presentRecommendation(risk.recommendation)}</p>
+          <p className="mt-1 text-sm text-slate-300">
+            Correlation {risk.correlationFlag ? 'high' : 'managed'} · Fragility {risk.fragilityScore}/100 · Weakest {risk.weakestLeg}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-slate-200 transition hover:border-cyan-400"
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? 'Hide details' : 'Show details'}
         </button>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
-        <span className="rounded-full border border-white/20 px-2 py-1">Volatility: {risk.volatilitySummary}</span>
-        {risk.legVolatilityTags.map((leg) => <span key={leg.legId} className="rounded-full border border-white/15 px-2 py-1">{leg.volatility} · {leg.label}</span>)}
-      </div>
+
       {open ? (
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-300">
-          {risk.reasonBullets.map((hint) => <li key={hint}>{hint}</li>)}
-        </ul>
+        <div className="mt-3 space-y-3 text-xs text-slate-300">
+          <p className="m-0">Confidence {risk.confidencePct}% · Risk {risk.riskLabel} · Volatility {risk.volatilitySummary}</p>
+          <ul className="m-0 list-disc space-y-1 pl-5">
+            {risk.reasonBullets.map((hint) => <li key={hint}>{hint}</li>)}
+          </ul>
+        </div>
       ) : null}
     </section>
   );
