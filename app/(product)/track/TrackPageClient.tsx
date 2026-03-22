@@ -16,7 +16,7 @@ import { advanceDemoTracking } from '@/src/core/slips/demoSlipTracker';
 import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
 import { createTrackingFromDraft, loadSlip, saveSlip } from '@/src/core/slips/storage';
 import { withTraceId } from '@/src/core/trace/queryTrace';
-import { deriveRunHeader, deriveSlipLearningHighlights } from '@/src/core/ui/deriveTruth';
+import { deriveRunHeader } from '@/src/core/ui/deriveTruth';
 import { OpenTicketsPanel } from '@/src/components/track/OpenTicketsPanel';
 import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
@@ -25,6 +25,7 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { getSourceQualityCopy } from '@/src/core/ui/truthPresentation';
 import { DecisionThreadStrip } from '@/src/components/nervous/DecisionThreadStrip';
+import { deriveAfterCommandSurface } from '@/src/core/cockpit/ticketLoop';
 
 const statusTone: Record<SlipTrackingState['status'], string> = {
   alive: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40',
@@ -75,25 +76,13 @@ export function TrackPageClient() {
     return () => window.clearInterval(timer);
   }, [state]);
 
-  const analysis = useMemo(() => {
-    if (!state)
-      return {
-        failureLeg: null as SlipTrackingState['legs'][number] | null,
-        wouldHaveHit: [],
-        runbacks: [] as SlipTrackingState['legs'],
-        grudgeGuard: undefined as string | undefined
-      };
-    const derived = deriveSlipLearningHighlights(state);
-    const wouldHaveHit = state.legs.filter(
-      (leg) => leg.outcome === 'hit' && leg.legId !== state.eliminatedByLegId
-    );
-    return {
-      failureLeg: derived.weakestLeg,
-      wouldHaveHit,
-      runbacks: derived.runbackCandidates,
-      grudgeGuard: derived.grudgeGuard
-    };
-  }, [state]);
+  const afterCommand = useMemo(
+    () =>
+      state && (state.status === 'eliminated' || state.status === 'settled')
+        ? deriveAfterCommandSurface(state)
+        : null,
+    [state]
+  );
 
   const onSaveJournal = () => {
     if (!state) return;
@@ -332,34 +321,85 @@ export function TrackPageClient() {
         </ul>
       </section>
 
-      {state.status === 'eliminated' || state.status === 'settled' ? (
-        <section className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-2">
-          <h2 className="text-lg font-semibold">Postmortem Summary</h2>
-          {analysis.failureLeg ? (
-            <p className="text-sm">
-              Failure leg: {analysis.failureLeg.player} ({analysis.failureLeg.missType ?? 'unknown'}
-              )
-            </p>
-          ) : null}
-          <p className="text-sm">Would-have-hit legs: {analysis.wouldHaveHit.length}</p>
-          <ul className="list-disc pl-5 text-sm text-slate-300">
-            {analysis.wouldHaveHit.map((leg) => (
-              <li key={leg.legId}>
-                {leg.player} {leg.market} {leg.line}
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm">Runback candidates: {analysis.runbacks.length}</p>
-          <ul className="list-disc pl-5 text-sm text-slate-300">
-            {analysis.runbacks.map((leg) => (
-              <li key={`runback-${leg.legId}`}>
-                {leg.player} {leg.market} {leg.line}
-              </li>
-            ))}
-          </ul>
-          <p className="rounded border border-amber-300/40 bg-amber-500/10 p-2 text-sm text-amber-100">
-            {analysis.grudgeGuard ?? 'Do not auto-blacklist. Need sample size.'}
-          </p>
+      {afterCommand?.after ? (
+        <section
+          className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 space-y-4"
+          aria-label="After command surface"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
+                After command surface
+              </p>
+              <h2 className="text-lg font-semibold">{afterCommand.after.closingHeadline}</h2>
+              <p className="text-sm text-slate-300">{afterCommand.after.decidedBy}</p>
+            </div>
+            <div
+              className={`rounded-full border px-3 py-1 text-xs uppercase ${afterCommand.after.outcomeTone === 'positive' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100' : afterCommand.after.outcomeTone === 'negative' ? 'border-rose-400/40 bg-rose-500/10 text-rose-100' : afterCommand.after.outcomeTone === 'caution' ? 'border-amber-300/40 bg-amber-500/10 text-amber-100' : 'border-slate-400/40 bg-slate-500/10 text-slate-100'}`}
+            >
+              {afterCommand.after.outcomeLabel}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <article className="rounded-lg border border-emerald-400/20 bg-emerald-500/5 p-3 text-xs">
+              <p className="uppercase tracking-[0.18em] text-emerald-200/80">Strongest leg</p>
+              <p className="mt-2 font-semibold text-slate-100">
+                {afterCommand.after.winningLegHighlight
+                  ? `${afterCommand.after.winningLegHighlight.player} ${afterCommand.after.winningLegHighlight.marketLabel} — ${afterCommand.after.winningLegHighlight.status}`
+                  : 'No cleared leg preserved'}
+              </p>
+              <p className="mt-1 text-slate-300">
+                {afterCommand.after.winningLegHighlight?.why ??
+                  'Settlement did not preserve a single carrying winner.'}
+              </p>
+            </article>
+            <article className="rounded-lg border border-rose-400/20 bg-rose-500/5 p-3 text-xs">
+              <p className="uppercase tracking-[0.18em] text-rose-200/80">Weakest leg</p>
+              <p className="mt-2 font-semibold text-slate-100">
+                {afterCommand.after.breakingLegHighlight
+                  ? `${afterCommand.after.breakingLegHighlight.player} ${afterCommand.after.breakingLegHighlight.marketLabel} — ${afterCommand.after.breakingLegHighlight.status}`
+                  : 'No breaking leg preserved'}
+              </p>
+              <p className="mt-1 text-slate-300">
+                {afterCommand.after.breakingLegHighlight?.why ??
+                  'No single leg broke the ticket at settlement.'}
+              </p>
+            </article>
+            <article className="rounded-lg border border-white/10 bg-slate-950/60 p-3 text-xs">
+              <p className="uppercase tracking-[0.18em] text-slate-400">Near miss</p>
+              <p className="mt-2 font-semibold text-slate-100">
+                {afterCommand.after.nearMissHighlight ?? 'No near-miss proof preserved'}
+              </p>
+              <p className="mt-1 text-slate-300">{afterCommand.gameScript}</p>
+            </article>
+            <article className="rounded-lg border border-cyan-400/20 bg-cyan-500/5 p-3 text-xs">
+              <p className="uppercase tracking-[0.18em] text-cyan-200/80">What to learn</p>
+              <p className="mt-2 font-semibold text-slate-100">{afterCommand.after.lesson}</p>
+              <p className="mt-1 text-slate-300">Next move stays in the same command loop.</p>
+            </article>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={nervous.toHref('/history')}
+              className="rounded border border-white/20 px-3 py-2 text-xs text-slate-100"
+            >
+              Review archive
+            </Link>
+            <Link
+              href={afterCommand.nextActionHref ?? nervous.toHref('/cockpit')}
+              className="rounded border border-cyan-400/60 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100"
+            >
+              {afterCommand.nextActionLabel}
+            </Link>
+            <Link
+              href={appendQuery(nervous.toHref('/cockpit'), { source: 'track_after' })}
+              className="rounded border border-white/20 px-3 py-2 text-xs text-slate-100"
+            >
+              Reopen board
+            </Link>
+          </div>
         </section>
       ) : null}
 

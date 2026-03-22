@@ -994,17 +994,21 @@ export default function CockpitLandingClient({
                             liveCommand.legs.filter(
                               (leg) =>
                                 leg.status === 'cleared' ||
-                                leg.status === 'ahead' ||
+                                leg.status === 'ahead of pace' ||
                                 leg.status === 'on pace'
                             ).length
                           }
                           /{liveCommand.legs.length} holding
                         </span>
                       </>
-                    ) : ticketModeState === 'after' && trackedContext.postmortem ? (
+                    ) : ticketModeState === 'after' && liveCommand?.after ? (
                       <>
-                        <span>{trackedContext.postmortem.status}</span>
-                        <span>Fragility {trackedContext.postmortem.fragility.score}</span>
+                        <span>{liveCommand.after.outcomeLabel}</span>
+                        <span>
+                          {liveCommand.after.breakingLegHighlight
+                            ? 'Weakest leg preserved'
+                            : 'No break leg preserved'}
+                        </span>
                       </>
                     ) : (
                       <>
@@ -1097,38 +1101,44 @@ export default function CockpitLandingClient({
                 <section className="live-ticket-surface" aria-label="Ticket review handoff">
                   <div className="live-ticket-insight">
                     <span className="ticket-insight-kicker">Outcome review</span>
-                    <h3>{liveCommand?.attention ?? 'Review outcome preserved.'}</h3>
-                    <p>{trackedContext.postmortem.narrative.join(' ')}</p>
+                    <h3>{liveCommand?.after?.closingHeadline ?? 'Review outcome preserved.'}</h3>
+                    <p>
+                      {liveCommand?.after?.decidedBy ??
+                        liveCommand?.attention ??
+                        'Settlement preserved the deciding leg.'}
+                    </p>
                   </div>
                   <div className="live-ticket-metrics">
                     <article className="ticket-insight-block ticket-insight-feature">
-                      <span className="ticket-insight-kicker">What failed</span>
+                      <span className="ticket-insight-kicker">Strongest leg</span>
                       <h3>
-                        {trackedContext.postmortem.legs.find((leg) => !leg.hit)?.player ??
-                          'All legs cleared'}
+                        {liveCommand?.after?.winningLegHighlight
+                          ? `${liveCommand.after.winningLegHighlight.player} ${liveCommand.after.winningLegHighlight.marketLabel}`
+                          : 'No cleared leg preserved'}
                       </h3>
                       <p>
-                        {trackedContext.postmortem.legs.find((leg) => !leg.hit)?.missNarrative ??
-                          'This ticket finished without a missed leg.'}
+                        {liveCommand?.after?.winningLegHighlight?.why ??
+                          'Settlement did not preserve a single carrying winner.'}
                       </p>
                     </article>
                     <article className="ticket-insight-block">
-                      <span className="ticket-insight-kicker">Fragility at close</span>
-                      <strong>{trackedContext.postmortem.fragility.score}</strong>
-                      <p>
-                        {trackedContext.postmortem.fragility.chips.join(' • ') ||
-                          'No extra fragility chips recorded.'}
-                      </p>
-                    </article>
-                    <article className="ticket-insight-block">
-                      <span className="ticket-insight-kicker">Next step</span>
+                      <span className="ticket-insight-kicker">Weakest leg</span>
                       <strong>
-                        {trackedContext.postmortem.nextTimeRule?.title ?? 'Open full postmortem'}
+                        {liveCommand?.after?.breakingLegHighlight
+                          ? `${liveCommand.after.breakingLegHighlight.player} · ${liveCommand.after.breakingLegHighlight.status}`
+                          : 'No breaking leg preserved'}
                       </strong>
                       <p>
-                        {trackedContext.postmortem.nextTimeRule?.body ??
-                          'See why this ticket failed or held up before you build the next one.'}
+                        {liveCommand?.after?.breakingLegHighlight?.why ??
+                          liveCommand?.primaryFailurePoint}
                       </p>
+                    </article>
+                    <article className="ticket-insight-block">
+                      <span className="ticket-insight-kicker">What to learn</span>
+                      <strong>
+                        {liveCommand?.after?.nearMissHighlight ?? 'No near-miss proof preserved'}
+                      </strong>
+                      <p>{liveCommand?.after?.lesson ?? liveCommand?.recommendation}</p>
                     </article>
                   </div>
                 </section>
@@ -1301,7 +1311,7 @@ export default function CockpitLandingClient({
                   })}
                   className="ui-button ui-button-secondary focus-glow ticket-track-link"
                 >
-                  Open postmortem
+                  {liveCommand?.nextActionLabel ?? 'Open postmortem'}
                 </Link>
                 <Link
                   href={nervous.toHref('/history')}

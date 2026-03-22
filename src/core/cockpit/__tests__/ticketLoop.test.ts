@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { deriveLiveCommandSurface, classifyBettorLegStatus } from '@/src/core/cockpit/ticketLoop';
+import {
+  deriveAfterCommandSurface,
+  deriveLiveCommandSurface,
+  classifyBettorLegStatus
+} from '@/src/core/cockpit/ticketLoop';
 import type { OpenTicket } from '@/src/core/live/openTickets';
 import type { PostmortemRecord } from '@/src/core/review/types';
+import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
 
 const baseTicket: OpenTicket = {
   ticketId: 'ticket-1',
@@ -67,6 +72,51 @@ const baseTicket: OpenTicket = {
   ]
 };
 
+const settledPostmortem: PostmortemRecord = {
+  ticketId: 'ticket-1',
+  trace_id: 'trace-1',
+  slip_id: 'slip-1',
+  createdAt: '2026-03-22T00:00:00.000Z',
+  settledAt: '2026-03-22T03:00:00.000Z',
+  status: 'lost',
+  cashoutTaken: undefined,
+  legs: [
+    {
+      legId: 'l1',
+      player: 'Jamal Murray',
+      statType: 'threes',
+      target: 2.5,
+      finalValue: 5,
+      delta: 2.5,
+      hit: true,
+      missTags: [],
+      missNarrative: 'Leg cleared the target.',
+      lessonHint: 'Keep process stable.'
+    },
+    {
+      legId: 'l2',
+      player: 'Aaron Gordon',
+      statType: 'rebounds',
+      target: 6.5,
+      finalValue: 6,
+      delta: -0.5,
+      hit: false,
+      missTags: ['bust_by_one'],
+      missNarrative: 'Missed by half a rebound and broke the close.',
+      lessonHint: 'Shave the line before stacking another rebound ladder.'
+    }
+  ],
+  coverage: { level: 'full', reasons: [] },
+  fragility: { score: 68, chips: ['High-variance market'] },
+  narrative: [
+    'Ticket settled lost.',
+    'Aaron Gordon was the biggest swing (-0.5 vs line).',
+    'Coverage held across all legs.'
+  ],
+  coachSnapshot: undefined,
+  nextTimeRule: undefined
+};
+
 describe('ticketLoop', () => {
   it('classifies bettor-readable live statuses conservatively', () => {
     expect(classifyBettorLegStatus(baseTicket.legs[0]!)).toBe('cleared');
@@ -97,30 +147,82 @@ describe('ticketLoop', () => {
     );
   });
 
-  it('falls back to after-state handoff copy when only a postmortem exists', () => {
-    const postmortem: PostmortemRecord = {
-      ticketId: 'ticket-1',
-      trace_id: 'trace-1',
-      slip_id: 'slip-1',
-      createdAt: '2026-03-22T00:00:00.000Z',
-      settledAt: '2026-03-22T03:00:00.000Z',
-      status: 'lost',
-      cashoutTaken: undefined,
-      legs: [],
-      coverage: { level: 'full', reasons: [] },
-      fragility: { score: 68, chips: ['High-variance market'] },
-      narrative: [
-        'Ticket settled lost.',
-        'Aaron Gordon was the biggest swing (-2.5 vs line).',
-        'Coverage held across all legs.'
-      ],
-      coachSnapshot: undefined,
-      nextTimeRule: undefined
+  it('derives a deterministic AFTER surface from post-settlement results', () => {
+    const surface = deriveAfterCommandSurface(settledPostmortem);
+
+    expect(surface?.stage).toBe('after');
+    expect(surface?.after?.outcomeLabel).toBe('Mixed');
+    expect(surface?.after?.winningLegHighlight?.player).toBe('Jamal Murray');
+    expect(surface?.after?.breakingLegHighlight?.player).toBe('Aaron Gordon');
+    expect(surface?.after?.nearMissHighlight).toMatch(/0.5 short/i);
+    expect(surface?.recommendation).toMatch(/line/i);
+  });
+
+  it('handles settled edge cases from tracked ticket state without faking precision', () => {
+    const trackedState: SlipTrackingState = {
+      slipId: 'slip-after',
+      trace_id: 'trace-after',
+      createdAtIso: '2026-03-22T00:00:00.000Z',
+      mode: 'demo',
+      status: 'settled',
+      legs: [
+        {
+          legId: 'a',
+          gameId: 'g1',
+          player: 'Player A',
+          market: 'points',
+          line: '20.5',
+          volatility: 'low',
+          outcome: 'hit',
+          currentValue: 24,
+          targetValue: 20.5,
+          updatedAtIso: '2026-03-22T02:00:00.000Z'
+        },
+        {
+          legId: 'b',
+          gameId: 'g2',
+          player: 'Player B',
+          market: 'assists',
+          line: '6.5',
+          volatility: 'medium',
+          outcome: 'push',
+          currentValue: 6.5,
+          targetValue: 6.5,
+          updatedAtIso: '2026-03-22T02:00:00.000Z'
+        },
+        {
+          legId: 'c',
+          gameId: 'g3',
+          player: 'Player C',
+          market: 'rebounds',
+          line: '8.5',
+          volatility: 'high',
+          outcome: 'void',
+          currentValue: 0,
+          targetValue: 8.5,
+          updatedAtIso: '2026-03-22T02:00:00.000Z'
+        }
+      ]
     };
 
-    const surface = deriveLiveCommandSurface(null, postmortem);
-    expect(surface?.stage).toBe('after');
-    expect(surface?.attention).toMatch(/biggest swing/i);
-    expect(surface?.recommendation).toMatch(/postmortem/i);
+    const surface = deriveAfterCommandSurface(trackedState);
+
+    expect(surface?.after?.outcomeLabel).toBe('Partial');
+    expect(surface?.legs.map((leg) => leg.status)).toEqual(
+      expect.arrayContaining(['cleared', 'push', 'void'])
+    );
+    expect(surface?.after?.nearMissHighlight).toBeNull();
+    expect(surface?.nextActionHref).toContain('/control?');
+  });
+
+  it('keeps DURING and AFTER continuity language aligned around strongest and weakest legs', () => {
+    const liveSurface = deriveLiveCommandSurface(baseTicket);
+    const afterSurface = deriveAfterCommandSurface(settledPostmortem);
+
+    expect(liveSurface?.attention).toMatch(/Strongest leg: Jamal Murray/i);
+    expect(liveSurface?.attention).toMatch(/Weakest leg: Aaron Gordon/i);
+    expect(afterSurface?.after?.winningLegHighlight?.player).toBe('Jamal Murray');
+    expect(afterSurface?.after?.breakingLegHighlight?.player).toBe('Aaron Gordon');
+    expect(afterSurface?.gameScript).toMatch(/strongest leg, weakest leg/i);
   });
 });
