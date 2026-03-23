@@ -20,12 +20,12 @@ const FIX_TYPE_LABELS = {
 const titleCase = (value: string) =>
   value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
-export function PreSubmitPatternWarningCard({
-  warning
-}: {
-  warning: PreSubmitPatternWarning;
-}) {
-  if (warning.warning_level === 'none' || warning.matched_patterns.length === 0) return null;
+export function PreSubmitPatternWarningCard({ warning }: { warning: PreSubmitPatternWarning }) {
+  if (
+    warning.warning_level === 'none' ||
+    (warning.matched_patterns.length === 0 && !warning.learning_advisory)
+  )
+    return null;
 
   return (
     <section
@@ -35,7 +35,7 @@ export function PreSubmitPatternWarningCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-amber-200/80">
-            Pre-submit pattern check
+            What similar settled tickets teach
           </p>
           <p className="mt-1 text-sm">{warning.recommendation_summary}</p>
         </div>
@@ -51,18 +51,41 @@ export function PreSubmitPatternWarningCard({
           </li>
         ))}
       </ul>
+      {warning.learning_advisory ? (
+        <div className="mt-3 grid gap-2 rounded-lg border border-white/10 bg-black/10 p-3 text-xs text-slate-200">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200/80">
+              Strongest repeated success
+            </p>
+            <p className="mt-1 text-sm text-slate-100">
+              {warning.learning_advisory.strongest_repeated_success}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-rose-200/80">
+              Most repeated break pattern
+            </p>
+            <p className="mt-1 text-sm text-slate-100">
+              {warning.learning_advisory.repeated_break_pattern}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-200/80">
+              Watch this before submitting
+            </p>
+            <p className="mt-1 text-sm text-cyan-100">{warning.learning_advisory.watch_note}</p>
+          </div>
+        </div>
+      ) : null}
       <p className="mt-2 text-[11px] text-slate-400">
-        Advisory only · Confidence {titleCase(warning.confidence_level)}
+        Advisory only · Confidence{' '}
+        {titleCase(warning.learning_advisory?.confidence_band ?? warning.confidence_level)}
       </p>
     </section>
   );
 }
 
-export function PreSubmitSuggestedFixesCard({
-  warning
-}: {
-  warning: PreSubmitPatternWarning;
-}) {
+export function PreSubmitSuggestedFixesCard({ warning }: { warning: PreSubmitPatternWarning }) {
   if (warning.warning_level === 'none' || warning.suggested_fixes.length === 0) return null;
 
   return (
@@ -83,7 +106,10 @@ export function PreSubmitSuggestedFixesCard({
       </div>
       <ul className="mt-3 space-y-2">
         {warning.suggested_fixes.slice(0, 3).map((fix) => (
-          <li key={`${fix.fix_type}-${fix.affected_legs.join('-')}-${fix.title}`} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <li
+            key={`${fix.fix_type}-${fix.affected_legs.join('-')}-${fix.title}`}
+            className="rounded-lg border border-white/10 bg-white/[0.03] p-3"
+          >
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-slate-50">{fix.title}</p>
               <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-300">

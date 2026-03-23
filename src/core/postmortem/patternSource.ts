@@ -5,6 +5,15 @@ import {
   type BettorMistakePatternSummary,
   type ReviewedAttributionRecord
 } from '@/src/core/postmortem/patterns';
+import {
+  buildDraftLearningAdvisory,
+  extractLearningArtifactFromPostmortem,
+  extractLearningArtifactFromReviewedRecord,
+  type DraftLearningAdvisory,
+  type SettledLearningArtifact
+} from '@/src/core/postmortem/learning';
+import { listPostmortems } from '@/src/core/review/store';
+import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 
 const REVIEWED_ATTRIBUTIONS_KEY = 'rb:reviewed-attributions:v1';
 const MAX_RECORDS = 100;
@@ -52,4 +61,19 @@ export function saveReviewedAttribution(input: {
 
 export function getBettorMistakePatternSummary(): BettorMistakePatternSummary {
   return summarizeBettorMistakePatterns(listReviewedAttributions());
+}
+
+export function listLearningArtifacts(): SettledLearningArtifact[] {
+  const reviewedArtifacts = listReviewedAttributions().map(
+    extractLearningArtifactFromReviewedRecord
+  );
+  const settledArtifacts = listPostmortems().map(extractLearningArtifactFromPostmortem);
+
+  return [...reviewedArtifacts, ...settledArtifacts].sort(
+    (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
+  );
+}
+
+export function getDraftLearningAdvisory(slip: SlipBuilderLeg[]): DraftLearningAdvisory | null {
+  return buildDraftLearningAdvisory(listLearningArtifacts(), slip);
 }

@@ -1,5 +1,6 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import type { BettorMistakePatternSummary } from '@/src/core/postmortem/patterns';
+import type { DraftLearningAdvisory } from '@/src/core/postmortem/learning';
 import type { CauseTag, ConfidenceLevel } from '@/src/core/postmortem/attribution';
 
 export type PreSubmitWarningLevel = 'high' | 'medium' | 'low' | 'none';
@@ -31,6 +32,7 @@ export type PreSubmitPatternWarning = {
   suggested_fixes: PreSubmitSuggestedFix[];
   sample_size: number;
   confidence_level: ConfidenceLevel;
+  learning_advisory?: DraftLearningAdvisory | null;
   suppression_reason?: string;
 };
 
@@ -41,7 +43,14 @@ const MAX_SUGGESTED_FIXES = 3;
 const TRIM_LEG_COUNT_THRESHOLD = 5;
 
 const AGGRESSIVE_MARKETS = new Set<SlipBuilderLeg['marketType']>(['points', 'threes', 'assists']);
-const OVER_STYLE_MARKETS = new Set<SlipBuilderLeg['marketType']>(['points', 'threes', 'assists', 'rebounds', 'pra', 'ra']);
+const OVER_STYLE_MARKETS = new Set<SlipBuilderLeg['marketType']>([
+  'points',
+  'threes',
+  'assists',
+  'rebounds',
+  'pra',
+  'ra'
+]);
 const BLOWOUT_SWAP_MARKETS = new Set<SlipBuilderLeg['marketType']>(['points', 'threes']);
 
 const parseLine = (value: string): number | null => {
@@ -121,8 +130,10 @@ function warningLevelFor(input: {
   sampleSize: number;
 }): PreSubmitWarningLevel {
   if (input.matchCount === 0) return 'none';
-  if (input.confidenceLevel === 'high' && input.matchCount >= 2 && input.sampleSize >= 4) return 'high';
-  if (input.sampleSize >= MIN_HISTORY_FOR_MEDIUM && input.confidenceLevel !== 'low') return 'medium';
+  if (input.confidenceLevel === 'high' && input.matchCount >= 2 && input.sampleSize >= 4)
+    return 'high';
+  if (input.sampleSize >= MIN_HISTORY_FOR_MEDIUM && input.confidenceLevel !== 'low')
+    return 'medium';
   return 'low';
 }
 
@@ -145,7 +156,9 @@ function pickLowestConfidenceLegs(legs: SlipBuilderLeg[], count: number): SlipBu
       const confidenceDiff = (a.confidence ?? -1) - (b.confidence ?? -1);
       if (confidenceDiff !== 0) return confidenceDiff;
       const volatilityRank = { high: 0, medium: 1, low: 2 } as const;
-      const volatilityDiff = (volatilityRank[a.volatility ?? 'medium'] ?? 1) - (volatilityRank[b.volatility ?? 'medium'] ?? 1);
+      const volatilityDiff =
+        (volatilityRank[a.volatility ?? 'medium'] ?? 1) -
+        (volatilityRank[b.volatility ?? 'medium'] ?? 1);
       if (volatilityDiff !== 0) return volatilityDiff;
       return a.id.localeCompare(b.id);
     })
@@ -167,11 +180,15 @@ function buildSuggestedFixes(input: {
 }): PreSubmitSuggestedFix[] {
   const fixCandidates: RankedFix[] = [];
   const pushFix = (fix: Omit<RankedFix, 'rankingScore'>) => {
-    fixCandidates.push({ ...fix, rankingScore: fix.riskReductionScore * 100 + fix.simplicityScore * 10 + fix.alignmentScore });
+    fixCandidates.push({
+      ...fix,
+      rankingScore: fix.riskReductionScore * 100 + fix.simplicityScore * 10 + fix.alignmentScore
+    });
   };
 
   const confidenceLevel: ConfidenceLevel =
-    input.patternSummary.sample_size < MIN_HISTORY_FOR_MEDIUM || input.patternSummary.confidence_level === 'low'
+    input.patternSummary.sample_size < MIN_HISTORY_FOR_MEDIUM ||
+    input.patternSummary.confidence_level === 'low'
       ? 'low'
       : input.patternSummary.confidence_level;
   const matchedTags = new Set(input.matches.map((match) => match.tag));
@@ -179,7 +196,9 @@ function buildSuggestedFixes(input: {
   if (matchedTags.has('line_too_aggressive') && input.signals.aggressiveLegs.length >= 2) {
     const aggressiveTargets = [...input.signals.aggressiveLegs]
       .sort((a, b) => {
-        const oddsDiff = (parseOdds(b.odds) ?? Number.NEGATIVE_INFINITY) - (parseOdds(a.odds) ?? Number.NEGATIVE_INFINITY);
+        const oddsDiff =
+          (parseOdds(b.odds) ?? Number.NEGATIVE_INFINITY) -
+          (parseOdds(a.odds) ?? Number.NEGATIVE_INFINITY);
         if (oddsDiff !== 0) return oddsDiff;
         const lineDiff = (parseLine(b.line) ?? 0) - (parseLine(a.line) ?? 0);
         if (lineDiff !== 0) return lineDiff;
@@ -220,7 +239,10 @@ function buildSuggestedFixes(input: {
   }
 
   if (matchedTags.has('correlated_legs') && input.signals.correlatedLegs.length >= 2) {
-    const correlationTargets = pickLowestConfidenceLegs(input.signals.correlatedLegs, Math.min(2, input.signals.correlatedLegs.length));
+    const correlationTargets = pickLowestConfidenceLegs(
+      input.signals.correlatedLegs,
+      Math.min(2, input.signals.correlatedLegs.length)
+    );
     pushFix({
       fix_type: 'reduce_correlation',
       title: 'Break one same-script dependency',
@@ -234,7 +256,9 @@ function buildSuggestedFixes(input: {
       simplicityScore: 4
     });
 
-    const swapTargets = input.signals.correlatedLegs.filter((leg) => AGGRESSIVE_MARKETS.has(leg.marketType)).slice(0, 2);
+    const swapTargets = input.signals.correlatedLegs
+      .filter((leg) => AGGRESSIVE_MARKETS.has(leg.marketType))
+      .slice(0, 2);
     if (swapTargets.length >= 1) {
       pushFix({
         fix_type: 'swap_stat_type',
@@ -252,7 +276,10 @@ function buildSuggestedFixes(input: {
   }
 
   if (matchedTags.has('blowout_minutes_risk') && input.signals.blowoutLegs.length >= 1) {
-    const blowoutTargets = pickLowestConfidenceLegs(input.signals.blowoutLegs, Math.min(2, input.signals.blowoutLegs.length));
+    const blowoutTargets = pickLowestConfidenceLegs(
+      input.signals.blowoutLegs,
+      Math.min(2, input.signals.blowoutLegs.length)
+    );
     pushFix({
       fix_type: 'reduce_blowout_exposure',
       title: 'Reduce starter-over blowout exposure',
@@ -268,7 +295,9 @@ function buildSuggestedFixes(input: {
       simplicityScore: 4
     });
 
-    const swapTargets = input.signals.blowoutLegs.filter((leg) => BLOWOUT_SWAP_MARKETS.has(leg.marketType)).slice(0, 2);
+    const swapTargets = input.signals.blowoutLegs
+      .filter((leg) => BLOWOUT_SWAP_MARKETS.has(leg.marketType))
+      .slice(0, 2);
     if (swapTargets.length >= 1) {
       pushFix({
         fix_type: 'swap_stat_type',
@@ -305,12 +334,13 @@ function buildSuggestedFixes(input: {
 
   return fixCandidates
     .sort((a, b) => b.rankingScore - a.rankingScore || a.title.localeCompare(b.title))
-    .filter((fix, index, fixes) =>
-      fixes.findIndex(
-        (candidate) =>
-          candidate.fix_type === fix.fix_type &&
-          candidate.affected_legs.join('|') === fix.affected_legs.join('|')
-      ) === index
+    .filter(
+      (fix, index, fixes) =>
+        fixes.findIndex(
+          (candidate) =>
+            candidate.fix_type === fix.fix_type &&
+            candidate.affected_legs.join('|') === fix.affected_legs.join('|')
+        ) === index
     )
     .slice(0, MAX_SUGGESTED_FIXES)
     .map((fix) => ({
@@ -325,13 +355,14 @@ function buildSuggestedFixes(input: {
 
 function collectSignals(slip: SlipBuilderLeg[]): SlipPatternSignals {
   const aggressiveLegs = slip.filter(lineLooksAggressive);
-  const sameGameKey = Object.entries(
-    slip.reduce<Record<string, SlipBuilderLeg[]>>((acc, leg) => {
-      const key = normalizeText(leg.game) || 'unknown';
-      acc[key] = [...(acc[key] ?? []), leg];
-      return acc;
-    }, {})
-  ).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))[0]?.[1] ?? [];
+  const sameGameKey =
+    Object.entries(
+      slip.reduce<Record<string, SlipBuilderLeg[]>>((acc, leg) => {
+        const key = normalizeText(leg.game) || 'unknown';
+        acc[key] = [...(acc[key] ?? []), leg];
+        return acc;
+      }, {})
+    ).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))[0]?.[1] ?? [];
 
   const playerGroups = Object.values(
     slip.reduce<Record<string, SlipBuilderLeg[]>>((acc, leg) => {
@@ -341,15 +372,13 @@ function collectSignals(slip: SlipBuilderLeg[]): SlipPatternSignals {
       return acc;
     }, {})
   );
-  const duplicatedPlayers = playerGroups
-    .filter((group) => group.length >= 2)
-    .sort((a, b) => b.length - a.length || a[0]!.player.localeCompare(b[0]!.player))[0] ?? [];
+  const duplicatedPlayers =
+    playerGroups
+      .filter((group) => group.length >= 2)
+      .sort((a, b) => b.length - a.length || a[0]!.player.localeCompare(b[0]!.player))[0] ?? [];
 
-  const correlatedLegs = duplicatedPlayers.length >= 2
-    ? duplicatedPlayers
-    : sameGameKey.length >= 2
-      ? sameGameKey
-      : [];
+  const correlatedLegs =
+    duplicatedPlayers.length >= 2 ? duplicatedPlayers : sameGameKey.length >= 2 ? sameGameKey : [];
 
   const blowoutLegs = slip.filter((leg) => legLooksLikeStarterOver(leg) && blowoutSignal(leg));
   return { aggressiveLegs, correlatedLegs, blowoutLegs };
@@ -358,13 +387,18 @@ function collectSignals(slip: SlipBuilderLeg[]): SlipPatternSignals {
 export function buildPreSubmitPatternWarning(input: {
   slip: SlipBuilderLeg[];
   patternSummary: BettorMistakePatternSummary;
+  learningAdvisory?: DraftLearningAdvisory | null;
 }): PreSubmitPatternWarning {
-  const { slip, patternSummary } = input;
+  const { slip, patternSummary, learningAdvisory } = input;
   const base = {
     sample_size: patternSummary.sample_size,
     confidence_level: patternSummary.confidence_level,
-    suggested_fixes: []
-  } satisfies Pick<PreSubmitPatternWarning, 'sample_size' | 'confidence_level' | 'suggested_fixes'>;
+    suggested_fixes: [],
+    learning_advisory: learningAdvisory ?? null
+  } satisfies Pick<
+    PreSubmitPatternWarning,
+    'sample_size' | 'confidence_level' | 'suggested_fixes' | 'learning_advisory'
+  >;
 
   if (slip.length === 0) {
     return {
@@ -380,7 +414,8 @@ export function buildPreSubmitPatternWarning(input: {
     return {
       warning_level: 'none',
       matched_patterns: [],
-      recommendation_summary: 'No reviewed slip history yet, so no pre-submit pattern warning is available.',
+      recommendation_summary:
+        'No reviewed slip history yet, so no pre-submit pattern warning is available.',
       suppression_reason: 'no_reviewed_history',
       ...base
     };
@@ -412,7 +447,11 @@ export function buildPreSubmitPatternWarning(input: {
   const teamishDuplicateCount = slip.length - uniqueCount(slip.map((leg) => leg.game));
   const correlatedLegCount =
     sameGameCount >= 2 || playerDuplicateCount > 0 || teamishDuplicateCount > 0
-      ? Math.max(sameGameCount, playerDuplicateCount + 1, Math.min(slip.length, teamishDuplicateCount + 1))
+      ? Math.max(
+          sameGameCount,
+          playerDuplicateCount + 1,
+          Math.min(slip.length, teamishDuplicateCount + 1)
+        )
       : 0;
 
   const matches: PreSubmitMatchedPattern[] = [];
@@ -440,10 +479,24 @@ export function buildPreSubmitPatternWarning(input: {
 
   const matchedPatterns = matches.slice(0, MAX_MATCHED_PATTERNS);
   if (matchedPatterns.length === 0) {
+    if (learningAdvisory) {
+      return {
+        ...base,
+        warning_level: 'low',
+        matched_patterns: [],
+        recommendation_summary:
+          'Similar settled tickets do not support a direct recurring warning tag here, but they do preserve one compact watch note for this draft.',
+        suggested_fixes: [],
+        confidence_level: learningAdvisory.confidence_band,
+        learning_advisory: learningAdvisory
+      };
+    }
+
     return {
       warning_level: 'none',
       matched_patterns: [],
-      recommendation_summary: 'No recurring reviewed pattern is close enough to this slip to show a warning.',
+      recommendation_summary:
+        'No recurring reviewed pattern is close enough to this slip to show a warning.',
       suppression_reason: 'no_pattern_match',
       ...base
     };
