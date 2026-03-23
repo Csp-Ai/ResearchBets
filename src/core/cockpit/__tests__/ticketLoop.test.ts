@@ -142,6 +142,7 @@ describe('ticketLoop', () => {
     expect(surface?.weakestLeg?.player).toBe('Aaron Gordon');
     expect(surface?.ticketPressure.label).toBe('One-leg fragile');
     expect(surface?.lifecycleRisk.primaryDriver).toBe('correlated_stack_pressure');
+    expect(surface?.actionGuidance.action_label).toMatch(/monitor closely/i);
     expect(surface?.attention).toMatch(/Strongest leg/i);
     expect(surface?.legs.map((leg) => leg.status)).toEqual(
       expect.arrayContaining(['cleared', 'behind pace'])
@@ -157,7 +158,8 @@ describe('ticketLoop', () => {
     expect(surface?.after?.winningLegHighlight?.player).toBe('Jamal Murray');
     expect(surface?.after?.breakingLegHighlight?.player).toBe('Aaron Gordon');
     expect(surface?.after?.nearMissHighlight).toMatch(/0.5 short/i);
-    expect(surface?.recommendation).toMatch(/line/i);
+    expect(surface?.after?.actionGuidance.action_label).toMatch(/review postmortem/i);
+    expect(surface?.recommendation).toMatch(/review postmortem/i);
   });
 
   it('handles settled edge cases from tracked ticket state without faking precision', () => {

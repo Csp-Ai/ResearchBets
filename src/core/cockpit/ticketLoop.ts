@@ -2,6 +2,8 @@ import type { OpenTicket, LiveLegState } from '@/src/core/live/openTickets';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import type { SlipTrackingState, TrackedLegState } from '@/src/core/slips/trackingTypes';
 import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
+import type { LifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
+import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
 import { deriveAfterLifecycleRisk, deriveLiveLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
 export type BettorLegStatus =
@@ -45,6 +47,7 @@ export type TicketPressureSummary = {
 
 export type AfterCommandSurface = {
   lifecycleRisk: LifecycleRisk;
+  actionGuidance: LifecycleActionGuidance;
   outcomeLabel: 'Won' | 'Lost' | 'Partial' | 'Void' | 'Mixed' | 'Review';
   outcomeTone: AfterOutcomeTone;
   closingHeadline: string;
@@ -58,6 +61,7 @@ export type AfterCommandSurface = {
 
 export type LiveCommandSurface = {
   lifecycleRisk: LifecycleRisk;
+  actionGuidance: LifecycleActionGuidance;
   stage: TicketLoopStage;
   headline: string;
   badge: string;
@@ -120,8 +124,16 @@ const stablePressure: TicketPressureSummary = {
   tone: 'steady'
 };
 
-function pressureSummaryFromRisk(risk: LifecycleRisk, fallback: TicketPressureSummary): TicketPressureSummary {
-  const tone = risk.level === 'high-pressure' ? 'urgent' : risk.level === 'fragile' || risk.level === 'watch' ? 'watch' : 'steady';
+function pressureSummaryFromRisk(
+  risk: LifecycleRisk,
+  fallback: TicketPressureSummary
+): TicketPressureSummary {
+  const tone =
+    risk.level === 'high-pressure'
+      ? 'urgent'
+      : risk.level === 'fragile' || risk.level === 'watch'
+        ? 'watch'
+        : 'steady';
   return {
     label:
       risk.level === 'stable'
@@ -399,14 +411,30 @@ export function deriveAfterCommandSurface(
   const decidedBy = describeDecidingLeg(breakingLeg, outcomeLabel);
   const nearMissHighlight = buildNearMissHighlight(source, breakingLeg);
   const lesson = buildLesson(source, outcomeLabel, breakingLeg);
+  const afterOutcome =
+    outcomeLabel === 'Won'
+      ? 'won'
+      : outcomeLabel === 'Lost'
+        ? 'lost'
+        : outcomeLabel === 'Void'
+          ? 'void'
+          : outcomeLabel === 'Partial'
+            ? 'partial'
+            : 'mixed';
   const lifecycleRisk = deriveAfterLifecycleRisk({
     postmortem: 'settledAt' in sourceInput ? sourceInput : undefined,
-    outcome: outcomeLabel === 'Won' ? 'won' : outcomeLabel === 'Void' ? 'void' : outcomeLabel === 'Partial' ? 'partial' : 'mixed'
+    outcome: afterOutcome
+  });
+  const actionGuidance = deriveLifecycleActionGuidance({
+    risk: lifecycleRisk,
+    stage: 'after',
+    outcome: afterOutcome
   });
 
   return {
     stage: 'after',
     lifecycleRisk,
+    actionGuidance,
     headline: lifecycleRisk.headline,
     badge: outcomeLabel,
     attention: decidedBy,
@@ -418,12 +446,13 @@ export function deriveAfterCommandSurface(
     strongestLeg: winningLegHighlight,
     weakestLeg: breakingLegHighlight,
     primaryFailurePoint: breakingLegHighlight?.why ?? decidedBy,
-    recommendation: lesson,
+    recommendation: `${actionGuidance.action_label} · ${actionGuidance.action_rationale}`,
     nextActionLabel: nextAction.label,
     nextActionHref: nextAction.nextActionHref,
     legs: annotated,
     after: {
       lifecycleRisk,
+      actionGuidance,
       outcomeLabel,
       outcomeTone,
       closingHeadline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
@@ -596,9 +625,13 @@ export function deriveLiveCommandSurface(
   const weakestLeg = annotated.find((leg) => leg.isWeakest) ?? null;
   const defaultPressure = summarizeTicketPressure(annotated);
   const lifecycleRisk = deriveLiveLifecycleRisk({
-    behindCount: annotated.filter((leg) => ['slightly behind', 'behind pace', 'critical', 'awaiting movement'].includes(leg.status)).length,
+    behindCount: annotated.filter((leg) =>
+      ['slightly behind', 'behind pace', 'critical', 'awaiting movement'].includes(leg.status)
+    ).length,
     criticalCount: annotated.filter((leg) => leg.status === 'critical').length,
-    carryingCount: annotated.filter((leg) => ['cleared', 'ahead of pace', 'on pace', 'needs one event'].includes(leg.status)).length,
+    carryingCount: annotated.filter((leg) =>
+      ['cleared', 'ahead of pace', 'on pace', 'needs one event'].includes(leg.status)
+    ).length,
     sameGameStack: new Set(ticket.legs.map((leg) => leg.gameId)).size < ticket.legs.length,
     volatileLegs: ticket.legs.filter((leg) => leg.volatility === 'high').length,
     minutesRiskLegs: ticket.legs.filter((leg) => leg.minutesRisk).length,
@@ -607,22 +640,19 @@ export function deriveLiveCommandSurface(
     pregameLevel: null
   });
   const ticketPressure = pressureSummaryFromRisk(lifecycleRisk, defaultPressure);
+  const actionGuidance = deriveLifecycleActionGuidance({ risk: lifecycleRisk, stage: 'during' });
   const gameScript = deriveGameScript(ticket, ticketPressure);
   const attention =
     strongestLeg && weakestLeg
       ? `Strongest leg: ${strongestLeg.player} ${strongestLeg.marketLabel} — ${strongestLeg.status}. Weakest leg: ${weakestLeg.player} ${weakestLeg.marketLabel} — ${weakestLeg.status}.`
       : 'Track the live ticket and watch for the weakest leg to separate.';
   const primaryFailurePoint = weakestLeg?.why ?? 'No failure point identified yet.';
-  const recommendation =
-    ticketPressure.tone === 'urgent'
-      ? 'Stay on the weakest leg first; the rest of the ticket matters less until it stabilizes.'
-      : ticketPressure.tone === 'watch'
-        ? 'Keep the carrying leg in view, but watch the weak spot for the next swing.'
-        : 'The ticket is holding shape. Keep watching for a late-game script change.';
+  const recommendation = `${actionGuidance.action_label} · ${actionGuidance.action_rationale}`;
 
   return {
     stage: 'live',
     lifecycleRisk,
+    actionGuidance,
     headline: 'Live ticket command center',
     badge: ticketPressure.label,
     attention,
