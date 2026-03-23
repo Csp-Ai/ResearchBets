@@ -229,6 +229,8 @@ describe('ReviewPanel', () => {
     expect(screen.getByText('Late Game Inactivity')).toBeTruthy();
     expect(screen.getByText(/most exposed to Victor Wembanyama rebounds/i)).toBeTruthy();
     expect(screen.getByText(/^Review postmortem$/i)).toBeTruthy();
+    expect(screen.getByText(/why/i)).toBeTruthy();
+    expect(screen.getByText(/late-game dependency is still deciding too much/i)).toBeTruthy();
     expect(
       screen.getByText(
         /late-game dependency showed up before settlement and still carried through/i

@@ -2,6 +2,7 @@
 
 import type { PreSubmitPatternWarning } from '@/src/core/slips/preSubmitPatternWarning';
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
+import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
 
 const LEVEL_STYLES: Record<PreSubmitPatternWarning['warning_level'], string> = {
   high: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
@@ -24,6 +25,7 @@ const titleCase = (value: string) =>
 function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
   const risk = warning.lifecycle_risk;
   const guidance = deriveLifecycleActionGuidance({ risk, stage: 'before' });
+  const evidence = deriveLifecycleEvidence({ risk, guidance, stage: 'before' });
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
@@ -58,6 +60,16 @@ function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
         <p className="mt-1 text-xs text-slate-300">{guidance.action_rationale}</p>
         {guidance.continuity_note ? (
           <p className="mt-1 text-[11px] text-cyan-200/90">{guidance.continuity_note}</p>
+        ) : null}
+        <div className="mt-2 border-t border-white/10 pt-2 text-[11px] text-slate-300">
+          <span className="text-slate-400">Why · </span>
+          <span>{evidence.primary_evidence.label}</span>
+          {evidence.secondary_evidence ? (
+            <span className="text-slate-400"> · Also {evidence.secondary_evidence.label}</span>
+          ) : null}
+        </div>
+        {evidence.reliability_note ? (
+          <p className="mt-1 text-[11px] text-cyan-200/90">{evidence.reliability_note}</p>
         ) : null}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">

@@ -316,6 +316,25 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                       </span>
                     ) : null}
                   </div>
+                  {command?.actionEvidence ? (
+                    <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/60 p-3 text-xs">
+                      <p className="uppercase tracking-[0.18em] text-slate-400">Why</p>
+                      <p className="mt-2 text-slate-100">{command.actionEvidence.primary_evidence.label}</p>
+                      {command.actionEvidence.secondary_evidence ? (
+                        <p className="mt-1 text-slate-400">
+                          Also {command.actionEvidence.secondary_evidence.label}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-cyan-100">
+                        {command.actionEvidence.continuity_evidence ?? command.actionEvidence.stage_note}
+                      </p>
+                      {command.actionEvidence.reliability_note ? (
+                        <p className="mt-1 text-slate-400">
+                          {command.actionEvidence.reliability_note}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <DuringCoach ticket={ticket} compact={!sweatMode} />
 

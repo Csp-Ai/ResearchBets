@@ -3,6 +3,7 @@
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
+import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
 import { deriveAfterLifecycleRisk, driverFromCauseTag } from '@/src/core/slips/lifecycleRisk';
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
@@ -131,7 +132,18 @@ export function ReviewPanel({
         ? 'won'
         : postmortem?.attribution?.outcome === 'loss'
           ? 'lost'
-          : undefined
+        : undefined
+  });
+  const afterEvidence = deriveLifecycleEvidence({
+    risk: afterLifecycleRisk,
+    guidance: afterGuidance,
+    stage: 'after',
+    continuity: {
+      weakest_leg_label: weakestLegAttribution?.player ?? null,
+      repeated_break_pattern: Boolean(patternSummary?.common_failure_mode),
+      push_void_heavy:
+        postmortem?.attribution?.outcome === 'push' || postmortem?.attribution?.outcome === 'partial'
+    }
   });
   const shouldShowPatternSummary = Boolean(
     patternSummary &&
@@ -209,6 +221,25 @@ export function ReviewPanel({
           <p className="mt-1 text-xs text-slate-300">{afterGuidance.action_rationale}</p>
           {afterGuidance.continuity_note ? (
             <p className="mt-1 text-[11px] text-cyan-200/90">{afterGuidance.continuity_note}</p>
+          ) : null}
+        </div>
+        <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.02] p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300">
+              Why
+            </span>
+            <span className="text-xs text-slate-100">{afterEvidence.primary_evidence.label}</span>
+            {afterEvidence.secondary_evidence ? (
+              <span className="text-xs text-slate-400">
+                Also {afterEvidence.secondary_evidence.label}
+              </span>
+            ) : null}
+          </div>
+          {afterEvidence.continuity_evidence ? (
+            <p className="mt-1 text-[11px] text-cyan-200/90">{afterEvidence.continuity_evidence}</p>
+          ) : null}
+          {afterEvidence.reliability_note ? (
+            <p className="mt-1 text-[11px] text-slate-400">{afterEvidence.reliability_note}</p>
           ) : null}
         </div>
       </div>

@@ -4,6 +4,8 @@ import type { SlipTrackingState, TrackedLegState } from '@/src/core/slips/tracki
 import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 import type { LifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
+import type { LifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
+import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
 import { deriveAfterLifecycleRisk, deriveLiveLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
 export type BettorLegStatus =
@@ -48,6 +50,7 @@ export type TicketPressureSummary = {
 export type AfterCommandSurface = {
   lifecycleRisk: LifecycleRisk;
   actionGuidance: LifecycleActionGuidance;
+  actionEvidence: LifecycleEvidence;
   outcomeLabel: 'Won' | 'Lost' | 'Partial' | 'Void' | 'Mixed' | 'Review';
   outcomeTone: AfterOutcomeTone;
   closingHeadline: string;
@@ -62,6 +65,7 @@ export type AfterCommandSurface = {
 export type LiveCommandSurface = {
   lifecycleRisk: LifecycleRisk;
   actionGuidance: LifecycleActionGuidance;
+  actionEvidence: LifecycleEvidence;
   stage: TicketLoopStage;
   headline: string;
   badge: string;
@@ -430,11 +434,26 @@ export function deriveAfterCommandSurface(
     stage: 'after',
     outcome: afterOutcome
   });
+  const voidHeavyCount = source.legs.filter(
+    (leg) => leg.status === 'void' || leg.status === 'push'
+  ).length;
+  const actionEvidence = deriveLifecycleEvidence({
+    risk: lifecycleRisk,
+    guidance: actionGuidance,
+    stage: 'after',
+    continuity: {
+      strongest_leg_label: winningLeg?.player ?? null,
+      weakest_leg_label: breakingLeg?.player ?? null,
+      mixed_outcome: outcomeLabel === 'Mixed' || outcomeLabel === 'Partial',
+      push_void_heavy: source.legs.length > 0 && voidHeavyCount >= Math.ceil(source.legs.length / 2)
+    }
+  });
 
   return {
     stage: 'after',
     lifecycleRisk,
     actionGuidance,
+    actionEvidence,
     headline: lifecycleRisk.headline,
     badge: outcomeLabel,
     attention: decidedBy,
@@ -453,6 +472,7 @@ export function deriveAfterCommandSurface(
     after: {
       lifecycleRisk,
       actionGuidance,
+      actionEvidence,
       outcomeLabel,
       outcomeTone,
       closingHeadline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
@@ -641,6 +661,15 @@ export function deriveLiveCommandSurface(
   });
   const ticketPressure = pressureSummaryFromRisk(lifecycleRisk, defaultPressure);
   const actionGuidance = deriveLifecycleActionGuidance({ risk: lifecycleRisk, stage: 'during' });
+  const actionEvidence = deriveLifecycleEvidence({
+    risk: lifecycleRisk,
+    guidance: actionGuidance,
+    stage: 'during',
+    continuity: {
+      strongest_leg_label: strongestLeg?.player ?? null,
+      weakest_leg_label: weakestLeg?.player ?? null
+    }
+  });
   const gameScript = deriveGameScript(ticket, ticketPressure);
   const attention =
     strongestLeg && weakestLeg
@@ -653,6 +682,7 @@ export function deriveLiveCommandSurface(
     stage: 'live',
     lifecycleRisk,
     actionGuidance,
+    actionEvidence,
     headline: 'Live ticket command center',
     badge: ticketPressure.label,
     attention,
