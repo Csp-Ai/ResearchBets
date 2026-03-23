@@ -102,3 +102,4 @@ Audit and operations docs:
 - When OCR/parser certainty is unavailable, the app uses an explicit `demo-parser-v1` contract and labels outputs as `needs_review` instead of presenting them as verified truth.
 - `/profile` now acts as the bettor-facing Performance Intelligence surface, while `/history` acts as the bettor memory archive.
 - `/profile`, `/history`, and `/api/postmortem` now expose deterministic verified-coverage metadata so bettors can see how much of analytics and post-mortems are backed by bettor-reviewed records versus parser/demo/failure states.
+- Ticket thesis composition now lives in `src/core/slips/ticketThesis.ts`, which composes the canonical lifecycle risk/action/evidence spine into one compact bettor-facing narrative reused across BEFORE (`/slip`), DURING (`/track`), and AFTER (`/control`, `/review`) surfaces.

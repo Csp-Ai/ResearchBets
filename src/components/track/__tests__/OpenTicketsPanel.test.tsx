@@ -20,7 +20,7 @@ describe('OpenTicketsPanel', () => {
     expect(screen.getByText(/Tracked ticket #1/)).toBeTruthy();
     expect(screen.getAllByText(/Strongest leg/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Weakest leg/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Ticket pressure:/i)).toBeTruthy();
+    expect(screen.getByText(/live read is still watchful, not broken|ticket is now under pressure live|original ticket thesis is still holding live/i)).toBeTruthy();
     expect(screen.getByTestId('exposure-row')).toBeTruthy();
   });
 

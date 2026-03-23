@@ -33,9 +33,10 @@ describe('SlipIntelBar', () => {
     );
 
     expect(screen.getByTestId('slip-risk-panel')).toBeTruthy();
-    expect(screen.getByText(/supporting readout/i)).toBeTruthy();
+    expect(screen.getByText(/ticket thesis/i)).toBeTruthy();
     expect(screen.getByText(/signal/i)).toBeTruthy();
-    expect(screen.getByText(/next step/i)).toBeTruthy();
+    expect(screen.getByText(/next step ·/i)).toBeTruthy();
+    expect(screen.getByText(/thin evidence keeps this ticket advisory-only/i)).toBeTruthy();
     expect(screen.getByText(/support behind the read is still thin/i)).toBeTruthy();
   });
 

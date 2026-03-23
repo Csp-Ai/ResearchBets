@@ -144,7 +144,8 @@ describe('ticketLoop', () => {
     expect(surface?.lifecycleRisk.primaryDriver).toBe('correlated_stack_pressure');
     expect(surface?.actionGuidance.action_label).toMatch(/monitor closely/i);
     expect(surface?.actionEvidence.primary_evidence.label).toMatch(/correlated scoring dependency/i);
-    expect(surface?.actionEvidence.stage_note).toMatch(/Jamal Murray|Aaron Gordon/i);
+    expect(surface?.ticketThesis.headline).toMatch(/under pressure live|holding live/i);
+    expect(surface?.ticketThesis.continuity_read).toMatch(/Jamal Murray|Aaron Gordon/i);
     expect(surface?.attention).toMatch(/Strongest leg/i);
     expect(surface?.legs.map((leg) => leg.status)).toEqual(
       expect.arrayContaining(['cleared', 'behind pace'])
@@ -161,7 +162,8 @@ describe('ticketLoop', () => {
     expect(surface?.after?.breakingLegHighlight?.player).toBe('Aaron Gordon');
     expect(surface?.after?.nearMissHighlight).toMatch(/0.5 short/i);
     expect(surface?.after?.actionGuidance.action_label).toMatch(/review postmortem/i);
-    expect(surface?.after?.actionEvidence.continuity_evidence).toMatch(/carry-through/i);
+    expect(surface?.after?.ticketThesis.thesis_status).toBe('mixed_close');
+    expect(surface?.after?.ticketThesis.continuity_read).toMatch(/carry-through|matched the final break pattern/i);
     expect(surface?.recommendation).toMatch(/review postmortem/i);
   });
 

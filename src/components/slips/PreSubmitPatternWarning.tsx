@@ -3,6 +3,7 @@
 import type { PreSubmitPatternWarning } from '@/src/core/slips/preSubmitPatternWarning';
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
 import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
+import { deriveTicketThesis } from '@/src/core/slips/ticketThesis';
 
 const LEVEL_STYLES: Record<PreSubmitPatternWarning['warning_level'], string> = {
   high: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
@@ -26,6 +27,7 @@ function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
   const risk = warning.lifecycle_risk;
   const guidance = deriveLifecycleActionGuidance({ risk, stage: 'before' });
   const evidence = deriveLifecycleEvidence({ risk, guidance, stage: 'before' });
+  const thesis = deriveTicketThesis({ stage: 'before', risk, guidance, evidence });
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
@@ -45,35 +47,33 @@ function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
           Reliability {titleCase(risk.reliability)}
         </span>
       </div>
-      <p className="mt-2 text-sm text-slate-100">{risk.headline}</p>
-      <p className="mt-1 text-xs text-slate-300">{risk.detail}</p>
+      <p className="mt-2 text-sm text-slate-100">{thesis.headline}</p>
+      <p className="mt-1 text-xs text-slate-300">{thesis.subheadline}</p>
       <div className="mt-2 rounded-lg border border-cyan-400/15 bg-cyan-400/5 p-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-cyan-100">
             Next step
           </span>
-          <span className="text-xs font-medium text-cyan-100">{guidance.action_label}</span>
+          <span className="text-xs font-medium text-cyan-100">{thesis.recommended_next_step}</span>
           <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-400">
             Reliability {titleCase(guidance.reliability_band)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-slate-300">{guidance.action_rationale}</p>
-        {guidance.continuity_note ? (
-          <p className="mt-1 text-[11px] text-cyan-200/90">{guidance.continuity_note}</p>
-        ) : null}
+        <p className="mt-1 text-xs text-slate-300">{thesis.current_thesis}</p>
+        <p className="mt-1 text-[11px] text-cyan-200/90">{guidance.action_rationale}</p>
         <div className="mt-2 border-t border-white/10 pt-2 text-[11px] text-slate-300">
-          <span className="text-slate-400">Why · </span>
-          <span>{evidence.primary_evidence.label}</span>
-          {evidence.secondary_evidence ? (
-            <span className="text-slate-400"> · Also {evidence.secondary_evidence.label}</span>
-          ) : null}
+          <span className="text-slate-400">Why now · </span>
+          <span>{thesis.why_now}</span>
         </div>
-        {evidence.reliability_note ? (
-          <p className="mt-1 text-[11px] text-cyan-200/90">{evidence.reliability_note}</p>
+        {thesis.continuity_read ? (
+          <p className="mt-1 text-[11px] text-cyan-200/90">{thesis.continuity_read}</p>
+        ) : null}
+        {thesis.reliability_note ? (
+          <p className="mt-1 text-[11px] text-cyan-200/90">{thesis.reliability_note}</p>
         ) : null}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        {risk.continuityTags.slice(0, 3).map((tag) => (
+        {thesis.driver_tags.slice(0, 3).map((tag) => (
           <span
             key={tag}
             className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] text-cyan-100"

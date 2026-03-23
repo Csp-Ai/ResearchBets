@@ -239,10 +239,10 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                     </div>
                     <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
                       <div className="font-semibold">
-                        Ticket pressure: {command?.ticketPressure.label ?? 'Stable'}
+                        {command?.ticketThesis.headline ?? 'Ticket pressure: Stable'}
                       </div>
                       <div className="mt-1 max-w-xs text-cyan-50/90">
-                        {command?.ticketPressure.detail ?? 'Ticket is waiting for more separation.'}
+                        {command?.ticketThesis.subheadline ?? command?.ticketPressure.detail ?? 'Ticket is waiting for more separation.'}
                       </div>
                     </div>
                   </div>
@@ -319,18 +319,14 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
                   {command?.actionEvidence ? (
                     <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/60 p-3 text-xs">
                       <p className="uppercase tracking-[0.18em] text-slate-400">Why</p>
-                      <p className="mt-2 text-slate-100">{command.actionEvidence.primary_evidence.label}</p>
-                      {command.actionEvidence.secondary_evidence ? (
-                        <p className="mt-1 text-slate-400">
-                          Also {command.actionEvidence.secondary_evidence.label}
-                        </p>
-                      ) : null}
+                      <p className="mt-2 text-slate-100">{command.ticketThesis.current_thesis}</p>
+                      <p className="mt-1 text-slate-400">{command.ticketThesis.primary_pressure}</p>
                       <p className="mt-1 text-cyan-100">
-                        {command.actionEvidence.continuity_evidence ?? command.actionEvidence.stage_note}
+                        {command.ticketThesis.continuity_read ?? command.ticketThesis.why_now}
                       </p>
-                      {command.actionEvidence.reliability_note ? (
+                      {command.ticketThesis.reliability_note ? (
                         <p className="mt-1 text-slate-400">
-                          {command.actionEvidence.reliability_note}
+                          {command.ticketThesis.reliability_note}
                         </p>
                       ) : null}
                     </div>
