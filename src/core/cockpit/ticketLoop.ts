@@ -6,6 +6,8 @@ import type { LifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGu
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
 import type { LifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
 import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
+import type { TicketThesis } from '@/src/core/slips/ticketThesis';
+import { deriveTicketThesis } from '@/src/core/slips/ticketThesis';
 import { deriveAfterLifecycleRisk, deriveLiveLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
 export type BettorLegStatus =
@@ -51,6 +53,7 @@ export type AfterCommandSurface = {
   lifecycleRisk: LifecycleRisk;
   actionGuidance: LifecycleActionGuidance;
   actionEvidence: LifecycleEvidence;
+  ticketThesis: TicketThesis;
   outcomeLabel: 'Won' | 'Lost' | 'Partial' | 'Void' | 'Mixed' | 'Review';
   outcomeTone: AfterOutcomeTone;
   closingHeadline: string;
@@ -66,6 +69,7 @@ export type LiveCommandSurface = {
   lifecycleRisk: LifecycleRisk;
   actionGuidance: LifecycleActionGuidance;
   actionEvidence: LifecycleEvidence;
+  ticketThesis: TicketThesis;
   stage: TicketLoopStage;
   headline: string;
   badge: string;
@@ -437,16 +441,26 @@ export function deriveAfterCommandSurface(
   const voidHeavyCount = source.legs.filter(
     (leg) => leg.status === 'void' || leg.status === 'push'
   ).length;
+  const thesisContinuity = {
+    strongest_leg_label: winningLeg?.player ?? null,
+    weakest_leg_label: breakingLeg?.player ?? null,
+    repeated_break_pattern: Boolean(lifecycleRisk.carriedThrough),
+    mixed_outcome: outcomeLabel === 'Mixed' || outcomeLabel === 'Partial',
+    push_void_heavy: source.legs.length > 0 && voidHeavyCount >= Math.ceil(source.legs.length / 2)
+  };
   const actionEvidence = deriveLifecycleEvidence({
     risk: lifecycleRisk,
     guidance: actionGuidance,
     stage: 'after',
-    continuity: {
-      strongest_leg_label: winningLeg?.player ?? null,
-      weakest_leg_label: breakingLeg?.player ?? null,
-      mixed_outcome: outcomeLabel === 'Mixed' || outcomeLabel === 'Partial',
-      push_void_heavy: source.legs.length > 0 && voidHeavyCount >= Math.ceil(source.legs.length / 2)
-    }
+    continuity: thesisContinuity
+  });
+  const ticketThesis = deriveTicketThesis({
+    stage: 'after',
+    risk: lifecycleRisk,
+    guidance: actionGuidance,
+    evidence: actionEvidence,
+    continuity: thesisContinuity,
+    outcome: afterOutcome
   });
 
   return {
@@ -454,6 +468,7 @@ export function deriveAfterCommandSurface(
     lifecycleRisk,
     actionGuidance,
     actionEvidence,
+    ticketThesis,
     headline: lifecycleRisk.headline,
     badge: outcomeLabel,
     attention: decidedBy,
@@ -465,7 +480,7 @@ export function deriveAfterCommandSurface(
     strongestLeg: winningLegHighlight,
     weakestLeg: breakingLegHighlight,
     primaryFailurePoint: breakingLegHighlight?.why ?? decidedBy,
-    recommendation: `${actionGuidance.action_label} · ${actionGuidance.action_rationale}`,
+    recommendation: `${ticketThesis.recommended_next_step} · ${actionGuidance.action_rationale}`,
     nextActionLabel: nextAction.label,
     nextActionHref: nextAction.nextActionHref,
     legs: annotated,
@@ -473,6 +488,7 @@ export function deriveAfterCommandSurface(
       lifecycleRisk,
       actionGuidance,
       actionEvidence,
+      ticketThesis,
       outcomeLabel,
       outcomeTone,
       closingHeadline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
@@ -661,14 +677,22 @@ export function deriveLiveCommandSurface(
   });
   const ticketPressure = pressureSummaryFromRisk(lifecycleRisk, defaultPressure);
   const actionGuidance = deriveLifecycleActionGuidance({ risk: lifecycleRisk, stage: 'during' });
+  const thesisContinuity = {
+    strongest_leg_label: strongestLeg?.player ?? null,
+    weakest_leg_label: weakestLeg?.player ?? null
+  };
   const actionEvidence = deriveLifecycleEvidence({
     risk: lifecycleRisk,
     guidance: actionGuidance,
     stage: 'during',
-    continuity: {
-      strongest_leg_label: strongestLeg?.player ?? null,
-      weakest_leg_label: weakestLeg?.player ?? null
-    }
+    continuity: thesisContinuity
+  });
+  const ticketThesis = deriveTicketThesis({
+    stage: 'during',
+    risk: lifecycleRisk,
+    guidance: actionGuidance,
+    evidence: actionEvidence,
+    continuity: thesisContinuity
   });
   const gameScript = deriveGameScript(ticket, ticketPressure);
   const attention =
@@ -676,13 +700,14 @@ export function deriveLiveCommandSurface(
       ? `Strongest leg: ${strongestLeg.player} ${strongestLeg.marketLabel} — ${strongestLeg.status}. Weakest leg: ${weakestLeg.player} ${weakestLeg.marketLabel} — ${weakestLeg.status}.`
       : 'Track the live ticket and watch for the weakest leg to separate.';
   const primaryFailurePoint = weakestLeg?.why ?? 'No failure point identified yet.';
-  const recommendation = `${actionGuidance.action_label} · ${actionGuidance.action_rationale}`;
+  const recommendation = `${ticketThesis.recommended_next_step} · ${actionGuidance.action_rationale}`;
 
   return {
     stage: 'live',
     lifecycleRisk,
     actionGuidance,
     actionEvidence,
+    ticketThesis,
     headline: 'Live ticket command center',
     badge: ticketPressure.label,
     attention,

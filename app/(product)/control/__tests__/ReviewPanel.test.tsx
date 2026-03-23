@@ -230,12 +230,8 @@ describe('ReviewPanel', () => {
     expect(screen.getByText(/most exposed to Victor Wembanyama rebounds/i)).toBeTruthy();
     expect(screen.getByText(/^Review postmortem$/i)).toBeTruthy();
     expect(screen.getByText(/why/i)).toBeTruthy();
-    expect(screen.getByText(/late-game dependency is still deciding too much/i)).toBeTruthy();
-    expect(
-      screen.getByText(
-        /late-game dependency showed up before settlement and still carried through/i
-      )
-    ).toBeTruthy();
+    expect(screen.getByText(/ticket thesis broke along the same pressure line/i)).toBeTruthy();
+    expect(screen.getAllByText(/same driver carried through to settlement|pre-submit warning matched the final break pattern/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Confidence: High/i)).toBeTruthy();
     expect(screen.getByTestId('bettor-pattern-summary')).toBeTruthy();
     expect(

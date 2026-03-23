@@ -70,7 +70,7 @@ describe('PreSubmitPatternWarningCard', () => {
     expect(screen.getByText(/strongest repeated success/i)).toBeTruthy();
     expect(screen.getByText(/watch the longest line before you submit/i)).toBeTruthy();
     expect(screen.getByText(/advisory only/i)).toBeTruthy();
-    expect(screen.getByText(/inflated thresholds is the main fragility/i)).toBeTruthy();
+    expect(screen.getByText(/ticket is fragile before submit/i)).toBeTruthy();
     expect(screen.getByText(/next step/i)).toBeTruthy();
     expect(screen.getByText(/^Reduce exposure$/i)).toBeTruthy();
     expect(screen.getByText(/aggressive ladder concentration/i)).toBeTruthy();

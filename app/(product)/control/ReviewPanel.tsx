@@ -4,6 +4,7 @@ import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
 import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
+import { deriveTicketThesis } from '@/src/core/slips/ticketThesis';
 import { deriveAfterLifecycleRisk, driverFromCauseTag } from '@/src/core/slips/lifecycleRisk';
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
@@ -134,16 +135,37 @@ export function ReviewPanel({
           ? 'lost'
         : undefined
   });
+  const thesisContinuity = {
+    weakest_leg_label: weakestLegAttribution?.player ?? null,
+    repeated_break_pattern: Boolean(patternSummary?.common_failure_mode),
+    mixed_outcome: false,
+    push_void_heavy:
+      postmortem?.attribution?.outcome === 'push' || postmortem?.attribution?.outcome === 'partial'
+  };
   const afterEvidence = deriveLifecycleEvidence({
     risk: afterLifecycleRisk,
     guidance: afterGuidance,
     stage: 'after',
-    continuity: {
-      weakest_leg_label: weakestLegAttribution?.player ?? null,
-      repeated_break_pattern: Boolean(patternSummary?.common_failure_mode),
-      push_void_heavy:
-        postmortem?.attribution?.outcome === 'push' || postmortem?.attribution?.outcome === 'partial'
-    }
+    continuity: thesisContinuity
+  });
+  const afterThesis = deriveTicketThesis({
+    stage: 'after',
+    risk: afterLifecycleRisk,
+    guidance: afterGuidance,
+    evidence: afterEvidence,
+    continuity: thesisContinuity,
+    outcome:
+      postmortem?.attribution?.outcome === 'win'
+        ? 'won'
+        : postmortem?.attribution?.outcome === 'loss'
+          ? 'lost'
+          : postmortem?.attribution?.outcome === 'push'
+            ? 'void'
+            : postmortem?.attribution?.outcome === 'partial'
+              ? 'partial'
+              : postmortem?.attribution?.outcome === 'mixed'
+                ? 'mixed'
+                : undefined
   });
   const shouldShowPatternSummary = Boolean(
     patternSummary &&
@@ -209,37 +231,30 @@ export function ReviewPanel({
             </span>
           ) : null}
         </div>
-        <p className="mt-2 text-sm text-slate-100">{afterLifecycleRisk.headline}</p>
-        <p className="mt-1 text-xs text-slate-300">{afterLifecycleRisk.detail}</p>
+        <p className="mt-2 text-sm text-slate-100">{afterThesis.headline}</p>
+        <p className="mt-1 text-xs text-slate-300">{afterThesis.subheadline}</p>
         <div className="mt-2 rounded-lg border border-cyan-400/15 bg-cyan-400/5 p-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100">
               Next step
             </span>
-            <span className="text-sm text-cyan-100">{afterGuidance.action_label}</span>
+            <span className="text-sm text-cyan-100">{afterThesis.recommended_next_step}</span>
           </div>
-          <p className="mt-1 text-xs text-slate-300">{afterGuidance.action_rationale}</p>
-          {afterGuidance.continuity_note ? (
-            <p className="mt-1 text-[11px] text-cyan-200/90">{afterGuidance.continuity_note}</p>
-          ) : null}
+          <p className="mt-1 text-xs text-slate-300">{afterThesis.current_thesis}</p>
+          <p className="mt-1 text-[11px] text-cyan-200/90">{afterGuidance.action_rationale}</p>
         </div>
         <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.02] p-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300">
               Why
             </span>
-            <span className="text-xs text-slate-100">{afterEvidence.primary_evidence.label}</span>
-            {afterEvidence.secondary_evidence ? (
-              <span className="text-xs text-slate-400">
-                Also {afterEvidence.secondary_evidence.label}
-              </span>
-            ) : null}
+            <span className="text-xs text-slate-100">{afterThesis.why_now}</span>
           </div>
-          {afterEvidence.continuity_evidence ? (
-            <p className="mt-1 text-[11px] text-cyan-200/90">{afterEvidence.continuity_evidence}</p>
+          {afterThesis.continuity_read ? (
+            <p className="mt-1 text-[11px] text-cyan-200/90">{afterThesis.continuity_read}</p>
           ) : null}
-          {afterEvidence.reliability_note ? (
-            <p className="mt-1 text-[11px] text-slate-400">{afterEvidence.reliability_note}</p>
+          {afterThesis.reliability_note ? (
+            <p className="mt-1 text-[11px] text-slate-400">{afterThesis.reliability_note}</p>
           ) : null}
         </div>
       </div>
