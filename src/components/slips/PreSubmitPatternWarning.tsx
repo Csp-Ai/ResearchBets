@@ -20,6 +20,43 @@ const FIX_TYPE_LABELS = {
 const titleCase = (value: string) =>
   value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
+function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
+  const risk = warning.lifecycle_risk;
+
+  return (
+    <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-amber-200/20 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-amber-100">
+          {risk.pressureLabel}
+        </span>
+        <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200">
+          {titleCase(risk.primaryDriver)}
+        </span>
+        {risk.secondaryDriver ? (
+          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-400">
+            {titleCase(risk.secondaryDriver)}
+          </span>
+        ) : null}
+        <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-400">
+          Reliability {titleCase(risk.reliability)}
+        </span>
+      </div>
+      <p className="mt-2 text-sm text-slate-100">{risk.headline}</p>
+      <p className="mt-1 text-xs text-slate-300">{risk.detail}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {risk.continuityTags.slice(0, 3).map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[10px] text-cyan-100"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PreSubmitPatternWarningCard({ warning }: { warning: PreSubmitPatternWarning }) {
   if (
     warning.warning_level === 'none' ||
@@ -43,6 +80,9 @@ export function PreSubmitPatternWarningCard({ warning }: { warning: PreSubmitPat
           {warning.sample_size} reviewed {warning.sample_size === 1 ? 'slip' : 'slips'}
         </span>
       </div>
+
+      <LifecycleRiskChips warning={warning} />
+
       <ul className="mt-2 space-y-1 text-xs text-slate-300">
         {warning.matched_patterns.slice(0, 3).map((pattern) => (
           <li key={`${pattern.tag}-${pattern.reason}`}>

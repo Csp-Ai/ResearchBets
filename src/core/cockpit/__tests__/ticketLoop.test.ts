@@ -140,7 +140,8 @@ describe('ticketLoop', () => {
     expect(surface?.headline).toMatch(/command center/i);
     expect(surface?.strongestLeg?.player).toBe('Jamal Murray');
     expect(surface?.weakestLeg?.player).toBe('Aaron Gordon');
-    expect(surface?.ticketPressure.label).toBe('Carrying well, one weak spot remains');
+    expect(surface?.ticketPressure.label).toBe('One-leg fragile');
+    expect(surface?.lifecycleRisk.primaryDriver).toBe('correlated_stack_pressure');
     expect(surface?.attention).toMatch(/Strongest leg/i);
     expect(surface?.legs.map((leg) => leg.status)).toEqual(
       expect.arrayContaining(['cleared', 'behind pace'])
@@ -151,6 +152,7 @@ describe('ticketLoop', () => {
     const surface = deriveAfterCommandSurface(settledPostmortem);
 
     expect(surface?.stage).toBe('after');
+    expect(surface?.lifecycleRisk.primaryDriver).toBe('inflated_thresholds');
     expect(surface?.after?.outcomeLabel).toBe('Mixed');
     expect(surface?.after?.winningLegHighlight?.player).toBe('Jamal Murray');
     expect(surface?.after?.breakingLegHighlight?.player).toBe('Aaron Gordon');
@@ -223,6 +225,6 @@ describe('ticketLoop', () => {
     expect(liveSurface?.attention).toMatch(/Weakest leg: Aaron Gordon/i);
     expect(afterSurface?.after?.winningLegHighlight?.player).toBe('Jamal Murray');
     expect(afterSurface?.after?.breakingLegHighlight?.player).toBe('Aaron Gordon');
-    expect(afterSurface?.gameScript).toMatch(/strongest leg, weakest leg/i);
+    expect(afterSurface?.lifecycleRisk.primaryDriver).toBe('inflated_thresholds');
   });
 });

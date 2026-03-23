@@ -2,6 +2,8 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import type { BettorMistakePatternSummary } from '@/src/core/postmortem/patterns';
 import type { DraftLearningAdvisory } from '@/src/core/postmortem/learning';
 import type { CauseTag, ConfidenceLevel } from '@/src/core/postmortem/attribution';
+import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
+import { derivePreSubmitLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
 export type PreSubmitWarningLevel = 'high' | 'medium' | 'low' | 'none';
 export type SuggestedFixType =
@@ -33,6 +35,7 @@ export type PreSubmitPatternWarning = {
   sample_size: number;
   confidence_level: ConfidenceLevel;
   learning_advisory?: DraftLearningAdvisory | null;
+  lifecycle_risk: LifecycleRisk;
   suppression_reason?: string;
 };
 
@@ -141,6 +144,7 @@ type SlipPatternSignals = {
   aggressiveLegs: SlipBuilderLeg[];
   correlatedLegs: SlipBuilderLeg[];
   blowoutLegs: SlipBuilderLeg[];
+  volatileLegs: SlipBuilderLeg[];
 };
 
 type RankedFix = PreSubmitSuggestedFix & {
@@ -381,7 +385,8 @@ function collectSignals(slip: SlipBuilderLeg[]): SlipPatternSignals {
     duplicatedPlayers.length >= 2 ? duplicatedPlayers : sameGameKey.length >= 2 ? sameGameKey : [];
 
   const blowoutLegs = slip.filter((leg) => legLooksLikeStarterOver(leg) && blowoutSignal(leg));
-  return { aggressiveLegs, correlatedLegs, blowoutLegs };
+  const volatileLegs = slip.filter((leg) => ['rebounds', 'assists', 'ra', 'steals', 'blocks'].includes(leg.marketType));
+  return { aggressiveLegs, correlatedLegs, blowoutLegs, volatileLegs };
 }
 
 export function buildPreSubmitPatternWarning(input: {
@@ -390,14 +395,35 @@ export function buildPreSubmitPatternWarning(input: {
   learningAdvisory?: DraftLearningAdvisory | null;
 }): PreSubmitPatternWarning {
   const { slip, patternSummary, learningAdvisory } = input;
+  const signals = collectSignals(slip);
+  const baseLifecycleRisk = derivePreSubmitLifecycleRisk({
+    sampleSize: patternSummary.sample_size,
+    confidenceLevel: patternSummary.confidence_level,
+    matchedTags: patternSummary.recurring_tags.map((item) => item.tag),
+    aggressiveLegs: signals.aggressiveLegs.length,
+    correlatedLegs: signals.correlatedLegs.length,
+    blowoutLegs: signals.blowoutLegs.length,
+    volatileLegs: signals.volatileLegs.length,
+    learningPattern: learningAdvisory?.repeated_break_pattern?.toLowerCase().includes('inflated threshold')
+      ? 'inflated_threshold'
+      : learningAdvisory?.repeated_break_pattern?.toLowerCase().includes('rebound/assist volatility')
+        ? 'rebound_assist_volatility'
+        : learningAdvisory?.repeated_break_pattern?.toLowerCase().includes('late-game dependency')
+          ? 'fragile_late_game_dependency'
+          : learningAdvisory?.repeated_break_pattern?.toLowerCase().includes('same-game')
+            ? 'overstacked_correlation'
+            : null
+  });
+
   const base = {
     sample_size: patternSummary.sample_size,
     confidence_level: patternSummary.confidence_level,
     suggested_fixes: [],
-    learning_advisory: learningAdvisory ?? null
+    learning_advisory: learningAdvisory ?? null,
+    lifecycle_risk: baseLifecycleRisk
   } satisfies Pick<
     PreSubmitPatternWarning,
-    'sample_size' | 'confidence_level' | 'suggested_fixes' | 'learning_advisory'
+    'sample_size' | 'confidence_level' | 'suggested_fixes' | 'learning_advisory' | 'lifecycle_risk'
   >;
 
   if (slip.length === 0) {
@@ -432,7 +458,6 @@ export function buildPreSubmitPatternWarning(input: {
   }
 
   const recurringTags = new Set(patternSummary.recurring_tags.map((item) => item.tag));
-  const signals = collectSignals(slip);
   const sameGameCount = Math.max(
     0,
     ...Object.values(
@@ -488,7 +513,23 @@ export function buildPreSubmitPatternWarning(input: {
           'Similar settled tickets do not support a direct recurring warning tag here, but they do preserve one compact watch note for this draft.',
         suggested_fixes: [],
         confidence_level: learningAdvisory.confidence_band,
-        learning_advisory: learningAdvisory
+        learning_advisory: learningAdvisory,
+        lifecycle_risk: derivePreSubmitLifecycleRisk({
+          sampleSize: patternSummary.sample_size,
+          confidenceLevel: learningAdvisory.confidence_band,
+          matchedTags: [],
+          aggressiveLegs: signals.aggressiveLegs.length,
+          correlatedLegs: signals.correlatedLegs.length,
+          blowoutLegs: signals.blowoutLegs.length,
+          volatileLegs: signals.volatileLegs.length,
+          learningPattern: learningAdvisory.repeated_break_pattern.toLowerCase().includes('inflated threshold')
+            ? 'inflated_threshold'
+            : learningAdvisory.repeated_break_pattern.toLowerCase().includes('rebound/assist volatility')
+              ? 'rebound_assist_volatility'
+              : learningAdvisory.repeated_break_pattern.toLowerCase().includes('same-game')
+                ? 'overstacked_correlation'
+                : null
+        })
       };
     }
 
@@ -517,6 +558,15 @@ export function buildPreSubmitPatternWarning(input: {
       aggressiveLegCount: signals.aggressiveLegs.length,
       correlationLegCount: correlatedLegCount,
       blowoutLegCount: signals.blowoutLegs.length
+    }),
+    lifecycle_risk: derivePreSubmitLifecycleRisk({
+      sampleSize: patternSummary.sample_size,
+      confidenceLevel: patternSummary.confidence_level,
+      matchedTags: matchedPatterns.map((match) => match.tag),
+      aggressiveLegs: signals.aggressiveLegs.length,
+      correlatedLegs: correlatedLegCount,
+      blowoutLegs: signals.blowoutLegs.length,
+      volatileLegs: signals.volatileLegs.length
     }),
     suggested_fixes: buildSuggestedFixes({
       slip,

@@ -1,6 +1,8 @@
 import type { OpenTicket, LiveLegState } from '@/src/core/live/openTickets';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import type { SlipTrackingState, TrackedLegState } from '@/src/core/slips/trackingTypes';
+import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
+import { deriveAfterLifecycleRisk, deriveLiveLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
 export type BettorLegStatus =
   | 'cleared'
@@ -42,6 +44,7 @@ export type TicketPressureSummary = {
 };
 
 export type AfterCommandSurface = {
+  lifecycleRisk: LifecycleRisk;
   outcomeLabel: 'Won' | 'Lost' | 'Partial' | 'Void' | 'Mixed' | 'Review';
   outcomeTone: AfterOutcomeTone;
   closingHeadline: string;
@@ -54,6 +57,7 @@ export type AfterCommandSurface = {
 };
 
 export type LiveCommandSurface = {
+  lifecycleRisk: LifecycleRisk;
   stage: TicketLoopStage;
   headline: string;
   badge: string;
@@ -115,6 +119,22 @@ const stablePressure: TicketPressureSummary = {
   detail: 'The ticket is settled and ready for review.',
   tone: 'steady'
 };
+
+function pressureSummaryFromRisk(risk: LifecycleRisk, fallback: TicketPressureSummary): TicketPressureSummary {
+  const tone = risk.level === 'high-pressure' ? 'urgent' : risk.level === 'fragile' || risk.level === 'watch' ? 'watch' : 'steady';
+  return {
+    label:
+      risk.level === 'stable'
+        ? 'Stable'
+        : risk.level === 'watch'
+          ? 'Pressure rising'
+          : risk.level === 'fragile'
+            ? 'One-leg fragile'
+            : 'Multiple legs behind',
+    detail: risk.detail || fallback.detail,
+    tone
+  };
+}
 
 const toMarketLabel = (leg: Pick<LiveLegState, 'marketType' | 'threshold'>) =>
   `${leg.marketType} ${leg.threshold}`;
@@ -379,17 +399,22 @@ export function deriveAfterCommandSurface(
   const decidedBy = describeDecidingLeg(breakingLeg, outcomeLabel);
   const nearMissHighlight = buildNearMissHighlight(source, breakingLeg);
   const lesson = buildLesson(source, outcomeLabel, breakingLeg);
+  const lifecycleRisk = deriveAfterLifecycleRisk({
+    postmortem: 'settledAt' in sourceInput ? sourceInput : undefined,
+    outcome: outcomeLabel === 'Won' ? 'won' : outcomeLabel === 'Void' ? 'void' : outcomeLabel === 'Partial' ? 'partial' : 'mixed'
+  });
 
   return {
     stage: 'after',
-    headline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
+    lifecycleRisk,
+    headline: lifecycleRisk.headline,
     badge: outcomeLabel,
     attention: decidedBy,
-    ticketPressure: stablePressure,
+    ticketPressure: pressureSummaryFromRisk(lifecycleRisk, stablePressure),
     gameScript:
       source.provenanceHint === 'demo_sample'
         ? 'Demo settlement stays deterministic so the review keeps the same command language.'
-        : 'Settlement closes the same loop: strongest leg, weakest leg, and the deciding swing stay visible.',
+        : `${lifecycleRisk.pressureLabel} · ${lifecycleRisk.detail}`,
     strongestLeg: winningLegHighlight,
     weakestLeg: breakingLegHighlight,
     primaryFailurePoint: breakingLegHighlight?.why ?? decidedBy,
@@ -398,6 +423,7 @@ export function deriveAfterCommandSurface(
     nextActionHref: nextAction.nextActionHref,
     legs: annotated,
     after: {
+      lifecycleRisk,
       outcomeLabel,
       outcomeTone,
       closingHeadline: buildClosingHeadline(outcomeLabel, winningLeg, breakingLeg, brokenCount),
@@ -568,7 +594,19 @@ export function deriveLiveCommandSurface(
   }));
   const strongestLeg = annotated.find((leg) => leg.isStrongest) ?? null;
   const weakestLeg = annotated.find((leg) => leg.isWeakest) ?? null;
-  const ticketPressure = summarizeTicketPressure(annotated);
+  const defaultPressure = summarizeTicketPressure(annotated);
+  const lifecycleRisk = deriveLiveLifecycleRisk({
+    behindCount: annotated.filter((leg) => ['slightly behind', 'behind pace', 'critical', 'awaiting movement'].includes(leg.status)).length,
+    criticalCount: annotated.filter((leg) => leg.status === 'critical').length,
+    carryingCount: annotated.filter((leg) => ['cleared', 'ahead of pace', 'on pace', 'needs one event'].includes(leg.status)).length,
+    sameGameStack: new Set(ticket.legs.map((leg) => leg.gameId)).size < ticket.legs.length,
+    volatileLegs: ticket.legs.filter((leg) => leg.volatility === 'high').length,
+    minutesRiskLegs: ticket.legs.filter((leg) => leg.minutesRisk).length,
+    weakestReasons: weakestRaw?.reasonChips,
+    pregameDriver: null,
+    pregameLevel: null
+  });
+  const ticketPressure = pressureSummaryFromRisk(lifecycleRisk, defaultPressure);
   const gameScript = deriveGameScript(ticket, ticketPressure);
   const attention =
     strongestLeg && weakestLeg
@@ -584,6 +622,7 @@ export function deriveLiveCommandSurface(
 
   return {
     stage: 'live',
+    lifecycleRisk,
     headline: 'Live ticket command center',
     badge: ticketPressure.label,
     attention,

@@ -2,6 +2,7 @@
 
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
+import { deriveAfterLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 
@@ -100,6 +101,12 @@ export function ReviewPanel({
   const attribution = postmortem?.attribution;
   const weakestLegAttribution = attribution?.weakest_leg;
   const patternSummary = postmortem?.pattern_summary;
+  const afterLifecycleRisk = deriveAfterLifecycleRisk({
+    causeTags: attribution?.cause_tags,
+    confidenceLevel: attribution?.confidence_level,
+    pregameDriver: retroDto.verdict.correlation_flag ? 'correlated_stack_pressure' : retroDto.verdict.fragility_score >= 65 ? 'inflated_thresholds' : 'balanced_build',
+    liveDriver: retroDto.verdict.volatility_summary.toLowerCase().includes('high') ? 'volatile_secondary_stats' : null
+  });
   const shouldShowPatternSummary = Boolean(
     patternSummary &&
     patternSummary.sample_size > 0 &&
@@ -147,6 +154,26 @@ export function ReviewPanel({
         {retroDto.verdict.fragility_score}/100 · Correlation{' '}
         {retroDto.verdict.correlation_flag ? 'High' : 'Managed'}
       </p>
+      <div className="rounded-lg border border-white/10 bg-slate-900/70 p-3">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-amber-300/20 px-2 py-1 text-[11px] text-amber-100">
+            {afterLifecycleRisk.pressureLabel}
+          </span>
+          <span className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-slate-200">
+            {titleCase(afterLifecycleRisk.primaryDriver)}
+          </span>
+          <span className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-slate-400">
+            Reliability {titleCase(afterLifecycleRisk.reliability)}
+          </span>
+          {afterLifecycleRisk.carriedThrough ? (
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-100">
+              Risk carried through
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-2 text-sm text-slate-100">{afterLifecycleRisk.headline}</p>
+        <p className="mt-1 text-xs text-slate-300">{afterLifecycleRisk.detail}</p>
+      </div>
       <p>Weakest leg: {weakestLegLabel}</p>
       <p>Volatility: {retroDto.verdict.volatility_summary}</p>
       <p>Risk flags missed: {postmortem ? postmortem.notes.join(' • ') : 'Running…'}</p>
