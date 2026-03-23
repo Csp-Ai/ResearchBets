@@ -7,6 +7,21 @@ import {
   PreSubmitPatternWarningCard,
   PreSubmitSuggestedFixesCard
 } from '@/src/components/slips/PreSubmitPatternWarning';
+import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
+
+
+const lifecycleRisk: LifecycleRisk = {
+  level: 'fragile',
+  pressureLabel: 'Fragile',
+  primaryDriver: 'inflated_thresholds',
+  secondaryDriver: 'low_evidence',
+  reliability: 'medium',
+  headline: 'Inflated thresholds is the main fragility.',
+  detail: 'The slip depends on thresholds that are stretched relative to the rest of the build.',
+  continuityTags: ['Pre-submit', 'Inflated thresholds'],
+  carriedThrough: false,
+  evidence: []
+};
 
 describe('PreSubmitPatternWarningCard', () => {
   it('renders compact warning copy when supported by matched history', () => {
@@ -44,7 +59,8 @@ describe('PreSubmitPatternWarningCard', () => {
             }
           ],
           sample_size: 4,
-          confidence_level: 'medium'
+          confidence_level: 'medium',
+          lifecycle_risk: lifecycleRisk
         }}
       />
     );
@@ -55,6 +71,7 @@ describe('PreSubmitPatternWarningCard', () => {
     expect(screen.getByText(/strongest repeated success/i)).toBeTruthy();
     expect(screen.getByText(/watch the longest line before you submit/i)).toBeTruthy();
     expect(screen.getByText(/advisory only/i)).toBeTruthy();
+    expect(screen.getByText(/inflated thresholds is the main fragility/i)).toBeTruthy();
   });
 
   it('renders a compact suggested fixes module when fixes are supported', () => {
@@ -92,7 +109,8 @@ describe('PreSubmitPatternWarningCard', () => {
           ],
           sample_size: 6,
           confidence_level: 'high',
-          learning_advisory: null
+          learning_advisory: null,
+          lifecycle_risk: lifecycleRisk
         }}
       />
     );
@@ -114,6 +132,7 @@ describe('PreSubmitPatternWarningCard', () => {
           suggested_fixes: [],
           sample_size: 3,
           confidence_level: 'low',
+          lifecycle_risk: { ...lifecycleRisk, primaryDriver: 'volatile_secondary_stats', headline: 'Volatile secondary stats is the main watch item.' },
           learning_advisory: {
             sample_size: 3,
             confidence_band: 'medium',
@@ -149,6 +168,7 @@ describe('PreSubmitPatternWarningCard', () => {
             sample_size: 1,
             confidence_level: 'low',
             learning_advisory: null,
+            lifecycle_risk: lifecycleRisk,
             suppression_reason: 'insufficient_history'
           }}
         />
@@ -165,7 +185,8 @@ describe('PreSubmitPatternWarningCard', () => {
             suggested_fixes: [],
             sample_size: 4,
             confidence_level: 'medium',
-            learning_advisory: null
+            learning_advisory: null,
+            lifecycle_risk: lifecycleRisk
           }}
         />
       </>

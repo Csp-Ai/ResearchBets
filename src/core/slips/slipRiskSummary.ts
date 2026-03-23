@@ -1,5 +1,7 @@
 import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
+import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
+import { derivePreSubmitLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
 export type SlipVerdictDecision = 'KEEP' | 'MODIFY' | 'PASS';
 
@@ -16,6 +18,7 @@ export type SlipRiskSummary = {
   highVolatilityLegs: number;
   reasonBullets: string[];
   legVolatilityTags: Array<{ legId: string; label: string; volatility: 'Low' | 'Medium' | 'High' }>;
+  lifecycleRisk: LifecycleRisk;
 };
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
@@ -96,6 +99,19 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
 
   const weakestLeg = formatWeakestLeg(weakest);
 
+  const lifecycleRisk = derivePreSubmitLifecycleRisk({
+    sampleSize: report.legs.length,
+    confidenceLevel: fragilityScore >= 65 ? 'high' : fragilityScore >= 40 ? 'medium' : 'low',
+    matchedTags: [
+      ...(fragilityScore > 62 ? ['line_too_aggressive' as const] : []),
+      ...(correlationFlag ? ['correlated_legs' as const] : [])
+    ],
+    aggressiveLegs: report.legs.filter((leg) => (leg.flags ?? []).includes('aggressive_line') || (leg.flags ?? []).includes('longshot_odds')).length,
+    correlatedLegs: report.correlation_edges.length > 0 ? Math.max(2, report.correlation_edges.length) : 0,
+    blowoutLegs: 0,
+    volatileLegs: highVolatilityLegs
+  });
+
   const reasonBullets = [
     dominantRiskFactor,
     ...(weakestLeg ? [`Weakest leg: ${weakestLeg}.`] : []),
@@ -114,6 +130,7 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
     riskLabel,
     highVolatilityLegs,
     reasonBullets,
-    legVolatilityTags
+    legVolatilityTags,
+    lifecycleRisk
   };
 }
