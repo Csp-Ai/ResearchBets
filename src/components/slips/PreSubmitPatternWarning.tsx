@@ -1,6 +1,7 @@
 'use client';
 
 import type { PreSubmitPatternWarning } from '@/src/core/slips/preSubmitPatternWarning';
+import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
 
 const LEVEL_STYLES: Record<PreSubmitPatternWarning['warning_level'], string> = {
   high: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
@@ -22,6 +23,7 @@ const titleCase = (value: string) =>
 
 function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
   const risk = warning.lifecycle_risk;
+  const guidance = deriveLifecycleActionGuidance({ risk, stage: 'before' });
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
@@ -43,6 +45,21 @@ function LifecycleRiskChips({ warning }: { warning: PreSubmitPatternWarning }) {
       </div>
       <p className="mt-2 text-sm text-slate-100">{risk.headline}</p>
       <p className="mt-1 text-xs text-slate-300">{risk.detail}</p>
+      <div className="mt-2 rounded-lg border border-cyan-400/15 bg-cyan-400/5 p-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-cyan-100">
+            Next step
+          </span>
+          <span className="text-xs font-medium text-cyan-100">{guidance.action_label}</span>
+          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-400">
+            Reliability {titleCase(guidance.reliability_band)}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-slate-300">{guidance.action_rationale}</p>
+        {guidance.continuity_note ? (
+          <p className="mt-1 text-[11px] text-cyan-200/90">{guidance.continuity_note}</p>
+        ) : null}
+      </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {risk.continuityTags.slice(0, 3).map((tag) => (
           <span

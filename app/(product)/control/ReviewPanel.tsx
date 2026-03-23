@@ -2,7 +2,8 @@
 
 import { SlipIntelBar } from '@/src/components/slips/SlipIntelBar';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
-import { deriveAfterLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
+import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
+import { deriveAfterLifecycleRisk, driverFromCauseTag } from '@/src/core/slips/lifecycleRisk';
 import { rankReasons, selectTopReasons } from '@/src/core/slips/reasonRanker';
 import type { ResearchRunDTO } from '@/src/core/run/researchRunDTO';
 
@@ -101,11 +102,36 @@ export function ReviewPanel({
   const attribution = postmortem?.attribution;
   const weakestLegAttribution = attribution?.weakest_leg;
   const patternSummary = postmortem?.pattern_summary;
+  const inferredPregameDriver = attribution?.cause_tags?.[0]
+    ? driverFromCauseTag(attribution.cause_tags[0])
+    : retroDto.verdict.correlation_flag
+      ? 'correlated_stack_pressure'
+      : retroDto.verdict.fragility_score >= 65
+        ? 'inflated_thresholds'
+        : 'balanced_build';
   const afterLifecycleRisk = deriveAfterLifecycleRisk({
     causeTags: attribution?.cause_tags,
     confidenceLevel: attribution?.confidence_level,
-    pregameDriver: retroDto.verdict.correlation_flag ? 'correlated_stack_pressure' : retroDto.verdict.fragility_score >= 65 ? 'inflated_thresholds' : 'balanced_build',
-    liveDriver: retroDto.verdict.volatility_summary.toLowerCase().includes('high') ? 'volatile_secondary_stats' : null
+    outcome:
+      postmortem?.attribution?.outcome === 'win'
+        ? 'won'
+        : postmortem?.attribution?.outcome === 'loss'
+          ? 'lost'
+          : undefined,
+    pregameDriver: inferredPregameDriver,
+    liveDriver: retroDto.verdict.volatility_summary.toLowerCase().includes('high')
+      ? 'volatile_secondary_stats'
+      : null
+  });
+  const afterGuidance = deriveLifecycleActionGuidance({
+    risk: afterLifecycleRisk,
+    stage: 'after',
+    outcome:
+      postmortem?.attribution?.outcome === 'win'
+        ? 'won'
+        : postmortem?.attribution?.outcome === 'loss'
+          ? 'lost'
+          : undefined
   });
   const shouldShowPatternSummary = Boolean(
     patternSummary &&
@@ -173,6 +199,18 @@ export function ReviewPanel({
         </div>
         <p className="mt-2 text-sm text-slate-100">{afterLifecycleRisk.headline}</p>
         <p className="mt-1 text-xs text-slate-300">{afterLifecycleRisk.detail}</p>
+        <div className="mt-2 rounded-lg border border-cyan-400/15 bg-cyan-400/5 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100">
+              Next step
+            </span>
+            <span className="text-sm text-cyan-100">{afterGuidance.action_label}</span>
+          </div>
+          <p className="mt-1 text-xs text-slate-300">{afterGuidance.action_rationale}</p>
+          {afterGuidance.continuity_note ? (
+            <p className="mt-1 text-[11px] text-cyan-200/90">{afterGuidance.continuity_note}</p>
+          ) : null}
+        </div>
       </div>
       <p>Weakest leg: {weakestLegLabel}</p>
       <p>Volatility: {retroDto.verdict.volatility_summary}</p>

@@ -9,7 +9,6 @@ import {
 } from '@/src/components/slips/PreSubmitPatternWarning';
 import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
-
 const lifecycleRisk: LifecycleRisk = {
   level: 'fragile',
   pressureLabel: 'Fragile',
@@ -72,6 +71,8 @@ describe('PreSubmitPatternWarningCard', () => {
     expect(screen.getByText(/watch the longest line before you submit/i)).toBeTruthy();
     expect(screen.getByText(/advisory only/i)).toBeTruthy();
     expect(screen.getByText(/inflated thresholds is the main fragility/i)).toBeTruthy();
+    expect(screen.getByText(/next step/i)).toBeTruthy();
+    expect(screen.getByText(/^Reduce exposure$/i)).toBeTruthy();
   });
 
   it('renders a compact suggested fixes module when fixes are supported', () => {
@@ -132,7 +133,11 @@ describe('PreSubmitPatternWarningCard', () => {
           suggested_fixes: [],
           sample_size: 3,
           confidence_level: 'low',
-          lifecycle_risk: { ...lifecycleRisk, primaryDriver: 'volatile_secondary_stats', headline: 'Volatile secondary stats is the main watch item.' },
+          lifecycle_risk: {
+            ...lifecycleRisk,
+            primaryDriver: 'volatile_secondary_stats',
+            headline: 'Volatile secondary stats is the main watch item.'
+          },
           learning_advisory: {
             sample_size: 3,
             confidence_band: 'medium',

@@ -228,6 +228,12 @@ describe('ReviewPanel', () => {
     expect(screen.getByText('Blowout Minutes Risk')).toBeTruthy();
     expect(screen.getByText('Late Game Inactivity')).toBeTruthy();
     expect(screen.getByText(/most exposed to Victor Wembanyama rebounds/i)).toBeTruthy();
+    expect(screen.getByText(/^Review postmortem$/i)).toBeTruthy();
+    expect(
+      screen.getByText(
+        /late-game dependency showed up before settlement and still carried through/i
+      )
+    ).toBeTruthy();
     expect(screen.getByText(/Confidence: High/i)).toBeTruthy();
     expect(screen.getByTestId('bettor-pattern-summary')).toBeTruthy();
     expect(
