@@ -98,7 +98,7 @@ function headlineFor(input: {
   evidence: LifecycleEvidence;
   outcome?: 'won' | 'lost' | 'void' | 'mixed' | 'partial';
 }): string {
-  const { stage, status, risk, evidence } = input;
+  const { stage, status, evidence } = input;
 
   if (stage === 'before') {
     if (status === 'holding') return 'Ticket looks stable, but keep one pressure point in view.';

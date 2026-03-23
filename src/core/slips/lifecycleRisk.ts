@@ -78,13 +78,6 @@ function defaultReliability(value?: ConfidenceLevel): ConfidenceLevel {
   return value ?? 'medium';
 }
 
-function buildTags(primary: LifecycleRiskDriver, secondary: LifecycleRiskDriver | null, stage: LifecycleRiskStage, carriedThrough: boolean) {
-  const tags = [LEVEL_LABELS[levelFromScore(primary === 'balanced_build' ? 0 : 1, primary)].toLowerCase()];
-  const driverTags = [primary, secondary].filter(Boolean).map((driver) => DRIVER_LABELS[driver as LifecycleRiskDriver]);
-  const continuity = carriedThrough ? 'Risk carried through' : `${stage[0]!.toUpperCase()}${stage.slice(1)} read`;
-  return [continuity, ...driverTags];
-}
-
 function headlineFor(level: LifecycleRiskLevel, stage: LifecycleRiskStage, primary: LifecycleRiskDriver, carriedThrough: boolean) {
   const driverLabel = DRIVER_LABELS[primary];
   if (primary === 'balanced_build' && level === 'stable') {
