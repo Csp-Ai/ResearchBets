@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
 import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { deriveLifecycleActionGuidance } from '@/src/core/slips/lifecycleActionGuidance';
+import { deriveLifecycleEvidence } from '@/src/core/slips/lifecycleEvidence';
 import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
 
 const titleCase = (value: string) =>
@@ -22,6 +23,15 @@ export function SlipIntelBar({
   const guidance = useMemo(
     () => deriveLifecycleActionGuidance({ risk: risk.lifecycleRisk, stage: 'before' }),
     [risk]
+  );
+  const evidence = useMemo(
+    () =>
+      deriveLifecycleEvidence({
+        risk: risk.lifecycleRisk,
+        guidance,
+        stage: 'before'
+      }),
+    [guidance, risk]
   );
 
   if (legs.length < 2) return null;
@@ -41,6 +51,16 @@ export function SlipIntelBar({
           </p>
           <p className="m-0 text-xs text-cyan-200">Next step · {guidance.action_label}</p>
           <p className="m-0 text-sm text-slate-300">{risk.lifecycleRisk.headline}</p>
+          <div className="pt-1 text-xs text-slate-300">
+            <span className="text-slate-400">Why · </span>
+            <span>{evidence.primary_evidence.label}</span>
+            {evidence.secondary_evidence ? (
+              <span className="text-slate-400"> · Also {evidence.secondary_evidence.label}</span>
+            ) : null}
+          </div>
+          {evidence.reliability_note ? (
+            <p className="m-0 text-[11px] text-cyan-200/90">{evidence.reliability_note}</p>
+          ) : null}
           <div className="flex flex-wrap gap-2 pt-1 text-[10px] text-slate-300">
             <span className="rounded-full border border-white/10 px-2 py-1">
               {titleCase(risk.lifecycleRisk.primaryDriver)}
@@ -76,6 +96,16 @@ export function SlipIntelBar({
             {guidance.continuity_note ? (
               <p className="m-0 mt-1 text-[11px] text-cyan-200/90">{guidance.continuity_note}</p>
             ) : null}
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2">
+            <p className="m-0 text-[11px] uppercase tracking-[0.16em] text-slate-400">Why</p>
+            <p className="m-0 mt-1 text-sm text-slate-100">{evidence.primary_evidence.label}</p>
+            {evidence.secondary_evidence ? (
+              <p className="m-0 mt-1 text-xs text-slate-400">
+                Also: {evidence.secondary_evidence.label}
+              </p>
+            ) : null}
+            <p className="m-0 mt-1 text-[11px] text-slate-400">{evidence.stage_note}</p>
           </div>
           <p className="m-0">
             Weakest leg {risk.weakestLeg} · Fragility {risk.fragilityScore}/100 · Correlation{' '}

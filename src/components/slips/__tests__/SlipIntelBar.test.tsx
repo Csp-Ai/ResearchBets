@@ -36,6 +36,7 @@ describe('SlipIntelBar', () => {
     expect(screen.getByText(/supporting readout/i)).toBeTruthy();
     expect(screen.getByText(/signal/i)).toBeTruthy();
     expect(screen.getByText(/next step/i)).toBeTruthy();
+    expect(screen.getByText(/support behind the read is still thin/i)).toBeTruthy();
   });
 
   it('never renders n/a text in risk panel output', () => {

@@ -73,6 +73,7 @@ describe('PreSubmitPatternWarningCard', () => {
     expect(screen.getByText(/inflated thresholds is the main fragility/i)).toBeTruthy();
     expect(screen.getByText(/next step/i)).toBeTruthy();
     expect(screen.getByText(/^Reduce exposure$/i)).toBeTruthy();
+    expect(screen.getByText(/aggressive ladder concentration/i)).toBeTruthy();
   });
 
   it('renders a compact suggested fixes module when fixes are supported', () => {
