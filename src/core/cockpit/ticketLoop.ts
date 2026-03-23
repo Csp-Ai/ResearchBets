@@ -317,7 +317,6 @@ function toAfterCommandLeg(
 }
 
 function deriveAfterSourceFromPostmortem(postmortem: PostmortemRecord): AfterSource {
-  const missedLegIds = new Set(postmortem.legs.filter((leg) => !leg.hit).map((leg) => leg.legId));
   const firstBreakingLegId = postmortem.legs.find((leg) => !leg.hit)?.legId;
   return {
     ticketId: postmortem.ticketId,
