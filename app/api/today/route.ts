@@ -22,11 +22,12 @@ const LIVE_STEPS = [
 type LiveStep = (typeof LIVE_STEPS)[number];
 
 function parseWarningStep(providerWarnings: string[] = []): LiveStep | undefined {
-  const withStep = providerWarnings.find((warning) => warning.startsWith('live_unavailable:non_error_throw:') || warning.startsWith('live_hard_error:'));
-  if (!withStep) return undefined;
-  const step = withStep.split(':').at(-1);
-  if (!step) return undefined;
-  return (LIVE_STEPS as readonly string[]).includes(step) ? (step as LiveStep) : undefined;
+  for (const warning of providerWarnings) {
+    if (!warning.startsWith('live_unavailable:non_error_throw:') && !warning.startsWith('live_hard_error:')) continue;
+    const step = warning.split(':').at(-1);
+    if (step && (LIVE_STEPS as readonly string[]).includes(step)) return step as LiveStep;
+  }
+  return undefined;
 }
 
 function alignTodayPayload(payload: TodayPayload, contextWarnings: string[], intent: NonNullable<TodayPayload['intent']>, fallbackReason?: string): TodayPayload {
