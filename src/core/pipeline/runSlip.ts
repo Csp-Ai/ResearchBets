@@ -76,6 +76,10 @@ const normalizeLegs = (
   }));
 };
 
+const collectCanonicalEventIds = (legs: ExtractedLeg[]): string[] => {
+  return [...new Set(legs.map((leg) => leg.event_id?.trim()).filter((eventId): eventId is string => Boolean(eventId)))];
+};
+
 export function computeLegRisk(leg: EnrichedLeg): {
   riskScore: number;
   riskBand: 'low' | 'moderate' | 'high';
@@ -579,7 +583,7 @@ export async function runSlip(
     players: extracted.flatMap((leg) =>
       leg.player ? [{ player: leg.player, team: leg.team }] : []
     ),
-    eventIds: extracted.flatMap((leg) => (leg.id ? [leg.id] : [])),
+    eventIds: collectCanonicalEventIds(extracted),
     legsText: normalizedSlipText,
     coverageAgentEnabled: options?.coverageAgentEnabled
   });

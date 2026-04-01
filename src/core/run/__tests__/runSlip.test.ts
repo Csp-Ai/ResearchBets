@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { computeVerdict, runSlip } from '@/src/core/pipeline/runSlip';
+import { getRunContext } from '@/src/core/context/getRunContext';
 import { runStore } from '@/src/core/run/store';
 
 vi.mock('@/src/core/context/getRunContext', () => ({
@@ -275,6 +276,126 @@ describe('runSlip pipeline', () => {
     expect(run?.report?.legs).toHaveLength(2);
     expect(new Set(run?.report?.legs.map((leg) => leg.game_id))).toEqual(new Set(['game-nyk-bos']));
     expect(run?.report?.script_clusters[0]?.leg_ids).toHaveLength(2);
+  });
+
+  it('passes canonical event IDs (not synthetic leg IDs) into trusted context', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/slips/submit')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-canonical-events',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000068',
+              trace_id: 'trace-canonical-events',
+              anon_id: 'anon-canonical',
+              spine: {},
+              trace: {},
+              parse: { confidence: 0.8, legs_count: 2, needs_review: false }
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url.includes('/api/slips/extract')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-canonical-events',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000068',
+              trace_id: 'trace-canonical-events',
+              leg_insights: [],
+              extracted_legs: [
+                {
+                  selection: 'Jalen Brunson over 7.5 assists',
+                  market: 'assists',
+                  event_id: 'evt-nyk-bos-001'
+                },
+                {
+                  selection: 'Jayson Tatum over 29.5 points',
+                  market: 'points',
+                  event_id: 'evt-nyk-bos-001'
+                }
+              ]
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await runSlip('ignored because API extraction is mocked');
+
+    expect(getRunContext).toHaveBeenCalled();
+    const contextInput = vi.mocked(getRunContext).mock.calls.at(-1)?.[0];
+    expect(contextInput?.eventIds).toEqual(['evt-nyk-bos-001']);
+    expect(contextInput?.eventIds?.some((eventId) => eventId.startsWith('leg-'))).toBe(false);
+  });
+
+  it('omits missing canonical event IDs while preserving local leg IDs and completion', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/slips/submit')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-mixed-events',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000069',
+              trace_id: 'trace-mixed-events',
+              anon_id: 'anon-mixed',
+              spine: {},
+              trace: {},
+              parse: { confidence: 0.8, legs_count: 2, needs_review: false }
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url.includes('/api/slips/extract')) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            trace_id: 'trace-mixed-events',
+            data: {
+              slip_id: '00000000-0000-0000-0000-000000000069',
+              trace_id: 'trace-mixed-events',
+              leg_insights: [],
+              extracted_legs: [
+                {
+                  selection: 'LeBron James over 6.5 rebounds',
+                  market: 'rebounds',
+                  event_id: 'evt-lal-gsw-002'
+                },
+                {
+                  selection: 'Stephen Curry over 4.5 threes',
+                  market: 'threes'
+                }
+              ]
+            }
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const traceId = await runSlip('ignored because API extraction is mocked');
+    const run = await runStore.getRun(traceId);
+
+    const contextInput = vi.mocked(getRunContext).mock.calls.at(-1)?.[0];
+    expect(contextInput?.eventIds).toEqual(['evt-lal-gsw-002']);
+    expect(run?.status).toBe('complete');
+    expect(run?.extractedLegs.every((leg) => leg.id.startsWith('leg-'))).toBe(true);
   });
 
   it('keeps minimal extracted leg inputs working when API metadata is sparse', async () => {
