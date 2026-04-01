@@ -92,6 +92,12 @@
   color: #b9c6d6;
 }
 
+.cockpit-hero-subcopy-secondary {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
 .cockpit-hero-actions {
   display: flex;
   gap: 10px;
@@ -263,6 +269,11 @@
   justify-content: space-between;
   gap: 12px;
   align-items: center;
+}
+
+.board-supporting-line {
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .board-main {
