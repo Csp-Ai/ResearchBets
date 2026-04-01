@@ -223,6 +223,7 @@
   align-items: center;
   padding: 14px 0;
   border-bottom: 1px solid var(--border-soft);
+  border-left: 2px solid transparent;
 }
 
 .board-row:last-child {
@@ -286,6 +287,54 @@
   margin-top: 8px;
 }
 
+.board-decision-strip {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #97a8bf;
+  line-height: 1.25;
+}
+
+.decision-strength {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ddf6ff;
+}
+
+.decision-watch {
+  color: #c8d6e8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decision-context {
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #86c8ff;
+}
+
+.board-for-line,
+.board-against-line {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #aab9ce;
+}
+
+.board-for-line strong,
+.board-against-line strong {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #dbe9ff;
+}
+
 .board-note {
   margin: 0;
   color: #d8e4f1;
@@ -304,6 +353,22 @@
   font-size: 11px;
   color: #d2deeb;
   white-space: nowrap;
+}
+
+.board-row.tone-strong {
+  border-left-color: rgba(84, 223, 203, 0.66);
+}
+
+.board-row.tone-solid {
+  border-left-color: rgba(108, 180, 255, 0.56);
+}
+
+.board-row.tone-thin {
+  border-left-color: rgba(250, 201, 111, 0.58);
+}
+
+.board-row.tone-fragile {
+  border-left-color: rgba(255, 139, 139, 0.64);
 }
 
 .board-actions {
@@ -1256,6 +1321,15 @@
 .ticket-leg-sub,
 .ticket-reasons {
   font-size: 12px;
+}
+
+.board-decision-strip {
+  font-size: 10px;
+}
+
+.board-for-line,
+.board-against-line {
+  font-size: 10px;
 }
 
 .board-confidence-line {

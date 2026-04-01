@@ -117,6 +117,62 @@ const boardNote = (leg: CockpitBoardLeg) => {
   return leg.deadLegReasons?.[0] ?? leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? null;
 };
 
+type DecisionTone = 'strong' | 'solid' | 'thin' | 'fragile';
+
+const confidenceTone = (leg: CockpitBoardLeg): DecisionTone => {
+  if (leg.deadLegRisk === 'high') return 'fragile';
+  if (typeof leg.confidencePct === 'number') {
+    if (leg.confidencePct >= 70) return 'strong';
+    if (leg.confidencePct >= 58) return 'solid';
+    return 'thin';
+  }
+  if (typeof leg.hitRateL10 === 'number') {
+    if (leg.hitRateL10 >= 7) return 'strong';
+    if (leg.hitRateL10 >= 6) return 'solid';
+    return 'thin';
+  }
+  return leg.deadLegRisk === 'med' ? 'thin' : 'solid';
+};
+
+const toneLabel = (tone: DecisionTone) => {
+  if (tone === 'strong') return 'Strong';
+  if (tone === 'solid') return 'Solid';
+  if (tone === 'thin') return 'Thin';
+  return 'Fragile';
+};
+
+const strongestFor = (leg: CockpitBoardLeg) => {
+  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) {
+    return `Edge vs implied ${formatSignedPct(leg.edgeDelta)}`;
+  }
+  if (typeof leg.confidencePct === 'number' && leg.confidencePct >= 68) {
+    return `Confidence ${Math.round(leg.confidencePct)}%`;
+  }
+  if (typeof leg.hitRateL10 === 'number' && leg.hitRateL10 >= 7) {
+    return `Recent hit-rate ${leg.hitRateL10}/10`;
+  }
+  return leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? 'Model alignment';
+};
+
+const strongestAgainst = (leg: CockpitBoardLeg) => {
+  if (leg.deadLegReasons?.length) return leg.deadLegReasons[0];
+  if (leg.deadLegRisk === 'high') return 'Dead-leg pressure elevated';
+  if (leg.deadLegRisk === 'med') return 'Needs cleaner game script';
+  if (leg.riskTag === 'watch') return 'Higher variance profile';
+  if (typeof leg.confidencePct === 'number' && leg.confidencePct < 58) {
+    return `Low confidence (${Math.round(leg.confidencePct)}%)`;
+  }
+  return 'No major fragility flag';
+};
+
+const ticketContext = (leg: CockpitBoardLeg) => {
+  if (leg.deadLegRisk === 'high') return 'Weakest-leg candidate';
+  if (leg.deadLegRisk === 'med') return 'Correlation-sensitive';
+  if (leg.riskTag === 'watch') return 'High variance';
+  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Anchor candidate';
+  return 'Balanced leg';
+};
+
 const countLabel = (count: number) => `${count} ${count === 1 ? 'leg' : 'legs'}`;
 const fragilityBand = (value: number | null) =>
   value == null ? 'Waiting' : value >= 65 ? 'Elevated' : value >= 40 ? 'Watch' : 'Stable';
@@ -855,11 +911,15 @@ export default function CockpitLandingClient({
                       .filter(Boolean)
                       .join(' · ');
                     const tag = riskTag(leg);
+                    const tone = confidenceTone(leg);
+                    const forSignal = strongestFor(leg);
+                    const againstSignal = strongestAgainst(leg);
+                    const contextSignal = ticketContext(leg);
 
                     return (
                       <div
                         key={leg.id}
-                        className={`board-row ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''} ${added ? 'is-added' : ''}`}
+                        className={`board-row tone-${tone} ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''} ${added ? 'is-added' : ''}`}
                         role="listitem"
                       >
                         <button className="board-row-content" onClick={() => onOpenLeg(leg)}>
@@ -875,6 +935,18 @@ export default function CockpitLandingClient({
                             <span className="board-odds">{leg.odds}</span>
                           </div>
                           <p className="board-confidence-line">{metaLine}</p>
+                          <div className="board-decision-strip" aria-label="Decision intelligence">
+                            <span className="decision-strength">{toneLabel(tone)}</span>
+                            <span className="decision-divider">·</span>
+                            <span className="decision-watch">{againstSignal}</span>
+                            <span className="decision-context">{contextSignal}</span>
+                          </div>
+                          <p className="board-for-line">
+                            <strong>For:</strong> {forSignal}
+                          </p>
+                          <p className="board-against-line">
+                            <strong>Risk:</strong> {againstSignal}
+                          </p>
                           <div className="board-supporting-line">
                             <p className="board-note">{note}</p>
                             {tag ? <span className="board-tag">{tag}</span> : null}
