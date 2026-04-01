@@ -14,6 +14,6 @@ describe('CockpitHeader', () => {
     expect(screen.getByText('Stress Test')).toBeTruthy();
     expect(screen.getByText('Purpose')).toBeTruthy();
     expect(screen.getByText('Action')).toBeTruthy();
-    expect(screen.getByText('Live Nervous System')).toBeTruthy();
+    expect(screen.getByText('Runtime')).toBeTruthy();
   });
 });

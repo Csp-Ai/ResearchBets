@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
-
-export type NervousStepState = 'idle' | 'running' | 'ok' | 'degraded' | 'fallback';
 
 export type LiveNervousSystemStripProps = {
   mode: 'demo' | 'cache' | 'live';
@@ -15,17 +13,8 @@ export type LiveNervousSystemStripProps = {
   traceId?: string;
 };
 
-const STEP_NAMES = ['Context', 'Providers', 'Normalize', 'Signals', 'Verdict'] as const;
-
-const stateClasses: Record<NervousStepState, string> = {
-  idle: 'border-white/15 text-slate-500',
-  running: 'border-cyan-300/60 text-cyan-100 animate-pulse',
-  ok: 'border-emerald-300/60 text-emerald-200',
-  degraded: 'border-amber-300/60 text-amber-200',
-  fallback: 'border-violet-300/60 text-violet-200'
-};
-
-function updatedLabel(updatedAt?: string): string {
+function updatedLabel(mode: 'demo' | 'cache' | 'live', updatedAt?: string): string {
+  if (mode === 'demo') return 'Deterministic demo slate';
   if (!updatedAt) return 'Updated recently';
   const seconds = Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 1000));
   if (seconds < 20) return 'Updated just now';
@@ -41,63 +30,35 @@ function reasonLabel(reason?: string): string | undefined {
 }
 
 export function LiveNervousSystemStrip({ mode, reason, intentMode, updatedAt, providerSummary, traceId }: LiveNervousSystemStripProps) {
-  const [demoStage, setDemoStage] = useState(0);
-  const isDemoWarmup = mode === 'demo' && !traceId;
-
-  useEffect(() => {
-    if (!isDemoWarmup) {
-      setDemoStage(STEP_NAMES.length);
-      return;
-    }
-    setDemoStage(0);
-    const timers = [250, 520, 810, 1120, 1420].map((ms, index) => window.setTimeout(() => setDemoStage(index + 1), ms));
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [isDemoWarmup]);
-
   const providersDegraded = mode === 'cache'
     || providerSummary?.degraded
     || (typeof providerSummary?.total === 'number' && providerSummary.total > 0 && providerSummary.okCount < providerSummary.total)
     || Boolean(reason);
-
-  const steps = useMemo(() => {
-    if (isDemoWarmup) {
-      return STEP_NAMES.map((name, index) => ({
-        name,
-        state: index < demoStage ? 'ok' : index === demoStage ? 'running' : 'idle' as NervousStepState
-      }));
-    }
-
-    return STEP_NAMES.map((name, index) => {
-      if (index === 1 && providersDegraded) {
-        return { name, state: mode === 'cache' ? 'fallback' : 'degraded' as NervousStepState };
-      }
-      return { name, state: 'ok' as NervousStepState };
-    });
-  }, [demoStage, isDemoWarmup, mode, providersDegraded]);
-
   const modeTruth = getTruthModeCopy({ mode, reason, intentMode });
   const secondaryLabel = reasonLabel(reason);
+  const providerLabel = useMemo(() => {
+    if (!providerSummary?.total) return 'Providers unavailable';
+    if (providersDegraded) return `${providerSummary.okCount}/${providerSummary.total} providers healthy`;
+    return `${providerSummary.okCount}/${providerSummary.total} providers healthy`;
+  }, [providerSummary, providersDegraded]);
+  const pipelineLabel = providersDegraded ? 'Degraded fallback active' : 'Pipeline healthy';
 
   return (
-    <section className="rounded-xl border border-white/10 bg-slate-950/35 p-2.5" data-testid="live-nervous-system-strip">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.09em] text-slate-200">Live Nervous System</p>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+    <section className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" data-testid="live-nervous-system-strip">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-200">Runtime</span>
+        <div className="h-3 w-px bg-white/15" aria-hidden />
+        <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-white/15 px-2 py-0.5">{modeTruth.label}</span>
           {secondaryLabel ? <span className="rounded-full border border-white/15 px-2 py-0.5">{secondaryLabel}</span> : null}
-          {providerSummary?.total ? <span>{providerSummary.okCount}/{providerSummary.total} providers</span> : null}
-          <span>{updatedLabel(updatedAt)}</span>
+          <span>{providerLabel}</span>
+          <span>{pipelineLabel}</span>
+          <span>{updatedLabel(mode, updatedAt)}</span>
+          {traceId ? <span className="text-slate-400">Trace {traceId.slice(0, 8)}</span> : null}
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-5">
-        {steps.map((step) => (
-          <span key={step.name} className={`rounded-md border px-1.5 py-1 text-center text-[10px] ${stateClasses[step.state]}`}>
-            {step.name}
-          </span>
-        ))}
-      </div>
       {(modeTruth.intentHint || !traceId) ? (
-        <p className="mt-1 text-[11px] text-slate-400">{modeTruth.intentHint ?? 'Ready to run — add 2–4 legs.'}</p>
+        <p className="mt-1 text-[11px] text-slate-400">{modeTruth.intentHint ?? 'Ready for board-first ticket build.'}</p>
       ) : null}
     </section>
   );

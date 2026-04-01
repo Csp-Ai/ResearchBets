@@ -722,25 +722,9 @@ export default function CockpitLandingClient({
     <CockpitShell>
       <div className={`cockpit-page ${analysis.running ? 'running' : ''}`}>
         <CockpitHeader
-          title="Tonight's Board"
-          purpose="Scan the board, add 2–4 legs, then pressure-test the draft ticket before you decide."
-          ctas={
-            <>
-              <Button
-                intent="primary"
-                onClick={runStressTest}
-                disabled={!stressEnabled || analysis.running}
-              >
-                Run analysis
-              </Button>
-              <Button
-                intent="secondary"
-                onClick={() => setUi((p) => ({ ...p, pasteModalOpen: true }))}
-              >
-                Paste slip
-              </Button>
-            </>
-          }
+          title="Board Runtime"
+          purpose="Truthful runtime context before you build the ticket."
+          ctas={null}
           strip={{
             mode: today.effective?.mode ?? today.mode,
             reason: today.effective?.reason ?? provenance.reason ?? today.reason,
@@ -782,6 +766,13 @@ export default function CockpitLandingClient({
               >
                 Paste slip
               </button>
+              <Button
+                intent="secondary"
+                onClick={runStressTest}
+                disabled={!stressEnabled || analysis.running}
+              >
+                Run analysis
+              </Button>
             </div>
             <div className="cockpit-hero-flow" aria-label="Tonight workflow">
               <span>1. Scan board</span>
@@ -834,7 +825,7 @@ export default function CockpitLandingClient({
         >
           <Panel id="board-panel" className="cockpit-board-panel">
             <PanelHeader
-              title="Tonight's Board"
+              title="Board markets"
               subtitle={neutralStatus}
               action={<span className="board-count-meta">{board.length} looks</span>}
             />
