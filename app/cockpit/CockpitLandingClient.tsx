@@ -32,6 +32,7 @@ import { listPostmortems } from '@/src/core/review/store';
 import { confidenceTierFromPct, normalizeRateLike } from '@/src/core/decision/lifecycleDecision';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import { deriveLiveCommandSurface } from '@/src/core/cockpit/ticketLoop';
+import { deriveBoardDecisionSurface } from '@/src/core/cockpit/boardDecisionPosture';
 import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
 
 import './cockpit.css';
@@ -107,86 +108,8 @@ const edgeSummary = (leg: CockpitBoardLeg) => {
   return null;
 };
 
-const riskTag = (leg: CockpitBoardLeg) => {
-  if (leg.deadLegRisk === 'high') return 'Fragility watch';
-  if (leg.deadLegRisk === 'med') return 'Needs script';
-  if (leg.riskTag === 'watch') return 'Volatility watch';
-  return null;
-};
-
 const boardNote = (leg: CockpitBoardLeg) => {
   return leg.deadLegReasons?.[0] ?? leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? null;
-};
-
-type DecisionTone = 'strong' | 'solid' | 'thin' | 'fragile';
-
-const confidenceTone = (leg: CockpitBoardLeg): DecisionTone => {
-  if (leg.deadLegRisk === 'high') return 'fragile';
-  if (typeof leg.confidencePct === 'number') {
-    const tier = confidenceTierFromPct(leg.confidencePct);
-    return tier === 'Strong' ? 'strong' : tier === 'Solid' ? 'solid' : 'thin';
-  }
-  if (typeof leg.hitRateL10 === 'number') {
-    const tier = confidenceTierFromPct(normalizeRateLike(leg.hitRateL10, 55).pct);
-    return tier === 'Strong' ? 'strong' : tier === 'Solid' ? 'solid' : 'thin';
-  }
-  return leg.deadLegRisk === 'med' ? 'thin' : 'solid';
-};
-
-const toneLabel = (tone: DecisionTone) => {
-  if (tone === 'strong') return 'Strong setup';
-  if (tone === 'solid') return 'Playable edge';
-  if (tone === 'thin') return 'Marginal edge';
-  return 'High break risk';
-};
-
-const strongestFor = (leg: CockpitBoardLeg) => {
-  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) {
-    return `Clear price edge (${formatSignedPct(leg.edgeDelta)})`;
-  }
-  if (typeof leg.confidencePct === 'number' && leg.confidencePct >= 68) {
-    return `Model conviction is strong (${Math.round(leg.confidencePct)}%)`;
-  }
-  if (typeof leg.hitRateL10 === 'number' && leg.hitRateL10 >= 7) {
-    return 'Recent form is holding';
-  }
-  return leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? 'Setup supports the angle';
-};
-
-const strongestAgainst = (leg: CockpitBoardLeg) => {
-  if (leg.deadLegReasons?.length) return leg.deadLegReasons[0] ?? 'Fragility pressure detected';
-  if (leg.deadLegRisk === 'high') return 'Fragile leg under ticket pressure';
-  if (leg.deadLegRisk === 'med') return 'Script-dependent outcome';
-  if (leg.riskTag === 'watch') return 'High volatility play';
-  if (typeof leg.confidencePct === 'number' && leg.confidencePct < 58) {
-    return 'Inconsistent signal quality';
-  }
-  if (typeof leg.hitRateL10 === 'number' && leg.hitRateL10 <= 5) return 'Inconsistent recent results';
-  return 'No major fragility pressure';
-};
-
-const ticketContext = (leg: CockpitBoardLeg) => {
-  if (leg.deadLegRisk === 'high') return 'Weakest-leg candidate';
-  if (leg.deadLegRisk === 'med') return 'Correlation-sensitive';
-  if (leg.riskTag === 'watch') return 'Ticket volatility lever';
-  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Anchor candidate';
-  return 'Balanced leg';
-};
-
-const primarySignal = (leg: CockpitBoardLeg, tone: DecisionTone) => {
-  if (tone === 'fragile') return 'Fragility dominates';
-  if (leg.deadLegRisk === 'med') return 'Script risk is live';
-  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Edge-led look';
-  if (leg.riskTag === 'watch') return 'Volatility-driven';
-  return 'Balanced setup';
-};
-
-const isRiskDuplicatedByTag = (leg: CockpitBoardLeg, riskSignal: string) => {
-  const normalized = riskSignal.toLowerCase();
-  if (leg.riskTag === 'watch' && normalized.includes('volatility')) return true;
-  if (leg.deadLegRisk === 'high' && normalized.includes('fragile')) return true;
-  if (leg.deadLegRisk === 'med' && normalized.includes('script')) return true;
-  return false;
 };
 
 const countLabel = (count: number) => `${count} ${count === 1 ? 'leg' : 'legs'}`;
@@ -366,6 +289,14 @@ export default function CockpitLandingClient({
   }, [board, boardUpdateTick]);
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
+  const slipGames = useMemo(
+    () => new Set(slip.map((leg) => leg.game?.trim().toLowerCase()).filter(Boolean)),
+    [slip]
+  );
+  const slipPlayers = useMemo(
+    () => new Set(slip.map((leg) => leg.player.trim().toLowerCase()).filter(Boolean)),
+    [slip]
+  );
   const legCount = slip.length;
   const stressEnabled = legCount >= 2;
   const diagnosticsReady = analysis.stage !== 'Before' || analysis.running;
@@ -555,10 +486,8 @@ export default function CockpitLandingClient({
       return {
         countLabel: '0 legs',
         shapeLabel: 'Build a 2–4 leg ticket',
-        recommendation:
-          'Add legs from Tonight’s Board to expose weakest-leg and correlation pressure before lock.',
-        nextAction:
-          'Start with two angles, then let analysis show the break point before you add more.',
+        recommendation: 'Build from the board to expose weakest-leg and correlation pressure early.',
+        nextAction: 'Start with 2 legs, review posture, then run analysis before adding more.',
         tone: 'setup',
         weakestPreviewTitle: 'Weakest leg will appear after analysis',
         weakestPreviewBody:
@@ -567,10 +496,9 @@ export default function CockpitLandingClient({
         weakestDetailBody:
           'No insight yet. The ticket needs 2–4 legs before weakest-leg pressure becomes useful.',
         correlationValue: 'Waiting on shape',
-        correlationBody:
-          'Correlation pressure will read once the ticket has enough legs to compare environments.',
+        correlationBody: 'Correlation pressure appears once at least 2 legs share ticket context.',
         fragilityValue: 'Waiting on shape',
-        fragilityBody: 'Fragility index unlocks after you build a compact ticket and run analysis.',
+        fragilityBody: 'Fragility sharpens after the ticket has shape and analysis has run.',
         analysisReady: false,
         showInsightBlocks: false
       };
@@ -591,10 +519,10 @@ export default function CockpitLandingClient({
       legCount < 2
         ? 'Add one more leg to unlock weakest-leg and pressure analysis.'
         : sameGameEdges
-          ? 'Run analysis before adding another leg tied to the same script.'
+          ? 'Run analysis before adding another leg tied to the same game script.'
           : highVol
             ? 'Run analysis before locking more volatility into this ticket.'
-            : 'Run analysis now to confirm the weakest leg before lock.';
+            : 'Run analysis now to confirm weakest-leg and coupling pressure before lock.';
 
     const nextAction =
       legCount < 2
@@ -820,8 +748,8 @@ export default function CockpitLandingClient({
             </p>
             <h1>Tonight&apos;s Board</h1>
             <p className="cockpit-hero-subcopy">
-              Start with the board. Add 2–4 legs. Run analysis only when the draft ticket feels
-              worth a decision.
+              Find the leg that kills your ticket before it does. Use the board to spot playable
+              setups, fragile angles, and early stack pressure before full analysis.
             </p>
             <div className="cockpit-hero-actions">
               <button
@@ -853,6 +781,10 @@ export default function CockpitLandingClient({
               <span>4. Run analysis</span>
               <span>5. Make decision</span>
             </div>
+            <p className="cockpit-hero-subcopy cockpit-hero-subcopy-secondary">
+              Build compact 2–4 leg slips that expose weakest-leg and correlation pressure before
+              lock.
+            </p>
             {previewStatusLabel === 'Demo mode (live feeds off)' ? (
               <p className="cockpit-mode-note">Demo mode (live feeds off)</p>
             ) : null}
@@ -922,22 +854,19 @@ export default function CockpitLandingClient({
                   </div>
                   {legs.map((leg) => {
                     const added = slipIds.has(leg.id);
+                    const decision = deriveBoardDecisionSurface(leg, {
+                      hasSameGameLegInDraft: slipGames.has(leg.matchup.trim().toLowerCase()),
+                      hasSamePlayerLegInDraft: slipPlayers.has(leg.player.trim().toLowerCase())
+                    });
                     const note = boardNote(leg) ?? confidenceSummary(leg);
                     const metaLine = [leg.odds, edgeSummary(leg), confidenceSummary(leg)]
                       .filter(Boolean)
                       .join(' · ');
-                    const tag = riskTag(leg);
-                    const tone = confidenceTone(leg);
-                    const forSignal = strongestFor(leg);
-                    const againstSignal = strongestAgainst(leg);
-                    const contextSignal = ticketContext(leg);
-                    const dominantSignal = primarySignal(leg, tone);
-                    const showTag = Boolean(tag) && !isRiskDuplicatedByTag(leg, againstSignal);
 
                     return (
                       <div
                         key={leg.id}
-                        className={`board-row tone-${tone} ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''} ${added ? 'is-added' : ''}`}
+                        className={`board-row tone-${decision.tone} ${recentlyChangedLegIds.has(leg.id) ? 'row-updated' : ''} ${added ? 'is-added' : ''}`}
                         role="listitem"
                       >
                         <button className="board-row-content" onClick={() => onOpenLeg(leg)}>
@@ -954,20 +883,23 @@ export default function CockpitLandingClient({
                           </div>
                           <p className="board-confidence-line">{metaLine}</p>
                           <div className="board-decision-strip" aria-label="Decision intelligence">
-                            <span className="decision-strength">{toneLabel(tone)}</span>
+                            <span className="decision-strength">{decision.strengthLabel}</span>
                             <span className="decision-divider">·</span>
-                            <span className="decision-watch">{dominantSignal}</span>
-                            <span className={`decision-context ${leg.deadLegRisk ? 'context-alert' : ''}`}>{contextSignal}</span>
+                            <span className="decision-watch">{decision.posture}</span>
+                            <span className={`decision-context ${leg.deadLegRisk ? 'context-alert' : ''}`}>
+                              {decision.ticketContext}
+                            </span>
                           </div>
-                          <p className="board-for-line">
-                            <strong>For:</strong> {forSignal}
-                          </p>
                           <p className="board-against-line">
-                            <strong>Risk:</strong> {againstSignal}
+                            <strong>Break risk:</strong> {decision.breakRiskHint}
                           </p>
                           <div className="board-supporting-line">
                             <p className="board-note">{note}</p>
-                            {showTag ? <span className="board-tag">{tag}</span> : null}
+                            {decision.couplingHints.map((hint) => (
+                              <span className="board-tag" key={`${leg.id}-${hint}`}>
+                                {hint}
+                              </span>
+                            ))}
                           </div>
                         </button>
                         <div className="board-actions">
@@ -1230,8 +1162,8 @@ export default function CockpitLandingClient({
                     lock.
                   </div>
                   <p className="ticket-empty-subcopy">
-                    Add legs from Tonight&apos;s Board. The ticket will sharpen into risk posture,
-                    pressure points, and a clear next action as soon as it has shape.
+                    Add from Tonight&apos;s Board, then use the decision room to surface weakest-leg
+                    pressure, fragility, and correlation stress before lock.
                   </p>
                   <div className="ticket-empty-preview" aria-label="Draft ticket unlocks">
                     <div className="ticket-preview-item">
