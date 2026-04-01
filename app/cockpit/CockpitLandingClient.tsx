@@ -135,10 +135,10 @@ const confidenceTone = (leg: CockpitBoardLeg): DecisionTone => {
 };
 
 const toneLabel = (tone: DecisionTone) => {
-  if (tone === 'strong') return 'Strong';
-  if (tone === 'solid') return 'Solid';
-  if (tone === 'thin') return 'Thin';
-  return 'Fragile';
+  if (tone === 'strong') return 'High-confidence play';
+  if (tone === 'solid') return 'Playable edge';
+  if (tone === 'thin') return 'Marginal edge';
+  return 'High break risk';
 };
 
 const strongestFor = (leg: CockpitBoardLeg) => {

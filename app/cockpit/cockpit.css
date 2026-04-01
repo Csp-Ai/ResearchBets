@@ -301,6 +301,9 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ecf8ff;
+  font-weight: 600;
   letter-spacing: 0.09em;
   color: #ddf6ff;
 }
@@ -331,7 +334,7 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.35;
-  color: #aab9ce;
+  color: #b7c6da;
 }
 
 .board-for-line strong,
