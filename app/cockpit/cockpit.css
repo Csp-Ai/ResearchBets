@@ -298,14 +298,16 @@
 }
 
 .decision-strength {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: #ddf6ff;
 }
 
 .decision-watch {
-  color: #c8d6e8;
+  color: #e2eeff;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -316,7 +318,12 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #86c8ff;
+  color: #9ad4ff;
+}
+
+.decision-context.context-alert {
+  color: #c1e7ff;
+  font-weight: 700;
 }
 
 .board-for-line,
