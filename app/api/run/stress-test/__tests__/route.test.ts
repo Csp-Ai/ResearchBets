@@ -18,7 +18,7 @@ describe('/api/run/stress-test POST', () => {
       metadata: {},
       extractedLegs: [{ id: 'leg-1', selection: 'A points 20.5', market: 'points', line: '20.5', odds: '-110', player: 'A', sport: 'NBA' }],
       enrichedLegs: [{ extractedLegId: 'leg-1', l5: 62, l10: 65, season: 61, vsOpp: 63, flags: { injury: false, news: false }, evidenceNotes: [], riskScore: 11, riskBand: 'moderate', riskFactors: [], dataSources: { stats: 'fallback', injuries: 'fallback', odds: 'fallback' } }],
-      analysis: { confidencePct: 61, weakestLegId: 'leg-1', reasons: ['reason-1'], riskLabel: 'Caution', computedAt: new Date().toISOString() },
+      analysis: { confidencePct: 61, weakestLegId: 'leg-1', reasons: ['reason-1'], riskLabel: 'Solid', computedAt: new Date().toISOString() },
       report: { mode: 'demo', trace_id: 'trace-canonical-1', reasons: [], legs: [], correlation_edges: [], script_clusters: [], failure_forecast: { top_reasons: [] } },
       sources: { stats: 'fallback', injuries: 'fallback', odds: 'fallback' }
     }));

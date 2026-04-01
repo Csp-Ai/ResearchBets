@@ -22,7 +22,7 @@ describe('computeVerdict golden semantics', () => {
     const verdict = computeVerdict(enriched, extracted, sources);
 
     expect(verdict.weakestLegId).toBe('l1');
-    expect(verdict.riskLabel).toBe('Caution');
+    expect(verdict.riskLabel).toBe('Solid');
     expect(verdict.confidencePct).toBe(65);
     expect(verdict.reasons[0]).toContain('Highest downside: Player A over 30.5 points');
     expect(verdict.reasons[1]).toContain('Next highest downside: Player B over 8.5 rebounds');

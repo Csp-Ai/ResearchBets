@@ -1,4 +1,6 @@
 import type { SlipStructureReport } from '@/src/core/contracts/slipStructureReport';
+import { buildWeakestLegIdentity } from '@/src/core/decision/lifecycleDecision';
+import type { LifecycleDriverLineage, WeakestLegIdentity } from '@/src/core/decision/lifecycleDecision';
 
 export type PostmortemOutcome = 'win' | 'loss' | 'push' | 'partial';
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
@@ -31,6 +33,8 @@ export type PostmortemAttribution = {
   confidence_level: ConfidenceLevel;
   summary_explanation: string;
   narrative: string;
+  lifecycle_lineage?: LifecycleDriverLineage;
+  weakest_leg_identity?: WeakestLegIdentity;
 };
 
 export type PostmortemLegInput = {
@@ -265,6 +269,30 @@ export function computePostmortemAttribution(input: {
     cause_tags: finalTags,
     confidence_level: confidenceLevel,
     summary_explanation: summary,
-    narrative: summary
+    narrative: summary,
+    weakest_leg_identity: buildWeakestLegIdentity({
+      canonical_leg_id: weakestLeg.leg_id,
+      stage_role: 'breaking_leg',
+      source_stage: 'review',
+      previous_leg_id: input.report?.lifecycle_driver_lineage?.pregame?.canonical_leg_id,
+      supporting_drivers: finalTags.slice(0, 2).map((tag) => {
+        if (tag === 'correlated_legs') return 'correlated_stack_pressure';
+        if (tag === 'line_too_aggressive') return 'inflated_thresholds';
+        if (tag === 'late_game_inactivity' || tag === 'blowout_minutes_risk') return 'late_game_dependency';
+        if (tag === 'role_mismatch' || tag === 'low_usage_player') return 'role_mismatch';
+        if (tag === 'efficiency_variance') return 'hot_hand_regression_risk';
+        return 'low_evidence';
+      })
+    }),
+    lifecycle_lineage: {
+      ...(input.report?.lifecycle_driver_lineage ?? {}),
+      settled: buildWeakestLegIdentity({
+        canonical_leg_id: weakestLeg.leg_id,
+        stage_role: 'breaking_leg',
+        source_stage: 'review',
+        previous_leg_id: input.report?.lifecycle_driver_lineage?.live?.canonical_leg_id ??
+          input.report?.lifecycle_driver_lineage?.pregame?.canonical_leg_id
+      })
+    }
   };
 }

@@ -1,4 +1,5 @@
 import type { SlipLeg } from '@/src/core/contracts/slip';
+import type { LifecycleDriverLineage, WeakestLegIdentity } from '@/src/core/decision/lifecycleDecision';
 
 export type ReportLeg = SlipLeg & {
   rank?: number;
@@ -58,6 +59,8 @@ export type SlipStructureReport = {
   confidence_band?: 'low' | 'med' | 'high';
   risk_band?: 'low' | 'med' | 'high';
   weakest_leg_id?: string;
+  weakest_leg_identity?: WeakestLegIdentity;
+  lifecycle_driver_lineage?: LifecycleDriverLineage;
   legs: ReportLeg[];
   correlation_edges: CorrelationEdge[];
   script_clusters: ScriptCluster[];

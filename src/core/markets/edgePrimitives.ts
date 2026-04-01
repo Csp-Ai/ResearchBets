@@ -1,4 +1,5 @@
 import { impliedProbabilitiesFromLines, moneylineToProbability } from '@/src/core/markets/impliedProbabilities';
+import { normalizeRateLike } from '@/src/core/decision/lifecycleDecision';
 
 export type OddsInput = number | string | null | undefined;
 
@@ -53,8 +54,10 @@ const hashSeed = (seed: string): number => {
 };
 
 export function deriveDeterministicModelProb(input: EdgeDeriveInput): number {
-  const base = (input.hitRateL10 ?? 54) / 100;
-  const l5Boost = input.hitRateL5 != null ? ((input.hitRateL5 - (input.hitRateL10 ?? input.hitRateL5)) / 250) : 0;
+  const hitRateL10Pct = normalizeRateLike(input.hitRateL10, 54).pct;
+  const hitRateL5Pct = input.hitRateL5 != null ? normalizeRateLike(input.hitRateL5, hitRateL10Pct).pct : null;
+  const base = hitRateL10Pct / 100;
+  const l5Boost = hitRateL5Pct != null ? ((hitRateL5Pct - hitRateL10Pct) / 250) : 0;
   const riskAdjust = input.riskTag === 'watch' ? -0.015 : 0.012;
   const seededNudge = ((hashSeed(input.idSeed) % 9) - 4) / 1000;
   return Number(Math.min(0.92, Math.max(0.08, base + l5Boost + riskAdjust + seededNudge)).toFixed(4));

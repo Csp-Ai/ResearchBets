@@ -16,6 +16,7 @@ describe('computeSlipIntelligence', () => {
     const intel = computeSlipIntelligence(legs);
 
     expect(intel.correlationScore).toBeGreaterThanOrEqual(85);
+    expect(['elevated', 'severe']).toContain(intel.correlationSeverity);
     expect(intel.fragilityScore).toBeGreaterThanOrEqual(60);
     expect(['High', 'Extreme']).toContain(intel.volatilityTier);
     expect(intel.sameGameStack).toBe(true);
@@ -30,6 +31,7 @@ describe('computeSlipIntelligence', () => {
     ]);
 
     expect(intel.correlationScore).toBeLessThan(45);
+    expect(['none', 'watch']).toContain(intel.correlationSeverity);
     expect(intel.fragilityScore).toBeLessThan(65);
     expect(['Low', 'Med']).toContain(intel.volatilityTier);
     expect(intel.exposureSummary.topGames.length).toBeGreaterThan(0);
