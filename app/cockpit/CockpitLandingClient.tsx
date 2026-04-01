@@ -109,7 +109,7 @@ const edgeSummary = (leg: CockpitBoardLeg) => {
 const riskTag = (leg: CockpitBoardLeg) => {
   if (leg.deadLegRisk === 'high') return 'Fragility watch';
   if (leg.deadLegRisk === 'med') return 'Needs script';
-  if (leg.riskTag === 'watch') return 'Higher variance';
+  if (leg.riskTag === 'watch') return 'Volatility watch';
   return null;
 };
 
@@ -143,34 +143,51 @@ const toneLabel = (tone: DecisionTone) => {
 
 const strongestFor = (leg: CockpitBoardLeg) => {
   if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) {
-    return `Edge vs implied ${formatSignedPct(leg.edgeDelta)}`;
+    return `Clear price edge (${formatSignedPct(leg.edgeDelta)})`;
   }
   if (typeof leg.confidencePct === 'number' && leg.confidencePct >= 68) {
-    return `Confidence ${Math.round(leg.confidencePct)}%`;
+    return `Model conviction is strong (${Math.round(leg.confidencePct)}%)`;
   }
   if (typeof leg.hitRateL10 === 'number' && leg.hitRateL10 >= 7) {
-    return `Recent hit-rate ${leg.hitRateL10}/10`;
+    return 'Recent form is holding';
   }
-  return leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? 'Model alignment';
+  return leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? 'Setup supports the angle';
 };
 
 const strongestAgainst = (leg: CockpitBoardLeg) => {
-  if (leg.deadLegReasons?.length) return leg.deadLegReasons[0];
-  if (leg.deadLegRisk === 'high') return 'Dead-leg pressure elevated';
-  if (leg.deadLegRisk === 'med') return 'Needs cleaner game script';
-  if (leg.riskTag === 'watch') return 'Higher variance profile';
+  if (leg.deadLegReasons?.length) return leg.deadLegReasons[0] ?? 'Fragility pressure detected';
+  if (leg.deadLegRisk === 'high') return 'Fragile leg under ticket pressure';
+  if (leg.deadLegRisk === 'med') return 'Script-dependent outcome';
+  if (leg.riskTag === 'watch') return 'High volatility play';
   if (typeof leg.confidencePct === 'number' && leg.confidencePct < 58) {
-    return `Low confidence (${Math.round(leg.confidencePct)}%)`;
+    return 'Inconsistent signal quality';
   }
-  return 'No major fragility flag';
+  if (typeof leg.hitRateL10 === 'number' && leg.hitRateL10 <= 5) return 'Inconsistent recent results';
+  return 'No major fragility pressure';
 };
 
 const ticketContext = (leg: CockpitBoardLeg) => {
   if (leg.deadLegRisk === 'high') return 'Weakest-leg candidate';
   if (leg.deadLegRisk === 'med') return 'Correlation-sensitive';
-  if (leg.riskTag === 'watch') return 'High variance';
+  if (leg.riskTag === 'watch') return 'Ticket volatility lever';
   if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Anchor candidate';
   return 'Balanced leg';
+};
+
+const primarySignal = (leg: CockpitBoardLeg, tone: DecisionTone) => {
+  if (tone === 'fragile') return 'Fragility dominates';
+  if (leg.deadLegRisk === 'med') return 'Script risk is live';
+  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Edge-led look';
+  if (leg.riskTag === 'watch') return 'Volatility-driven';
+  return 'Balanced setup';
+};
+
+const isRiskDuplicatedByTag = (leg: CockpitBoardLeg, riskSignal: string) => {
+  const normalized = riskSignal.toLowerCase();
+  if (leg.riskTag === 'watch' && normalized.includes('volatility')) return true;
+  if (leg.deadLegRisk === 'high' && normalized.includes('fragile')) return true;
+  if (leg.deadLegRisk === 'med' && normalized.includes('script')) return true;
+  return false;
 };
 
 const countLabel = (count: number) => `${count} ${count === 1 ? 'leg' : 'legs'}`;
@@ -915,6 +932,8 @@ export default function CockpitLandingClient({
                     const forSignal = strongestFor(leg);
                     const againstSignal = strongestAgainst(leg);
                     const contextSignal = ticketContext(leg);
+                    const dominantSignal = primarySignal(leg, tone);
+                    const showTag = Boolean(tag) && !isRiskDuplicatedByTag(leg, againstSignal);
 
                     return (
                       <div
@@ -938,8 +957,8 @@ export default function CockpitLandingClient({
                           <div className="board-decision-strip" aria-label="Decision intelligence">
                             <span className="decision-strength">{toneLabel(tone)}</span>
                             <span className="decision-divider">·</span>
-                            <span className="decision-watch">{againstSignal}</span>
-                            <span className="decision-context">{contextSignal}</span>
+                            <span className="decision-watch">{dominantSignal}</span>
+                            <span className={`decision-context ${leg.deadLegRisk ? 'context-alert' : ''}`}>{contextSignal}</span>
                           </div>
                           <p className="board-for-line">
                             <strong>For:</strong> {forSignal}
@@ -949,7 +968,7 @@ export default function CockpitLandingClient({
                           </p>
                           <div className="board-supporting-line">
                             <p className="board-note">{note}</p>
-                            {tag ? <span className="board-tag">{tag}</span> : null}
+                            {showTag ? <span className="board-tag">{tag}</span> : null}
                           </div>
                         </button>
                         <div className="board-actions">
