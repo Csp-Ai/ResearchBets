@@ -106,11 +106,12 @@ export function ReviewPanel({
   const patternSummary = postmortem?.pattern_summary;
   const inferredPregameDriver = attribution?.cause_tags?.[0]
     ? driverFromCauseTag(attribution.cause_tags[0])
-    : retroDto.verdict.correlation_flag
-      ? 'correlated_stack_pressure'
-      : retroDto.verdict.fragility_score >= 65
-        ? 'inflated_thresholds'
-        : 'balanced_build';
+    : retroDto.report?.lifecycle_driver_lineage?.pregame?.supporting_drivers?.[0] ??
+      (retroDto.verdict.correlation_flag
+        ? 'correlated_stack_pressure'
+        : retroDto.verdict.fragility_score >= 65
+          ? 'inflated_thresholds'
+          : 'balanced_build');
   const afterLifecycleRisk = deriveAfterLifecycleRisk({
     causeTags: attribution?.cause_tags,
     confidenceLevel: attribution?.confidence_level,
@@ -123,7 +124,8 @@ export function ReviewPanel({
     pregameDriver: inferredPregameDriver,
     liveDriver: retroDto.verdict.volatility_summary.toLowerCase().includes('high')
       ? 'volatile_secondary_stats'
-      : null
+      : null,
+    lifecycleLineage: retroDto.report?.lifecycle_driver_lineage
   });
   const afterGuidance = deriveLifecycleActionGuidance({
     risk: afterLifecycleRisk,

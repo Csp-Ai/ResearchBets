@@ -4,6 +4,7 @@ import { extractLegs } from '@/src/core/slips/extract';
 import { getRunContext } from '@/src/core/context/getRunContext';
 import { canonicalTraceId } from '@/src/core/trace/canonicalTraceId';
 import { buildSlipStructureReport, inferGameKey } from '@/src/core/slips/slipIntelligence';
+import { buildWeakestLegIdentity, confidenceTierFromPct } from '@/src/core/decision/lifecycleDecision';
 
 import { enrichInjuries } from '@/src/core/providers/injuriesProvider';
 import { enrichOdds } from '@/src/core/providers/oddsProvider';
@@ -178,7 +179,7 @@ export function computeVerdict(
       confidencePct: 35,
       weakestLegId: null,
       reasons: ['No legs found. Paste one leg per line to generate analysis.'],
-      riskLabel: 'Weak',
+      riskLabel: 'Fragile',
       computedAt: new Date().toISOString()
     };
   }
@@ -258,8 +259,7 @@ export function computeVerdict(
     });
   }
 
-  const riskLabel: VerdictAnalysis['riskLabel'] =
-    confidencePct >= 70 ? 'Strong' : confidencePct >= 55 ? 'Caution' : 'Weak';
+  const riskLabel: VerdictAnalysis['riskLabel'] = confidenceTierFromPct(confidencePct);
 
   return {
     confidencePct,
@@ -269,7 +269,9 @@ export function computeVerdict(
       `Average per-leg risk is ${avgRisk.toFixed(1)} across ${enrichedLegs.length} legs.`,
       confidencePct >= 70
         ? 'Current build grades as playable if prices hold.'
-        : 'Consider trimming weak legs before placing the slip.'
+        : confidencePct >= 60
+          ? 'Solid setup, but trim dependencies before submit.'
+          : 'Consider trimming fragile legs before placing the slip.'
     ].slice(0, 6),
     riskLabel,
     computedAt: new Date().toISOString(),
@@ -422,9 +424,6 @@ async function extractWithApi(
   }
 }
 
-const toBand = (value: number): 'low' | 'med' | 'high' =>
-  value >= 70 ? 'high' : value >= 55 ? 'med' : 'low';
-
 const mapReportLegsFromRun = (
   extracted: ExtractedLeg[],
   enriched: EnrichedLeg[],
@@ -458,9 +457,18 @@ const mapReportLegsFromRun = (
         sources.stats === 'live' || sources.injuries === 'live' || sources.odds === 'live'
           ? 'live'
           : 'cache',
-      confidence_band: toBand(analysis.confidencePct),
+      confidence_band:
+        analysis.riskLabel === 'Strong'
+          ? 'high'
+          : analysis.riskLabel === 'Solid'
+            ? 'med'
+            : 'low',
       risk_band:
-        analysis.riskLabel === 'Strong' ? 'low' : analysis.riskLabel === 'Caution' ? 'med' : 'high'
+        analysis.riskLabel === 'Strong' || analysis.riskLabel === 'Solid'
+          ? 'low'
+          : analysis.riskLabel === 'Thin'
+            ? 'med'
+            : 'high'
     }
   );
 
@@ -482,6 +490,17 @@ const mapReportLegsFromRun = (
     top_reasons: [...(report.failure_forecast.top_reasons ?? []), ...analysis.reasons].slice(0, 3)
   };
   report.weakest_leg_id = analysis.weakestLegId ?? report.weakest_leg_id;
+  report.weakest_leg_identity = buildWeakestLegIdentity({
+    canonical_leg_id: report.weakest_leg_id ?? null,
+    stage_role: 'candidate',
+    source_stage: 'slip',
+    previous_leg_id: report.lifecycle_driver_lineage?.pregame?.canonical_leg_id,
+    supporting_drivers: report.correlation_edges.length > 0 ? ['correlated_stack_pressure'] : []
+  });
+  report.lifecycle_driver_lineage = {
+    ...(report.lifecycle_driver_lineage ?? {}),
+    pregame: report.weakest_leg_identity
+  };
   return report;
 };
 export async function runSlip(
@@ -518,7 +537,7 @@ export async function runSlip(
       confidencePct: 35,
       weakestLegId: null,
       reasons: ['Run started.'],
-      riskLabel: 'Weak',
+      riskLabel: 'Fragile',
       computedAt: now
     },
     slipId: options?.slip_id ?? options?.slipId,

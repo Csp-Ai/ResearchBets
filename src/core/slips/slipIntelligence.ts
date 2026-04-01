@@ -1,5 +1,12 @@
 import type { SlipDraft, SlipLeg } from '@/src/core/contracts/slip';
 import { ensureLegIds } from '@/src/core/contracts/slip';
+import {
+  buildWeakestLegIdentity,
+  correlationSeverityFromEdges,
+  fragilityTierFromScore,
+  type CorrelationSeverity,
+  type FragilityTier
+} from '@/src/core/decision/lifecycleDecision';
 import type {
   CorrelationEdge,
   ReportLeg,
@@ -28,7 +35,9 @@ export type VolatilityTier = 'Low' | 'Med' | 'High' | 'Extreme';
 
 export type SlipIntelligence = {
   correlationScore: number;
+  correlationSeverity: CorrelationSeverity;
   fragilityScore: number;
+  fragilityTier: FragilityTier;
   volatilityTier: VolatilityTier;
   sameGameStack: boolean;
   exposureSummary: {
@@ -319,6 +328,26 @@ export function buildSlipStructureReport(
     confidence_band: context?.confidence_band,
     risk_band: context?.risk_band,
     weakest_leg_id: weakest?.leg.leg_id,
+    weakest_leg_identity: buildWeakestLegIdentity({
+      canonical_leg_id: weakest?.leg.leg_id ?? null,
+      stage_role: 'candidate',
+      source_stage: 'slip',
+      supporting_drivers: [
+        ...(correlation_edges.length > 0 ? ['correlated_stack_pressure' as const] : []),
+        ...(weakest && weakest.fragility_score >= 55 ? ['inflated_thresholds' as const] : [])
+      ]
+    }),
+    lifecycle_driver_lineage: {
+      pregame: buildWeakestLegIdentity({
+        canonical_leg_id: weakest?.leg.leg_id ?? null,
+        stage_role: 'candidate',
+        source_stage: 'slip',
+        supporting_drivers: [
+          ...(correlation_edges.length > 0 ? ['correlated_stack_pressure' as const] : []),
+          ...(weakest && weakest.fragility_score >= 55 ? ['inflated_thresholds' as const] : [])
+        ]
+      })
+    },
     legs: reportLegs,
     correlation_edges,
     script_clusters,
@@ -359,7 +388,9 @@ export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence 
   if (report.legs.length === 0) {
     return {
       correlationScore: 0,
+      correlationSeverity: 'none',
       fragilityScore: 0,
+      fragilityTier: 'Low',
       volatilityTier: 'Low',
       sameGameStack: false,
       exposureSummary: { topGames: [], topPlayers: [] },
@@ -374,9 +405,12 @@ export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence 
     report.legs.reduce((sum, leg) => sum + (leg.fragility_score ?? 0), 0) / report.legs.length
   );
   const possibleEdges = (report.legs.length * (report.legs.length - 1)) / 2;
+  const weightedCorrelation = correlationSeverityFromEdges(report.correlation_edges);
   const correlationScore = clampScore(
-    (report.correlation_edges.length / Math.max(1, possibleEdges)) * 160
+    weightedCorrelation.score ||
+      (report.correlation_edges.length / Math.max(1, possibleEdges)) * 160
   );
+  const correlationSeverity = weightedCorrelation.severity;
   const volatilityTier: VolatilityTier =
     fragilityScore >= 85
       ? 'Extreme'
@@ -388,7 +422,9 @@ export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence 
 
   return {
     correlationScore,
+    correlationSeverity,
     fragilityScore,
+    fragilityTier: fragilityTierFromScore(fragilityScore),
     volatilityTier,
     sameGameStack: report.script_clusters.some((cluster) => cluster.leg_ids.length >= 4),
     exposureSummary: { topGames, topPlayers },

@@ -29,6 +29,7 @@ import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { buildOpenTickets } from '@/src/core/live/openTickets';
 import { listTrackedTickets } from '@/src/core/track/store';
 import { listPostmortems } from '@/src/core/review/store';
+import { confidenceTierFromPct, normalizeRateLike } from '@/src/core/decision/lifecycleDecision';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import { deriveLiveCommandSurface } from '@/src/core/cockpit/ticketLoop';
 import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
@@ -89,12 +90,12 @@ const toPreviewStatusLabel = (mode: 'live' | 'cache' | 'demo') => {
 
 const confidenceSummary = (leg: CockpitBoardLeg) => {
   if (typeof leg.confidencePct === 'number') {
-    const tone = leg.confidencePct >= 70 ? 'Strong' : leg.confidencePct >= 58 ? 'Solid' : 'Thin';
+    const tone = confidenceTierFromPct(leg.confidencePct);
     return `${tone} confidence · ${Math.round(leg.confidencePct)}%`;
   }
   if (typeof leg.hitRateL10 === 'number') {
-    const tone = leg.hitRateL10 >= 7 ? 'Strong' : leg.hitRateL10 >= 6 ? 'Solid' : 'Thin';
-    return `${tone} confidence · L10 ${leg.hitRateL10}/10`;
+    const hitRatePct = normalizeRateLike(leg.hitRateL10, 55).pct;
+    return `${confidenceTierFromPct(hitRatePct)} confidence · L10 ${hitRatePct}%`;
   }
   return 'Watchlist confidence';
 };
@@ -122,20 +123,18 @@ type DecisionTone = 'strong' | 'solid' | 'thin' | 'fragile';
 const confidenceTone = (leg: CockpitBoardLeg): DecisionTone => {
   if (leg.deadLegRisk === 'high') return 'fragile';
   if (typeof leg.confidencePct === 'number') {
-    if (leg.confidencePct >= 70) return 'strong';
-    if (leg.confidencePct >= 58) return 'solid';
-    return 'thin';
+    const tier = confidenceTierFromPct(leg.confidencePct);
+    return tier === 'Strong' ? 'strong' : tier === 'Solid' ? 'solid' : 'thin';
   }
   if (typeof leg.hitRateL10 === 'number') {
-    if (leg.hitRateL10 >= 7) return 'strong';
-    if (leg.hitRateL10 >= 6) return 'solid';
-    return 'thin';
+    const tier = confidenceTierFromPct(normalizeRateLike(leg.hitRateL10, 55).pct);
+    return tier === 'Strong' ? 'strong' : tier === 'Solid' ? 'solid' : 'thin';
   }
   return leg.deadLegRisk === 'med' ? 'thin' : 'solid';
 };
 
 const toneLabel = (tone: DecisionTone) => {
-  if (tone === 'strong') return 'High-confidence play';
+  if (tone === 'strong') return 'Strong setup';
   if (tone === 'solid') return 'Playable edge';
   if (tone === 'thin') return 'Marginal edge';
   return 'High break risk';

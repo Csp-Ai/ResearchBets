@@ -1,5 +1,10 @@
 import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
 import { buildSlipStructureReport } from '@/src/core/slips/slipIntelligence';
+import {
+  confidenceTierFromPct,
+  correlationSeverityFromEdges,
+  fragilityTierFromScore
+} from '@/src/core/decision/lifecycleDecision';
 import type { LifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 import { derivePreSubmitLifecycleRisk } from '@/src/core/slips/lifecycleRisk';
 
@@ -14,7 +19,7 @@ export type SlipRiskSummary = {
   dominantRiskFactor: string;
   recommendation: SlipVerdictDecision;
   confidencePct: number;
-  riskLabel: 'Low' | 'Medium' | 'High';
+  riskLabel: 'Low' | 'Watch' | 'Fragile' | 'High-pressure';
   highVolatilityLegs: number;
   reasonBullets: string[];
   legVolatilityTags: Array<{ legId: string; label: string; volatility: 'Low' | 'Medium' | 'High' }>;
@@ -61,19 +66,13 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
     ? 0
     : clamp(report.legs.reduce((sum, leg) => sum + (leg.fragility_score ?? 0), 0) / report.legs.length);
 
-  const sameTeamEdge = report.correlation_edges.find((edge) => edge.kind === 'same_team');
-  const marketCounts = new Map<string, number>();
-  for (const leg of report.legs) {
-    const key = leg.market?.toLowerCase() ?? 'market';
-    marketCounts.set(key, (marketCounts.get(key) ?? 0) + 1);
-  }
-  const sameStatType = [...marketCounts.entries()].find(([, count]) => count >= 2);
-  const correlationFlag = Boolean(sameTeamEdge || sameStatType);
-  const correlationReason = sameTeamEdge
-    ? 'Same-team stacking detected.'
-    : sameStatType
-      ? `${sameStatType[1]} legs stack the ${sameStatType[0]} market.`
-      : 'No major correlation clusters detected.';
+  const weightedCorrelation = correlationSeverityFromEdges(report.correlation_edges);
+  const correlationFlag =
+    weightedCorrelation.severity === 'elevated' || weightedCorrelation.severity === 'severe';
+  const correlationReason =
+    weightedCorrelation.severity === 'none'
+      ? 'No major correlation clusters detected.'
+      : `Correlation ${weightedCorrelation.severity} from structured edge weighting.`;
 
   const legVolatilityTags = report.legs.map((leg) => ({
     legId: leg.leg_id,
@@ -95,13 +94,18 @@ export function deriveSlipRiskSummary(legs: SlipIntelLeg[]): SlipRiskSummary {
         : 'Leg concentration is balanced.';
 
   const confidencePct = clamp(100 - fragilityScore);
-  const riskLabel = fragilityScore >= 65 ? 'High' : fragilityScore >= 40 ? 'Medium' : 'Low';
+  const riskLabel = fragilityTierFromScore(fragilityScore);
 
   const weakestLeg = formatWeakestLeg(weakest);
 
   const lifecycleRisk = derivePreSubmitLifecycleRisk({
     sampleSize: report.legs.length,
-    confidenceLevel: fragilityScore >= 65 ? 'high' : fragilityScore >= 40 ? 'medium' : 'low',
+    confidenceLevel:
+      confidenceTierFromPct(confidencePct) === 'Strong'
+        ? 'high'
+        : confidenceTierFromPct(confidencePct) === 'Solid'
+          ? 'medium'
+          : 'low',
     matchedTags: [
       ...(fragilityScore > 62 ? ['line_too_aggressive' as const] : []),
       ...(correlationFlag ? ['correlated_legs' as const] : [])

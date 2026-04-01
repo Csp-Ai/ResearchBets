@@ -48,7 +48,7 @@ export interface VerdictAnalysis {
   confidencePct: number;
   weakestLegId: string | null;
   reasons: string[];
-  riskLabel: 'Strong' | 'Caution' | 'Weak';
+  riskLabel: 'Strong' | 'Solid' | 'Thin' | 'Fragile';
   computedAt: string;
   dataQuality?: {
     trustedCoverage: 'live' | 'fallback' | 'none';

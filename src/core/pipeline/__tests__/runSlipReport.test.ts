@@ -23,7 +23,17 @@ describe('runSlip report mapping contracts', () => {
       line: Number(leg.line),
       odds: leg.odds,
       notes: leg.selection
-    })), { risk_band: verdict.riskLabel === 'Strong' ? 'low' : verdict.riskLabel === 'Caution' ? 'med' : 'high', confidence_band: verdict.confidencePct >= 70 ? 'high' : verdict.confidencePct >= 55 ? 'med' : 'low', mode: 'cache' });
+    })), {
+      risk_band:
+        verdict.riskLabel === 'Strong' || verdict.riskLabel === 'Solid'
+          ? 'low'
+          : verdict.riskLabel === 'Thin'
+            ? 'med'
+            : 'high',
+      confidence_band:
+        verdict.riskLabel === 'Strong' ? 'high' : verdict.riskLabel === 'Solid' ? 'med' : 'low',
+      mode: 'cache'
+    });
 
     expect(verdict.weakestLegId).toBe('a');
     expect(report.legs.length).toBe(2);

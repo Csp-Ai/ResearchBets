@@ -1,4 +1,5 @@
 import type { ConfidenceLevel, CauseTag } from '@/src/core/postmortem/attribution';
+import type { LifecycleDriverLineage } from '@/src/core/decision/lifecycleDecision';
 import type { PostmortemRecord } from '@/src/core/review/types';
 
 export type LifecycleRiskLevel = 'stable' | 'watch' | 'fragile' | 'high-pressure';
@@ -270,6 +271,7 @@ export function deriveAfterLifecycleRisk(input: {
   outcome?: 'won' | 'lost' | 'void' | 'mixed' | 'partial';
   pregameDriver?: LifecycleRiskDriver | null;
   liveDriver?: LifecycleRiskDriver | null;
+  lifecycleLineage?: LifecycleDriverLineage | null;
 }): LifecycleRisk {
   const scores: DriverScoreMap = {};
   const tags = input.causeTags ?? [];
@@ -294,12 +296,26 @@ export function deriveAfterLifecycleRisk(input: {
 
   if (Object.keys(scores).length === 0) scores.low_evidence = input.outcome === 'void' ? 18 : 26;
 
-  const carriedDrivers = [input.pregameDriver, input.liveDriver].filter(Boolean) as LifecycleRiskDriver[];
+  const lineagePregameDriver = input.lifecycleLineage?.pregame?.supporting_drivers?.[0];
+  const lineageLiveDriver = input.lifecycleLineage?.live?.supporting_drivers?.[0];
+  const carriedDrivers = [
+    lineagePregameDriver,
+    lineageLiveDriver,
+    input.pregameDriver,
+    input.liveDriver
+  ].filter(Boolean) as LifecycleRiskDriver[];
+  const continuityTags =
+    input.lifecycleLineage?.pregame?.canonical_leg_id &&
+    input.lifecycleLineage?.settled?.canonical_leg_id &&
+    input.lifecycleLineage.pregame.canonical_leg_id ===
+      input.lifecycleLineage.settled.canonical_leg_id
+      ? ['Settled review', 'Risk carried through']
+      : ['Settled review'];
   return buildLifecycleRisk({
     stage: 'after',
     driverScores: scores,
     reliability: input.confidenceLevel ?? 'medium',
     carriedDrivers,
-    continuityTags: ['Settled review']
+    continuityTags
   });
 }

@@ -147,4 +147,31 @@ describe('lifecycleRisk', () => {
     expect(after.carriedThrough).toBe(true);
     expect(after.headline).toMatch(/carried through/i);
   });
+
+  it('uses persisted lineage to mark carry-through instead of proxy-only inference', () => {
+    const after = deriveAfterLifecycleRisk({
+      causeTags: ['line_too_aggressive'],
+      confidenceLevel: 'medium',
+      outcome: 'lost',
+      lifecycleLineage: {
+        pregame: {
+          canonical_leg_id: 'leg-9',
+          stage_role: 'candidate',
+          source_stage: 'slip',
+          continuity_status: 'newly_observed',
+          supporting_drivers: ['inflated_thresholds']
+        },
+        settled: {
+          canonical_leg_id: 'leg-9',
+          stage_role: 'breaking_leg',
+          source_stage: 'review',
+          continuity_status: 'carried_forward',
+          supporting_drivers: ['inflated_thresholds']
+        }
+      }
+    });
+
+    expect(after.carriedThrough).toBe(true);
+    expect(after.continuityTags).toContain('Risk carried through');
+  });
 });

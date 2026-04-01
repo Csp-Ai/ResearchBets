@@ -15,14 +15,14 @@ describe('deriveSlipRiskSummary', () => {
     expect(summary.fragilityScore).toBeGreaterThan(50);
   });
 
-  it('detects same stat type correlation', () => {
+  it('does not over-flag same market diversity without structured edges', () => {
     const summary = deriveSlipRiskSummary([
       { id: 'a', player: 'Player A', market: 'assists', line: '5.5', odds: '-110', game: 'A @ B', selection: 'Player A over 5.5 assists' },
       { id: 'b', player: 'Player B', market: 'assists', line: '6.5', odds: '-108', game: 'C @ D', selection: 'Player B over 6.5 assists' }
     ]);
 
-    expect(summary.correlationFlag).toBe(true);
-    expect(summary.correlationReason.toLowerCase()).toContain('stack');
+    expect(summary.correlationFlag).toBe(false);
+    expect(summary.correlationReason.toLowerCase()).toContain('no major correlation');
   });
 
   it('formats weakest leg as a non-empty string even from notes arrays', () => {

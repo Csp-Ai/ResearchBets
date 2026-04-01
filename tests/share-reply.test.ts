@@ -38,7 +38,7 @@ const runFixture: Run = {
     confidencePct: 58,
     weakestLegId: 'leg-1',
     reasons: [],
-    riskLabel: 'Caution',
+    riskLabel: 'Solid',
     computedAt: new Date().toISOString()
   },
   sources: { stats: 'live', injuries: 'fallback', odds: 'fallback' },
@@ -49,7 +49,7 @@ describe('buildGroupReply', () => {
   it('creates expected group chat sections', () => {
     const reply = buildGroupReply(runFixture);
 
-    expect(reply).toContain('ResearchBets verdict: 58% (Caution)');
+    expect(reply).toContain('ResearchBets verdict: 58% (Solid)');
     expect(reply).toContain('Weakest leg: Player A over 24.5 points');
     expect(reply).toContain('Suggestion: remove weakest and re-run');
     expect(reply).toContain('Any injuries/suspensions we should know about?');

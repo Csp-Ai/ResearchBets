@@ -26,7 +26,7 @@ const baseRun = (traceId: string, confidencePct = 66): Run => ({
   slipText: 'Leg A\nLeg B',
   extractedLegs: [{ id: 'leg-1', selection: 'Leg A over 10.5 points', market: 'points', odds: '-110' }],
   enrichedLegs: [{ extractedLegId: 'leg-1', l5: 62, l10: 64, flags: {}, evidenceNotes: ['steady form'] }],
-  analysis: { confidencePct, weakestLegId: 'leg-1', reasons: ['Highest downside: Leg A over 10.5 points'], riskLabel: 'Caution', computedAt: new Date().toISOString() },
+  analysis: { confidencePct, weakestLegId: 'leg-1', reasons: ['Highest downside: Leg A over 10.5 points'], riskLabel: 'Solid', computedAt: new Date().toISOString() },
   sources: { stats: 'fallback', injuries: 'fallback', odds: 'fallback' }
 });
 

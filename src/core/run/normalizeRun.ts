@@ -25,7 +25,7 @@ export function normalizeRun(input: RunInput): Run {
       confidencePct: 35,
       weakestLegId: null,
       reasons: ['No analysis available.'],
-      riskLabel: 'Weak',
+      riskLabel: 'Fragile',
       computedAt: new Date().toISOString()
     },
     report: input.report,
