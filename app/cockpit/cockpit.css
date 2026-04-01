@@ -37,8 +37,10 @@
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  padding: 18px 0 14px;
+  padding: 12px 0 8px;
   align-items: flex-start;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 8px;
 }
 
 .cockpit-hero-copy {
@@ -83,7 +85,7 @@
 }
 
 .cockpit-hero-subcopy {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   max-width: 56ch;
   font-size: 15px;
   line-height: 1.55;
@@ -94,14 +96,14 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .cockpit-hero-flow {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .cockpit-hero-flow span {
@@ -142,8 +144,8 @@
 
 .cockpit-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.95fr);
-  gap: 22px;
+  grid-template-columns: minmax(0, 1.72fr) minmax(320px, 0.9fr);
+  gap: 14px;
   align-items: start;
 }
 
@@ -158,7 +160,8 @@
   position: sticky;
   top: 12px;
   background: linear-gradient(180deg, rgba(11, 16, 26, 0.98), rgba(7, 11, 18, 0.94));
-  border: 1px solid rgba(126, 231, 255, 0.12);
+  border: 1px solid rgba(126, 231, 255, 0.18);
+  border-left: 2px solid rgba(0, 229, 200, 0.45);
   box-shadow:
     0 24px 72px rgba(0, 0, 0, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
