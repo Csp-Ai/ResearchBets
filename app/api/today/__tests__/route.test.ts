@@ -282,6 +282,41 @@ describe('/api/today GET', () => {
     expect(payload.debug?.step).not.toBe('resolve_context');
   });
 
+  it('uses the first valid provider stage when mixed warning steps are present', async () => {
+    vi.doMock('@/src/core/today/resolveToday.server', () => ({
+      resolveToday: vi.fn(async () => ({
+        mode: 'demo',
+        generatedAt: '2026-01-15T19:30:00.000Z',
+        leagues: ['NBA'],
+        games: [],
+        board: [],
+        reason: 'provider_unavailable',
+        providerErrors: [],
+        providerWarnings: [
+          'live_hard_error:not_a_real_step',
+          'live_unavailable:non_error_throw:odds_fetch',
+        ],
+        debug: { step: 'resolve_context', hint: 'provider_unavailable' },
+        provenance: { mode: 'demo', reason: 'provider_unavailable', generatedAt: '2026-01-15T19:30:00.000Z' }
+      }))
+    }));
+
+    const { GET } = await import('../route');
+    const response = await GET(new Request('http://localhost:3000/api/today?mode=live&sport=NBA&debug=1'));
+    const payload = await response.json() as {
+      data: { providerWarnings?: string[] };
+      debug?: { step?: string; hint?: string };
+    };
+
+    expect(payload.data.providerWarnings).toEqual(
+      expect.arrayContaining([
+        'live_hard_error:not_a_real_step',
+        'live_unavailable:non_error_throw:odds_fetch',
+      ]),
+    );
+    expect(payload.debug?.step).toBe('odds_fetch');
+  });
+
   it('returns attempts and provenance fields from resolver payload', async () => {
     vi.doMock('@/src/core/today/resolveToday.server', () => ({
       resolveToday: vi.fn(async () => ({
