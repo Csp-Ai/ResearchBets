@@ -135,42 +135,47 @@ const confidenceTone = (leg: CockpitBoardLeg): DecisionTone => {
 };
 
 const toneLabel = (tone: DecisionTone) => {
-  if (tone === 'strong') return 'Strong';
-  if (tone === 'solid') return 'Solid';
-  if (tone === 'thin') return 'Thin';
-  return 'Fragile';
+  if (tone === 'strong') return 'High-confidence play';
+  if (tone === 'solid') return 'Playable edge';
+  if (tone === 'thin') return 'Marginal edge';
+  return 'High break risk';
 };
 
 const strongestFor = (leg: CockpitBoardLeg) => {
   if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) {
-    return `Edge vs implied ${formatSignedPct(leg.edgeDelta)}`;
+    return `Strong edge vs market (${formatSignedPct(leg.edgeDelta)})`;
   }
   if (typeof leg.confidencePct === 'number' && leg.confidencePct >= 68) {
-    return `Confidence ${Math.round(leg.confidencePct)}%`;
+    return `High-confidence play (${Math.round(leg.confidencePct)}%)`;
   }
   if (typeof leg.hitRateL10 === 'number' && leg.hitRateL10 >= 7) {
-    return `Recent hit-rate ${leg.hitRateL10}/10`;
+    return `Repeatable hit profile (${leg.hitRateL10}/10)`;
   }
-  return leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? 'Model alignment';
+  return leg.roleReasons?.[0] ?? leg.rationale?.[0] ?? 'Model edge holds';
 };
 
 const strongestAgainst = (leg: CockpitBoardLeg) => {
-  if (leg.deadLegReasons?.length) return leg.deadLegReasons[0];
-  if (leg.deadLegRisk === 'high') return 'Dead-leg pressure elevated';
-  if (leg.deadLegRisk === 'med') return 'Needs cleaner game script';
-  if (leg.riskTag === 'watch') return 'Higher variance profile';
-  if (typeof leg.confidencePct === 'number' && leg.confidencePct < 58) {
-    return `Low confidence (${Math.round(leg.confidencePct)}%)`;
+  if (leg.deadLegReasons?.length) {
+    const reason = leg.deadLegReasons[0] ?? 'Fragility signal is elevated';
+    if (/volatility/i.test(reason)) return 'Unreliable role volatility can break this leg';
+    if (/low[- ]attempt/i.test(reason)) return 'Low-attempt path leaves thin margin for error';
+    return reason;
   }
-  return 'No major fragility flag';
+  if (leg.deadLegRisk === 'high') return 'Break risk is elevated if game flow drifts';
+  if (leg.deadLegRisk === 'med') return 'Script-sensitive leg that can miss together';
+  if (leg.riskTag === 'watch') return 'Volatile — outcome swings heavily';
+  if (typeof leg.confidencePct === 'number' && leg.confidencePct < 58) {
+    return `Low confidence (${Math.round(leg.confidencePct)}%) can sink ticket momentum`;
+  }
+  return 'No major break signal';
 };
 
 const ticketContext = (leg: CockpitBoardLeg) => {
-  if (leg.deadLegRisk === 'high') return 'Weakest-leg candidate';
-  if (leg.deadLegRisk === 'med') return 'Correlation-sensitive';
-  if (leg.riskTag === 'watch') return 'High variance';
-  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Anchor candidate';
-  return 'Balanced leg';
+  if (leg.deadLegRisk === 'high') return 'Ticket breaker if missed';
+  if (leg.deadLegRisk === 'med') return 'Failure point in correlated script';
+  if (leg.riskTag === 'watch') return 'Swing leg for ticket survival';
+  if (typeof leg.edgeDelta === 'number' && leg.edgeDelta >= 0.06) return 'Ticket anchor if it hits';
+  return 'Stability leg';
 };
 
 const countLabel = (count: number) => `${count} ${count === 1 ? 'leg' : 'legs'}`;

@@ -301,7 +301,8 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #ddf6ff;
+  color: #ecf8ff;
+  font-weight: 600;
 }
 
 .decision-watch {
@@ -316,7 +317,8 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #86c8ff;
+  color: #9fd4ff;
+  font-weight: 600;
 }
 
 .board-for-line,
@@ -324,7 +326,7 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.35;
-  color: #aab9ce;
+  color: #b7c6da;
 }
 
 .board-for-line strong,
