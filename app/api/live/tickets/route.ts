@@ -31,7 +31,7 @@ function hashToUnit(input: string) {
   return (hash >>> 0) / 4294967295;
 }
 
-function buildDeterministicUpdates(tickets: TrackedTicket[]) {
+function buildDeterministicDemoUpdates(tickets: TrackedTicket[]) {
   const updates: Record<string, { currentValue: number; liveMargin: number; elapsedGameMinutes: number; quarter: 1 | 2 | 3 | 4 }> = {};
 
   for (const ticket of tickets) {
@@ -52,7 +52,10 @@ function buildDeterministicUpdates(tickets: TrackedTicket[]) {
   return updates;
 }
 
-function buildCoverage(tickets: TrackedTicket[]) {
+function buildCoverage(
+  tickets: TrackedTicket[],
+  options: { providerAvailable: boolean },
+) {
   const coverage: Record<string, { coverage: 'full' | 'partial' | 'none'; legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> }> = {};
 
   for (const ticket of tickets) {
@@ -66,12 +69,21 @@ function buildCoverage(tickets: TrackedTicket[]) {
         legs[leg.legId] = { coverage: 'missing', reason: 'unsupported_market' };
         continue;
       }
+      if (!options.providerAvailable) {
+        legs[leg.legId] = { coverage: 'missing', reason: 'provider_unavailable' };
+        continue;
+      }
       const unstable = hashToUnit(`${ticket.ticketId}:${leg.legId}:coverage`) < 0.05;
-      legs[leg.legId] = unstable ? { coverage: 'missing', reason: 'provider_unavailable' } : { coverage: 'covered' };
+      legs[leg.legId] = unstable
+        ? { coverage: 'missing', reason: 'provider_unavailable' }
+        : { coverage: 'covered' };
     }
     const covered = Object.values(legs).filter((item) => item.coverage === 'covered').length;
     const total = Object.keys(legs).length;
-    coverage[ticket.ticketId] = { coverage: covered === 0 ? 'none' : covered === total ? 'full' : 'partial', legs };
+    coverage[ticket.ticketId] = {
+      coverage: covered === 0 ? 'none' : covered === total ? 'full' : 'partial',
+      legs,
+    };
   }
 
   return coverage;
@@ -80,18 +92,50 @@ function buildCoverage(tickets: TrackedTicket[]) {
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Invalid tickets payload.' } }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'invalid_payload', message: 'Invalid tickets payload.' } },
+      { status: 400 },
+    );
   }
 
-  const mode = readString(CANONICAL_KEYS.LIVE_MODE) === '1' ? 'live' : 'demo';
+  const liveRequested = readString(CANONICAL_KEYS.LIVE_MODE) === '1';
   const tickets = parsed.data.tickets as TrackedTicket[];
+
+  // Important truth boundary: the repository does not yet have a provider-backed
+  // NFL/NBA live player-progress adapter wired to this endpoint. Never label the
+  // deterministic demo generator as live data.
+  if (liveRequested) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: 'live_ticket_provider_unavailable',
+          message: 'Provider-backed live player progress is not connected yet.',
+        },
+        data: {
+          updates: {},
+          coverage: buildCoverage(tickets, { providerAvailable: false }),
+        },
+        provenance: {
+          mode: 'live',
+          reason: 'provider_backed_live_updates_unavailable',
+          generatedAt: new Date().toISOString(),
+        },
+      },
+      { status: 503 },
+    );
+  }
+
   return NextResponse.json({
     ok: true,
-    data: { updates: buildDeterministicUpdates(tickets), coverage: buildCoverage(tickets) },
+    data: {
+      updates: buildDeterministicDemoUpdates(tickets),
+      coverage: buildCoverage(tickets, { providerAvailable: true }),
+    },
     provenance: {
-      mode,
-      reason: mode === 'demo' ? 'Demo mode (live feeds off)' : undefined,
+      mode: 'demo',
+      reason: 'Demo mode (deterministic live simulation)',
       generatedAt: new Date().toISOString(),
-    }
+    },
   });
 }
