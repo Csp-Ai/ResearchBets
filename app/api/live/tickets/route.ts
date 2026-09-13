@@ -33,6 +33,7 @@ const ticketSchema = z.object({
   rawSlipText: z.string(),
   cashoutAvailable: z.boolean().optional(),
   cashoutValue: z.number().optional(),
+  mode: z.enum(['demo', 'cache', 'live']).optional(),
   legs: z.array(legSchema),
 });
 
@@ -108,7 +109,11 @@ export async function POST(request: Request) {
   }
 
   const requestedMode = parsed.data.mode;
-  const liveRequested = requestedMode === 'live' || (!requestedMode && readString(CANONICAL_KEYS.LIVE_MODE) === '1');
+  const ticketRequestsLive = parsed.data.tickets.some((ticket) => ticket.mode === 'live');
+  const liveRequested =
+    requestedMode === 'live' ||
+    ticketRequestsLive ||
+    (!requestedMode && readString(CANONICAL_KEYS.LIVE_MODE) === '1');
   const tickets = parsed.data.tickets as TrackedTicket[];
 
   if (liveRequested) {
