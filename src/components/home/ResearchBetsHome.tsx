@@ -480,7 +480,17 @@ export function ResearchBetsHome() {
           {selectedCount >= 2 ? (
             <Link href={nervous.toHref('/stress-test')} className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018]">Stress-test</Link>
           ) : (
-            <button type="button" onClick={() => buildPreset(PRESETS[1])} disabled={qualified < 2} className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018] disabled:opacity-35">Build balanced</button>
+            <button
+              type="button"
+              onClick={() => {
+                const balanced = PRESETS.find((preset) => preset.id === 'balanced');
+                if (balanced) buildPreset(balanced);
+              }}
+              disabled={qualified < 2}
+              className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018] disabled:opacity-35"
+            >
+              Build balanced
+            </button>
           )}
         </div>
       </div>
