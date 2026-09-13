@@ -46,7 +46,14 @@ const MARKET_TYPE_TAGS: Record<MarketType, string> = {
   rebounds: 'REB',
   assists: 'AST',
   ra: 'R+A',
-  pra: 'PRA'
+  pra: 'PRA',
+  passing_yards: 'PASS YDS',
+  passing_tds: 'PASS TD',
+  rushing_yards: 'RUSH YDS',
+  receiving_yards: 'REC YDS',
+  receptions: 'REC',
+  carries: 'CAR',
+  anytime_td: 'ATTD'
 };
 
 const getInsight = (leg: SnapshotReplayLeg, insight?: PropLegInsight): PropLegInsight => {
