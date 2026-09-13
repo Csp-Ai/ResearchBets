@@ -5,10 +5,18 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import {
+  getBettorMistakePatternSummary,
+  getDraftLearningAdvisory,
+} from '@/src/core/postmortem/patternSource';
+import {
   buildSlipStructureReport,
   computeSlipIntelligence,
   type SlipIntelLeg,
 } from '@/src/core/slips/slipIntelligence';
+import {
+  deriveTicketMemoryPulse,
+  type TicketMemoryPulse,
+} from '@/src/core/slips/ticketMemoryPulse';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -71,6 +79,22 @@ const edgeClass = (severity: 'low' | 'med' | 'high') => {
   return 'stroke-slate-500/35';
 };
 
+const memoryTone = (pulse?: TicketMemoryPulse) => {
+  if (!pulse || pulse.level === 'learning') {
+    return 'border-white/[0.07] bg-white/[0.02] text-slate-400';
+  }
+  if (pulse.level === 'high') {
+    return 'border-fuchsia-300/[0.22] bg-fuchsia-300/[0.065] text-fuchsia-100';
+  }
+  if (pulse.level === 'medium') {
+    return 'border-violet-300/[0.18] bg-violet-300/[0.055] text-violet-100';
+  }
+  if (pulse.level === 'low') {
+    return 'border-indigo-300/[0.14] bg-indigo-300/[0.04] text-indigo-100';
+  }
+  return 'border-emerald-300/[0.13] bg-emerald-300/[0.035] text-emerald-100';
+};
+
 export function TicketXRay() {
   const nervous = useNervousSystem();
   const { slip, removeLeg, isHydrated } = useDraftSlip();
@@ -97,6 +121,7 @@ export function TicketXRay() {
   );
   const intelligence = useMemo(() => computeSlipIntelligence(normalized), [normalized]);
   const [selectedId, setSelectedId] = useState<string>();
+  const [memoryPulse, setMemoryPulse] = useState<TicketMemoryPulse>();
 
   useEffect(() => {
     if (report.weakest_leg_id) setSelectedId(report.weakest_leg_id);
@@ -104,9 +129,27 @@ export function TicketXRay() {
     else setSelectedId(undefined);
   }, [report.weakest_leg_id, report.legs]);
 
+  useEffect(() => {
+    if (!isHydrated) return;
+    const patternSummary = getBettorMistakePatternSummary();
+    const learningAdvisory = getDraftLearningAdvisory(slip);
+    setMemoryPulse(
+      deriveTicketMemoryPulse({
+        slip,
+        patternSummary,
+        learningAdvisory,
+      }),
+    );
+  }, [isHydrated, slip]);
+
   const positions = useMemo(
     () => new Map(report.legs.map((leg, index) => [leg.leg_id, nodePosition(index, report.legs.length)])),
     [report.legs],
+  );
+
+  const affectedByMemory = useMemo(
+    () => new Set(memoryPulse?.affected_leg_ids ?? []),
+    [memoryPulse?.affected_leg_ids],
   );
 
   const selected = report.legs.find((leg) => leg.leg_id === selectedId) ?? report.legs[0];
@@ -114,7 +157,13 @@ export function TicketXRay() {
   const avgFragility = report.legs.length
     ? Math.round(report.legs.reduce((sum, leg) => sum + (leg.fragility_score ?? 0), 0) / report.legs.length)
     : 0;
-  const repair = selected ? repairForFlags(selected.flags ?? []) : '';
+  const memoryMatch = selected
+    ? memoryPulse?.matches.find((match) => match.affected_leg_ids.includes(selected.leg_id))
+    : undefined;
+  const memoryFix = selected
+    ? memoryPulse?.fixes.find((fix) => fix.affected_leg_ids.includes(selected.leg_id))
+    : undefined;
+  const repair = memoryFix?.action ?? (selected ? repairForFlags(selected.flags ?? []) : '');
 
   if (!isHydrated) {
     return (
@@ -150,12 +199,14 @@ export function TicketXRay() {
         .xray-ring-reverse { animation: xraySpinReverse 26s linear infinite; transform-origin: 50% 50%; }
         .xray-scan { animation: xrayScan 3.6s ease-in-out infinite; }
         .weak-pulse { animation: weakPulse 2.2s ease-in-out infinite; }
+        .memory-pulse { animation: memoryPulse 3.4s ease-in-out infinite; }
         @keyframes xraySpin { to { transform: rotate(360deg); } }
         @keyframes xraySpinReverse { to { transform: rotate(-360deg); } }
         @keyframes xrayScan { 0%,100% { transform: translateY(-120%); opacity: 0; } 15% { opacity: .6; } 50% { opacity: .85; } 85% { opacity: .35; } 100% { transform: translateY(420%); opacity: 0; } }
         @keyframes weakPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,.12), 0 0 28px rgba(251,191,36,.08); } 50% { box-shadow: 0 0 0 9px rgba(251,191,36,0), 0 0 42px rgba(251,191,36,.18); } }
+        @keyframes memoryPulse { 0%,100% { box-shadow: 0 0 22px rgba(217,70,239,.06); } 50% { box-shadow: 0 0 42px rgba(167,139,250,.18); } }
         @media (prefers-reduced-motion: reduce) {
-          .xray-ring,.xray-ring-reverse,.xray-scan,.weak-pulse { animation:none !important; }
+          .xray-ring,.xray-ring-reverse,.xray-scan,.weak-pulse,.memory-pulse { animation:none !important; }
         }
       `}</style>
 
@@ -176,7 +227,7 @@ export function TicketXRay() {
             </div>
             <h1 className="mt-2 text-[31px] font-semibold tracking-[-0.055em] sm:text-[42px]">See what can break the ticket.</h1>
             <p className="mt-2 max-w-2xl text-[12px] leading-5 text-slate-500">
-              The constellation is generated from ResearchBets&apos; real slip-structure engine: fragility, repeated-player exposure, shared game scripts, odds pressure, and correlation edges.
+              The constellation is generated from ResearchBets&apos; real slip-structure engine, then Bettor Memory checks whether the shape resembles your reviewed history.
             </p>
           </div>
 
@@ -190,11 +241,24 @@ export function TicketXRay() {
               <div className="mt-1 text-[18px] font-semibold">{intelligence.correlationScore}</div>
             </div>
             <div className="rounded-xl border border-white/[0.065] bg-black/20 px-3 py-2.5">
-              <div className="text-[8px] uppercase tracking-[0.14em] text-slate-600">Legs</div>
-              <div className="mt-1 text-[18px] font-semibold">{report.legs.length}</div>
+              <div className="text-[8px] uppercase tracking-[0.14em] text-slate-600">Memory</div>
+              <div className="mt-1 truncate text-[11px] font-semibold capitalize text-slate-300">{memoryPulse?.level ?? 'scan'}</div>
             </div>
           </div>
         </div>
+
+        {memoryPulse ? (
+          <div className={`mt-4 rounded-2xl border px-4 py-3 ${memoryTone(memoryPulse)}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-65">Bettor Memory</div>
+              <div className="text-[9px] opacity-55">
+                {memoryPulse.sample_size > 0 ? `${memoryPulse.sample_size} reviewed · ${memoryPulse.confidence} confidence` : 'building history'}
+              </div>
+            </div>
+            <div className="mt-1 text-[13px] font-semibold">{memoryPulse.headline}</div>
+            <p className="mt-1 max-w-3xl text-[10px] leading-5 opacity-70">{memoryPulse.summary}</p>
+          </div>
+        ) : null}
       </div>
 
       <div className="relative grid gap-0 lg:grid-cols-[1.2fr_.8fr]">
@@ -241,6 +305,7 @@ export function TicketXRay() {
             const pos = positions.get(leg.leg_id) ?? { x: 50, y: 50 };
             const isWeak = leg.leg_id === report.weakest_leg_id;
             const isSelected = leg.leg_id === selected?.leg_id;
+            const isMemory = affectedByMemory.has(leg.leg_id);
             const score = leg.fragility_score ?? 0;
             return (
               <button
@@ -250,23 +315,27 @@ export function TicketXRay() {
                 className={`absolute z-20 h-[92px] w-[92px] -translate-x-1/2 -translate-y-1/2 rounded-full border p-2 text-center backdrop-blur-xl transition duration-300 ${
                   isWeak
                     ? 'weak-pulse border-amber-300/[0.35] bg-amber-300/[0.075]'
-                    : isSelected
-                      ? 'border-cyan-200/[0.28] bg-cyan-300/[0.075] shadow-[0_0_34px_rgba(34,211,238,.10)]'
-                      : 'border-white/[0.10] bg-[#091018]/88 hover:border-white/[0.22]'
+                    : isMemory
+                      ? 'memory-pulse border-fuchsia-300/[0.24] bg-fuchsia-300/[0.055]'
+                      : isSelected
+                        ? 'border-cyan-200/[0.28] bg-cyan-300/[0.075] shadow-[0_0_34px_rgba(34,211,238,.10)]'
+                        : 'border-white/[0.10] bg-[#091018]/88 hover:border-white/[0.22]'
                 }`}
                 style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                 aria-label={`Inspect ${leg.player ?? 'ticket leg'}`}
               >
-                <div className={`mx-auto mb-1 h-1.5 w-1.5 rounded-full ${isWeak ? 'bg-amber-300' : 'bg-cyan-300/75'}`} />
+                <div className={`mx-auto mb-1 h-1.5 w-1.5 rounded-full ${isWeak ? 'bg-amber-300' : isMemory ? 'bg-fuchsia-300' : 'bg-cyan-300/75'}`} />
                 <div className="truncate text-[10px] font-semibold text-slate-100">{shortLabel(leg.player ?? leg.notes ?? 'Leg')}</div>
                 <div className="mt-0.5 truncate text-[8px] text-slate-500">{shortLabel(marketLabel(leg.market), 12)}</div>
-                <div className={`mt-1 text-[11px] font-semibold ${isWeak ? 'text-amber-200' : 'text-slate-300'}`}>{score}</div>
+                <div className={`mt-1 text-[11px] font-semibold ${isWeak ? 'text-amber-200' : isMemory ? 'text-fuchsia-200' : 'text-slate-300'}`}>{score}</div>
+                {isMemory ? <div className="mt-0.5 text-[6px] font-semibold uppercase tracking-[0.12em] text-fuchsia-200/70">memory</div> : null}
               </button>
             );
           })}
 
           <div className="absolute bottom-4 left-4 z-30 flex flex-wrap gap-2 text-[8px] uppercase tracking-[0.12em] text-slate-600">
             <span className="rounded-full border border-amber-300/[0.15] bg-black/25 px-2 py-1">Amber = weakest</span>
+            <span className="rounded-full border border-fuchsia-300/[0.14] bg-black/25 px-2 py-1">Violet = memory match</span>
             <span className="rounded-full border border-cyan-300/[0.12] bg-black/25 px-2 py-1">Lines = dependencies</span>
           </div>
         </div>
@@ -276,9 +345,14 @@ export function TicketXRay() {
             <>
               <div className="flex items-center justify-between gap-3">
                 <div className="text-[9px] font-semibold uppercase tracking-[0.17em] text-slate-600">Selected node</div>
-                {selected.leg_id === report.weakest_leg_id ? (
-                  <span className="rounded-full border border-amber-300/[0.16] bg-amber-300/[0.055] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-200">Primary pressure</span>
-                ) : null}
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  {memoryMatch ? (
+                    <span className="rounded-full border border-fuchsia-300/[0.16] bg-fuchsia-300/[0.055] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-fuchsia-200">Memory match</span>
+                  ) : null}
+                  {selected.leg_id === report.weakest_leg_id ? (
+                    <span className="rounded-full border border-amber-300/[0.16] bg-amber-300/[0.055] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-200">Primary pressure</span>
+                  ) : null}
+                </div>
               </div>
 
               <h2 className="mt-3 text-[26px] font-semibold tracking-[-0.045em]">{selected.player ?? selected.notes ?? 'Ticket leg'}</h2>
@@ -295,7 +369,7 @@ export function TicketXRay() {
                 </div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.055]">
                   <div
-                    className={`h-full rounded-full ${selected.leg_id === report.weakest_leg_id ? 'bg-gradient-to-r from-amber-300 to-orange-300' : 'bg-gradient-to-r from-cyan-300 to-indigo-300'}`}
+                    className={`h-full rounded-full ${selected.leg_id === report.weakest_leg_id ? 'bg-gradient-to-r from-amber-300 to-orange-300' : memoryMatch ? 'bg-gradient-to-r from-fuchsia-300 to-violet-300' : 'bg-gradient-to-r from-cyan-300 to-indigo-300'}`}
                     style={{ width: `${clamp(selected.fragility_score ?? 0, 3, 100)}%` }}
                   />
                 </div>
@@ -310,8 +384,19 @@ export function TicketXRay() {
                 </div>
               </div>
 
+              {memoryMatch ? (
+                <div className="mt-5 rounded-2xl border border-fuchsia-300/[0.14] bg-fuchsia-300/[0.04] p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-fuchsia-100/60">Bettor Memory match</div>
+                    <div className="text-[8px] uppercase tracking-[0.12em] text-fuchsia-100/35">{memoryPulse?.sample_size ?? 0} reviewed</div>
+                  </div>
+                  <div className="mt-2 text-[12px] font-semibold text-fuchsia-50">{memoryMatch.label}</div>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-400">{memoryMatch.reason}</p>
+                </div>
+              ) : null}
+
               <div className="mt-5 rounded-2xl border border-cyan-200/[0.10] bg-cyan-300/[0.035] p-4">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-cyan-100/55">Suggested repair</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-cyan-100/55">{memoryFix ? 'Memory-aware repair' : 'Suggested repair'}</div>
                 <p className="mt-2 text-[12px] leading-5 text-slate-300">{repair}</p>
               </div>
 
