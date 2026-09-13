@@ -2,6 +2,13 @@ import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
 import type { ParseConfidence, TrackedTicketLeg } from '@/src/core/track/types';
 
 const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: string }> = [
+  { pattern: /\b(?:passing|pass)\s+(?:yards?|yds?)\b/i, marketType: 'passing_yards', label: 'Passing yards' },
+  { pattern: /\b(?:passing|pass)\s+(?:touchdowns?|tds?)\b/i, marketType: 'passing_tds', label: 'Passing TDs' },
+  { pattern: /\b(?:rushing|rush)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_yards', label: 'Rushing yards' },
+  { pattern: /\b(?:receiving|rec)\s+(?:yards?|yds?)\b/i, marketType: 'receiving_yards', label: 'Receiving yards' },
+  { pattern: /\b(?:receptions?|catches)\b/i, marketType: 'receptions', label: 'Receptions' },
+  { pattern: /\b(?:carries|rush(?:ing)?\s+attempts?)\b/i, marketType: 'carries', label: 'Carries' },
+  { pattern: /\b(?:any\s*time|anytime)\s+(?:touchdown|td)(?:\s+scorer)?\b|\battd\b|\bto\s+score(?:\s+a)?\s+touchdown\b/i, marketType: 'anytime_td', label: 'Anytime TD' },
   { pattern: /\bmoneyline\b/i, marketType: 'moneyline', label: 'Moneyline' },
   { pattern: /\bpra\b|points\s*\+\s*rebounds\s*\+\s*assists/i, marketType: 'pra', label: 'PRA' },
   { pattern: /\b3\s*(pt|pointer)|threes?\b/i, marketType: 'threes', label: 'Threes' },
@@ -9,6 +16,16 @@ const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: 
   { pattern: /\brebounds?\b/i, marketType: 'rebounds', label: 'Rebounds' },
   { pattern: /\bpoints?\b/i, marketType: 'points', label: 'Points' },
 ];
+
+const NFL_MARKETS = new Set<MarketType>([
+  'passing_yards',
+  'passing_tds',
+  'rushing_yards',
+  'receiving_yards',
+  'receptions',
+  'carries',
+  'anytime_td',
+]);
 
 function canonicalMarket(input: string): { marketType: MarketType; marketLabel: string; inferred: boolean } {
   for (const token of MARKET_TOKEN_MAP) {
@@ -68,7 +85,8 @@ function inferPlayer(input: string): string {
     .replace(/\b(OVER|UNDER)\b.*$/i, '')
     .replace(/\bTO\s+(SCORE|RECORD)\b.*$/i, '')
     .replace(/\b\d+(?:\.\d+)?\+?\b/g, '')
-    .replace(/\b(POINTS?|ASSISTS?|REBOUNDS?|PRA|THREES?|MONEYLINE)\b/gi, '')
+    .replace(/\b(POINTS?|ASSISTS?|REBOUNDS?|PRA|THREES?|MONEYLINE|PASS(?:ING)?\s+(?:YARDS?|YDS?|TDS?|TOUCHDOWNS?)|RUSH(?:ING)?\s+(?:YARDS?|YDS?|ATTEMPTS?)|RECEIV(?:ING)?\s+(?:YARDS?|YDS?)|REC\s+(?:YARDS?|YDS?)|RECEPTIONS?|CATCHES|CARRIES|ANYTIME\s+(?:TD|TOUCHDOWN))\b/gi, '')
+    .replace(/\bALT\b/gi, '')
     .replace(/\b([A-Z]{2,4})\s*@\s*([A-Z]{2,4})\b/g, '')
     .trim();
 
@@ -118,15 +136,16 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
     const teamDetails = parseTeams(line);
     const unresolved = threshold == null || marketLabel === 'Needs review';
     const parseConfidence = confidenceFor({ player, inferredMarket: inferred, threshold, unresolved });
+    const league = NFL_MARKETS.has(marketType) || /\bNFL\b/i.test(line) ? 'NFL' : 'NBA';
 
     return {
       legId: `leg-${index + 1}`,
-      league: /\b(nfl)\b/i.test(line) ? 'NFL' : 'NBA',
+      league,
       player,
       rawPlayer: player,
       marketType,
       marketLabel,
-      threshold: threshold ?? 0,
+      threshold: threshold ?? (marketType === 'anytime_td' ? 1 : 0),
       direction,
       odds,
       source: sourceHint,
