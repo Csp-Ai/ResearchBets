@@ -43,6 +43,7 @@ function normalizePlayerName(input: string): string {
   return input
     .replace(/[|*_~`]+/g, ' ')
     .replace(/[.,;:!?]+$/g, '')
+    .replace(/[+-]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -126,6 +127,7 @@ function parseTeams(input: string): { teams?: string; gameId?: string } {
 
 function inferPlayer(input: string): string {
   const stripped = input
+    .replace(/(^|\s)[+-]\d{2,5}\b/g, ' ')
     .replace(/\b(OVER|UNDER)\b.*$/i, '')
     .replace(/\bTO\s+(SCORE|RECORD)\b.*$/i, '')
     .replace(/\b\d+(?:\.\d+)?\+?\b/g, '')
@@ -156,7 +158,10 @@ function looksLikeCandidateLeg(line: string): boolean {
   if (!canonicalMarket(line).inferred) return true;
   if (/\b(over|under)\s+\d+(?:\.\d+)?\b/i.test(line)) return true;
   if (/\b\d+(?:\.\d+)?\+\s+(?:yards?|receptions?|carries|passing\s+touchdowns?)\b/i.test(line)) return true;
-  if (/[+-]\d{2,5}\b/.test(line) && /\d+(?:\.\d+)?/.test(line) && /[A-Za-z]{3}/.test(line)) return true;
+
+  const americanOdds = /(^|\s)[+-]\d{2,5}\b/.test(line);
+  const withoutOdds = line.replace(/(^|\s)[+-]\d{2,5}\b/g, ' ');
+  if (americanOdds && /\d+(?:\.\d+)?/.test(withoutOdds) && /[A-Za-z]{3}/.test(withoutOdds)) return true;
   return false;
 }
 
