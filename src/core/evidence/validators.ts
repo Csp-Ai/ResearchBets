@@ -1,16 +1,8 @@
 import { z } from 'zod';
 
-const MarketTypeSchema = z.enum([
-  'spread',
-  'total',
-  'moneyline',
-  'points',
-  'threes',
-  'rebounds',
-  'assists',
-  'ra',
-  'pra'
-]);
+import { SUPPORTED_MARKET_TYPES } from '../markets/marketType';
+
+const MarketTypeSchema = z.enum(SUPPORTED_MARKET_TYPES);
 
 const SourceReferenceSchema = z.object({
   provider: z.string().min(1),
