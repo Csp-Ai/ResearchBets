@@ -27,6 +27,9 @@ const NFL_MARKETS = new Set<MarketType>([
   'anytime_td',
 ]);
 
+const ALT_DESCRIPTOR = /^(.+?)\s*-\s*ALT\s+(PASSING|RUSHING|RECEIVING)\s+(YDS?|YARDS?|TDS?|TOUCHDOWNS?|ATTEMPTS?|RECEPTIONS?)$/i;
+const GENERIC_PLUS_PROP = /^(.+?)\s+(\d+(?:\.\d+)?)\+\s+(YARDS?|RECEPTIONS?|CARRIES|PASSING\s+TOUCHDOWNS?)(?:\s+([+-]\d{2,5}))?(?:\s+([A-Z]{2,4}\s*@\s*[A-Z]{2,4}))?$/i;
+
 function canonicalMarket(input: string): { marketType: MarketType; marketLabel: string; inferred: boolean } {
   for (const token of MARKET_TOKEN_MAP) {
     if (token.pattern.test(input)) {
@@ -42,6 +45,47 @@ function normalizePlayerName(input: string): string {
     .replace(/[.,;:!?]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function comparablePlayer(input: string): string {
+  return normalizePlayerName(input)
+    .toLowerCase()
+    .replace(/[^a-z0-9']/g, '');
+}
+
+function descriptorMarket(line: string): { player: string; market: string } | null {
+  const match = line.match(ALT_DESCRIPTOR);
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  const family = match[2].toLowerCase();
+  const unit = match[3].toLowerCase();
+  let market = `${family} yards`;
+  if (unit.startsWith('td') || unit.startsWith('touchdown')) market = 'passing touchdowns';
+  else if (unit.startsWith('attempt')) market = 'carries';
+  else if (unit.startsWith('reception')) market = 'receptions';
+  return { player: normalizePlayerName(match[1]), market };
+}
+
+function coalesceSportsbookFragments(lines: string[]): string[] {
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const current = lines[index]!;
+    const next = lines[index + 1];
+    const main = current.match(GENERIC_PLUS_PROP);
+    const descriptor = next ? descriptorMarket(next) : null;
+
+    if (main?.[1] && main[2] && descriptor && comparablePlayer(main[1]) === comparablePlayer(descriptor.player)) {
+      const player = normalizePlayerName(main[1]);
+      const threshold = main[2];
+      const odds = main[4] ? ` ${main[4]}` : '';
+      const teams = main[5] ? ` ${main[5]}` : '';
+      output.push(`${player} over ${threshold} ${descriptor.market}${odds}${teams}`);
+      index += 1;
+      continue;
+    }
+
+    output.push(current);
+  }
+  return output;
 }
 
 function parseDirection(input: string): 'over' | 'under' {
@@ -60,13 +104,13 @@ function parseThreshold(input: string): { threshold?: number; ladder: boolean } 
 }
 
 function parseOdds(input: string): string | undefined {
-  const odds = input.match(/(^|\s)([+-]\d{3,5})(?=\s|$)/);
+  const odds = input.match(/(^|\s)([+-]\d{2,5})(?=\s|$)/);
   return odds?.[2];
 }
 
 function parseTeams(input: string): { teams?: string; gameId?: string } {
   const atMatch = input.match(/\b([A-Z]{2,4})\s*@\s*([A-Z]{2,4})\b/);
-  if (atMatch) {
+  if (atMatch?.[1] && atMatch?.[2]) {
     return { teams: `${atMatch[1]} @ ${atMatch[2]}`, gameId: `${atMatch[1]}@${atMatch[2]}` };
   }
 
@@ -108,34 +152,54 @@ function nonEmptyLines(rawText: string): string[] {
   return rawText.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
+function looksLikeCandidateLeg(line: string): boolean {
+  if (!canonicalMarket(line).inferred) return true;
+  if (/\b(over|under)\s+\d+(?:\.\d+)?\b/i.test(line)) return true;
+  if (/\b\d+(?:\.\d+)?\+\s+(?:yards?|receptions?|carries|passing\s+touchdowns?)\b/i.test(line)) return true;
+  if (/[+-]\d{2,5}\b/.test(line) && /\d+(?:\.\d+)?/.test(line) && /[A-Za-z]{3}/.test(line)) return true;
+  return false;
+}
+
+function unresolvedFallback(rawText: string, sourceHint: string): TrackedTicketLeg[] {
+  return [{
+    legId: 'leg-1',
+    league: 'Unknown',
+    player: 'Needs review',
+    rawPlayer: '',
+    marketType: 'points',
+    marketLabel: 'Needs review',
+    threshold: 0,
+    direction: 'over',
+    source: sourceHint,
+    parseConfidence: 'low',
+    needsReview: true,
+    rawText: rawText.trim() || 'Unparsed leg',
+  }];
+}
+
 export function parseSlipTextToLegs(rawText: string, sourceHint: string): TrackedTicketLeg[] {
-  const lines = nonEmptyLines(rawText);
-  if (lines.length === 0) {
-    return [{
-      legId: 'leg-1',
-      league: 'NBA',
-      player: 'Needs review',
-      rawPlayer: '',
-      marketType: 'points',
-      marketLabel: 'Needs review',
-      threshold: 0,
-      direction: 'over',
-      source: sourceHint,
-      parseConfidence: 'low',
-      needsReview: true,
-      rawText: rawText.trim() || 'Unparsed leg'
-    }];
-  }
+  const rawLines = nonEmptyLines(rawText);
+  if (rawLines.length === 0) return unresolvedFallback(rawText, sourceHint);
+
+  const lines = coalesceSportsbookFragments(rawLines).filter(looksLikeCandidateLeg);
+  if (lines.length === 0) return unresolvedFallback(rawText, sourceHint);
 
   return lines.map((line, index) => {
     const { marketType, marketLabel, inferred } = canonicalMarket(line);
     const direction = parseDirection(line);
-    const { threshold, ladder } = parseThreshold(line);
+    const parsedThreshold = marketType === 'anytime_td'
+      ? { threshold: 1, ladder: false }
+      : parseThreshold(line);
     const odds = parseOdds(line);
     const player = inferPlayer(line);
     const teamDetails = parseTeams(line);
-    const unresolved = threshold == null || marketLabel === 'Needs review';
-    const parseConfidence = confidenceFor({ player, inferredMarket: inferred, threshold, unresolved });
+    const unresolved = parsedThreshold.threshold == null || marketLabel === 'Needs review';
+    const parseConfidence = confidenceFor({
+      player,
+      inferredMarket: inferred,
+      threshold: parsedThreshold.threshold,
+      unresolved,
+    });
     const league = NFL_MARKETS.has(marketType) || /\bNFL\b/i.test(line) ? 'NFL' : 'NBA';
 
     return {
@@ -145,14 +209,14 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       rawPlayer: player,
       marketType,
       marketLabel,
-      threshold: threshold ?? (marketType === 'anytime_td' ? 1 : 0),
+      threshold: parsedThreshold.threshold ?? 0,
       direction,
       odds,
       source: sourceHint,
       parseConfidence,
       needsReview: parseConfidence === 'low',
       rawText: line,
-      ladder,
+      ladder: parsedThreshold.ladder,
       teams: teamDetails.teams,
       gameId: teamDetails.gameId,
     };
