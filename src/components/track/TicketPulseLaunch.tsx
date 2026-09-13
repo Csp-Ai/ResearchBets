@@ -25,7 +25,7 @@ export function TicketPulseLaunch() {
       });
       saveTrackedTicket(ticket);
       setStatus('saved');
-      router.push(nervous.toHref('/track', { mode: 'live' }));
+      router.push(nervous.toHref('/pulse', { mode: 'live' }));
     } catch {
       setStatus('error');
     }
@@ -47,7 +47,7 @@ export function TicketPulseLaunch() {
             Carry this X-Ray into live tracking.
           </h2>
           <p className="mt-1 max-w-2xl text-[11px] leading-5 text-slate-500">
-            ResearchBets will preserve the same ticket identity, poll live leg updates when coverage exists, and keep strongest/weakest-leg continuity through settlement.
+            ResearchBets preserves the same ticket identity, polls live leg updates when coverage exists, and keeps strongest/weakest-leg continuity through settlement.
           </p>
         </div>
 
