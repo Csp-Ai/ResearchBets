@@ -195,7 +195,7 @@ export function TicketPulseHero() {
               <div className="mt-2 text-[20px] font-semibold tracking-[-0.035em]">{ticket?.title ?? 'Tracked ticket'}</div>
               <div className="mt-1 text-[11px] text-slate-500">{ticket?.onPaceCount ?? 0}/{ticket?.legs.length ?? 0} legs carrying · {ticket?.coverage.coverage ?? 'unknown'} live coverage</div>
             </div>
-            <span className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold ${pressureTone(command?.ticketPressure.tone)}`}>{command?.ticketThesis.state?.replace(/_/g, ' ') ?? command?.badge ?? 'live'}</span>
+            <span className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold ${pressureTone(command?.ticketPressure.tone)}`}>{command?.ticketThesis.thesis_status?.replace(/_/g, ' ') ?? command?.badge ?? 'live'}</span>
           </div>
 
           <div className="mt-5 rounded-2xl border border-cyan-200/[0.09] bg-cyan-300/[0.03] p-4">
