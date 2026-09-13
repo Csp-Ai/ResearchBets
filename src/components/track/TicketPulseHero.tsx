@@ -16,6 +16,7 @@ import { listTrackedTickets } from '@/src/core/track/store';
 import type { TrackedTicket } from '@/src/core/track/types';
 
 const pressureRank = { steady: 0, watch: 1, urgent: 2 } as const;
+type LiveFetchState = 'idle' | 'loading' | 'ready' | 'unavailable';
 
 const pressureTone = (tone?: 'steady' | 'watch' | 'urgent') => {
   if (tone === 'urgent') return 'border-rose-300/[0.18] bg-rose-300/[0.055] text-rose-100';
@@ -54,6 +55,8 @@ export function TicketPulseHero() {
   const [coverage, setCoverage] = useState<LiveCoverageMap>({});
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [liveFetchState, setLiveFetchState] = useState<LiveFetchState>('idle');
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
     const sync = () => setTracked(listTrackedTickets());
@@ -68,10 +71,22 @@ export function TicketPulseHero() {
   }, []);
 
   useEffect(() => {
-    if (mode !== 'live' || tracked.length === 0) return;
+    if (mode !== 'live') {
+      setLiveFetchState('ready');
+      setLiveError(null);
+      return;
+    }
+    if (tracked.length === 0) {
+      setLiveFetchState('idle');
+      setLiveError(null);
+      return;
+    }
 
+    let active = true;
     const refresh = async () => {
       if (document.visibilityState === 'hidden') return;
+      if (active) setLiveFetchState((current) => (current === 'ready' ? current : 'loading'));
+
       const response = await fetch('/api/live/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,19 +94,34 @@ export function TicketPulseHero() {
       });
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: { message?: string };
         data?: { updates?: Record<string, LiveLegUpdate>; coverage?: LiveCoverageMap };
       };
-      if (!response.ok || !payload.ok || !payload.data?.updates) return;
+      if (!active) return;
+
+      if (!response.ok || !payload.ok || !payload.data?.updates) {
+        setUpdates({});
+        setCoverage(payload.data?.coverage ?? {});
+        setLiveFetchState('unavailable');
+        setLiveError(payload.error?.message ?? 'Provider-backed live player progress is unavailable.');
+        return;
+      }
+
       setUpdates(payload.data.updates);
       setCoverage(payload.data.coverage ?? {});
       const stamp = new Date().toISOString();
       setLastUpdatedAt(stamp);
       setNowIso(stamp);
+      setLiveError(null);
+      setLiveFetchState('ready');
     };
 
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30000);
-    return () => window.clearInterval(timer);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [mode, tracked]);
 
   const tickets = useMemo(
@@ -100,8 +130,11 @@ export function TicketPulseHero() {
   );
 
   const surfaces = useMemo<TicketWithCommand[]>(
-    () => tickets.map((ticket) => ({ ticket, command: deriveLiveCommandSurface(ticket) })),
-    [tickets],
+    () => {
+      if (mode === 'live' && liveFetchState !== 'ready') return [];
+      return tickets.map((ticket) => ({ ticket, command: deriveLiveCommandSurface(ticket) }));
+    },
+    [mode, liveFetchState, tickets],
   );
 
   const primary = useMemo(
@@ -119,7 +152,7 @@ export function TicketPulseHero() {
   const totalLegs = tickets.reduce((sum, ticket) => sum + ticket.legs.length, 0);
   const carrying = tickets.reduce((sum, ticket) => sum + ticket.onPaceCount, 0);
 
-  if (tickets.length === 0) {
+  if (tracked.length === 0 && tickets.length === 0) {
     return (
       <section className="relative overflow-hidden rounded-[28px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(9,15,24,.92),rgba(4,7,12,.96))] p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-300/[0.06] blur-[100px]" />
@@ -130,6 +163,48 @@ export function TicketPulseHero() {
           <div className="mt-5 flex gap-2">
             <Link href={nervous.toHref('/ingest')} className="rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#071015]">Scan a ticket</Link>
             <Link href={nervous.toHref('/')} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[11px] font-semibold text-slate-300">Build from slate</Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (mode === 'live' && liveFetchState !== 'ready') {
+    const firstTicket = tracked[0];
+    return (
+      <section className="relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(9,15,24,.96),rgba(3,6,10,.98))] p-5 shadow-[0_24px_90px_rgba(0,0,0,.30)] sm:p-6">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-300/[0.05] blur-[110px]" />
+        <div className="relative">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/55">
+            <span className={`h-2 w-2 rounded-full ${liveFetchState === 'loading' ? 'animate-pulse bg-amber-300' : 'bg-slate-500'}`} />
+            Ticket Pulse · live truth boundary
+          </div>
+          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.05em] sm:text-[38px]">
+            {liveFetchState === 'loading' ? 'Connecting provider-backed progress…' : 'Ticket loaded. Live progress is not connected yet.'}
+          </h1>
+          <p className="mt-3 max-w-2xl text-[12px] leading-6 text-slate-500">
+            {liveError ?? 'ResearchBets will show live player progress only when it comes from a real provider. It will not substitute deterministic demo values into a live ticket.'}
+          </p>
+
+          {firstTicket ? (
+            <div className="mt-5 rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[9px] uppercase tracking-[0.15em] text-slate-600">Tracked structure</div>
+                <div className="text-[9px] text-slate-600">{firstTicket.legs.length} legs</div>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {firstTicket.legs.slice(0, 8).map((leg) => (
+                  <div key={leg.legId} className="rounded-xl border border-white/[0.06] bg-white/[0.018] px-3 py-3">
+                    <div className="truncate text-[12px] font-semibold text-slate-200">{leg.player}</div>
+                    <div className="mt-1 text-[10px] text-slate-600">{leg.marketType.replace(/_/g, ' ')} · {leg.threshold}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border border-amber-300/[0.10] bg-amber-300/[0.025] px-4 py-3 text-[10px] leading-5 text-slate-500">
+            Demo mode can still exercise the full Pulse UI with labeled synthetic data. Live mode stays blank until the player-progress provider is real.
           </div>
         </div>
       </section>
