@@ -36,7 +36,12 @@ interface OddsResponseEvent extends OddsEvent {
     title: string;
     markets?: Array<{
       key: string;
-      outcomes?: Array<{ name: string; point?: number; price?: number }>;
+      outcomes?: Array<{
+        name: string;
+        description?: string;
+        point?: number;
+        price?: number;
+      }>;
     }>;
   }>;
 }
@@ -92,7 +97,7 @@ export const fetchJsonOrThrow = async <T>(url: string, init?: RequestInit): Prom
   return (text ? JSON.parse(text) : []) as T;
 };
 
-const marketToOddsApi = (marketType: MarketType): string => {
+export const marketToOddsApi = (marketType: MarketType): string => {
   switch (marketType) {
     case 'pra':
       return 'player_points_rebounds_assists';
@@ -106,13 +111,28 @@ const marketToOddsApi = (marketType: MarketType): string => {
       return 'player_assists';
     case 'threes':
       return 'player_threes';
+    case 'passing_yards':
+      return 'player_pass_yds';
+    case 'passing_tds':
+      return 'player_pass_tds';
+    case 'rushing_yards':
+      return 'player_rush_yds';
+    case 'receiving_yards':
+      return 'player_reception_yds';
+    case 'receptions':
+      return 'player_receptions';
+    case 'carries':
+      return 'player_rush_attempts';
+    case 'anytime_td':
+      return 'player_anytime_td';
     default:
       return 'player_points';
   }
 };
 
 const toMarketType = (marketKey: string): MarketType | null => {
-  switch (marketKey) {
+  const normalized = marketKey.replace(/_alternate$/, '');
+  switch (normalized) {
     case 'player_points_rebounds_assists':
       return 'pra';
     case 'player_rebounds_assists':
@@ -125,6 +145,20 @@ const toMarketType = (marketKey: string): MarketType | null => {
       return 'assists';
     case 'player_threes':
       return 'threes';
+    case 'player_pass_yds':
+      return 'passing_yards';
+    case 'player_pass_tds':
+      return 'passing_tds';
+    case 'player_rush_yds':
+      return 'rushing_yards';
+    case 'player_reception_yds':
+      return 'receiving_yards';
+    case 'player_receptions':
+      return 'receptions';
+    case 'player_rush_attempts':
+      return 'carries';
+    case 'player_anytime_td':
+      return 'anytime_td';
     default:
       return null;
   }
@@ -149,7 +183,9 @@ export const buildEventOddsUrl = (input: {
   return url.toString();
 };
 
-const parsePlatformLines = (input: {
+const isNegativeBinaryOutcome = (name: string): boolean => /^(no|under)$/i.test(name.trim());
+
+export const parsePlatformLines = (input: {
   events: OddsResponseEvent[];
   marketType: MarketType;
 }): PlatformLine[] => {
@@ -160,18 +196,26 @@ const parsePlatformLines = (input: {
         const parsedMarketType = toMarketType(market.key);
         if (parsedMarketType !== input.marketType) continue;
         for (const outcome of market.outcomes ?? []) {
-          if (typeof outcome.point !== 'number') continue;
+          const isBinary = parsedMarketType === 'anytime_td';
+          if (isBinary && isNegativeBinaryOutcome(outcome.name)) continue;
+
+          const line = typeof outcome.point === 'number' ? outcome.point : isBinary ? 1 : null;
+          if (line === null) continue;
+
+          const player = (outcome.description ?? outcome.name).trim();
+          if (!player) continue;
+
           facts.push({
             platform: book.key,
             marketType: parsedMarketType,
-            player: outcome.name,
-            line: outcome.point,
+            player,
+            line,
             odds: typeof outcome.price === 'number' ? outcome.price : undefined,
             asOf: event.commence_time,
             sources: [
               {
                 provider: SOURCE,
-                url: `https://api.the-odds-api.com/v4/sports/events/${event.id}/odds`,
+                url: `https://api.the-odds-api.com/v4/sports/${normalizeSportKey('NFL')}/events/${event.id}/odds`,
                 retrievedAt: new Date().toISOString()
               }
             ]
@@ -182,7 +226,6 @@ const parsePlatformLines = (input: {
   }
   return facts;
 };
-
 
 export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
   const apiKey = options.apiKey ?? resolveWithAliases(CANONICAL_KEYS.ODDS_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.ODDS_API_KEY]);
@@ -245,4 +288,3 @@ export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
 };
 
 export type TheOddsApiProvider = ReturnType<typeof createTheOddsApiProvider>;
-export { parsePlatformLines };
