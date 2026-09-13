@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 
+import { TicketPulseHero } from '@/src/components/track/TicketPulseHero';
 import { TrackPageClient } from './TrackPageClient';
 import { TrackSkeleton } from './TrackSkeleton';
 
@@ -8,7 +9,10 @@ export const dynamic = 'force-dynamic';
 export default function TrackPage() {
   return (
     <Suspense fallback={<TrackSkeleton />}>
-      <TrackPageClient />
+      <div className="mx-auto max-w-6xl space-y-4 pb-20">
+        <TicketPulseHero />
+        <TrackPageClient />
+      </div>
     </Suspense>
   );
 }
