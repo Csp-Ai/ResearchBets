@@ -49,7 +49,14 @@ const MARKET_LABEL: Record<MarketType, string> = {
   rebounds: 'Rebounds',
   assists: 'Assists',
   ra: 'RA',
-  pra: 'PRA'
+  pra: 'PRA',
+  passing_yards: 'Pass Yards',
+  passing_tds: 'Pass TDs',
+  rushing_yards: 'Rush Yards',
+  receiving_yards: 'Receiving Yards',
+  receptions: 'Receptions',
+  carries: 'Carries',
+  anytime_td: 'Anytime TD'
 };
 
 const riskWeight: Record<'stable' | 'watch', number> = {
