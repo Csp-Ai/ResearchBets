@@ -1,9 +1,11 @@
+import { asMarketType, type MarketType } from '../markets/marketType';
+
 export type ParsedSlipLeg = {
   sport: string | null;
   league: string | null;
   eventDate: string | null;
   teamOrPlayer: string;
-  marketType: string | null;
+  marketType: MarketType | null;
   line: number | null;
   odds: number | null;
   book: string | null;
@@ -20,12 +22,61 @@ const SPORT_KEYWORDS: Record<string, { sport: string; league: string }> = {
 };
 
 const BOOK_KEYWORDS = ['fanduel', 'draftkings', 'betmgm', 'caesars', 'espnbet', 'prizepicks', 'kalshi'];
-const MARKET_KEYWORDS = ['points', 'rebounds', 'assists', 'threes', 'pra', 'moneyline', 'spread', 'total', 'shots', 'goals'];
+
+const MARKET_PATTERNS: Array<{ market: MarketType; pattern: RegExp }> = [
+  { market: 'passing_yards', pattern: /\b(?:passing|pass)\s+(?:yards?|yds?)\b/i },
+  { market: 'passing_tds', pattern: /\b(?:passing|pass)\s+(?:touchdowns?|tds?)\b/i },
+  { market: 'rushing_yards', pattern: /\b(?:rushing|rush)\s+(?:yards?|yds?)\b/i },
+  { market: 'receiving_yards', pattern: /\b(?:receiving|rec)\s+(?:yards?|yds?)\b/i },
+  { market: 'receptions', pattern: /\b(?:receptions?|catches)\b/i },
+  { market: 'carries', pattern: /\b(?:carries|rush(?:ing)?\s+attempts?)\b/i },
+  { market: 'anytime_td', pattern: /\b(?:any\s*time|anytime)\s+(?:touchdown|td)(?:\s+scorer)?\b|\battd\b/i },
+  { market: 'points', pattern: /\bpoints?|pts\b/i },
+  { market: 'rebounds', pattern: /\brebounds?|reb\b/i },
+  { market: 'assists', pattern: /\bassists?|ast\b/i },
+  { market: 'threes', pattern: /\b(?:threes|3pm|3-pointers?)\b/i },
+  { market: 'pra', pattern: /\bpra\b/i },
+  { market: 'ra', pattern: /\bra\b/i },
+  { market: 'moneyline', pattern: /\bmoneyline|\bml\b/i },
+  { market: 'spread', pattern: /\bspread\b/i },
+  { market: 'total', pattern: /\btotal\b/i },
+];
+
+const inferMarket = (line: string): MarketType | null => {
+  const matched = MARKET_PATTERNS.find(({ pattern }) => pattern.test(line));
+  return matched ? asMarketType(matched.market, matched.market) : null;
+};
 
 const toLine = (line: string | undefined): number | null => {
   if (!line) return null;
   const parsed = Number(line);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const extractThreshold = (line: string): RegExpMatchArray | null =>
+  line.match(/(?:over|under|\bo\b|\bu\b|alt)\s*([0-9]+(?:\.[0-9]+)?)/i) ??
+  line.match(/\b([0-9]+(?:\.[0-9]+)?)\s*\+/) ??
+  line.match(/\b([0-9]+(?:\.[0-9]+)?)\b(?!.*[+-]\d{3,4})/);
+
+const cleanSelection = (line: string, market: MarketType | null): string => {
+  let cleaned = line.replace(/\([^)]+\)/g, ' ').replace(/[+-]\d{3,4}/g, ' ');
+
+  for (const { pattern } of MARKET_PATTERNS) {
+    cleaned = cleaned.replace(pattern, ' ');
+  }
+
+  cleaned = cleaned
+    .replace(/\b(?:over|under|alt|odds|nfl|nba|mlb|nhl|ufc)\b/gi, ' ')
+    .replace(/\b[ou]\s*(?=\d)/gi, ' ')
+    .replace(/\b\d+(?:\.\d+)?\s*\+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (market === 'anytime_td') {
+    cleaned = cleaned.replace(/\bscorer\b/gi, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  return cleaned;
 };
 
 export const parseSlipText = (rawText: string): { legs: ParsedSlipLeg[]; confidence: number } => {
@@ -42,17 +93,12 @@ export const parseSlipText = (rawText: string): { legs: ParsedSlipLeg[]; confide
 
   const parsedLegs = lines.map((line) => {
     const oddsMatch = line.match(/([+-]\d{3,4})/);
-    const lineMatch = line.match(/(?:over|under|o|u|alt)\s*([0-9]+(?:\.[0-9]+)?)/i) ?? line.match(/([+-]?\d+(?:\.\d+)?)(?!.*[+-]\d{3,4})/);
-    const market = MARKET_KEYWORDS.find((keyword) => line.toLowerCase().includes(keyword)) ?? null;
+    const lineMatch = extractThreshold(line);
+    const market = inferMarket(line);
+    const cleanedName = cleanSelection(line, market);
 
-    const cleanedName = line
-      .replace(/\([^)]+\)/g, ' ')
-      .replace(/\b(over|under|alt|points|rebounds|assists|moneyline|spread|total|odds)\b/gi, ' ')
-      .replace(/[+-]\d{3,4}/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const confidence = [oddsMatch, lineMatch, market].filter(Boolean).length / 3;
+    const confidenceSignals = [market, lineMatch, oddsMatch, matchedSport];
+    const confidence = confidenceSignals.filter(Boolean).length / confidenceSignals.length;
 
     return {
       sport: matchedSport?.sport ?? null,
@@ -60,7 +106,7 @@ export const parseSlipText = (rawText: string): { legs: ParsedSlipLeg[]; confide
       eventDate: null,
       teamOrPlayer: cleanedName || line,
       marketType: market,
-      line: toLine(lineMatch?.[1]),
+      line: market === 'anytime_td' && !lineMatch ? 1 : toLine(lineMatch?.[1]),
       odds: oddsMatch ? Number(oddsMatch[1]) : null,
       book: matchedBook,
       confidence,
