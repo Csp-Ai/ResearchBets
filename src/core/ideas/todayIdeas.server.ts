@@ -69,6 +69,14 @@ const NFL_MARKETS: MarketConfig[] = [
   { apiKey: 'player_anytime_td', marketType: 'anytime_td', structuralRisk: 'high' },
 ];
 
+const MIN_USEFUL_PROBABILITY = 0.58;
+const MAX_USEFUL_PROBABILITY = 0.86;
+const TARGET_PROBABILITY: Record<TodayIdea['structuralRisk'], number> = {
+  low: 0.78,
+  medium: 0.72,
+  high: 0.62,
+};
+
 const formatLocalDate = (iso: string, timeZone: string): string => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -99,10 +107,22 @@ const parsePlayer = (outcome: { name: string; description?: string }): string | 
 const isPositiveOutcome = (name: string): boolean => !/^(under|no)$/i.test(name.trim());
 
 const structuralPenalty = (risk: TodayIdea['structuralRisk']) => {
-  if (risk === 'high') return 10;
+  if (risk === 'high') return 14;
   if (risk === 'medium') return 4;
   return 0;
 };
+
+const utilityScore = (idea: TodayIdea): number => {
+  const target = TARGET_PROBABILITY[idea.structuralRisk];
+  const probabilityFit = 100 - Math.abs(idea.marketImpliedProb - target) * 180;
+  const bookSupport = Math.min(idea.sourceCount, 5) * 2;
+  return probabilityFit + bookSupport - structuralPenalty(idea.structuralRisk);
+};
+
+const isUsefulParlayThreshold = (idea: TodayIdea): boolean =>
+  idea.marketImpliedProb >= MIN_USEFUL_PROBABILITY
+  && idea.marketImpliedProb <= MAX_USEFUL_PROBABILITY
+  && idea.structuralRisk !== 'high';
 
 export async function scanTodayIdeas(input: {
   date: string;
@@ -240,20 +260,44 @@ export async function scanTodayIdeas(input: {
     });
   }
 
-  const score = (idea: TodayIdea) =>
-    idea.marketImpliedProb * 100 + Math.min(idea.sourceCount, 5) * 1.5 - structuralPenalty(idea.structuralRisk);
+  const useful = candidates.filter(isUsefulParlayThreshold);
+  if (useful.length === 0 && candidates.length > 0) {
+    warnings.push('no_candidates_in_useful_parlay_price_band');
+  }
 
-  const sorted = candidates.sort((a, b) => score(b) - score(a));
+  // Alternate markets often expose many thresholds for the same player/market.
+  // Keep the threshold closest to a useful parlay probability band rather than
+  // blindly selecting the shortest -10000 style line.
+  const bestPerPlayerMarket = new Map<string, TodayIdea>();
+  for (const idea of useful) {
+    const key = `${idea.eventId}|${idea.player.toLowerCase()}|${idea.marketType}`;
+    const current = bestPerPlayerMarket.get(key);
+    if (!current || utilityScore(idea) > utilityScore(current)) {
+      bestPerPlayerMarket.set(key, idea);
+    }
+  }
+
+  const sorted = [...bestPerPlayerMarket.values()].sort(
+    (a, b) => utilityScore(b) - utilityScore(a),
+  );
   const selected: TodayIdea[] = [];
   const usedPlayers = new Set<string>();
   const gameCounts = new Map<string, number>();
-  const limit = Math.max(1, Math.min(input.limit ?? 12, 20));
+  const limit = Math.max(1, Math.min(input.limit ?? 10, 16));
 
   for (const idea of sorted) {
     const playerKey = idea.player.toLowerCase();
     const gameCount = gameCounts.get(idea.eventId) ?? 0;
-    if (usedPlayers.has(playerKey) || gameCount >= 3) continue;
-    selected.push(idea);
+    if (usedPlayers.has(playerKey) || gameCount >= 2) continue;
+
+    selected.push({
+      ...idea,
+      why: [
+        `${Math.round(idea.marketImpliedProb * 100)}% sportsbook-price implied at the median posted price`,
+        `${idea.sourceCount} book${idea.sourceCount === 1 ? '' : 's'} posting this exact threshold`,
+        'Selected inside the useful parlay band instead of the shortest available alt line',
+      ],
+    });
     usedPlayers.add(playerKey);
     gameCounts.set(idea.eventId, gameCount + 1);
     if (selected.length >= limit) break;
