@@ -1,6 +1,7 @@
 import dynamic from 'next/dynamic';
 
 const CockpitLandingClient = dynamic(() => import('@/app/cockpit/CockpitLandingClient'));
+import { TodayIdeasRail } from '@/src/components/ideas/TodayIdeasRail';
 import { NervousSystemProvider } from '@/src/components/nervous/NervousSystemContext';
 import { normalizeSpine } from '@/src/core/nervous/spine';
 
@@ -19,6 +20,7 @@ export function CanonicalLanding({ searchParams }: { searchParams?: Record<strin
 
   return (
     <NervousSystemProvider initialSpine={initialSpine}>
+      <TodayIdeasRail />
       <CockpitLandingClient searchParams={searchParams} />
     </NervousSystemProvider>
   );
