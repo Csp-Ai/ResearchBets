@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 
 import ResearchPageContent from '@/src/components/research/ResearchPageContent';
+import { TicketPulseLaunch } from '@/src/components/track/TicketPulseLaunch';
 import { TicketXRay } from '@/src/components/xray/TicketXRay';
 
 export default function StressTestPage() {
@@ -8,6 +9,7 @@ export default function StressTestPage() {
     <Suspense fallback={null}>
       <div className="mx-auto max-w-7xl space-y-6 px-3 py-4 sm:px-5 sm:py-6">
         <TicketXRay />
+        <TicketPulseLaunch />
         <div id="deep-analysis" className="scroll-mt-4">
           <ResearchPageContent />
         </div>
