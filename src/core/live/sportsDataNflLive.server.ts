@@ -19,6 +19,7 @@ const SOURCE = 'sportsdataio-live-nfl';
 const DEFAULT_BASE_URL = 'https://api.sportsdata.io/v3';
 const LIVE_TTL_MS = 12_000;
 const TIMEFRAME_TTL_MS = 60_000;
+const NFL_TO_LEGACY_PACE_SCALE = 48 / 60;
 
 type CoverageEntry = { coverage: 'covered' | 'missing'; reason?: CoverageReason };
 
@@ -44,7 +45,7 @@ const emptyCoverageFor = (
             leg.legId,
             {
               coverage: 'missing' as const,
-              reason: !leg.gameId ? ('no_game_id' as const) : reason,
+              reason: !leg.gameId && !leg.teams ? ('no_game_id' as const) : reason,
             },
           ]),
         ),
@@ -206,10 +207,17 @@ export async function fetchSportsDataNflLiveProgress(
         continue;
       }
 
+      // `openTickets.ts` still uses a 48-minute legacy pace denominator. Map the
+      // real 60-minute NFL elapsed clock onto that scale so projection math stays
+      // equivalent until the cross-sport live clock contract is generalized.
+      const paceElapsedMinutes = Number(
+        (clock.elapsedGameMinutes * NFL_TO_LEGACY_PACE_SCALE).toFixed(2),
+      );
+
       updates[leg.legId] = {
         currentValue,
         liveMargin: signedPlayerTeamMargin(box.Score, player),
-        elapsedGameMinutes: clock.elapsedGameMinutes,
+        elapsedGameMinutes: paceElapsedMinutes,
         quarter: clock.quarter,
       };
       entries[ticket.ticketId]![leg.legId] = { coverage: 'covered' };
