@@ -2,6 +2,9 @@
   "name": "researchbets-v2",
   "version": "0.2.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "env:check": "node scripts/env-check.mjs",
     "env:check:strict": "LIVE_MODE=true node scripts/env-check.mjs",
