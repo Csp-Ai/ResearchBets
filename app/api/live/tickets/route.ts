@@ -3,23 +3,42 @@ import { z } from 'zod';
 
 import { CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString } from '@/src/core/env/read.server';
+import { fetchSportsDataNflLiveProgress } from '@/src/core/live/sportsDataNflLive.server';
 import { asMarketType } from '@/src/core/markets/marketType';
 import type { TrackedTicket } from '@/src/core/track/types';
 
+const legSchema = z.object({
+  legId: z.string().min(1),
+  league: z.string().default('NFL'),
+  gameId: z.string().optional(),
+  teams: z.string().optional(),
+  player: z.string().min(1),
+  rawPlayer: z.string().optional(),
+  marketType: z.string().min(1),
+  marketLabel: z.string().optional(),
+  threshold: z.number(),
+  direction: z.enum(['over', 'under']).default('over'),
+  odds: z.string().optional(),
+  source: z.string().default('tracked'),
+  parseConfidence: z.enum(['high', 'medium', 'low']).default('medium'),
+  needsReview: z.boolean().optional(),
+  rawText: z.string().optional(),
+  ladder: z.boolean().optional(),
+});
+
+const ticketSchema = z.object({
+  ticketId: z.string().min(1),
+  createdAt: z.string().min(1),
+  sourceHint: z.string().min(1),
+  rawSlipText: z.string(),
+  cashoutAvailable: z.boolean().optional(),
+  cashoutValue: z.number().optional(),
+  legs: z.array(legSchema),
+});
+
 const schema = z.object({
-  tickets: z.array(z.object({
-    ticketId: z.string().min(1),
-    createdAt: z.string().min(1),
-    sourceHint: z.string().min(1),
-    rawSlipText: z.string(),
-    legs: z.array(z.object({
-      legId: z.string().min(1),
-      marketType: z.string().min(1),
-      threshold: z.number(),
-      player: z.string().min(1),
-      gameId: z.string().optional()
-    }))
-  }))
+  tickets: z.array(ticketSchema),
+  mode: z.enum(['demo', 'cache', 'live']).optional(),
 });
 
 function hashToUnit(input: string) {
@@ -52,16 +71,13 @@ function buildDeterministicDemoUpdates(tickets: TrackedTicket[]) {
   return updates;
 }
 
-function buildCoverage(
-  tickets: TrackedTicket[],
-  options: { providerAvailable: boolean },
-) {
+function buildDemoCoverage(tickets: TrackedTicket[]) {
   const coverage: Record<string, { coverage: 'full' | 'partial' | 'none'; legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> }> = {};
 
   for (const ticket of tickets) {
     const legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> = {};
     for (const leg of ticket.legs) {
-      if (!leg.gameId) {
+      if (!leg.gameId && !leg.teams) {
         legs[leg.legId] = { coverage: 'missing', reason: 'no_game_id' };
         continue;
       }
@@ -69,14 +85,7 @@ function buildCoverage(
         legs[leg.legId] = { coverage: 'missing', reason: 'unsupported_market' };
         continue;
       }
-      if (!options.providerAvailable) {
-        legs[leg.legId] = { coverage: 'missing', reason: 'provider_unavailable' };
-        continue;
-      }
-      const unstable = hashToUnit(`${ticket.ticketId}:${leg.legId}:coverage`) < 0.05;
-      legs[leg.legId] = unstable
-        ? { coverage: 'missing', reason: 'provider_unavailable' }
-        : { coverage: 'covered' };
+      legs[leg.legId] = { coverage: 'covered' };
     }
     const covered = Object.values(legs).filter((item) => item.coverage === 'covered').length;
     const total = Object.keys(legs).length;
@@ -98,39 +107,57 @@ export async function POST(request: Request) {
     );
   }
 
-  const liveRequested = readString(CANONICAL_KEYS.LIVE_MODE) === '1';
+  const requestedMode = parsed.data.mode;
+  const liveRequested = requestedMode === 'live' || (!requestedMode && readString(CANONICAL_KEYS.LIVE_MODE) === '1');
   const tickets = parsed.data.tickets as TrackedTicket[];
 
-  // Important truth boundary: the repository does not yet have a provider-backed
-  // NFL/NBA live player-progress adapter wired to this endpoint. Never label the
-  // deterministic demo generator as live data.
   if (liveRequested) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'live_ticket_provider_unavailable',
-          message: 'Provider-backed live player progress is not connected yet.',
+    const live = await fetchSportsDataNflLiveProgress(tickets);
+    if (!live.available) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'live_ticket_provider_unavailable',
+            message: 'Provider-backed NFL player progress is unavailable for this tracked structure.',
+          },
+          data: {
+            updates: {},
+            coverage: live.coverage,
+          },
+          provenance: {
+            mode: 'live',
+            source: 'sportsdataio',
+            reason: live.warnings[0] ?? 'provider_backed_live_updates_unavailable',
+            warnings: live.warnings,
+            generatedAt: live.generatedAt,
+          },
         },
-        data: {
-          updates: {},
-          coverage: buildCoverage(tickets, { providerAvailable: false }),
-        },
-        provenance: {
-          mode: 'live',
-          reason: 'provider_backed_live_updates_unavailable',
-          generatedAt: new Date().toISOString(),
-        },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      data: {
+        updates: live.updates,
+        coverage: live.coverage,
       },
-      { status: 503 },
-    );
+      provenance: {
+        mode: 'live',
+        source: 'sportsdataio',
+        reason: 'provider_backed_nfl_box_score',
+        warnings: live.warnings,
+        generatedAt: live.generatedAt,
+      },
+    });
   }
 
   return NextResponse.json({
     ok: true,
     data: {
       updates: buildDeterministicDemoUpdates(tickets),
-      coverage: buildCoverage(tickets, { providerAvailable: true }),
+      coverage: buildDemoCoverage(tickets),
     },
     provenance: {
       mode: 'demo',
