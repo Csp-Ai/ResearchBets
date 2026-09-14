@@ -56,6 +56,44 @@ describe('openTickets weakest leg reasons', () => {
     expect(leg.reasonChips).toEqual(['Behind pace', 'High-variance market']);
   });
 
+  it('does not invent ladder-distance context without a verified recent median', () => {
+    const leg = evaluateLiveLeg({
+      legId: 'leg-no-median',
+      gameId: 'ARI@LAC',
+      player: 'Trey McBride',
+      marketType: 'receiving_yards',
+      threshold: 80,
+      currentValue: 35,
+      liveClock: { quarter: 2, timeRemainingSec: 420, elapsedGameMinutes: 18 }
+    });
+
+    expect(leg.reasonChips).not.toContain('Ladder distance');
+  });
+
+  it('uses structural NFL volatility tiers instead of treating every football market as stable', () => {
+    const touchdown = evaluateLiveLeg({
+      legId: 'leg-td',
+      gameId: 'ARI@LAC',
+      player: 'Trey McBride',
+      marketType: 'anytime_td',
+      threshold: 1,
+      currentValue: 0,
+      liveClock: { quarter: 2, timeRemainingSec: 420, elapsedGameMinutes: 18 }
+    });
+    const receiving = evaluateLiveLeg({
+      legId: 'leg-rec',
+      gameId: 'ARI@LAC',
+      player: 'Trey McBride',
+      marketType: 'receiving_yards',
+      threshold: 80,
+      currentValue: 35,
+      liveClock: { quarter: 2, timeRemainingSec: 420, elapsedGameMinutes: 18 }
+    });
+
+    expect(touchdown.volatility).toBe('high');
+    expect(receiving.volatility).toBe('moderate');
+  });
+
   it('keeps uncovered provider legs out of live progress and weakest-leg ranking', () => {
     const coverage: LiveCoverageMap = {
       'ticket-live-1': {
@@ -97,6 +135,8 @@ describe('openTickets weakest leg reasons', () => {
       coveredLegs: 1,
       totalLegs: 2,
     });
+    expect(tickets[0]?.odds).toBe('—');
+    expect(tickets[0]?.wager).toBe('—');
   });
 
   it('returns no live ticket instead of synthesizing progress without complete provider updates', () => {
