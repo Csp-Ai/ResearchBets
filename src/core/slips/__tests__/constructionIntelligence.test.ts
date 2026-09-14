@@ -17,6 +17,9 @@ const leg = (overrides: Partial<SlipBuilderLeg> = {}): SlipBuilderLeg => ({
   volatility: overrides.volatility,
   deadLegRisk: overrides.deadLegRisk,
   deadLegReasons: overrides.deadLegReasons,
+  marketImpliedProb: overrides.marketImpliedProb,
+  consensusPrice: overrides.consensusPrice,
+  adjacentAlt: overrides.adjacentAlt,
 });
 
 describe('construction intelligence', () => {
@@ -50,6 +53,31 @@ describe('construction intelligence', () => {
     expect(result.tier).toBe('pushed');
     expect(result.shortWindow).toBe(true);
     expect(result.suggestedTarget).toMatch(/full-game/i);
+  });
+
+  it('computes threshold tax only from a real adjacent lower tier', () => {
+    const result = classifyConstructionLeg(
+      leg({
+        marketType: 'receiving_yards',
+        line: '60+ receiving yards',
+        odds: '-210',
+        marketImpliedProb: 0.68,
+        consensusPrice: '-213',
+        adjacentAlt: {
+          line: 50,
+          bestPrice: '-300',
+          consensusPrice: '-317',
+          marketImpliedProb: 0.76,
+          sourceCount: 4,
+        },
+      }),
+    );
+
+    expect(result.thresholdTax).not.toBeNull();
+    expect(result.thresholdTax?.lineReduction).toBe(10);
+    expect(result.thresholdTax?.probabilityGain).toBeCloseTo(0.08);
+    expect(result.thresholdTax?.lowerConsensusPrice).toBe('-317');
+    expect(result.suggestedTarget).toBe('50 at -300');
   });
 
   it('allows two pushed thresholds on an eight-to-ten leg construction before overload', () => {
