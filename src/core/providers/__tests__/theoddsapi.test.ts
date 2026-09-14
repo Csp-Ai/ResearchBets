@@ -144,6 +144,70 @@ describe('theoddsapi provider mapping', () => {
     expect(url.searchParams.get('markets')).toBe('player_rush_yds');
   });
 
+  it('recovers individual verified markets when a combined event request fails', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        text: vi.fn().mockResolvedValue('one requested market unavailable')
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(JSON.stringify({
+          id: 'nfl-evt',
+          commence_time: '2026-09-13T20:25:00Z',
+          home_team: 'NYG',
+          away_team: 'DAL',
+          bookmakers: [{
+            key: 'fanduel',
+            title: 'FanDuel',
+            markets: [{
+              key: 'player_pass_yds_alternate',
+              outcomes: [{ name: 'Over', description: 'Dak Prescott', point: 224.5, price: -250 }]
+            }]
+          }]
+        }))
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(JSON.stringify({
+          id: 'nfl-evt',
+          commence_time: '2026-09-13T20:25:00Z',
+          home_team: 'NYG',
+          away_team: 'DAL',
+          bookmakers: [{
+            key: 'fanduel',
+            title: 'FanDuel',
+            markets: [{
+              key: 'player_rush_yds_alternate',
+              outcomes: [{ name: 'Over', description: 'Javonte Williams', point: 49.5, price: -240 }]
+            }]
+          }]
+        }))
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const url = buildEventOddsUrl({
+      baseUrl: 'https://api.the-odds-api.com/v4',
+      sport: 'NFL',
+      eventId: 'nfl-evt',
+      apiKey: 'secret',
+      market: 'player_pass_yds_alternate,player_rush_yds_alternate'
+    });
+    const recovered = await fetchJsonOrThrow<{
+      bookmakers?: Array<{ key: string; markets?: Array<{ key: string }> }>;
+    }>(url);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const fanduel = recovered.bookmakers?.find((book) => book.key === 'fanduel');
+    expect(fanduel?.markets?.map((market) => market.key)).toEqual([
+      'player_pass_yds_alternate',
+      'player_rush_yds_alternate'
+    ]);
+  });
+
   it('throws typed Error with status/url metadata for non-ok responses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,

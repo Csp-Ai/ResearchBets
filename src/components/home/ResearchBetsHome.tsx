@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { NextGameBriefing } from '@/src/components/home/NextGameBriefing';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -23,6 +24,14 @@ type TodayIdea = {
   sourceCount: number;
   structuralRisk: 'low' | 'medium' | 'high';
   readiness: 'market-verified' | 'needs-status-check';
+  stepDown?: {
+    line: number;
+    bestPrice: number;
+    consensusPrice: number;
+    marketImpliedProb: number;
+    books: string[];
+    sourceCount: number;
+  };
   why: string[];
 };
 
@@ -33,6 +42,11 @@ type IdeasPayload = {
   timeZone: string;
   sport: 'NFL';
   games: number;
+  events: Array<{
+    eventId: string;
+    matchup: string;
+    commenceTime: string;
+  }>;
   ideas: TodayIdea[];
   warnings: string[];
 };
@@ -127,6 +141,17 @@ const ideaToLeg = (idea: TodayIdea) => ({
   line: thresholdLabel(idea),
   odds: formatOdds(idea.bestPrice),
   game: idea.matchup,
+  marketImpliedProb: idea.marketImpliedProb,
+  consensusPrice: formatOdds(idea.consensusPrice),
+  adjacentAlt: idea.stepDown
+    ? {
+        line: idea.stepDown.line,
+        bestPrice: formatOdds(idea.stepDown.bestPrice),
+        consensusPrice: formatOdds(idea.stepDown.consensusPrice),
+        marketImpliedProb: idea.stepDown.marketImpliedProb,
+        sourceCount: idea.stepDown.sourceCount,
+      }
+    : undefined,
 });
 
 function SacredGeometry() {
@@ -367,6 +392,15 @@ export function ResearchBetsHome() {
             )}
           </div>
         </section>
+
+        <div className="mt-4">
+          <NextGameBriefing
+            events={payload?.events ?? []}
+            ideas={payload?.ideas ?? []}
+            loading={loading}
+            unavailable={failed || payload?.mode === 'unavailable'}
+          />
+        </div>
 
         <section className="py-8">
           <div className="flex items-end justify-between gap-4">

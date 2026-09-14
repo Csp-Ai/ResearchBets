@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { fetchNflRecentFormForIdeas } from '@/src/core/ideas/nflRecentForm.server';
 import { scanTodayIdeas } from '@/src/core/ideas/todayIdeas.server';
 import { coerceIsoDate } from '@/src/core/nervous/spine';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const RECENT_FORM_LIMIT = 5;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -32,8 +35,47 @@ export async function GET(request: Request) {
       limit: 12,
     });
 
+    if (result.mode !== 'live-market' || result.ideas.length === 0) {
+      return NextResponse.json(
+        { ok: true, data: result },
+        {
+          headers: {
+            'Cache-Control': 'private, max-age=0, s-maxage=45, stale-while-revalidate=120',
+          },
+        },
+      );
+    }
+
+    const recent = await fetchNflRecentFormForIdeas(
+      result.ideas.slice(0, RECENT_FORM_LIMIT).map((idea) => ({
+        id: idea.id,
+        player: idea.player,
+        marketType: idea.marketType,
+        line: idea.line,
+      })),
+    );
+
+    const ideas = result.ideas.map((idea) => {
+      const recentForm = recent.byIdeaId[idea.id];
+      if (!recentForm) return idea;
+      return {
+        ...idea,
+        recentForm,
+        why: [
+          ...idea.why,
+          `Recent form at this threshold: ${recentForm.l5Hits}/${recentForm.l5Games} L5 · ${recentForm.l10Hits}/${recentForm.l10Games} L10 · ${recentForm.recentAverage} recent average`,
+        ],
+      };
+    });
+
+    const data = {
+      ...result,
+      ideas,
+      warnings: recent.warning ? [...result.warnings, recent.warning] : result.warnings,
+    };
+
     return NextResponse.json(
-      { ok: true, data: result },
+      { ok: true, data },
       {
         headers: {
           'Cache-Control': 'private, max-age=0, s-maxage=45, stale-while-revalidate=120',

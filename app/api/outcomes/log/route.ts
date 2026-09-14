@@ -4,14 +4,15 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { DbEventEmitter } from '@/src/core/control-plane/emitter';
+import { updateWeights } from '@/src/core/learning/updateWeights.server';
 import { normalizeLineage } from '@/src/core/lineage/lineage';
-import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
-import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
+import { WEAKEST_LEG_EVALUATED_MARKER } from '@/src/core/metrics/calibrationEvidence';
 import { getRuntimeStore } from '@/src/core/persistence/runtimeStoreProvider';
+import { presentRecommendation } from '@/src/core/slips/recommendationPresentation';
+import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
+import { deriveSlipRiskSummary } from '@/src/core/slips/slipRiskSummary';
 import { getSupabaseServerClient } from '@/src/core/supabase/server';
 import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
-import { updateWeights } from '@/src/core/learning/updateWeights.server';
-import type { SlipIntelLeg } from '@/src/core/slips/slipIntelligence';
 
 const OutcomeLogSchema = z.object({
   run_id: z.string().min(1),
@@ -69,8 +70,15 @@ export async function POST(request: Request) {
   const weakestLeg = body.weakest_leg ?? riskSummary?.weakestLeg ?? body.selection_key;
   const fragilityScore = riskSummary?.fragilityScore ?? Math.max(0, Math.min(100, 100 - expectedConfidence));
   const correlationScore = riskSummary?.correlationFlag ? 60 : 35;
-  const topReasons = body.top_reasons ?? riskSummary?.reasonBullets ?? [];
-  const hitWeakestLeg = body.weakest_leg_failed ?? (normalizedOutcome === 'LOSS');
+  const weakestLegEvaluated = typeof body.weakest_leg_failed === 'boolean';
+  const topReasons = [
+    ...(body.top_reasons ?? riskSummary?.reasonBullets ?? []),
+    ...(weakestLegEvaluated ? [WEAKEST_LEG_EVALUATED_MARKER] : []),
+  ];
+  // Never infer weakest-leg accuracy from a generic ticket loss. The metric is
+  // eligible only when settlement explicitly tells us whether the pregame
+  // weakest leg actually failed.
+  const hitWeakestLeg = body.weakest_leg_failed ?? false;
   const verdictCorrect = verdictPresented === 'TAKE'
     ? normalizedOutcome === 'WIN'
     : normalizedOutcome !== 'WIN';
@@ -133,6 +141,7 @@ export async function POST(request: Request) {
       verdict_presented: verdictPresented,
       expected_confidence: expectedConfidence,
       weakest_leg: weakestLeg,
+      weakest_leg_evaluated: weakestLegEvaluated,
       weakest_leg_failed: hitWeakestLeg,
       verdict_correct: verdictCorrect,
       delta: learning.delta,
@@ -141,5 +150,12 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ ok: true, trace_id: lineage.trace_id, run_id: lineage.run_id, outcome_id: outcomeId, learning });
+  return NextResponse.json({
+    ok: true,
+    trace_id: lineage.trace_id,
+    run_id: lineage.run_id,
+    outcome_id: outcomeId,
+    weakest_leg_evaluated: weakestLegEvaluated,
+    learning,
+  });
 }
