@@ -55,4 +55,60 @@ describe('patternSource personal-learning boundary', () => {
     expect(artifacts[0]?.ticket_id).toBe('real-ticket-1');
     expect(artifacts[0]?.source).toBe('settled_postmortem');
   });
+
+  it('counts one ticket once when settlement and reviewed attribution share lineage', () => {
+    savePostmortem({
+      ticketId: 'real-ticket-2',
+      trace_id: 'trace-shared',
+      slip_id: 'slip-shared',
+      createdAt: '2026-09-14T18:00:00.000Z',
+      settledAt: '2026-09-14T21:00:00.000Z',
+      status: 'lost',
+      legs: [
+        {
+          legId: 'leg-1',
+          player: 'Real Player',
+          statType: 'receiving_yards',
+          target: 70,
+          finalValue: 52,
+          delta: -18,
+          hit: false,
+          missTags: ['line_too_high'],
+          missNarrative: 'The threshold broke.',
+          lessonHint: 'Lower the ask.',
+        },
+      ],
+      coverage: { level: 'full', reasons: [] },
+      fragility: { score: 68, chips: ['Threshold pressure'] },
+      narrative: ['The threshold broke the ticket.'],
+    });
+
+    window.localStorage.setItem('rb:reviewed-attributions:v1', JSON.stringify([
+      {
+        trace_id: 'trace-shared',
+        slip_id: 'slip-shared',
+        reviewed_at: '2026-09-14T22:00:00.000Z',
+        outcome: 'loss',
+        cause_tags: ['line_too_aggressive'],
+        confidence_level: 'high',
+        weakest_leg: {
+          leg_id: 'leg-1',
+          player: 'Real Player',
+          prop_type: 'receiving_yards',
+          line: 70,
+          actual: 52,
+          delta: -18,
+          fragility_score: 80,
+          reason: 'Threshold pressure',
+        },
+        source_type: 'sportsbook_screenshot',
+        parse_status: 'confirmed',
+      },
+    ]));
+
+    const artifacts = listLearningArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]?.source).toBe('reviewed_postmortem');
+    expect(artifacts[0]?.trace_id).toBe('trace-shared');
+  });
 });
