@@ -95,8 +95,18 @@ const hashToUnit = (input: string) => {
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 function volatilityFor(marketType: MarketType, threshold: number): LiveLegVolatility {
-  if (marketType === 'assists' || marketType === 'threes') return 'high';
-  if (marketType === 'rebounds' || marketType === 'ra') return 'moderate';
+  if (
+    marketType === 'assists' ||
+    marketType === 'threes' ||
+    marketType === 'passing_tds' ||
+    marketType === 'anytime_td'
+  ) return 'high';
+  if (
+    marketType === 'rebounds' ||
+    marketType === 'ra' ||
+    marketType === 'rushing_yards' ||
+    marketType === 'receiving_yards'
+  ) return 'moderate';
   if ((marketType === 'points' || marketType === 'pra') && threshold >= 33) return 'high';
   return 'stable';
 }
@@ -122,10 +132,10 @@ export function evaluateLiveLeg(input: LiveLegInput): LiveLegState {
   const reasonChips: string[] = [];
   if (status === 'behind' || status === 'needs_spike') reasonChips.push('Behind pace');
   if (volatility === 'high') reasonChips.push('High-variance market');
-  const median =
-    input.recentMedian ??
-    input.threshold * (0.82 + hashToUnit(`${input.player}:${input.marketType}:median`) * 0.35);
-  if (Math.abs(input.threshold - median) >= 4) reasonChips.push('Ladder distance');
+  if (
+    typeof input.recentMedian === 'number' &&
+    Math.abs(input.threshold - input.recentMedian) >= 4
+  ) reasonChips.push('Ladder distance');
   return {
     legId: input.legId,
     gameId: input.gameId,
@@ -167,8 +177,9 @@ function toTicketFromTracking(
   updates: Record<string, LiveLegUpdate>
 ): OpenTicket {
   const clock = computeClock(state.createdAtIso, nowIso);
-  const odds = `+${Math.max(180, Math.round(state.legs.length * 185 + hashToUnit(state.slipId) * 250))}`;
-  const wager = `$${10 + index * 5}`;
+  const syntheticOdds = `+${Math.max(180, Math.round(state.legs.length * 185 + hashToUnit(state.slipId) * 250))}`;
+  const odds = state.mode === 'live' ? '—' : syntheticOdds;
+  const wager = state.mode === 'live' ? '—' : `$${10 + index * 5}`;
   const legs = state.legs.map((leg) => {
     const threshold = Number(leg.line) || 1;
     const update = updates[leg.legId];
@@ -241,8 +252,9 @@ function toTicketFromTracked(
   coverageMap?: LiveCoverageMap
 ): OpenTicket | null {
   const clock = computeClock(ticket.createdAt, nowIso);
-  const odds = `+${Math.round(220 + hashToUnit(ticket.ticketId) * 360)}`;
-  const wager = `$${10 + index * 5}`;
+  const syntheticStake = 10 + index * 5;
+  const odds = mode === 'live' ? '—' : `+${Math.round(220 + hashToUnit(ticket.ticketId) * 360)}`;
+  const wager = mode === 'live' ? '—' : `$${syntheticStake}`;
   const legs = ticket.legs.flatMap((leg) => {
     const update = updates[leg.legId];
     const declaredCoverage = coverageMap?.[ticket.ticketId]?.legs?.[leg.legId];
@@ -307,7 +319,7 @@ function toTicketFromTracked(
   ).length;
   const coverage = coverageMap?.[ticket.ticketId];
   const demoCashoutValue = Number(
-    (Number(wager.slice(1)) * (0.65 + onPaceCount / Math.max(1, legs.length))).toFixed(2)
+    (syntheticStake * (0.65 + onPaceCount / Math.max(1, legs.length))).toFixed(2)
   );
   const cashoutValue =
     typeof ticket.cashoutValue === 'number'
