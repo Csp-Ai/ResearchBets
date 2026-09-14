@@ -1,5 +1,7 @@
 # ResearchBets agent/runtime guide
 
+Before changing product architecture or navigation, read `docs/CANONICAL_PRODUCT.md` and `config/convergence.json`. Files registered as legacy context remain available for study but must not be imported into canonical product roots.
+
 This file documents the **intelligence modules** currently active in the codebase and the operating rules for extending them.
 
 ## Intelligence modules
