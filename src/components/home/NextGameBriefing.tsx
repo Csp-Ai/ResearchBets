@@ -152,6 +152,7 @@ export function NextGameBriefing({
       game: idea.matchup,
       marketImpliedProb: idea.marketImpliedProb,
       consensusPrice: typeof idea.consensusPrice === 'number' ? formatOdds(idea.consensusPrice) : undefined,
+      recentForm: idea.recentForm,
       adjacentAlt: idea.stepDown
         ? {
             line: idea.stepDown.line,
