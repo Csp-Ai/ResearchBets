@@ -19,6 +19,7 @@ const leg = (overrides: Partial<SlipBuilderLeg> = {}): SlipBuilderLeg => ({
   deadLegReasons: overrides.deadLegReasons,
   marketImpliedProb: overrides.marketImpliedProb,
   consensusPrice: overrides.consensusPrice,
+  recentForm: overrides.recentForm,
   adjacentAlt: overrides.adjacentAlt,
 });
 
@@ -80,6 +81,58 @@ describe('construction intelligence', () => {
     expect(result.suggestedTarget).toBe('50 at -300');
   });
 
+  it('labels weak exact-threshold history as recent-form tension', () => {
+    const result = classifyConstructionLeg(
+      leg({
+        marketType: 'receiving_yards',
+        line: '80+ receiving yards',
+        odds: '+105',
+        recentForm: {
+          l5HitRate: 0.2,
+          l10HitRate: 0.4,
+          l5Hits: 1,
+          l5Games: 5,
+          l10Hits: 4,
+          l10Games: 10,
+          recentAverage: 61.3,
+          sampleSize: 10,
+          season: '2026',
+          asOf: '2026-09-13T00:00:00.000Z',
+          source: 'SportsDataIO',
+        },
+      }),
+    );
+
+    expect(result.tier).toBe('pushed');
+    expect(result.recentForm?.status).toBe('tension');
+    expect(result.recentForm?.l5Hits).toBe(1);
+  });
+
+  it('keeps strong exact-threshold history as support rather than a prediction', () => {
+    const result = classifyConstructionLeg(
+      leg({
+        marketType: 'receiving_yards',
+        line: '60+ receiving yards',
+        odds: '-180',
+        recentForm: {
+          l5HitRate: 0.8,
+          l10HitRate: 0.7,
+          l5Hits: 4,
+          l5Games: 5,
+          l10Hits: 7,
+          l10Games: 10,
+          recentAverage: 74.2,
+          sampleSize: 10,
+          season: '2026',
+          asOf: '2026-09-13T00:00:00.000Z',
+          source: 'SportsDataIO',
+        },
+      }),
+    );
+
+    expect(result.recentForm?.status).toBe('support');
+  });
+
   it('allows two pushed thresholds on an eight-to-ten leg construction before overload', () => {
     const slip = [
       leg({ id: '1', player: 'A', line: '40+ receiving yards', odds: '-320' }),
@@ -99,6 +152,30 @@ describe('construction intelligence', () => {
     expect(report.pushBudget).toBe(2);
     expect(report.pushedCount).toBe(2);
     expect(report.status).toBe('watch');
+  });
+
+  it('prioritizes a pushed leg with verified recent-form tension for repair', () => {
+    const weakRecentForm = {
+      l5HitRate: 0.2,
+      l10HitRate: 0.4,
+      l5Hits: 1,
+      l5Games: 5,
+      l10Hits: 4,
+      l10Games: 10,
+      recentAverage: 51,
+      sampleSize: 10,
+      season: '2026',
+      asOf: '2026-09-13T00:00:00.000Z',
+      source: 'SportsDataIO' as const,
+    };
+
+    const report = buildConstructionReport([
+      leg({ id: 'one', player: 'Player One', marketType: 'anytime_td', line: 'Anytime TD', odds: '+120' }),
+      leg({ id: 'two', player: 'Player Two', marketType: 'receiving_yards', line: '80+ receiving yards', odds: '+105', recentForm: weakRecentForm }),
+    ]);
+
+    expect(report.formTensionCount).toBe(1);
+    expect(report.repairCandidates[0]?.legId).toBe('two');
   });
 
   it('flags an overloaded long parlay when pushed thresholds exceed budget', () => {
