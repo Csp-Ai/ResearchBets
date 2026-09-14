@@ -22,6 +22,17 @@ describe('NFL live normalizer', () => {
     expect(homeTeamFromGameId(undefined)).toBeUndefined();
   });
 
+  it('normalizes full sportsbook matchup names before live box-score lookup', () => {
+    expect(homeTeamFromGameId('Arizona Cardinals @ Los Angeles Chargers')).toBe('LAC');
+    expect(homeTeamFromGameId('Washington Commanders at Philadelphia Eagles')).toBe('PHI');
+    expect(homeTeamFromGameId('Green Bay Packers @ Minnesota Vikings')).toBe('MIN');
+    expect(homeTeamFromGameId('Miami Dolphins @ Las Vegas Raiders')).toBe('LV');
+  });
+
+  it('does not guess unknown teams into a provider key', () => {
+    expect(homeTeamFromGameId('Unknown Team @ Mystery Club')).toBeUndefined();
+  });
+
   it('maps verified NFL player fields to ResearchBets markets', () => {
     const player = {
       Name: 'Jalen Hurts',
