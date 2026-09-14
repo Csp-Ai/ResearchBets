@@ -28,33 +28,35 @@ export function CockpitHeader({
   });
 
   return (
-    <>
-      <link rel="stylesheet" href="/cockpit-v2.css" />
-      <header className="cockpit-runtime-header">
-        <div className="cockpit-brand-row">
-          <div className="cockpit-brand-lockup">
-            <span className="cockpit-brand-mark" aria-hidden>R</span>
-            <div>
-              <p className="cockpit-brand-name">ResearchBets</p>
-              <p className="cockpit-brand-purpose">{title}</p>
-            </div>
+    <header className="cockpit-runtime-header">
+      <p className="sr-only">{purpose}</p>
+      <div className="cockpit-brand-row">
+        <div className="cockpit-brand-lockup">
+          <span className="cockpit-brand-mark" aria-hidden>
+            R
+          </span>
+          <div>
+            <p className="cockpit-brand-name">ResearchBets</p>
+            <p className="cockpit-brand-purpose">{title}</p>
           </div>
-          {ctas ? <div className="cockpit-header-ctas">{ctas}</div> : null}
         </div>
+        {ctas ? <div className="cockpit-header-ctas">{ctas}</div> : null}
+      </div>
 
-        <div className="cockpit-runtime-summary" title={purpose}>
-          <span className={`cockpit-status-dot mode-${strip.mode}`} aria-hidden />
-          <span className="cockpit-runtime-mode" title={modeCopy.detail}>{modeCopy.label}</span>
-          <span className="cockpit-runtime-divider" aria-hidden />
-          <span>{nervous.sport}</span>
-          <span>{nervous.date}</span>
-          <span className="cockpit-runtime-tz">{nervous.tz}</span>
-        </div>
+      <div className="cockpit-runtime-summary" title={purpose}>
+        <span className={`cockpit-status-dot mode-${strip.mode}`} aria-hidden />
+        <span className="cockpit-runtime-mode" title={modeCopy.detail}>
+          {modeCopy.label}
+        </span>
+        <span className="cockpit-runtime-divider" aria-hidden />
+        <span>{nervous.sport}</span>
+        <span>{nervous.date}</span>
+        <span className="cockpit-runtime-tz">{nervous.tz}</span>
+      </div>
 
-        <div className="cockpit-runtime-expanded">
-          <LiveNervousSystemStrip {...strip} />
-        </div>
-      </header>
-    </>
+      <div className="cockpit-runtime-expanded">
+        <LiveNervousSystemStrip {...strip} />
+      </div>
+    </header>
   );
 }
