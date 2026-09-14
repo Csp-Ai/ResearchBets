@@ -90,20 +90,31 @@ export function TicketPulseHero() {
       const response = await fetch('/api/live/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tickets: tracked }),
+        body: JSON.stringify({ tickets: tracked, mode: 'live' }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: { message?: string };
         data?: { updates?: Record<string, LiveLegUpdate>; coverage?: LiveCoverageMap };
+        provenance?: { mode?: 'demo' | 'cache' | 'live'; source?: string; reason?: string };
       };
       if (!active) return;
 
-      if (!response.ok || !payload.ok || !payload.data?.updates) {
+      if (
+        !response.ok
+        || !payload.ok
+        || !payload.data?.updates
+        || payload.provenance?.mode !== 'live'
+      ) {
         setUpdates({});
         setCoverage(payload.data?.coverage ?? {});
         setLiveFetchState('unavailable');
-        setLiveError(payload.error?.message ?? 'Provider-backed live player progress is unavailable.');
+        setLiveError(
+          payload.error?.message
+          ?? (payload.provenance?.mode && payload.provenance.mode !== 'live'
+            ? 'Live mode rejected a non-live progress response.'
+            : 'Provider-backed live player progress is unavailable.'),
+        );
         return;
       }
 
