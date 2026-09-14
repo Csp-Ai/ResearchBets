@@ -33,13 +33,37 @@ export default function ReviewPage() {
   const profile = useMemo(() => getEdgeProfile(), []);
 
   const latest = records[0];
-  const latestMiss = latest?.legs
+  const settledIdentity = latest?.weakest_leg_identity ?? latest?.lifecycle_lineage?.settled;
+  const attributedBreaker = settledIdentity?.canonical_leg_id
+    ? latest?.legs.find((leg) => leg.legId === settledIdentity.canonical_leg_id)
+    : undefined;
+  const closestMissFallback = latest?.legs
     .filter((leg) => !leg.hit)
     .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta))[0];
+  const latestMiss = attributedBreaker && !attributedBreaker.hit
+    ? attributedBreaker
+    : closestMissFallback;
+  const breakerBasis = attributedBreaker && !attributedBreaker.hit
+    ? 'Settled attribution'
+    : latestMiss
+      ? 'Closest-miss fallback'
+      : null;
   const reviewedLegs = records.reduce((sum, record) => sum + record.legs.length, 0);
   const hitLegs = records.reduce((sum, record) => sum + record.legs.filter((leg) => leg.hit).length, 0);
   const legHitRate = reviewedLegs > 0 ? Math.round((hitLegs / reviewedLegs) * 100) : 0;
   const latestHitCount = latest?.legs.filter((leg) => leg.hit).length ?? 0;
+  const lifecycleStages = latest
+    ? [
+        { label: 'X-Ray', identity: latest.lifecycle_lineage?.pregame },
+        { label: 'Pulse', identity: latest.lifecycle_lineage?.live },
+        { label: 'Autopsy', identity: settledIdentity },
+      ]
+    : [];
+  const hasLifecycleLineage = lifecycleStages.some((stage) => stage.identity?.canonical_leg_id);
+  const legLabelFor = (legId?: string | null) => {
+    if (!legId) return 'No leg recorded';
+    return latest?.legs.find((leg) => leg.legId === legId)?.player ?? legId;
+  };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#03060a] text-white" data-testid="review-page">
@@ -127,7 +151,12 @@ export default function ReviewPage() {
 
               {latestMiss ? (
                 <div className="mt-5 rounded-[22px] border border-rose-300/[0.13] bg-rose-300/[0.035] p-4">
-                  <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-rose-100/50">Breaker candidate</div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-rose-100/50">Breaker leg</div>
+                    {breakerBasis ? (
+                      <div className="rounded-full border border-rose-200/[0.10] bg-black/20 px-2 py-1 text-[8px] uppercase tracking-[0.11em] text-rose-100/45">{breakerBasis}</div>
+                    ) : null}
+                  </div>
                   <div className="mt-2 text-[18px] font-semibold text-slate-100">{latestMiss.player}</div>
                   <div className="mt-1 text-[12px] text-slate-400">
                     {cleanTag(latestMiss.statType)} · {latestMiss.finalValue} / {latestMiss.target} · missed by {Math.abs(latestMiss.delta).toFixed(1)}
@@ -152,6 +181,28 @@ export default function ReviewPage() {
               <p className="mt-3 text-[12px] leading-6 text-slate-500">
                 {latest.nextTimeRule?.body ?? latest.narrative[0] ?? 'As reviewed outcomes accumulate, ResearchBets turns repeated pressure points into pre-submit warnings.'}
               </p>
+
+              {hasLifecycleLineage ? (
+                <div className="mt-4 rounded-2xl border border-violet-200/[0.10] bg-black/20 p-4">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-violet-100/45">Weakest-leg continuity</div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {lifecycleStages.map((stage, index) => (
+                      <div key={stage.label} className="relative rounded-xl border border-white/[0.06] bg-white/[0.018] p-3">
+                        <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-slate-600">{stage.label}</div>
+                        <div className="mt-1 truncate text-[11px] font-semibold text-slate-200">{legLabelFor(stage.identity?.canonical_leg_id)}</div>
+                        <div className="mt-1 text-[8px] capitalize text-slate-600">
+                          {stage.identity ? `${stage.identity.stage_role.replace(/_/g, ' ')} · ${stage.identity.continuity_status.replace(/_/g, ' ')}` : 'not recorded'}
+                        </div>
+                        {index < lifecycleStages.length - 1 ? <div className="absolute -right-2 top-1/2 hidden text-[10px] text-violet-200/30 sm:block">→</div> : null}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[9px] leading-4 text-slate-600">
+                    This shows whether the pressure point ResearchBets saw before lock carried into live tracking and settlement. Missing stages stay explicitly unrecorded.
+                  </p>
+                </div>
+              ) : null}
+
               {latest.nextTimeRule ? (
                 <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/20 p-4">
                   <div className="text-[9px] uppercase tracking-[0.14em] text-slate-600">Next-time guardrail</div>
