@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { EdgeProfileCard } from '@/src/components/review/EdgeProfileCard';
+import { matchesLifecycleIdentity } from '@/src/core/lineage/lineage';
 import { PostmortemList } from '@/src/components/review/PostmortemList';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { getEdgeProfile, listPersistedPostmortems, listPostmortems } from '@/src/core/review/store';
@@ -17,19 +18,13 @@ export default function ReviewPage() {
   const searchParams = useSearchParams();
   const activeTraceId = searchParams?.get('trace_id') ?? nervous.trace_id;
   const activeSlipId = searchParams?.get('slip_id') ?? nervous.slip_id;
+  const activeTicketId = searchParams?.get('ticketId') ?? searchParams?.get('ticket_id') ?? nervous.ticketId;
   const records = useMemo(() => {
     const all = nervous.mode === 'demo' ? listPostmortems() : listPersistedPostmortems();
-    return [...all].sort((a, b) => {
-      const aMatch =
-        (activeTraceId ? a.trace_id === activeTraceId : false) ||
-        (activeSlipId ? a.slip_id === activeSlipId : false);
-      const bMatch =
-        (activeTraceId ? b.trace_id === activeTraceId : false) ||
-        (activeSlipId ? b.slip_id === activeSlipId : false);
-      if (aMatch === bMatch) return Date.parse(b.settledAt) - Date.parse(a.settledAt);
-      return aMatch ? -1 : 1;
-    });
-  }, [activeSlipId, activeTraceId, nervous.mode]);
+    return all.filter((record) => matchesLifecycleIdentity(record, {
+      ticketId: activeTicketId, slip_id: activeSlipId, trace_id: activeTraceId,
+    })).sort((a, b) => Date.parse(b.settledAt) - Date.parse(a.settledAt));
+  }, [activeTicketId, activeSlipId, activeTraceId, nervous.mode]);
   const profile = useMemo(() => getEdgeProfile(), []);
 
   const latest = records[0];
