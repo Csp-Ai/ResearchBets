@@ -3,23 +3,43 @@ import { z } from 'zod';
 
 import { CANONICAL_KEYS } from '@/src/core/env/keys';
 import { readString } from '@/src/core/env/read.server';
+import { fetchSportsDataNflLiveProgress } from '@/src/core/live/sportsDataNflLive.server';
 import { asMarketType } from '@/src/core/markets/marketType';
 import type { TrackedTicket } from '@/src/core/track/types';
 
+const legSchema = z.object({
+  legId: z.string().min(1),
+  league: z.string().default('NFL'),
+  gameId: z.string().optional(),
+  teams: z.string().optional(),
+  player: z.string().min(1),
+  rawPlayer: z.string().optional(),
+  marketType: z.string().min(1),
+  marketLabel: z.string().optional(),
+  threshold: z.number(),
+  direction: z.enum(['over', 'under']).default('over'),
+  odds: z.string().optional(),
+  source: z.string().default('tracked'),
+  parseConfidence: z.enum(['high', 'medium', 'low']).default('medium'),
+  needsReview: z.boolean().optional(),
+  rawText: z.string().optional(),
+  ladder: z.boolean().optional(),
+});
+
+const ticketSchema = z.object({
+  ticketId: z.string().min(1),
+  createdAt: z.string().min(1),
+  sourceHint: z.string().min(1),
+  rawSlipText: z.string(),
+  cashoutAvailable: z.boolean().optional(),
+  cashoutValue: z.number().optional(),
+  mode: z.enum(['demo', 'cache', 'live']).optional(),
+  legs: z.array(legSchema),
+});
+
 const schema = z.object({
-  tickets: z.array(z.object({
-    ticketId: z.string().min(1),
-    createdAt: z.string().min(1),
-    sourceHint: z.string().min(1),
-    rawSlipText: z.string(),
-    legs: z.array(z.object({
-      legId: z.string().min(1),
-      marketType: z.string().min(1),
-      threshold: z.number(),
-      player: z.string().min(1),
-      gameId: z.string().optional()
-    }))
-  }))
+  tickets: z.array(ticketSchema),
+  mode: z.enum(['demo', 'cache', 'live']).optional(),
 });
 
 function hashToUnit(input: string) {
@@ -31,7 +51,7 @@ function hashToUnit(input: string) {
   return (hash >>> 0) / 4294967295;
 }
 
-function buildDeterministicUpdates(tickets: TrackedTicket[]) {
+function buildDeterministicDemoUpdates(tickets: TrackedTicket[]) {
   const updates: Record<string, { currentValue: number; liveMargin: number; elapsedGameMinutes: number; quarter: 1 | 2 | 3 | 4 }> = {};
 
   for (const ticket of tickets) {
@@ -52,13 +72,13 @@ function buildDeterministicUpdates(tickets: TrackedTicket[]) {
   return updates;
 }
 
-function buildCoverage(tickets: TrackedTicket[]) {
+function buildDemoCoverage(tickets: TrackedTicket[]) {
   const coverage: Record<string, { coverage: 'full' | 'partial' | 'none'; legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> }> = {};
 
   for (const ticket of tickets) {
     const legs: Record<string, { coverage: 'covered' | 'missing'; reason?: 'no_game_id' | 'provider_unavailable' | 'unsupported_market' }> = {};
     for (const leg of ticket.legs) {
-      if (!leg.gameId) {
+      if (!leg.gameId && !leg.teams) {
         legs[leg.legId] = { coverage: 'missing', reason: 'no_game_id' };
         continue;
       }
@@ -66,12 +86,14 @@ function buildCoverage(tickets: TrackedTicket[]) {
         legs[leg.legId] = { coverage: 'missing', reason: 'unsupported_market' };
         continue;
       }
-      const unstable = hashToUnit(`${ticket.ticketId}:${leg.legId}:coverage`) < 0.05;
-      legs[leg.legId] = unstable ? { coverage: 'missing', reason: 'provider_unavailable' } : { coverage: 'covered' };
+      legs[leg.legId] = { coverage: 'covered' };
     }
     const covered = Object.values(legs).filter((item) => item.coverage === 'covered').length;
     const total = Object.keys(legs).length;
-    coverage[ticket.ticketId] = { coverage: covered === 0 ? 'none' : covered === total ? 'full' : 'partial', legs };
+    coverage[ticket.ticketId] = {
+      coverage: covered === 0 ? 'none' : covered === total ? 'full' : 'partial',
+      legs,
+    };
   }
 
   return coverage;
@@ -80,18 +102,72 @@ function buildCoverage(tickets: TrackedTicket[]) {
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: { code: 'invalid_payload', message: 'Invalid tickets payload.' } }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'invalid_payload', message: 'Invalid tickets payload.' } },
+      { status: 400 },
+    );
   }
 
-  const mode = readString(CANONICAL_KEYS.LIVE_MODE) === '1' ? 'live' : 'demo';
+  const requestedMode = parsed.data.mode;
+  const ticketRequestsLive = parsed.data.tickets.some((ticket) => ticket.mode === 'live');
+  const liveRequested =
+    requestedMode === 'live' ||
+    ticketRequestsLive ||
+    (!requestedMode && readString(CANONICAL_KEYS.LIVE_MODE) === '1');
   const tickets = parsed.data.tickets as TrackedTicket[];
+
+  if (liveRequested) {
+    const live = await fetchSportsDataNflLiveProgress(tickets);
+    if (!live.available) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'live_ticket_provider_unavailable',
+            message: 'Provider-backed NFL player progress is unavailable for this tracked structure.',
+          },
+          data: {
+            updates: {},
+            coverage: live.coverage,
+          },
+          provenance: {
+            mode: 'live',
+            source: 'sportsdataio',
+            reason: live.warnings[0] ?? 'provider_backed_live_updates_unavailable',
+            warnings: live.warnings,
+            generatedAt: live.generatedAt,
+          },
+        },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      data: {
+        updates: live.updates,
+        coverage: live.coverage,
+      },
+      provenance: {
+        mode: 'live',
+        source: 'sportsdataio',
+        reason: 'provider_backed_nfl_box_score',
+        warnings: live.warnings,
+        generatedAt: live.generatedAt,
+      },
+    });
+  }
+
   return NextResponse.json({
     ok: true,
-    data: { updates: buildDeterministicUpdates(tickets), coverage: buildCoverage(tickets) },
+    data: {
+      updates: buildDeterministicDemoUpdates(tickets),
+      coverage: buildDemoCoverage(tickets),
+    },
     provenance: {
-      mode,
-      reason: mode === 'demo' ? 'Demo mode (live feeds off)' : undefined,
+      mode: 'demo',
+      reason: 'Demo mode (deterministic live simulation)',
       generatedAt: new Date().toISOString(),
-    }
+    },
   });
 }
