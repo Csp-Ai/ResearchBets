@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { WEAKEST_LEG_EVALUATED_MARKER } from '@/src/core/metrics/calibrationEvidence';
 import { computeCalibrationMetricsFromOutcomes } from '@/src/core/metrics/calibrationEngine';
 import type { SlipOutcomeRecord } from '@/src/core/persistence/runtimeStore';
 
@@ -25,22 +26,55 @@ describe('computeCalibrationMetricsFromOutcomes', () => {
   it('returns deterministic fallback when no outcomes exist', () => {
     const metrics = computeCalibrationMetricsFromOutcomes([]);
     expect(metrics.runs_analyzed).toBe(0);
+    expect(metrics.weakest_leg_runs_analyzed).toBe(0);
     expect(metrics.take_accuracy).toBe(0);
     expect(metrics.confidence_bucket_accuracy).toHaveLength(10);
   });
 
-  it('computes take, modify, weakest-leg metrics and verdict breakdown', () => {
+  it('computes take, modify, verified weakest-leg metrics and verdict breakdown', () => {
     const metrics = computeCalibrationMetricsFromOutcomes([
-      sample({ id: '1', verdictPresented: 'TAKE', finalOutcome: 'WIN', verdictCorrect: true, hitWeakestLeg: true }),
+      sample({
+        id: '1',
+        verdictPresented: 'TAKE',
+        finalOutcome: 'WIN',
+        verdictCorrect: true,
+        hitWeakestLeg: true,
+        topReasons: [WEAKEST_LEG_EVALUATED_MARKER],
+      }),
       sample({ id: '2', verdictPresented: 'TAKE', finalOutcome: 'LOSS', verdictCorrect: false }),
-      sample({ id: '3', verdictPresented: 'MODIFY', finalOutcome: 'LOSS', verdictCorrect: true, fragilityScore: 70 }),
+      sample({
+        id: '3',
+        verdictPresented: 'MODIFY',
+        finalOutcome: 'LOSS',
+        verdictCorrect: true,
+        fragilityScore: 70,
+        hitWeakestLeg: false,
+        topReasons: [WEAKEST_LEG_EVALUATED_MARKER],
+      }),
       sample({ id: '4', verdictPresented: 'PASS', finalOutcome: 'WIN', verdictCorrect: false, correlationScore: 70 })
     ]);
 
     expect(metrics.take_accuracy).toBe(0.5);
     expect(metrics.modify_prevented_rate).toBe(1);
-    expect(metrics.weakest_leg_accuracy).toBe(0.25);
+    expect(metrics.weakest_leg_runs_analyzed).toBe(2);
+    expect(metrics.weakest_leg_accuracy).toBe(0.5);
     expect(metrics.verdict_accuracy_by_type).toEqual({ TAKE: 0.5, MODIFY: 1, PASS: 0 });
+  });
+
+  it('does not count a generic losing ticket as a weakest-leg hit', () => {
+    const metrics = computeCalibrationMetricsFromOutcomes([
+      sample({ id: 'loss-without-attribution', finalOutcome: 'LOSS', hitWeakestLeg: true }),
+      sample({
+        id: 'verified-miss',
+        finalOutcome: 'LOSS',
+        hitWeakestLeg: false,
+        topReasons: [WEAKEST_LEG_EVALUATED_MARKER],
+      }),
+    ]);
+
+    expect(metrics.runs_analyzed).toBe(2);
+    expect(metrics.weakest_leg_runs_analyzed).toBe(1);
+    expect(metrics.weakest_leg_accuracy).toBe(0);
   });
 
   it('groups confidence into 10% buckets', () => {
