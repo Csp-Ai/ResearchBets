@@ -2,6 +2,7 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 
 export type ConstructionTier = 'floor' | 'core' | 'pushed';
 export type ConstructionStatus = 'balanced' | 'watch' | 'overloaded';
+export type RecentFormStatus = 'support' | 'mixed' | 'tension';
 
 export type ThresholdTax = {
   lowerLine: number;
@@ -15,6 +16,18 @@ export type ThresholdTax = {
   sourceCount: number | null;
 };
 
+export type RecentFormRead = {
+  status: RecentFormStatus;
+  l5Hits: number;
+  l5Games: number;
+  l10Hits: number;
+  l10Games: number;
+  l5HitRate: number;
+  l10HitRate: number;
+  recentAverage: number;
+  source: 'SportsDataIO';
+};
+
 export type ConstructionLeg = {
   legId: string;
   player: string;
@@ -26,6 +39,7 @@ export type ConstructionLeg = {
   shortWindow: boolean;
   suggestedTarget: string | null;
   thresholdTax: ThresholdTax | null;
+  recentForm: RecentFormRead | null;
 };
 
 export type ConstructionReport = {
@@ -39,6 +53,7 @@ export type ConstructionReport = {
   summary: string;
   repairCandidates: ConstructionLeg[];
   pricedThresholdTaxCount: number;
+  formTensionCount: number;
 };
 
 const FLOOR_PROBABILITY = 0.75;
@@ -192,6 +207,30 @@ const thresholdTaxFor = (
   };
 };
 
+const recentFormFor = (leg: SlipBuilderLeg): RecentFormRead | null => {
+  const form = leg.recentForm;
+  if (!form || form.sampleSize < 3 || form.l5Games < 3) return null;
+
+  const status: RecentFormStatus =
+    form.l5HitRate >= 0.6 && form.l10HitRate >= 0.6
+      ? 'support'
+      : form.l5HitRate <= 0.4 && form.l10HitRate <= 0.5
+        ? 'tension'
+        : 'mixed';
+
+  return {
+    status,
+    l5Hits: form.l5Hits,
+    l5Games: form.l5Games,
+    l10Hits: form.l10Hits,
+    l10Games: form.l10Games,
+    l5HitRate: form.l5HitRate,
+    l10HitRate: form.l10HitRate,
+    recentAverage: form.recentAverage,
+    source: form.source,
+  };
+};
+
 export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
   const impliedProbability =
     typeof leg.marketImpliedProb === 'number' && Number.isFinite(leg.marketImpliedProb)
@@ -200,6 +239,7 @@ export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
   const shortWindow = hasShortWindow(leg);
   const line = parseNumber(leg.line);
   const thresholdTax = thresholdTaxFor(leg, line, impliedProbability);
+  const recentForm = recentFormFor(leg);
 
   let tier: ConstructionTier;
   if (shortWindow) tier = 'pushed';
@@ -223,6 +263,7 @@ export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
         ? `${thresholdTax.lowerLine} at ${thresholdTax.lowerBestPrice}`
         : suggestedTargetFor(leg, tier),
     thresholdTax,
+    recentForm,
   };
 }
 
@@ -259,6 +300,9 @@ export function buildConstructionReport(slip: SlipBuilderLeg[]): ConstructionRep
   const repairCandidates = legs
     .filter((leg) => leg.tier === 'pushed')
     .sort((a, b) => {
+      const aTension = a.recentForm?.status === 'tension';
+      const bTension = b.recentForm?.status === 'tension';
+      if (aTension !== bTension) return aTension ? -1 : 1;
       if (Boolean(a.thresholdTax) !== Boolean(b.thresholdTax)) return a.thresholdTax ? -1 : 1;
       const aProb = a.impliedProbability ?? 1;
       const bProb = b.impliedProbability ?? 1;
@@ -277,5 +321,6 @@ export function buildConstructionReport(slip: SlipBuilderLeg[]): ConstructionRep
     summary,
     repairCandidates,
     pricedThresholdTaxCount: legs.filter((leg) => Boolean(leg.thresholdTax)).length,
+    formTensionCount: legs.filter((leg) => leg.recentForm?.status === 'tension').length,
   };
 }
