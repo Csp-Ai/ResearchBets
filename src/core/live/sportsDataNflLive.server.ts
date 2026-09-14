@@ -13,7 +13,7 @@ import {
   type SportsDataNflBoxScore,
 } from '@/src/core/live/nflLiveNormalizer';
 import { fetchJsonWithCache } from '@/src/core/sources/fetchJsonWithCache';
-import type { CoverageReason, TrackedTicket } from '@/src/core/track/types';
+import type { CoverageReason, TrackedTicket, TrackedTicketLeg } from '@/src/core/track/types';
 
 const SOURCE = 'sportsdataio-live-nfl';
 const DEFAULT_BASE_URL = 'https://api.sportsdata.io/v3';
@@ -30,6 +30,9 @@ type LiveNflResult = {
   generatedAt: string;
   warnings: string[];
 };
+
+const homeTeamForLeg = (leg: TrackedTicketLeg): string | undefined =>
+  homeTeamFromGameId(leg.gameId) ?? homeTeamFromGameId(leg.teams);
 
 const emptyCoverageFor = (
   tickets: TrackedTicket[],
@@ -141,6 +144,14 @@ export async function fetchSportsDataNflLiveProgress(
         };
         continue;
       }
+      if (leg.direction !== 'over') {
+        entries[ticket.ticketId]![leg.legId] = {
+          coverage: 'missing',
+          reason: 'unsupported_market',
+        };
+        warnings.push(`unsupported_live_direction:${leg.legId}:${leg.direction}`);
+        continue;
+      }
       if (!isSupportedNflLiveMarket(leg.marketType)) {
         entries[ticket.ticketId]![leg.legId] = {
           coverage: 'missing',
@@ -148,7 +159,7 @@ export async function fetchSportsDataNflLiveProgress(
         };
         continue;
       }
-      const home = homeTeamFromGameId(leg.gameId ?? leg.teams);
+      const home = homeTeamForLeg(leg);
       if (!home) {
         entries[ticket.ticketId]![leg.legId] = {
           coverage: 'missing',
@@ -185,7 +196,7 @@ export async function fetchSportsDataNflLiveProgress(
       if (entries[ticket.ticketId]?.[leg.legId]) continue;
       if (!isSupportedNflLiveMarket(leg.marketType)) continue;
 
-      const home = homeTeamFromGameId(leg.gameId ?? leg.teams);
+      const home = homeTeamForLeg(leg);
       const box = home ? boxScores.get(home) : undefined;
       if (!box) {
         entries[ticket.ticketId]![leg.legId] = {
