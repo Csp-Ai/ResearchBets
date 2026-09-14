@@ -21,9 +21,12 @@ export type SlipBuilderLeg = {
   game?: string;
   deadLegRisk?: 'low' | 'med' | 'high';
   deadLegReasons?: string[];
+  marketImpliedProb?: number;
+  consensusPrice?: string;
   adjacentAlt?: {
     line: number;
-    odds: string;
+    bestPrice: string;
+    consensusPrice: string;
     marketImpliedProb: number;
     sourceCount?: number;
   };
