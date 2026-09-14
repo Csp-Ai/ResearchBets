@@ -63,15 +63,39 @@ export function getBettorMistakePatternSummary(): BettorMistakePatternSummary {
   return summarizeBettorMistakePatterns(listReviewedAttributions());
 }
 
+function dedupeLearningArtifacts(artifacts: SettledLearningArtifact[]): SettledLearningArtifact[] {
+  const ordered = [...artifacts].sort((a, b) => {
+    if (a.source !== b.source) return a.source === 'reviewed_postmortem' ? -1 : 1;
+    return Date.parse(b.created_at) - Date.parse(a.created_at);
+  });
+  const seenTraceIds = new Set<string>();
+  const seenSlipIds = new Set<string>();
+  const seenTicketIds = new Set<string>();
+  const kept: SettledLearningArtifact[] = [];
+
+  for (const artifact of ordered) {
+    const duplicatesExisting =
+      (artifact.trace_id ? seenTraceIds.has(artifact.trace_id) : false) ||
+      (artifact.slip_id ? seenSlipIds.has(artifact.slip_id) : false) ||
+      (artifact.ticket_id ? seenTicketIds.has(artifact.ticket_id) : false);
+    if (duplicatesExisting) continue;
+
+    kept.push(artifact);
+    if (artifact.trace_id) seenTraceIds.add(artifact.trace_id);
+    if (artifact.slip_id) seenSlipIds.add(artifact.slip_id);
+    if (artifact.ticket_id) seenTicketIds.add(artifact.ticket_id);
+  }
+
+  return kept.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+}
+
 export function listLearningArtifacts(): SettledLearningArtifact[] {
   const reviewedArtifacts = listReviewedAttributions().map(
     extractLearningArtifactFromReviewedRecord
   );
   const settledArtifacts = listPersistedPostmortems().map(extractLearningArtifactFromPostmortem);
 
-  return [...reviewedArtifacts, ...settledArtifacts].sort(
-    (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
-  );
+  return dedupeLearningArtifacts([...reviewedArtifacts, ...settledArtifacts]);
 }
 
 export function getDraftLearningAdvisory(slip: SlipBuilderLeg[]): DraftLearningAdvisory | null {
