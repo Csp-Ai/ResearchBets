@@ -59,6 +59,23 @@ describe('NFL live normalizer', () => {
     expect(clock?.elapsedGameMinutes).toBe(37.5);
   });
 
+  it('treats final states as complete instead of inventing a full quarter remaining', () => {
+    expect(nflClockFromScore({ Quarter: 'F', TimeRemaining: null })).toEqual({
+      quarter: 4,
+      timeRemainingSec: 0,
+      elapsedGameMinutes: 60,
+    });
+    expect(nflClockFromScore({ Quarter: 'F/OT', TimeRemaining: null })).toEqual({
+      quarter: 4,
+      timeRemainingSec: 0,
+      elapsedGameMinutes: 60,
+    });
+  });
+
+  it('fails closed on unsupported live overtime clocks', () => {
+    expect(nflClockFromScore({ Quarter: 'OT', TimeRemaining: '08:00' })).toBeUndefined();
+  });
+
   it('finds a player and computes signed team margin', () => {
     const player = { Name: 'Trey McBride', Team: 'ARI', ReceivingYards: 74 };
     const players = [player, { Name: 'Ladd McConkey', Team: 'LAC', ReceivingYards: 40 }];
