@@ -4,6 +4,7 @@ export type Mode = 'live' | 'cache' | 'demo';
 export type SpineMode = Mode;
 
 export type Spine = {
+  ticketId?: string;
   trace_id?: string;
   slip_id?: string;
   sport: string;
@@ -15,9 +16,10 @@ export type Spine = {
 
 export type QuerySpine = Spine;
 
-export const SPINE_KEYS = ['trace_id', 'slip_id', 'sport', 'tz', 'date', 'mode', 'tab'] as const;
+export const SPINE_KEYS = ['ticketId', 'trace_id', 'slip_id', 'sport', 'tz', 'date', 'mode', 'tab'] as const;
 
 export const SpineSchema = z.object({
+  ticketId: z.string().min(1).optional(),
   trace_id: z.string().min(1).optional(),
   slip_id: z.string().min(1).optional(),
   sport: z.string().min(1),
@@ -129,6 +131,7 @@ function resolveMode(input: string | undefined, warnings: string[]): Mode {
 
 export function normalizeSpineWithWarnings(input: unknown): SpineNormalizationResult {
   const record = asRecord(input);
+  const ticketId = clean(record.ticketId ?? record.ticket_id);
   const warnings: string[] = [];
   const trace_id = clean(record.trace_id ?? record.traceId ?? record.trace) ?? undefined;
   const slip_id = clean(record.slip_id ?? record.slipId) ?? undefined;
@@ -138,13 +141,14 @@ export function normalizeSpineWithWarnings(input: unknown): SpineNormalizationRe
   const mode = resolveMode(clean(record.mode), warnings);
   const tab = clean(record.tab) ?? undefined;
 
-  const parse = SpineSchema.safeParse({ trace_id, slip_id, sport, tz, date, mode, tab });
+  const parse = SpineSchema.safeParse({ ticketId, trace_id, slip_id, sport, tz, date, mode, tab });
   if (parse.success) return { spine: parse.data, warnings };
 
   warnings.push('spine_invalid:defaulted');
   return {
     spine: {
       ...DEFAULT_SPINE,
+      ticketId,
       sport,
       trace_id,
       slip_id,
@@ -163,6 +167,7 @@ export function normalizeSpine(input: unknown): Spine {
 
 export function parseSpineFromSearch(sp: URLSearchParams): Partial<Spine> {
   return {
+    ticketId: sp.get('ticketId') ?? sp.get('ticket_id') ?? undefined,
     trace_id: sp.get('trace_id') ?? sp.get('traceId') ?? undefined,
     slip_id: sp.get('slip_id') ?? sp.get('slipId') ?? undefined,
     sport: sp.get('sport') ?? undefined,
