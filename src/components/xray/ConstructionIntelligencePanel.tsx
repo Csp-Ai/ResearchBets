@@ -172,7 +172,7 @@ export function ConstructionIntelligencePanel() {
                   </div>
                   {leg.thresholdTax ? (
                     <div className="mt-2 rounded-lg border border-emerald-300/[0.09] bg-emerald-300/[0.025] px-2.5 py-2 text-[9px] text-emerald-100/70">
-                      Step down {leg.thresholdTax.lineReduction:g} → {leg.thresholdTax.lowerLine}: +{Math.round(leg.thresholdTax.probabilityGain * 100)} pts sportsbook-implied probability · {leg.thresholdTax.currentConsensusPrice ?? 'current'} → {leg.thresholdTax.lowerConsensusPrice}
+                      Step down {leg.thresholdTax.lineReduction} → {leg.thresholdTax.lowerLine}: +{Math.round(leg.thresholdTax.probabilityGain * 100)} pts sportsbook-implied probability · {leg.thresholdTax.currentConsensusPrice ?? 'current'} → {leg.thresholdTax.lowerConsensusPrice}
                     </div>
                   ) : null}
                 </div>
@@ -201,7 +201,7 @@ export function ConstructionIntelligencePanel() {
                   <div className="mt-3 rounded-xl border border-emerald-300/[0.11] bg-emerald-300/[0.025] p-3">
                     <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-emerald-100/55">Priced Threshold Tax</div>
                     <div className="mt-1 text-[12px] font-semibold text-emerald-50">
-                      Lower {firstTax.lineReduction:g} · gain +{Math.round(firstTax.probabilityGain * 100)} pts market-implied
+                      Lower {firstTax.lineReduction} · gain +{Math.round(firstTax.probabilityGain * 100)} pts market-implied
                     </div>
                     <p className="mt-1 text-[9px] leading-4 text-slate-500">
                       Consensus price {firstTax.currentConsensusPrice ?? '—'} → {firstTax.lowerConsensusPrice}. This is sportsbook-price implied probability, not a ResearchBets win prediction.
