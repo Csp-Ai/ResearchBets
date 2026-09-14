@@ -95,14 +95,11 @@ describe('patternSource personal-learning boundary', () => {
           leg_id: 'leg-1',
           player: 'Real Player',
           prop_type: 'receiving_yards',
-          line: 70,
-          actual: 52,
-          delta: -18,
-          fragility_score: 80,
-          reason: 'Threshold pressure',
+          expected_vs_actual: '52/70 receiving_yards',
+          status: 'miss',
         },
-        source_type: 'sportsbook_screenshot',
-        parse_status: 'confirmed',
+        source_type: 'screenshot_ocr',
+        parse_status: 'success',
       },
     ]));
 
