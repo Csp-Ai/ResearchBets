@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { EdgeProfileCard } from '@/src/components/review/EdgeProfileCard';
 import { PostmortemList } from '@/src/components/review/PostmortemList';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-import { getEdgeProfile, listPostmortems } from '@/src/core/review/store';
+import { getEdgeProfile, listPersistedPostmortems, listPostmortems } from '@/src/core/review/store';
 
 const cleanTag = (value?: string) =>
   value ? value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) : 'No repeat leak yet';
@@ -18,7 +18,7 @@ export default function ReviewPage() {
   const activeTraceId = searchParams?.get('trace_id') ?? nervous.trace_id;
   const activeSlipId = searchParams?.get('slip_id') ?? nervous.slip_id;
   const records = useMemo(() => {
-    const all = listPostmortems();
+    const all = nervous.mode === 'demo' ? listPostmortems() : listPersistedPostmortems();
     return [...all].sort((a, b) => {
       const aMatch =
         (activeTraceId ? a.trace_id === activeTraceId : false) ||
@@ -29,7 +29,7 @@ export default function ReviewPage() {
       if (aMatch === bMatch) return Date.parse(b.settledAt) - Date.parse(a.settledAt);
       return aMatch ? -1 : 1;
     });
-  }, [activeSlipId, activeTraceId]);
+  }, [activeSlipId, activeTraceId, nervous.mode]);
   const profile = useMemo(() => getEdgeProfile(), []);
 
   const latest = records[0];
