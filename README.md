@@ -1,12 +1,13 @@
 # ResearchBets
 
-ResearchBets is a bettor cockpit for running a full loop: build a slip, stress test fragility, monitor live posture, and review postmortems using a truthful runtime spine.
+ResearchBets is a Structural Risk Terminal for parlays: discover and build a ticket, X-Ray its fragility, monitor its verified live Pulse, and turn settlement into Autopsy and Memory.
 
 ## Canonical entry + continuity spine
 
 - Canonical public entry: `/`
-- Canonical bettor loop: `landing -> today/board -> slip -> stress-test -> track -> review`
-- Canonical workflow routes: `/today`, `/slip`, `/stress-test`, `/track`, `/review`
+- Canonical bettor loop: `Discover + Build -> Ticket X-Ray -> Ticket Pulse -> Ticket Autopsy + Memory`
+- Canonical workflow routes: `/`, `/stress-test`, `/pulse`, `/review`
+- Supported alternate entries during convergence: `/today`, `/slip`, `/ingest`
 - Redirect-only compatibility routes: `/cockpit`, `/landing`, `/research`, `/live`
 - Dev/internal surfaces stay out of public navigation: `/control`, `/discover`, `/ingest`, `/dashboard`, `/tonight`, `/history`, `/community`
 
@@ -20,6 +21,7 @@ Truth spine query params are preserved across navigation:
 - `tab` (where relevant)
 
 See route and continuity details in [docs/ROUTES.md](docs/ROUTES.md).
+The authoritative convergence decision record is [docs/CANONICAL_PRODUCT.md](docs/CANONICAL_PRODUCT.md); retained historical implementations are governed by [docs/LEGACY_CONTEXT.md](docs/LEGACY_CONTEXT.md).
 
 ## Quickstart (demo-safe local)
 
