@@ -27,6 +27,14 @@ export type TodayIdea = {
   sourceCount: number;
   structuralRisk: 'low' | 'medium' | 'high';
   readiness: 'market-verified' | 'needs-status-check';
+  stepDown?: {
+    line: number;
+    bestPrice: number;
+    consensusPrice: number;
+    marketImpliedProb: number;
+    books: string[];
+    sourceCount: number;
+  };
   why: string[];
 };
 
@@ -290,12 +298,40 @@ export async function scanTodayIdeas(input: {
     const gameCount = gameCounts.get(idea.eventId) ?? 0;
     if (usedPlayers.has(playerKey) || gameCount >= 2) continue;
 
+    const stepDownCandidate = candidates
+      .filter((candidate) =>
+        candidate.eventId === idea.eventId
+        && candidate.player.toLowerCase() === playerKey
+        && candidate.marketType === idea.marketType
+        && candidate.line < idea.line,
+      )
+      .sort((a, b) => b.line - a.line || b.sourceCount - a.sourceCount)[0];
+
+    const stepDown = stepDownCandidate
+      ? {
+          line: stepDownCandidate.line,
+          bestPrice: stepDownCandidate.bestPrice,
+          consensusPrice: stepDownCandidate.consensusPrice,
+          marketImpliedProb: stepDownCandidate.marketImpliedProb,
+          books: stepDownCandidate.books,
+          sourceCount: stepDownCandidate.sourceCount,
+        }
+      : undefined;
+
+    const probabilityGain = stepDown
+      ? Math.max(0, stepDown.marketImpliedProb - idea.marketImpliedProb)
+      : 0;
+
     selected.push({
       ...idea,
+      stepDown,
       why: [
         `${Math.round(idea.marketImpliedProb * 100)}% sportsbook-price implied at the median posted price`,
         `${idea.sourceCount} book${idea.sourceCount === 1 ? '' : 's'} posting this exact threshold`,
         'Selected inside the useful parlay band instead of the shortest available alt line',
+        ...(stepDown
+          ? [`Next lower posted tier: ${stepDown.line} (${Math.round(stepDown.marketImpliedProb * 100)}% market-implied, +${Math.round(probabilityGain * 100)} pts vs selected)`]
+          : []),
       ],
     });
     usedPlayers.add(playerKey);
