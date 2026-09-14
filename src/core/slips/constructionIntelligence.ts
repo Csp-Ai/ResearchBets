@@ -3,6 +3,18 @@ import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 export type ConstructionTier = 'floor' | 'core' | 'pushed';
 export type ConstructionStatus = 'balanced' | 'watch' | 'overloaded';
 
+export type ThresholdTax = {
+  lowerLine: number;
+  lineReduction: number;
+  currentProbability: number;
+  lowerProbability: number;
+  probabilityGain: number;
+  currentConsensusPrice: string | null;
+  lowerConsensusPrice: string;
+  lowerBestPrice: string;
+  sourceCount: number | null;
+};
+
 export type ConstructionLeg = {
   legId: string;
   player: string;
@@ -13,6 +25,7 @@ export type ConstructionLeg = {
   impliedProbability: number | null;
   shortWindow: boolean;
   suggestedTarget: string | null;
+  thresholdTax: ThresholdTax | null;
 };
 
 export type ConstructionReport = {
@@ -25,6 +38,7 @@ export type ConstructionReport = {
   headline: string;
   summary: string;
   repairCandidates: ConstructionLeg[];
+  pricedThresholdTaxCount: number;
 };
 
 const FLOOR_PROBABILITY = 0.75;
@@ -155,10 +169,37 @@ const pushBudgetFor = (legCount: number): number => {
   return 2;
 };
 
+const thresholdTaxFor = (
+  leg: SlipBuilderLeg,
+  line: number | null,
+  impliedProbability: number | null,
+): ThresholdTax | null => {
+  const lower = leg.adjacentAlt;
+  if (!lower || line === null || impliedProbability === null || lower.line >= line) return null;
+  const probabilityGain = lower.marketImpliedProb - impliedProbability;
+  if (!Number.isFinite(probabilityGain) || probabilityGain <= 0) return null;
+
+  return {
+    lowerLine: lower.line,
+    lineReduction: line - lower.line,
+    currentProbability: impliedProbability,
+    lowerProbability: lower.marketImpliedProb,
+    probabilityGain,
+    currentConsensusPrice: leg.consensusPrice ?? null,
+    lowerConsensusPrice: lower.consensusPrice,
+    lowerBestPrice: lower.bestPrice,
+    sourceCount: lower.sourceCount ?? null,
+  };
+};
+
 export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
-  const impliedProbability = americanOddsToProbability(leg.odds);
+  const impliedProbability =
+    typeof leg.marketImpliedProb === 'number' && Number.isFinite(leg.marketImpliedProb)
+      ? leg.marketImpliedProb
+      : americanOddsToProbability(leg.odds);
   const shortWindow = hasShortWindow(leg);
   const line = parseNumber(leg.line);
+  const thresholdTax = thresholdTaxFor(leg, line, impliedProbability);
 
   let tier: ConstructionTier;
   if (shortWindow) tier = 'pushed';
@@ -178,7 +219,10 @@ export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
     shortWindow,
     suggestedTarget: shortWindow
       ? 'Prefer the equivalent full-game volume angle when available'
-      : suggestedTargetFor(leg, tier),
+      : thresholdTax
+        ? `${thresholdTax.lowerLine} at ${thresholdTax.lowerBestPrice}`
+        : suggestedTargetFor(leg, tier),
+    thresholdTax,
   };
 }
 
@@ -215,6 +259,7 @@ export function buildConstructionReport(slip: SlipBuilderLeg[]): ConstructionRep
   const repairCandidates = legs
     .filter((leg) => leg.tier === 'pushed')
     .sort((a, b) => {
+      if (Boolean(a.thresholdTax) !== Boolean(b.thresholdTax)) return a.thresholdTax ? -1 : 1;
       const aProb = a.impliedProbability ?? 1;
       const bProb = b.impliedProbability ?? 1;
       if (a.shortWindow !== b.shortWindow) return a.shortWindow ? -1 : 1;
@@ -231,5 +276,6 @@ export function buildConstructionReport(slip: SlipBuilderLeg[]): ConstructionRep
     headline,
     summary,
     repairCandidates,
+    pricedThresholdTaxCount: legs.filter((leg) => Boolean(leg.thresholdTax)).length,
   };
 }
