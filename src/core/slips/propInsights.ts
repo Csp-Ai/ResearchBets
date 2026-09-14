@@ -22,6 +22,13 @@ const MARKET_LABELS: Record<MarketType, string> = {
   assists: 'AST',
   ra: 'RA',
   pra: 'PRA',
+  passing_yards: 'PASS YDS',
+  passing_tds: 'PASS TD',
+  rushing_yards: 'RUSH YDS',
+  receiving_yards: 'REC YDS',
+  receptions: 'REC',
+  carries: 'CAR',
+  anytime_td: 'ATTD',
 };
 
 const RISK_BY_MARKET: Record<MarketType, PropLegInsight['riskTag']> = {
@@ -34,8 +41,16 @@ const RISK_BY_MARKET: Record<MarketType, PropLegInsight['riskTag']> = {
   assists: 'High',
   ra: 'High',
   pra: 'High',
+  passing_yards: 'Medium',
+  passing_tds: 'High',
+  rushing_yards: 'Medium',
+  receiving_yards: 'Medium',
+  receptions: 'Medium',
+  carries: 'Low',
+  anytime_td: 'High',
 };
 
+// Demo-mode heuristics only. Live research should replace these with provider-backed history.
 const HIT_RATE_BY_MARKET: Record<MarketType, number> = {
   spread: 58,
   total: 57,
@@ -46,6 +61,13 @@ const HIT_RATE_BY_MARKET: Record<MarketType, number> = {
   assists: 55,
   ra: 52,
   pra: 51,
+  passing_yards: 60,
+  passing_tds: 55,
+  rushing_yards: 60,
+  receiving_yards: 60,
+  receptions: 61,
+  carries: 64,
+  anytime_td: 48,
 };
 
 const TREND_BY_MARKET: Record<MarketType, string> = {
@@ -58,6 +80,13 @@ const TREND_BY_MARKET: Record<MarketType, string> = {
   assists: '3 of last 5',
   ra: '3 of last 5',
   pra: '2 of last 5',
+  passing_yards: 'volume profile tracked over recent games',
+  passing_tds: 'scoring-event variance remains elevated',
+  rushing_yards: 'carry volume tracked over recent games',
+  receiving_yards: 'target volume tracked over recent games',
+  receptions: 'target and catch volume tracked over recent games',
+  carries: 'workload volume tracked over recent games',
+  anytime_td: 'binary scoring-event market',
 };
 
 export const buildPropLegInsight = (leg: ExtractedLeg): PropLegInsight => {
@@ -70,6 +99,6 @@ export const buildPropLegInsight = (leg: ExtractedLeg): PropLegInsight => {
     trend: TREND_BY_MARKET[marketType],
     riskTag: RISK_BY_MARKET[marketType],
     matchupNote: `${MARKET_LABELS[marketType]} matchup context pulled from latest opponent profile.`,
-    injuryNote: 'No major injury flags in current rotation feed.',
+    injuryNote: 'No verified injury update available in the current fallback feed.',
   };
 };

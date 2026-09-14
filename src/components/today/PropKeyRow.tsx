@@ -19,7 +19,14 @@ const marketLabel: Record<TodayPropKey['market'], string> = {
   rebounds: 'Rebounds',
   assists: 'Assists',
   ra: 'RA',
-  pra: 'PRA'
+  pra: 'PRA',
+  passing_yards: 'Passing Yards',
+  passing_tds: 'Passing TDs',
+  rushing_yards: 'Rushing Yards',
+  receiving_yards: 'Receiving Yards',
+  receptions: 'Receptions',
+  carries: 'Carries',
+  anytime_td: 'Anytime TD'
 };
 
 export function PropKeyRow({
