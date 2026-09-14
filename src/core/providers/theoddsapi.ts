@@ -88,13 +88,77 @@ const toProviderHttpError = (input: { status: number; url: string; bodyText: str
   return error;
 };
 
+const parseJson = <T,>(text: string): T => (text ? JSON.parse(text) : []) as T;
+
+const mergeEventOddsPayloads = (events: OddsResponseEvent[]): OddsResponseEvent | null => {
+  const first = events[0];
+  if (!first) return null;
+
+  const bookmakers = new Map<string, NonNullable<OddsResponseEvent['bookmakers']>[number]>();
+  for (const event of events) {
+    for (const book of event.bookmakers ?? []) {
+      const existing = bookmakers.get(book.key);
+      if (!existing) {
+        bookmakers.set(book.key, {
+          ...book,
+          markets: [...(book.markets ?? [])],
+        });
+        continue;
+      }
+
+      const markets = new Map((existing.markets ?? []).map((market) => [market.key, market]));
+      for (const market of book.markets ?? []) markets.set(market.key, market);
+      bookmakers.set(book.key, { ...existing, markets: [...markets.values()] });
+    }
+  }
+
+  return {
+    ...first,
+    bookmakers: [...bookmakers.values()],
+  };
+};
+
+const trySplitMarketFallback = async <T,>(url: string, init?: RequestInit): Promise<T | null> => {
+  const parsed = new URL(url);
+  if (!/\/events\/[^/]+\/odds$/.test(parsed.pathname)) return null;
+
+  const markets = (parsed.searchParams.get('markets') ?? '')
+    .split(',')
+    .map((market) => market.trim())
+    .filter(Boolean);
+  if (markets.length <= 1) return null;
+
+  const results = await Promise.all(
+    markets.map(async (market) => {
+      const next = new URL(parsed.toString());
+      next.searchParams.set('markets', market);
+      try {
+        const response = await fetch(next.toString(), init);
+        const text = await response.text();
+        if (!response.ok) return null;
+        const data = parseJson<OddsResponseEvent>(text);
+        return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const merged = mergeEventOddsPayloads(
+    results.filter((event): event is OddsResponseEvent => Boolean(event)),
+  );
+  return merged as T | null;
+};
+
 export const fetchJsonOrThrow = async <T>(url: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(url, init);
   const text = await response.text();
   if (!response.ok) {
+    const recovered = await trySplitMarketFallback<T>(url, init);
+    if (recovered !== null) return recovered;
     throw toProviderHttpError({ status: response.status, url, bodyText: text });
   }
-  return (text ? JSON.parse(text) : []) as T;
+  return parseJson<T>(text);
 };
 
 export const marketToOddsApi = (marketType: MarketType): string => {
