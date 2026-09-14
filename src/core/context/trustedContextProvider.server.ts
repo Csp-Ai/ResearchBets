@@ -1,9 +1,9 @@
 import 'server-only';
 
-import { fetchJsonWithCache } from '@/src/core/sources/fetchJsonWithCache';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
 import { getProviderRegistry } from '@/src/core/providers/registry.server';
+import { fetchJsonWithCache } from '@/src/core/sources/fetchJsonWithCache';
 
 import { createTrustedContextProvider } from './trustedContextProvider';
 import type { TrustedContextBundle, TrustedContextItem } from './types';
@@ -31,6 +31,14 @@ const asString = (value: unknown): string | undefined => {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return undefined;
 };
+
+const normalizeIdentity = (value: string): string =>
+  value
+    .normalize('NFKD')
+    .replace(/[.']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
 const toTrustedItem = (row: InjuryRow, sport: FetchInput['sport']): TrustedContextItem | null => {
   const player = asString(row.Name ?? row.PlayerName ?? row.player);
@@ -78,16 +86,21 @@ async function fetchLiveInjuries(input: { sport: string; teamIds: string[]; play
     });
 
     const filterTeams = new Set(input.teamIds);
-    const filterPlayers = new Set(input.playerIds);
+    const filterPlayers = new Set(input.playerIds.map(normalizeIdentity));
     const rows = Array.isArray(response.data) ? response.data : [];
+    const maxItems = Math.max(10, filterTeams.size + filterPlayers.size);
     const items = rows
       .map((row) => toTrustedItem(row, normalizeSport(input.sport)))
       .filter((item): item is TrustedContextItem => Boolean(item))
       .filter((item) => {
         if (filterTeams.size === 0 && filterPlayers.size === 0) return true;
-        return (item.subject.team && filterTeams.has(item.subject.team)) || (item.subject.player && filterPlayers.has(item.subject.player));
+        const teamMatch = Boolean(item.subject.team && filterTeams.has(item.subject.team));
+        const playerMatch = Boolean(
+          item.subject.player && filterPlayers.has(normalizeIdentity(item.subject.player)),
+        );
+        return teamMatch || playerMatch;
       })
-      .slice(0, 10);
+      .slice(0, maxItems);
 
     return {
       asOf: response.retrievedAt,
