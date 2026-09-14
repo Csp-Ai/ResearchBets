@@ -25,6 +25,13 @@ export type BriefingIdea = {
   consensusPrice?: number;
   marketImpliedProb: number;
   sourceCount: number;
+  availability?: {
+    label: string;
+    severity: 'blocked' | 'caution';
+    detail?: string;
+    asOf?: string;
+    source: 'SportsDataIO';
+  };
   stepDown?: {
     line: number;
     bestPrice: number;
@@ -211,11 +218,19 @@ export function NextGameBriefing({
           <div className="grid gap-2 sm:grid-cols-2">
             {ideas.map((idea) => {
               const added = slipIds.has(idea.id);
+              const caution = idea.availability?.severity === 'caution';
               return (
-                <article key={idea.id} className="rounded-2xl border border-white/[0.065] bg-black/20 p-3.5">
+                <article key={idea.id} className={`rounded-2xl border p-3.5 ${caution ? 'border-amber-300/[0.14] bg-amber-300/[0.025]' : 'border-white/[0.065] bg-black/20'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-[12px] font-semibold text-slate-200">{idea.player}</div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="truncate text-[12px] font-semibold text-slate-200">{idea.player}</div>
+                        {caution ? (
+                          <span className="shrink-0 rounded-full border border-amber-300/[0.14] bg-amber-300/[0.055] px-2 py-0.5 text-[7px] font-semibold uppercase tracking-[0.10em] text-amber-100/70">
+                            {idea.availability?.label}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="mt-0.5 truncate text-[10px] text-slate-500">{thresholdLabel(idea)}</div>
                     </div>
                     <div className="text-right">
@@ -223,6 +238,11 @@ export function NextGameBriefing({
                       <div className="text-[7px] uppercase tracking-[0.12em] text-slate-700">market signal</div>
                     </div>
                   </div>
+                  {caution ? (
+                    <div className="mt-2 text-[8px] leading-4 text-amber-100/45">
+                      Verified status caution · {idea.availability?.source}{idea.availability?.detail ? ` · ${idea.availability.detail}` : ''}
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <span className="text-[9px] text-slate-600">{formatOdds(idea.bestPrice)} · {idea.sourceCount} books</span>
                     <button
