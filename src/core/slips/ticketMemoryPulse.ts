@@ -1,6 +1,7 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import type { DraftLearningAdvisory } from '@/src/core/postmortem/learning';
 import type { BettorMistakePatternSummary } from '@/src/core/postmortem/patterns';
+import { classifyConstructionLeg } from '@/src/core/slips/constructionIntelligence';
 import {
   buildPreSubmitPatternWarning,
   type PreSubmitPatternWarning,
@@ -50,47 +51,10 @@ const SCORING_EVENT_MARKETS = new Set<SlipBuilderLeg['marketType']>([
 
 const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? '';
 
-const parseLine = (value: string): number | null => {
-  const match = value.match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const parsed = Number(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const parseOdds = (value?: string): number | null => {
-  if (!value || !/^[+-]?\d+$/.test(value.trim())) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
 const isNflLeg = (leg: SlipBuilderLeg) => NFL_MARKETS.has(leg.marketType);
 
-const isAggressiveNflThreshold = (leg: SlipBuilderLeg): boolean => {
-  if (!isNflLeg(leg)) return false;
-  const line = parseLine(leg.line);
-  const odds = parseOdds(leg.odds);
-  if (odds !== null && odds >= 110) return true;
-  if (line === null) return false;
-
-  switch (leg.marketType) {
-    case 'passing_yards':
-      return line >= 275;
-    case 'passing_tds':
-      return line >= 2;
-    case 'rushing_yards':
-      return line >= 80;
-    case 'receiving_yards':
-      return line >= 80;
-    case 'receptions':
-      return line >= 7;
-    case 'carries':
-      return line >= 18;
-    case 'anytime_td':
-      return true;
-    default:
-      return false;
-  }
-};
+const isAggressiveNflThreshold = (leg: SlipBuilderLeg): boolean =>
+  isNflLeg(leg) && classifyConstructionLeg(leg).tier === 'pushed';
 
 const unique = <T,>(items: T[]) => Array.from(new Set(items));
 
@@ -120,9 +84,33 @@ const levelFromBase = (warning: PreSubmitPatternWarning): TicketMemoryPulseLevel
 const headlineFor = (level: TicketMemoryPulseLevel, matchCount: number) => {
   if (level === 'learning') return 'Memory is learning your betting patterns.';
   if (level === 'clear') return 'No familiar failure pattern is firing.';
-  if (level === 'high') return `You’ve built this failure shape before.`;
+  if (level === 'high') return 'You’ve built this failure shape before.';
   if (matchCount > 1) return 'This ticket resembles multiple past pressure patterns.';
   return 'This ticket resembles a past pressure pattern.';
+};
+
+const pricedStepDownAction = (leg: SlipBuilderLeg): string | null => {
+  const lower = leg.adjacentAlt;
+  if (!lower) return null;
+
+  const construction = classifyConstructionLeg(leg);
+  const currentProbability = leg.marketImpliedProb ?? construction.impliedProbability;
+  const probabilityGain = currentProbability === null
+    ? null
+    : Math.max(0, lower.marketImpliedProb - currentProbability);
+  const gainCopy = probabilityGain === null
+    ? ''
+    : `, improving sportsbook-price implied support by +${Math.round(probabilityGain * 100)} pts`;
+
+  return `Keep the ${leg.player} read, but move from ${leg.line} to the next lower posted tier (${lower.line} at ${lower.bestPrice})${gainCopy}. That probability change comes from sportsbook pricing, not ResearchBets model confidence.`;
+};
+
+const structuralStepDownAction = (leg: SlipBuilderLeg): string => {
+  const classified = classifyConstructionLeg(leg);
+  if (classified.suggestedTarget) {
+    return `Keep the ${leg.player} read, but reduce the ask toward ${classified.suggestedTarget} before adding more payout elsewhere. No adjacent live price is attached, so ResearchBets is not inventing a Threshold Tax.`;
+  }
+  return `Keep the ${leg.player} read, but lower this pushed threshold before adding more payout elsewhere. No adjacent live price is attached, so ResearchBets is not inventing a Threshold Tax.`;
 };
 
 export function deriveTicketMemoryPulse(input: {
@@ -176,17 +164,27 @@ export function deriveTicketMemoryPulse(input: {
 
   if (historySupportsAggressive && aggressiveNfl.length > 0 && !matches.some((item) => item.key === 'nfl_aggressive_threshold')) {
     const ids = aggressiveNfl.map((leg) => leg.id);
+    const firstAggressive = aggressiveNfl[0];
+    const firstClassification = firstAggressive ? classifyConstructionLeg(firstAggressive) : null;
     matches.push({
       key: 'nfl_aggressive_threshold',
       label: 'inflated NFL threshold',
-      reason: `Your reviewed history has already flagged stretched thresholds, and ${aggressiveNfl.length} NFL leg${aggressiveNfl.length === 1 ? '' : 's'} on this ticket ask for an aggressive yardage, volume, or scoring mark.`,
+      reason: `Your reviewed history has already flagged stretched thresholds, and ${aggressiveNfl.length} NFL leg${aggressiveNfl.length === 1 ? '' : 's'} on this ticket ${aggressiveNfl.length === 1 ? 'is' : 'are'} classified as pushed by the same construction engine powering Push Budget.`,
       affected_leg_ids: ids,
     });
-    fixes.push({
-      title: 'Step down one NFL threshold',
-      action: `Keep the player read, but use the next lower alternate tier for ${aggressiveNfl[0]?.player ?? 'the longest threshold'} before adding more payout elsewhere.`,
-      affected_leg_ids: ids.slice(0, 2),
-    });
+    if (firstAggressive) {
+      fixes.push({
+        title: firstAggressive.adjacentAlt ? 'Price the safer version' : 'Step down one NFL threshold',
+        action: pricedStepDownAction(firstAggressive) ?? structuralStepDownAction(firstAggressive),
+        affected_leg_ids: [firstAggressive.id],
+      });
+    } else if (firstClassification?.suggestedTarget) {
+      fixes.push({
+        title: 'Step down one NFL threshold',
+        action: `Keep the player read, but reduce the ask toward ${firstClassification.suggestedTarget}.`,
+        affected_leg_ids: ids.slice(0, 1),
+      });
+    }
   }
 
   if (historySupportsCorrelation && topCorrelationGroup.length >= 2 && !matches.some((item) => item.key === 'correlated_legs')) {
@@ -199,7 +197,7 @@ export function deriveTicketMemoryPulse(input: {
     });
     fixes.push({
       title: 'Break one shared game script',
-      action: `Keep the strongest angle from this game and move one dependent leg to a different matchup or role.`,
+      action: 'Keep the strongest angle from this game and move one dependent leg to a different matchup or role.',
       affected_leg_ids: ids.slice(-2),
     });
   }
@@ -214,7 +212,7 @@ export function deriveTicketMemoryPulse(input: {
     });
     fixes.push({
       title: 'Prefer volume over a scoring event',
-      action: `If the board supports it, replace one touchdown-dependent leg with a lower receiving, rushing, passing, target, or carry threshold.`,
+      action: 'If the board supports it, replace one touchdown-dependent leg with a lower receiving, rushing, passing, target, or carry threshold.',
       affected_leg_ids: ids.slice(0, 1),
     });
   }
