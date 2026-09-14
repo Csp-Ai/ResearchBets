@@ -44,10 +44,23 @@ export function attachSlip(lineage: Lineage, slip_id: string): Lineage {
 export function lineageFromSpine(spine: Partial<Spine>, trace_id: string, anon_session_id?: string): Lineage {
   return normalizeLineage({
     trace_id,
+    ticketId: spine.ticketId,
+    slip_id: spine.slip_id,
     anon_session_id,
     sport: spine.sport,
     tz: spine.tz,
     date: spine.date,
     mode: spine.mode,
   });
+}
+
+/** An explicit ticket wins over broader slip/trace context; never select a different ticket. */
+export function matchesLifecycleIdentity(
+  record: Partial<Pick<Lineage, 'ticketId' | 'slip_id' | 'trace_id'>>,
+  requested: Partial<Pick<Lineage, 'ticketId' | 'slip_id' | 'trace_id'>>,
+): boolean {
+  if (requested.ticketId) return record.ticketId === requested.ticketId;
+  if (requested.slip_id) return record.slip_id === requested.slip_id;
+  if (requested.trace_id) return record.trace_id === requested.trace_id;
+  return true;
 }
