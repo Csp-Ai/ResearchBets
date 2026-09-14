@@ -17,16 +17,13 @@ const summary = (
 });
 
 const leg = (overrides: Partial<SlipBuilderLeg> = {}): SlipBuilderLeg => ({
-  id: overrides.id ?? 'leg-1',
-  player: overrides.player ?? 'Player One',
-  marketType: overrides.marketType ?? 'receiving_yards',
-  line: overrides.line ?? '40+ receiving yards',
-  odds: overrides.odds ?? '-300',
-  game: overrides.game ?? 'AAA @ BBB',
-  confidence: overrides.confidence,
-  volatility: overrides.volatility,
-  deadLegRisk: overrides.deadLegRisk,
-  deadLegReasons: overrides.deadLegReasons,
+  id: 'leg-1',
+  player: 'Player One',
+  marketType: 'receiving_yards',
+  line: '40+ receiving yards',
+  odds: '-300',
+  game: 'AAA @ BBB',
+  ...overrides,
 });
 
 describe('deriveTicketMemoryPulse', () => {
@@ -59,6 +56,41 @@ describe('deriveTicketMemoryPulse', () => {
     expect(pulse.matches.map((match) => match.key)).toContain('nfl_aggressive_threshold');
     expect(pulse.affected_leg_ids).toEqual(expect.arrayContaining(['pass', 'recv']));
     expect(pulse.fixes.some((fix) => /step down/i.test(fix.title))).toBe(true);
+  });
+
+  it('uses the live adjacent alternate when memory recommends a step-down', () => {
+    const pulse = deriveTicketMemoryPulse({
+      slip: [
+        leg({
+          id: 'pass-priced',
+          player: 'QB One',
+          marketType: 'passing_yards',
+          line: '275+ pass yards',
+          odds: '+115',
+          marketImpliedProb: 0.6,
+          adjacentAlt: {
+            line: 249.5,
+            bestPrice: '-190',
+            consensusPrice: '-200',
+            marketImpliedProb: 0.75,
+            sourceCount: 4,
+          },
+        }),
+      ],
+      patternSummary: summary({
+        recurring_tags: [{ tag: 'line_too_aggressive', count: 3, percentage: 0.75 }],
+        common_failure_mode: 'aggressive_line_selection',
+        sample_size: 4,
+        confidence_level: 'medium',
+      }),
+    });
+
+    const repair = pulse.fixes.find((fix) => fix.title === 'Price the safer version');
+    expect(repair?.action).toContain('249.5');
+    expect(repair?.action).toContain('-190');
+    expect(repair?.action).toContain('+15 pts');
+    expect(repair?.action).toContain('sportsbook pricing');
+    expect(repair?.action).toContain('not ResearchBets model confidence');
   });
 
   it('finds NFL same-script exposure when correlation is a repeated bettor pattern', () => {
