@@ -169,7 +169,7 @@ const quarterNumber = (value: unknown): 1 | 2 | 3 | 4 | undefined => {
   const raw = String(value ?? '').trim().toUpperCase();
   if (raw === '1' || raw === '2' || raw === '3' || raw === '4') return Number(raw) as 1 | 2 | 3 | 4;
   if (raw === 'HALF') return 2;
-  if (raw === 'OT' || raw === 'F' || raw === 'F/OT') return 4;
+  if (raw === 'F' || raw === 'FINAL' || raw === 'F/OT') return 4;
   return undefined;
 };
 
@@ -184,10 +184,14 @@ const remainingSeconds = (value: unknown): number | undefined => {
 };
 
 export const nflClockFromScore = (score?: SportsDataNflScore | null) => {
-  const quarter = quarterNumber(score?.Quarter);
+  const rawQuarter = String(score?.Quarter ?? '').trim().toUpperCase();
+  const quarter = quarterNumber(rawQuarter);
   if (!quarter) return undefined;
   const rawRemaining = remainingSeconds(score?.TimeRemaining);
-  const timeRemainingSec = rawRemaining ?? (String(score?.Quarter ?? '').toUpperCase() === 'HALF' ? 0 : 15 * 60);
+  const isFinal = rawQuarter === 'F' || rawQuarter === 'FINAL' || rawQuarter === 'F/OT';
+  const timeRemainingSec = isFinal
+    ? 0
+    : rawRemaining ?? (rawQuarter === 'HALF' ? 0 : 15 * 60);
   const elapsedBeforeQuarter = (quarter - 1) * 15;
   const elapsedInQuarter = 15 - timeRemainingSec / 60;
   return {
