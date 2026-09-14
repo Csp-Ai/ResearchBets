@@ -32,6 +32,19 @@ export type BriefingIdea = {
     asOf?: string;
     source: 'SportsDataIO';
   };
+  recentForm?: {
+    l5HitRate: number;
+    l10HitRate: number;
+    l5Hits: number;
+    l5Games: number;
+    l10Hits: number;
+    l10Games: number;
+    recentAverage: number;
+    sampleSize: number;
+    season: string;
+    asOf: string;
+    source: 'SportsDataIO';
+  };
   stepDown?: {
     line: number;
     bestPrice: number;
@@ -238,6 +251,19 @@ export function NextGameBriefing({
                       <div className="text-[7px] uppercase tracking-[0.12em] text-slate-700">market signal</div>
                     </div>
                   </div>
+
+                  {idea.recentForm ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-cyan-300/[0.08] bg-cyan-300/[0.025] px-2.5 py-2 text-[8px] text-cyan-100/55">
+                      <span className="font-semibold text-cyan-100/70">At this threshold</span>
+                      <span>{idea.recentForm.l5Hits}/{idea.recentForm.l5Games} L5</span>
+                      <span>·</span>
+                      <span>{idea.recentForm.l10Hits}/{idea.recentForm.l10Games} L10</span>
+                      <span>· avg {idea.recentForm.recentAverage}</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-[8px] text-slate-700">Recent form unavailable · market signal only</div>
+                  )}
+
                   {caution ? (
                     <div className="mt-2 text-[8px] leading-4 text-amber-100/45">
                       Verified status caution · {idea.availability?.source}{idea.availability?.detail ? ` · ${idea.availability.detail}` : ''}
