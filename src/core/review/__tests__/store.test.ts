@@ -1,11 +1,21 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { listPostmortems, savePostmortem } from '@/src/core/review/store';
+import {
+  listPersistedPostmortems,
+  listPostmortems,
+  savePostmortem,
+} from '@/src/core/review/store';
 
 describe('review store lineage', () => {
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  it('keeps demo fallback out of persisted personal history', () => {
+    expect(listPostmortems()).toHaveLength(1);
+    expect(listPostmortems()[0]?.ticketId).toBe('demo-ticket-a');
+    expect(listPersistedPostmortems()).toEqual([]);
   });
 
   it('persists trace_id and normalizes run_id from trace_id', () => {
@@ -25,5 +35,6 @@ describe('review store lineage', () => {
     const record = listPostmortems().find((item) => item.ticketId === 'ticket-review-1');
     expect(record?.trace_id).toBe('trace-review-1');
     expect(record?.run_id).toBe('trace-review-1');
+    expect(listPersistedPostmortems()).toHaveLength(1);
   });
 });
