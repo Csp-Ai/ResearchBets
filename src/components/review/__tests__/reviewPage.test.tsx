@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 import ReviewPage from '@/app/(product)/review/page';
 import { NervousSystemProvider } from '@/src/components/nervous/NervousSystemContext';
@@ -16,6 +16,7 @@ const renderDemoReview = () =>
 
 describe('/review page', () => {
   beforeEach(() => {
+    cleanup();
     window.localStorage.clear();
   });
 
@@ -32,5 +33,17 @@ describe('/review page', () => {
     fireEvent.click(screen.getByText('Apply as Guardrail'));
     const stored = window.localStorage.getItem(GUARDRAILS_STORAGE_KEY);
     expect(stored).toContain('assist_variance');
+  });
+
+  it('does not substitute a demo autopsy for a missing explicit ticket', () => {
+    render(
+      <NervousSystemProvider initialSpine={{ mode: 'demo', ticketId: 'missing-ticket' }}>
+        <ReviewPage />
+      </NervousSystemProvider>
+    );
+    expect(screen.getByText('No settled ticket to dissect yet.')).toBeTruthy();
+    expect(screen.queryByText('Latest autopsy')).toBeNull();
+    const pulse = screen.getByText('Open Ticket Pulse →').getAttribute('href');
+    expect(new URL(pulse!, 'https://example.test').searchParams.get('ticketId')).toBe('missing-ticket');
   });
 });
