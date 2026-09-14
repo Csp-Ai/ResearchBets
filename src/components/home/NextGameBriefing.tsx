@@ -1,19 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
-type EventSummary = {
+export type EventSummary = {
   eventId: string;
   matchup: string;
   commenceTime: string;
 };
 
-type BriefingIdea = {
+export type BriefingIdea = {
   id: string;
   eventId: string;
   matchup: string;
@@ -22,17 +22,24 @@ type BriefingIdea = {
   marketType: MarketType;
   line: number;
   bestPrice: number;
+  consensusPrice?: number;
   marketImpliedProb: number;
   sourceCount: number;
+  stepDown?: {
+    line: number;
+    bestPrice: number;
+    consensusPrice: number;
+    marketImpliedProb: number;
+    sourceCount: number;
+  };
 };
 
-type Payload = {
-  mode: 'live-market' | 'unavailable';
-  events?: EventSummary[];
-  ideas?: BriefingIdea[];
+type NextGameBriefingProps = {
+  events: EventSummary[];
+  ideas: BriefingIdea[];
+  loading?: boolean;
+  unavailable?: boolean;
 };
-
-type ResponseShape = { ok?: boolean; data?: Payload };
 
 const LABELS: Partial<Record<MarketType, string>> = {
   passing_yards: 'pass yds',
@@ -82,45 +89,31 @@ const shortMatchup = (matchup: string) => matchup
   .replace('Los Angeles Rams', 'LAR')
   .replace('San Francisco 49ers', 'SF');
 
-export function NextGameBriefing() {
+export function NextGameBriefing({
+  events,
+  ideas: allIdeas,
+  loading = false,
+  unavailable = false,
+}: NextGameBriefingProps) {
   const nervous = useNervousSystem();
   const { slip, addLeg, removeLeg } = useDraftSlip();
-  const [payload, setPayload] = useState<Payload>();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const params = new URLSearchParams({ sport: 'NFL', date: nervous.date, tz: nervous.tz });
-    setLoading(true);
-
-    fetch(`/api/ideas/today?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => {
-        const body = (await response.json()) as ResponseShape;
-        if (!response.ok || !body.ok || !body.data) return;
-        setPayload(body.data);
-      })
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-
-    return () => controller.abort();
-  }, [nervous.date, nervous.tz]);
 
   const nextEvent = useMemo(() => {
-    const events = [...(payload?.events ?? [])].sort(
+    const ordered = [...events].sort(
       (a, b) => Date.parse(a.commenceTime) - Date.parse(b.commenceTime),
     );
     const now = Date.now();
-    return events.find((event) => Date.parse(event.commenceTime) > now) ?? null;
-  }, [payload?.events]);
+    return ordered.find((event) => Date.parse(event.commenceTime) > now) ?? null;
+  }, [events]);
 
   const ideas = useMemo(
     () => nextEvent
-      ? (payload?.ideas ?? [])
+      ? allIdeas
           .filter((idea) => idea.eventId === nextEvent.eventId)
           .sort((a, b) => b.marketImpliedProb - a.marketImpliedProb)
           .slice(0, 2)
       : [],
-    [nextEvent, payload?.ideas],
+    [allIdeas, nextEvent],
   );
 
   const slipIds = useMemo(() => new Set(slip.map((leg) => leg.id)), [slip]);
@@ -138,11 +131,31 @@ export function NextGameBriefing() {
       odds: formatOdds(idea.bestPrice),
       game: idea.matchup,
       marketImpliedProb: idea.marketImpliedProb,
+      consensusPrice: typeof idea.consensusPrice === 'number' ? formatOdds(idea.consensusPrice) : undefined,
+      adjacentAlt: idea.stepDown
+        ? {
+            line: idea.stepDown.line,
+            bestPrice: formatOdds(idea.stepDown.bestPrice),
+            consensusPrice: formatOdds(idea.stepDown.consensusPrice),
+            marketImpliedProb: idea.stepDown.marketImpliedProb,
+            sourceCount: idea.stepDown.sourceCount,
+          }
+        : undefined,
     });
   };
 
   if (loading) {
     return <div className="h-[138px] animate-pulse rounded-[26px] border border-white/[0.06] bg-white/[0.025]" />;
+  }
+
+  if (unavailable) {
+    return (
+      <section className="rounded-[26px] border border-amber-200/[0.10] bg-amber-100/[0.025] px-5 py-4">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-amber-100/45">Next game briefing</div>
+        <div className="mt-2 text-[17px] font-semibold text-slate-200">Live slate unavailable.</div>
+        <p className="mt-1 text-[10px] leading-5 text-slate-600">No fallback matchup or pick is being manufactured while provider data is unavailable.</p>
+      </section>
+    );
   }
 
   if (!nextEvent) {
