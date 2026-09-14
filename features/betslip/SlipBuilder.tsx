@@ -21,6 +21,12 @@ export type SlipBuilderLeg = {
   game?: string;
   deadLegRisk?: 'low' | 'med' | 'high';
   deadLegReasons?: string[];
+  adjacentAlt?: {
+    line: number;
+    odds: string;
+    marketImpliedProb: number;
+    sourceCount?: number;
+  };
 };
 
 export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {
