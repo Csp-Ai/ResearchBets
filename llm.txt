@@ -3,6 +3,12 @@
 ## North Star
 Structural Risk Terminal for parlays (not picks).
 
+## Canonical product authority
+- Product decision record: `docs/CANONICAL_PRODUCT.md`
+- Machine-readable convergence manifest: `config/convergence.json`
+- Legacy context registry: `docs/LEGACY_CONTEXT.md`
+- If an older audit, UI variant, or route note conflicts with these sources, the canonical product authority wins.
+
 ## Invariants to protect
 1. Non-empty front door: landing/today/research must always render useful deterministic content.
 2. Deterministic fallback: missing providers/keys never hard-fail core flows.
