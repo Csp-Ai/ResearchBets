@@ -4,16 +4,20 @@
 
 ResearchBets public truth is the narrow bettor loop:
 
-`landing -> today/board -> slip -> stress-test -> track -> review`
+`Discover + Build -> Ticket X-Ray -> Ticket Pulse -> Ticket Autopsy + Memory`
 
 Canonical public routes:
 
 - `/` — landing/front door
-- `/today` — board
-- `/slip` — slip workbench
-- `/stress-test` — run analysis
-- `/track` — during-stage tracking
-- `/review` — after-stage review
+- `/stress-test` — Ticket X-Ray
+- `/pulse` — Ticket Pulse
+- `/review` — Ticket Autopsy + Memory
+
+### Alternate entries during convergence
+
+- `/today` — expanded board
+- `/slip` — detailed manual ticket workbench
+- `/ingest` — screenshot and pasted-slip ingestion
 
 ## Route classification
 
@@ -31,13 +35,13 @@ Canonical public routes:
 - `/cockpit` -> `/`
 - `/landing` -> `/`
 - `/research` -> `/stress-test`
-- `/live` -> `/control?tab=live`
+- `/live` — legacy live/control path; target is `/pulse`
+- `/track` — legacy tracking path; target is `/pulse` after capability parity
 
 ### Dev-only / internal
 
 - `/control`
 - `/discover`
-- `/ingest`
 - `/dashboard`
 - `/tonight`
 - `/history`
