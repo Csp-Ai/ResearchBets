@@ -22,6 +22,12 @@ const tierTone = (tier: ConstructionLeg['tier']) => {
   return 'border-cyan-300/[0.12] bg-cyan-300/[0.03] text-cyan-100';
 };
 
+const formTone = (status: NonNullable<ConstructionLeg['recentForm']>['status']) => {
+  if (status === 'support') return 'border-emerald-300/[0.11] bg-emerald-300/[0.025] text-emerald-100/70';
+  if (status === 'tension') return 'border-rose-300/[0.13] bg-rose-300/[0.035] text-rose-100/75';
+  return 'border-slate-300/[0.08] bg-white/[0.018] text-slate-400';
+};
+
 const percentage = (value: number | null) =>
   value === null ? null : `${Math.round(value * 100)}%`;
 
@@ -31,6 +37,19 @@ type LiveIdea = {
   id: string;
   marketImpliedProb: number;
   consensusPrice: number;
+  recentForm?: {
+    l5HitRate: number;
+    l10HitRate: number;
+    l5Hits: number;
+    l5Games: number;
+    l10Hits: number;
+    l10Games: number;
+    recentAverage: number;
+    sampleSize: number;
+    season: string;
+    asOf: string;
+    source: 'SportsDataIO';
+  };
   stepDown?: {
     line: number;
     bestPrice: number;
@@ -77,6 +96,7 @@ export function ConstructionIntelligencePanel() {
         ...leg,
         marketImpliedProb: idea.marketImpliedProb,
         consensusPrice: formatOdds(idea.consensusPrice),
+        recentForm: idea.recentForm ?? leg.recentForm,
         adjacentAlt: idea.stepDown
           ? {
               line: idea.stepDown.line,
@@ -143,7 +163,7 @@ export function ConstructionIntelligencePanel() {
           <div className="rounded-2xl border border-white/[0.065] bg-black/20 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-600">Ticket shape</div>
-              <div className="text-[8px] text-slate-700">Sportsbook price + market structure</div>
+              <div className="text-[8px] text-slate-700">Market structure + verified evidence</div>
             </div>
             <div className="mt-3 space-y-2">
               {report.legs.map((leg) => (
@@ -170,6 +190,17 @@ export function ConstructionIntelligencePanel() {
                       <span className="text-slate-600">Price-implied {percentage(leg.impliedProbability)}</span>
                     ) : null}
                   </div>
+
+                  {leg.recentForm ? (
+                    <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[9px] ${formTone(leg.recentForm.status)}`}>
+                      <span className="font-semibold capitalize">Recent-form {leg.recentForm.status}</span>
+                      <span> · {leg.recentForm.l5Hits}/{leg.recentForm.l5Games} L5 · {leg.recentForm.l10Hits}/{leg.recentForm.l10Games} L10 · avg {leg.recentForm.recentAverage}</span>
+                      {leg.recentForm.status === 'tension' && leg.tier === 'pushed' ? (
+                        <div className="mt-1 text-[8px] opacity-70">This pushed ask has weak recent support at the exact threshold. Historical evidence only—not a forecast.</div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {leg.thresholdTax ? (
                     <div className="mt-2 rounded-lg border border-emerald-300/[0.09] bg-emerald-300/[0.025] px-2.5 py-2 text-[9px] text-emerald-100/70">
                       Step down {leg.thresholdTax.lineReduction} → {leg.thresholdTax.lowerLine}: +{Math.round(leg.thresholdTax.probabilityGain * 100)} pts sportsbook-implied probability · {leg.thresholdTax.currentConsensusPrice ?? 'current'} → {leg.thresholdTax.lowerConsensusPrice}
@@ -185,6 +216,9 @@ export function ConstructionIntelligencePanel() {
               <div className="text-[9px] font-semibold uppercase tracking-[0.15em] opacity-60">Construction read</div>
               <div className="mt-2 text-[15px] font-semibold">{report.headline}</div>
               <p className="mt-1 text-[10px] leading-5 opacity-70">{report.summary}</p>
+              {report.formTensionCount > 0 ? (
+                <div className="mt-2 text-[9px] opacity-70">{report.formTensionCount} leg{report.formTensionCount === 1 ? '' : 's'} show exact-threshold recent-form tension.</div>
+              ) : null}
             </div>
 
             {firstRepair ? (
@@ -192,6 +226,11 @@ export function ConstructionIntelligencePanel() {
                 <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-100/55">First repair candidate</div>
                 <div className="mt-2 text-[14px] font-semibold text-slate-100">{firstRepair.player}</div>
                 <div className="mt-1 text-[10px] text-slate-500">{firstRepair.marketType.replace(/_/g, ' ')} · {firstRepair.line}</div>
+                {firstRepair.recentForm?.status === 'tension' ? (
+                  <div className="mt-2 rounded-xl border border-rose-300/[0.11] bg-rose-300/[0.025] p-3 text-[9px] leading-4 text-rose-100/65">
+                    Exact-threshold history: {firstRepair.recentForm.l5Hits}/{firstRepair.recentForm.l5Games} L5 · {firstRepair.recentForm.l10Hits}/{firstRepair.recentForm.l10Games} L10. That makes this pushed leg the first place to reduce the ask.
+                  </div>
+                ) : null}
                 <p className="mt-2 text-[11px] leading-5 text-slate-400">
                   {firstRepair.suggestedTarget
                     ? `Keep the read, but consider ${firstRepair.suggestedTarget}.`
