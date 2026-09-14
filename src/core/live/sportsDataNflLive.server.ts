@@ -219,6 +219,7 @@ export async function fetchSportsDataNflLiveProgress(
         liveMargin: signedPlayerTeamMargin(box.Score, player),
         elapsedGameMinutes: paceElapsedMinutes,
         quarter: clock.quarter,
+        timeRemainingSec: clock.timeRemainingSec,
       };
       entries[ticket.ticketId]![leg.legId] = { coverage: 'covered' };
     }
