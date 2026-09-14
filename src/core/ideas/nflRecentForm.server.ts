@@ -21,7 +21,15 @@ type RecentFormIdea = {
 type PlayerDirectoryRow = Record<string, unknown>;
 type PlayerGameRow = Record<string, unknown>;
 
-const SOURCE = 'sportsdataio';
+type PlayerLogs = {
+  player: string;
+  logs: NflRecentStatLine[];
+  season: string;
+  asOf: string;
+};
+
+const SOURCE_DIRECTORY = 'sportsdataio:nfl-player-directory';
+const SOURCE_LOGS = 'sportsdataio:nfl-recent-form';
 const DEFAULT_BASE_URL = 'https://api.sportsdata.io/v3';
 const DIRECTORY_TTL_MS = 24 * 60 * 60 * 1000;
 const LOGS_TTL_MS = 30 * 60 * 1000;
@@ -47,6 +55,13 @@ export const resolveNflSeason = (now = new Date()): string => {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth() + 1;
   return String(month >= 7 ? year : year - 1);
+};
+
+export const resolveNflSeasonCandidates = (now = new Date()): string[] => {
+  const configured = process.env.SPORTSDATAIO_SEASON?.trim();
+  if (configured) return [configured];
+  const year = resolveNflSeason(now);
+  return [year, `${year}REG`];
 };
 
 const directoryAliases = (row: PlayerDirectoryRow): string[] => {
@@ -81,6 +96,43 @@ const normalizeGame = (row: PlayerGameRow): NflRecentStatLine | null => {
   };
 };
 
+const fetchPlayerLogs = async (input: {
+  baseUrl: string;
+  headers: Record<string, string>;
+  player: string;
+  playerId: string;
+  seasonCandidates: string[];
+}): Promise<PlayerLogs | null> => {
+  for (const season of input.seasonCandidates) {
+    try {
+      const response = await fetchJsonWithCache<PlayerGameRow[]>(
+        `${input.baseUrl}/nfl/stats/json/PlayerGameStatsByPlayer/${encodeURIComponent(season)}/${encodeURIComponent(input.playerId)}`,
+        {
+          source: SOURCE_LOGS,
+          ttlMs: LOGS_TTL_MS,
+          headers: input.headers,
+          rateLimit: { capacity: 6, refillPerSecond: 2 },
+        },
+      );
+      const logs = (Array.isArray(response.data) ? response.data : [])
+        .map(normalizeGame)
+        .filter((row): row is NflRecentStatLine => Boolean(row));
+      if (logs.length) {
+        return {
+          player: input.player,
+          logs,
+          season,
+          asOf: response.retrievedAt,
+        };
+      }
+    } catch {
+      // Try the next documented/configurable season token form. A failure for
+      // one player remains non-blocking for the rest of the slate.
+    }
+  }
+  return null;
+};
+
 export async function fetchNflRecentFormForIdeas(ideas: RecentFormIdea[]): Promise<{
   byIdeaId: Record<string, RecentThresholdForm>;
   warning?: string;
@@ -94,17 +146,17 @@ export async function fetchNflRecentFormForIdeas(ideas: RecentFormIdea[]): Promi
   if (!apiKey) return { byIdeaId: {}, warning: 'recent_form_provider_key_missing' };
 
   const baseUrl = (process.env.SPORTSDATAIO_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
-  const season = resolveNflSeason();
+  const seasonCandidates = resolveNflSeasonCandidates();
   const headers = { 'Ocp-Apim-Subscription-Key': apiKey };
 
   try {
     const directoryResponse = await fetchJsonWithCache<PlayerDirectoryRow[]>(
       `${baseUrl}/nfl/scores/json/Players`,
       {
-        source: SOURCE,
+        source: SOURCE_DIRECTORY,
         ttlMs: DIRECTORY_TTL_MS,
         headers,
-        rateLimit: { capacity: 4, refillPerSecond: 1 },
+        rateLimit: { capacity: 2, refillPerSecond: 0.5 },
       },
     );
 
@@ -117,44 +169,37 @@ export async function fetchNflRecentFormForIdeas(ideas: RecentFormIdea[]): Promi
       }
     }
 
-    const byPlayer = new Map<string, NflRecentStatLine[]>();
     const uniquePlayers = [...new Set(ideas.map((idea) => idea.player))];
-    let lastRetrievedAt = directoryResponse.retrievedAt;
+    const resolvedPlayers = uniquePlayers
+      .map((player) => ({ player, playerId: playerIds.get(normalizePlayerKey(player)) }))
+      .filter((row): row is { player: string; playerId: string } => Boolean(row.playerId));
 
-    for (const player of uniquePlayers) {
-      const playerId = playerIds.get(normalizePlayerKey(player));
-      if (!playerId) continue;
+    const playerResults = await Promise.all(
+      resolvedPlayers.map((row) => fetchPlayerLogs({
+        baseUrl,
+        headers,
+        player: row.player,
+        playerId: row.playerId,
+        seasonCandidates,
+      })),
+    );
 
-      try {
-        const response = await fetchJsonWithCache<PlayerGameRow[]>(
-          `${baseUrl}/nfl/stats/json/PlayerGameStatsByPlayer/${encodeURIComponent(season)}/${encodeURIComponent(playerId)}`,
-          {
-            source: SOURCE,
-            ttlMs: LOGS_TTL_MS,
-            headers,
-            rateLimit: { capacity: 6, refillPerSecond: 2 },
-          },
-        );
-        lastRetrievedAt = response.retrievedAt;
-        const logs = (Array.isArray(response.data) ? response.data : [])
-          .map(normalizeGame)
-          .filter((row): row is NflRecentStatLine => Boolean(row));
-        if (logs.length) byPlayer.set(normalizePlayerKey(player), logs);
-      } catch {
-        // Per-player failure stays non-blocking. Other selected ideas can still
-        // receive verified recent-form context.
-      }
+    const byPlayer = new Map<string, PlayerLogs>();
+    for (const result of playerResults) {
+      if (!result) continue;
+      byPlayer.set(normalizePlayerKey(result.player), result);
     }
 
     const byIdeaId: Record<string, RecentThresholdForm> = {};
     for (const idea of ideas) {
-      const logs = byPlayer.get(normalizePlayerKey(idea.player)) ?? [];
+      const player = byPlayer.get(normalizePlayerKey(idea.player));
+      if (!player) continue;
       const form = computeRecentThresholdForm({
-        logs,
+        logs: player.logs,
         marketType: idea.marketType,
         threshold: idea.line,
-        season,
-        asOf: lastRetrievedAt,
+        season: player.season,
+        asOf: player.asOf,
       });
       if (form) byIdeaId[idea.id] = form;
     }
