@@ -26,6 +26,76 @@ const NFL_LIVE_MARKETS = new Set<MarketType>([
   'anytime_td',
 ]);
 
+const NFL_TEAM_CODES = new Set([
+  'ARI',
+  'ATL',
+  'BAL',
+  'BUF',
+  'CAR',
+  'CHI',
+  'CIN',
+  'CLE',
+  'DAL',
+  'DEN',
+  'DET',
+  'GB',
+  'HOU',
+  'IND',
+  'JAX',
+  'KC',
+  'LV',
+  'LAC',
+  'LAR',
+  'MIA',
+  'MIN',
+  'NE',
+  'NO',
+  'NYG',
+  'NYJ',
+  'PHI',
+  'PIT',
+  'SEA',
+  'SF',
+  'TB',
+  'TEN',
+  'WAS',
+]);
+
+const NFL_TEAM_ALIASES: Record<string, string> = {
+  'ARIZONA CARDINALS': 'ARI',
+  'ATLANTA FALCONS': 'ATL',
+  'BALTIMORE RAVENS': 'BAL',
+  'BUFFALO BILLS': 'BUF',
+  'CAROLINA PANTHERS': 'CAR',
+  'CHICAGO BEARS': 'CHI',
+  'CINCINNATI BENGALS': 'CIN',
+  'CLEVELAND BROWNS': 'CLE',
+  'DALLAS COWBOYS': 'DAL',
+  'DENVER BRONCOS': 'DEN',
+  'DETROIT LIONS': 'DET',
+  'GREEN BAY PACKERS': 'GB',
+  'HOUSTON TEXANS': 'HOU',
+  'INDIANAPOLIS COLTS': 'IND',
+  'JACKSONVILLE JAGUARS': 'JAX',
+  'KANSAS CITY CHIEFS': 'KC',
+  'LAS VEGAS RAIDERS': 'LV',
+  'LOS ANGELES CHARGERS': 'LAC',
+  'LOS ANGELES RAMS': 'LAR',
+  'MIAMI DOLPHINS': 'MIA',
+  'MINNESOTA VIKINGS': 'MIN',
+  'NEW ENGLAND PATRIOTS': 'NE',
+  'NEW ORLEANS SAINTS': 'NO',
+  'NEW YORK GIANTS': 'NYG',
+  'NEW YORK JETS': 'NYJ',
+  'PHILADELPHIA EAGLES': 'PHI',
+  'PITTSBURGH STEELERS': 'PIT',
+  'SAN FRANCISCO 49ERS': 'SF',
+  'SEATTLE SEAHAWKS': 'SEA',
+  'TAMPA BAY BUCCANEERS': 'TB',
+  'TENNESSEE TITANS': 'TEN',
+  'WASHINGTON COMMANDERS': 'WAS',
+};
+
 const SUFFIXES = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v']);
 
 const toNumber = (value: unknown): number | undefined => {
@@ -35,6 +105,14 @@ const toNumber = (value: unknown): number | undefined => {
     if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
+};
+
+const canonicalNflTeamCode = (value: string): string | undefined => {
+  const normalized = value.replace(/\s+/g, ' ').trim().toUpperCase();
+  if (!normalized) return undefined;
+  const alias = NFL_TEAM_ALIASES[normalized];
+  if (alias) return alias;
+  return NFL_TEAM_CODES.has(normalized) ? normalized : undefined;
 };
 
 export const isSupportedNflLiveMarket = (market: MarketType): market is NflLiveMarket =>
@@ -55,8 +133,13 @@ export const normalizeNflPlayerName = (value: string): string => {
 export const homeTeamFromGameId = (gameId?: string): string | undefined => {
   if (!gameId) return undefined;
   const normalized = gameId.replace(/\s+/g, ' ').trim().toUpperCase();
-  const at = normalized.match(/([A-Z]{2,4})\s*@\s*([A-Z]{2,4})/);
-  if (at?.[2]) return at[2];
+
+  const atSign = normalized.split(/\s*@\s*/);
+  if (atSign.length === 2) return canonicalNflTeamCode(atSign[1] ?? '');
+
+  const atWord = normalized.split(/\s+AT\s+/);
+  if (atWord.length === 2) return canonicalNflTeamCode(atWord[1] ?? '');
+
   return undefined;
 };
 
