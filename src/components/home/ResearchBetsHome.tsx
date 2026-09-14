@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { NextGameBriefing } from '@/src/components/home/NextGameBriefing';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
@@ -367,6 +368,10 @@ export function ResearchBetsHome() {
             )}
           </div>
         </section>
+
+        <div className="mt-4">
+          <NextGameBriefing />
+        </div>
 
         <section className="py-8">
           <div className="flex items-end justify-between gap-4">
