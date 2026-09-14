@@ -11,6 +11,12 @@ import {
   resolveOddsApiBaseUrl,
 } from '@/src/core/providers/theoddsapi';
 
+export type TodayIdeaEvent = {
+  eventId: string;
+  matchup: string;
+  commenceTime: string;
+};
+
 export type TodayIdea = {
   id: string;
   sport: 'NFL';
@@ -96,6 +102,12 @@ const formatLocalDate = (iso: string, timeZone: string): string => {
   return `${map.year}-${map.month}-${map.day}`;
 };
 
+const eventSummary = (event: OddsEvent): TodayIdeaEvent => ({
+  eventId: event.id,
+  matchup: `${event.away_team} @ ${event.home_team}`,
+  commenceTime: event.commence_time,
+});
+
 const median = (values: number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
   if (sorted.length === 0) return -110;
@@ -144,6 +156,7 @@ export async function scanTodayIdeas(input: {
   timeZone: string;
   sport: 'NFL';
   games: number;
+  events: TodayIdeaEvent[];
   ideas: TodayIdea[];
   warnings: string[];
 }> {
@@ -162,6 +175,7 @@ export async function scanTodayIdeas(input: {
       timeZone: input.timeZone,
       sport,
       games: 0,
+      events: [],
       ideas: [],
       warnings: ['odds_api_key_missing'],
     };
@@ -170,9 +184,12 @@ export async function scanTodayIdeas(input: {
   const baseUrl = resolveOddsApiBaseUrl();
   const eventsUrl = buildOddsEventsUrl({ baseUrl, sport, apiKey });
   const allEvents = await fetchJsonOrThrow<OddsEvent[]>(eventsUrl);
-  const events = (Array.isArray(allEvents) ? allEvents : []).filter(
-    (event) => event.commence_time && formatLocalDate(event.commence_time, input.timeZone) === input.date,
-  );
+  const events = (Array.isArray(allEvents) ? allEvents : [])
+    .filter(
+      (event) => event.commence_time && formatLocalDate(event.commence_time, input.timeZone) === input.date,
+    )
+    .sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time));
+  const eventSummaries = events.map(eventSummary);
 
   const marketQuery = NFL_MARKETS.map((market) => market.apiKey).join(',');
   const rows: Array<{
@@ -346,6 +363,7 @@ export async function scanTodayIdeas(input: {
     timeZone: input.timeZone,
     sport,
     games: events.length,
+    events: eventSummaries,
     ideas: selected,
     warnings,
   };
