@@ -154,6 +154,9 @@ export function NextGameBriefing({
         <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-amber-100/45">Next game briefing</div>
         <div className="mt-2 text-[17px] font-semibold text-slate-200">Live slate unavailable.</div>
         <p className="mt-1 text-[10px] leading-5 text-slate-600">No fallback matchup or pick is being manufactured while provider data is unavailable.</p>
+        <Link href={nervous.toHref('/ingest')} className="mt-3 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-[10px] font-semibold text-slate-300">
+          Scan a bet slip →
+        </Link>
       </section>
     );
   }
@@ -164,6 +167,9 @@ export function NextGameBriefing({
         <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-600">Next game briefing</div>
         <div className="mt-2 text-[17px] font-semibold text-slate-200">No upcoming game remains on this slate.</div>
         <p className="mt-1 text-[10px] leading-5 text-slate-600">ResearchBets will wait for the next scheduled event instead of relabeling an in-progress or finished game as “next.”</p>
+        <Link href={nervous.toHref('/ingest')} className="mt-3 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-[10px] font-semibold text-slate-300">
+          Scan a bet slip →
+        </Link>
       </section>
     );
   }
@@ -185,12 +191,20 @@ export function NextGameBriefing({
               ? `${ideas.length} current structure${ideas.length === 1 ? '' : 's'} from this matchup clear the useful-parlay filter.`
               : 'No structure from this matchup clears the current filter yet. ResearchBets is holding instead of forcing a leg.'}
           </p>
-          <Link
-            href={nervous.toHref('/cockpit', { sport: 'NFL', mode: 'live' })}
-            className="mt-3 inline-flex text-[10px] font-semibold text-cyan-100/65 hover:text-cyan-50"
-          >
-            Open full slate →
-          </Link>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link
+              href={nervous.toHref('/cockpit', { sport: 'NFL', mode: 'live' })}
+              className="inline-flex text-[10px] font-semibold text-cyan-100/65 hover:text-cyan-50"
+            >
+              Open full slate →
+            </Link>
+            <Link
+              href={nervous.toHref('/ingest')}
+              className="inline-flex text-[10px] font-semibold text-slate-400 hover:text-slate-200"
+            >
+              Scan a bet slip →
+            </Link>
+          </div>
         </div>
 
         {ideas.length > 0 ? (
