@@ -1,7 +1,13 @@
 import 'server-only';
 
+import { fetchLiveInjuries } from '@/src/core/context/trustedContextProvider.server';
 import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
+import {
+  classifyPlayerAvailability,
+  normalizePlayerKey,
+  type PlayerAvailability,
+} from '@/src/core/ideas/playerAvailability';
 import { computeMarketImpliedProb } from '@/src/core/markets/edgePrimitives';
 import type { MarketType } from '@/src/core/markets/marketType';
 import {
@@ -33,6 +39,7 @@ export type TodayIdea = {
   sourceCount: number;
   structuralRisk: 'low' | 'medium' | 'high';
   readiness: 'market-verified' | 'needs-status-check';
+  availability?: PlayerAvailability & { source: 'SportsDataIO' };
   stepDown?: {
     line: number;
     bestPrice: number;
@@ -136,13 +143,20 @@ const utilityScore = (idea: TodayIdea): number => {
   const target = TARGET_PROBABILITY[idea.structuralRisk];
   const probabilityFit = 100 - Math.abs(idea.marketImpliedProb - target) * 180;
   const bookSupport = Math.min(idea.sourceCount, 5) * 2;
-  return probabilityFit + bookSupport - structuralPenalty(idea.structuralRisk);
+  const statusPenalty = idea.availability?.severity === 'caution' ? 12 : 0;
+  return probabilityFit + bookSupport - structuralPenalty(idea.structuralRisk) - statusPenalty;
 };
 
 const isUsefulParlayThreshold = (idea: TodayIdea): boolean =>
   idea.marketImpliedProb >= MIN_USEFUL_PROBABILITY
   && idea.marketImpliedProb <= MAX_USEFUL_PROBABILITY
-  && idea.structuralRisk !== 'high';
+  && idea.structuralRisk !== 'high'
+  && idea.availability?.severity !== 'blocked';
+
+const statusFromHeadline = (headline: string, player: string): string => {
+  const prefix = `${player} - `;
+  return headline.startsWith(prefix) ? headline.slice(prefix.length).trim() : headline.trim();
+};
 
 export async function scanTodayIdeas(input: {
   date: string;
@@ -285,8 +299,57 @@ export async function scanTodayIdeas(input: {
     });
   }
 
-  const useful = candidates.filter(isUsefulParlayThreshold);
-  if (useful.length === 0 && candidates.length > 0) {
+  const availabilityByPlayer = new Map<string, TodayIdea['availability']>();
+  if (candidates.length > 0) {
+    try {
+      const playerNames = [...new Set(candidates.map((candidate) => candidate.player))];
+      const injuryResult = await fetchLiveInjuries({
+        sport,
+        teamIds: [],
+        playerIds: playerNames,
+      });
+
+      if (injuryResult.fallbackReason && injuryResult.fallbackReason !== 'no_data') {
+        warnings.push(`player_status:${injuryResult.fallbackReason}`);
+      }
+
+      for (const item of injuryResult.items) {
+        const player = item.subject.player;
+        if (!player) continue;
+        const classified = classifyPlayerAvailability({
+          status: statusFromHeadline(item.headline, player),
+          detail: item.detail,
+          asOf: item.asOf,
+        });
+        if (!classified) continue;
+        availabilityByPlayer.set(normalizePlayerKey(player), {
+          ...classified,
+          source: 'SportsDataIO',
+        });
+      }
+    } catch {
+      warnings.push('player_status:provider_unavailable');
+    }
+  }
+
+  const statusAwareCandidates = candidates.map((candidate) => {
+    const availability = availabilityByPlayer.get(normalizePlayerKey(candidate.player));
+    if (!availability) return candidate;
+    return {
+      ...candidate,
+      availability,
+      why: [
+        ...candidate.why,
+        `Player status: ${availability.label}${availability.detail ? ` — ${availability.detail}` : ''}`,
+      ],
+    };
+  });
+
+  const blockedCount = statusAwareCandidates.filter((candidate) => candidate.availability?.severity === 'blocked').length;
+  if (blockedCount > 0) warnings.push(`player_status_blocked:${blockedCount}`);
+
+  const useful = statusAwareCandidates.filter(isUsefulParlayThreshold);
+  if (useful.length === 0 && statusAwareCandidates.length > 0) {
     warnings.push('no_candidates_in_useful_parlay_price_band');
   }
 
@@ -315,12 +378,13 @@ export async function scanTodayIdeas(input: {
     const gameCount = gameCounts.get(idea.eventId) ?? 0;
     if (usedPlayers.has(playerKey) || gameCount >= 2) continue;
 
-    const stepDownCandidate = candidates
+    const stepDownCandidate = statusAwareCandidates
       .filter((candidate) =>
         candidate.eventId === idea.eventId
         && candidate.player.toLowerCase() === playerKey
         && candidate.marketType === idea.marketType
-        && candidate.line < idea.line,
+        && candidate.line < idea.line
+        && candidate.availability?.severity !== 'blocked',
       )
       .sort((a, b) => b.line - a.line || b.sourceCount - a.sourceCount)[0];
 
@@ -346,6 +410,9 @@ export async function scanTodayIdeas(input: {
         `${Math.round(idea.marketImpliedProb * 100)}% sportsbook-price implied at the median posted price`,
         `${idea.sourceCount} book${idea.sourceCount === 1 ? '' : 's'} posting this exact threshold`,
         'Selected inside the useful parlay band instead of the shortest available alt line',
+        ...(idea.availability?.severity === 'caution'
+          ? [`Status caution from ${idea.availability.source}: ${idea.availability.label}`]
+          : []),
         ...(stepDown
           ? [`Next lower posted tier: ${stepDown.line} (${Math.round(stepDown.marketImpliedProb * 100)}% market-implied, +${Math.round(probabilityGain * 100)} pts vs selected)`]
           : []),
