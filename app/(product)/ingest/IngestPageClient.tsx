@@ -13,7 +13,7 @@ import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
-const DEFAULT_SLIP = 'NBA\nJayson Tatum over 29.5 points (-110)\nLuka Doncic over 8.5 assists (-120)';
+const DEFAULT_SLIP = '';
 
 type ParseTextResponse = {
   ok: boolean;
@@ -150,9 +150,13 @@ export default function IngestionPage() {
     setIsOcrRunning(true);
     setOcrProgress('Reading text… 0%');
     setOcrError(null);
+    setStatus(null);
     setArtifactStatus('Saving original upload to bettor history…');
+    setSubmittedSlipId(null);
+    setSubmittedTraceId(null);
     const abortController = new AbortController();
     ocrAbortControllerRef.current = abortController;
+    let persistedArtifactId: string | null = null;
 
     try {
       const form = new FormData();
@@ -161,15 +165,8 @@ export default function IngestionPage() {
       const uploadResponse = await fetch('/api/bettor-memory/upload', { method: 'POST', body: form });
       const uploadPayload = await uploadResponse.json().catch(() => ({}));
       if (uploadResponse.ok && uploadPayload?.artifact?.artifact_id) {
-        setArtifactStatus('Saved to bettor history. Running sportsbook parser adapters next.');
-        const parseResponse = await fetch('/api/bettor-memory/parse-demo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ artifact_id: uploadPayload.artifact.artifact_id, artifact_type: artifactType, raw_text: slipText, source_sportsbook: null })
-        });
-        const parsePayload = await parseResponse.json().catch(() => ({}));
-        if (parseResponse.ok) setArtifactStatus(`Saved to bettor history. Parser mode: ${parsePayload?.parser_mode ?? 'unknown'}. Review unverified fields before trusting them.`);
-        else setArtifactStatus(parsePayload?.error ?? 'Upload saved, but parser contract did not complete.');
+        persistedArtifactId = uploadPayload.artifact.artifact_id as string;
+        setArtifactStatus('Original screenshot saved. Extracting text before parser analysis…');
       } else {
         setArtifactStatus(uploadPayload?.error ?? 'Upload could not be persisted. Continuing with local OCR only.');
       }
@@ -187,10 +184,29 @@ export default function IngestionPage() {
           ocrWorkerRef.current = worker;
         }
       });
+
       setSlipText(normalized);
-      setSubmittedSlipId(null);
-      setSubmittedTraceId(null);
       setStatus('Screenshot text extracted. Review it, save the slip, then open Ticket X-Ray.');
+
+      if (persistedArtifactId) {
+        setArtifactStatus('Screenshot saved. Running sportsbook parser on the extracted text…');
+        const parseResponse = await fetch('/api/bettor-memory/parse-demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            artifact_id: persistedArtifactId,
+            artifact_type: artifactType,
+            raw_text: normalized,
+            source_sportsbook: null,
+          })
+        });
+        const parsePayload = await parseResponse.json().catch(() => ({}));
+        if (parseResponse.ok) {
+          setArtifactStatus(`Saved to bettor history. Parser mode: ${parsePayload?.parser_mode ?? 'unknown'}. Review unverified fields before trusting them.`);
+        } else {
+          setArtifactStatus(parsePayload?.error ?? 'Screenshot saved, but parser analysis did not complete. The extracted text is still available for review.');
+        }
+      }
     } catch (uploadError) {
       if (uploadError instanceof DOMException && uploadError.name === 'AbortError') {
         setOcrError('OCR canceled. You can upload a screenshot again.');
@@ -226,7 +242,7 @@ export default function IngestionPage() {
             <button key={type} type="button" onClick={() => setArtifactType(type)} className={`rounded-full px-3 py-1 ${artifactType === type ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>{type.replace(/_/g, ' ')}</button>
           ))}
         </div>
-        <textarea className="h-56 w-full rounded-lg border border-default bg-canvas p-3 font-mono text-xs" value={slipText} onChange={(event) => { setSlipText(event.target.value); setSubmittedSlipId(null); setSubmittedTraceId(null); }} placeholder="Paste each leg on a new line" />
+        <textarea className="h-56 w-full rounded-lg border border-default bg-canvas p-3 font-mono text-xs" value={slipText} onChange={(event) => { setSlipText(event.target.value); setSubmittedSlipId(null); setSubmittedTraceId(null); }} placeholder="Upload a sportsbook screenshot, or paste each leg on a new line" />
         <input ref={fileInputRef} hidden type="file" accept="image/png,image/jpeg" onChange={(event) => { void onFileChange(event); }} />
         {ocrProgress !== null ? <p className="text-sm text-slate-300">{ocrProgress}</p> : null}
         {status ? <p className="text-sm text-slate-300">{status}</p> : null}
