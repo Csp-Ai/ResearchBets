@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { NextGameBriefing } from '@/src/components/home/NextGameBriefing';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { fetchTodayIdeasShared } from '@/src/core/ideas/todayIdeasClient';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
@@ -198,14 +199,17 @@ export function ResearchBetsHome() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const params = new URLSearchParams({ sport: 'NFL', date: nervous.date, tz: nervous.tz });
 
     setLoading(true);
     setFailed(false);
-    fetch(`/api/ideas/today?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => {
-        const body = (await response.json()) as IdeasResponse;
-        if (!response.ok || !body.ok || !body.data) throw new Error('ideas_unavailable');
+    fetchTodayIdeasShared<IdeasResponse>({
+      sport: 'NFL',
+      date: nervous.date,
+      tz: nervous.tz,
+      signal: controller.signal,
+    })
+      .then((body) => {
+        if (!body.ok || !body.data) throw new Error('ideas_unavailable');
         setPayload(body.data);
       })
       .catch((error) => {
