@@ -41,6 +41,27 @@ A useful reference pattern is:
 
 > **Ticket → ResearchBets read → next action → deeper detail on demand**
 
+## State, not score
+
+ResearchBets should model a ticket as a **dynamic system state**, not reduce it to one opaque quality or risk number.
+
+A useful conceptual representation is:
+
+`TicketState = [threshold pressure, dependency/correlation, game-script exposure, market truth/freshness, roster uncertainty, price structure, concentration, volatility, evidence strength]`
+
+This does not require exposing a vector or dense dashboard to the bettor. The purpose is internal discipline: the system should understand the dimensions well enough to identify the **binding constraint** and compress that complexity into one primary pressure and one useful action.
+
+Key principles:
+
+- **Severe constraints cannot be averaged away.** Several strong legs should not mathematically hide one catastrophic structural dependency.
+- **Imbalance can matter more than the mean.** The shape of the ticket may be more informative than an aggregate score.
+- **The same state should evolve through the lifecycle.** X-Ray, Pulse, and Autopsy are observations of one ticket at different times, not unrelated reports: `T(before) → T(live) → T(settled)`.
+- **Interventions are measurable state changes.** A step-down, removal, replacement, or escalation should preserve the pre-action state, the exact proposed change, and the later outcome so ResearchBets can evaluate whether the intervention addressed the actual constraint.
+- **Measurement must remain separate from interpretation.** Observed market movement, verified availability, and settled statistics are not the same thing as inferred opportunity, expected game script, or speculative coaching intent.
+- **Personalization should become within-bettor modeling.** The long-term question is not only what usually makes parlays fragile, but what repeatedly destabilizes this bettor's tickets and which interventions have actually helped this bettor under comparable conditions.
+
+A scalar score may still be useful as a summary or sorting aid, but it must never become the authority when it conflicts with a clearly identified structural failure mode.
+
 ## Strategic wedge
 
 We are not trying to win every sports-betting category at once.
