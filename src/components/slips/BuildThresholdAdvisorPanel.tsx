@@ -1,12 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/button';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import {
+  emitInterventionEvent,
+  getInterventionId,
+  type InterventionTelemetryContext,
+} from '@/src/core/interventions/telemetry';
 import {
   applyBuildThresholdMove,
   buildBuildThresholdAdvice,
@@ -133,13 +138,18 @@ function MoveCard({
 export function BuildThresholdAdvisorPanel({
   legs,
   onApply,
+  traceId,
+  slipId,
 }: {
   legs: SlipBuilderLeg[];
   onApply: (nextLegs: SlipBuilderLeg[]) => void;
+  traceId?: string;
+  slipId?: string;
 }) {
   const nervous = useNervousSystem();
   const [ideas, setIdeas] = useState<BuildThresholdIdea[]>([]);
   const [marketState, setMarketState] = useState<'loading' | 'live' | 'unavailable'>('loading');
+  const presentedInterventions = useRef(new Set<string>());
   const hasLegs = legs.length > 0;
 
   useEffect(() => {
@@ -179,13 +189,47 @@ export function BuildThresholdAdvisorPanel({
     [enrichedLegs],
   );
 
-  if (legs.length === 0) return null;
-
   const safety = marketState === 'live' ? advice.safety : null;
   const escalation = marketState === 'live' ? advice.escalation : null;
 
+  const telemetryContext = useMemo<InterventionTelemetryContext | null>(() => {
+    if (!traceId) return null;
+    return {
+      traceId,
+      slipId,
+      sport: nervous.sport,
+      tz: nervous.tz,
+      date: nervous.date,
+      mode: nervous.mode,
+    };
+  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz, slipId, traceId]);
+
+  useEffect(() => {
+    if (!telemetryContext || marketState !== 'live') return;
+    for (const move of [safety, escalation]) {
+      if (!move) continue;
+      const id = getInterventionId(move, telemetryContext);
+      if (presentedInterventions.current.has(id)) continue;
+      presentedInterventions.current.add(id);
+      void emitInterventionEvent({
+        eventName: 'intervention_presented',
+        move,
+        context: telemetryContext,
+      });
+    }
+  }, [escalation, marketState, safety, telemetryContext]);
+
+  if (legs.length === 0) return null;
+
   const applyMove = (move: BuildThresholdMove) => {
     if (marketState !== 'live') return;
+    if (telemetryContext) {
+      void emitInterventionEvent({
+        eventName: 'intervention_applied',
+        move,
+        context: telemetryContext,
+      });
+    }
     onApply(enrichedLegs.map((leg) => applyBuildThresholdMove(leg, move)));
   };
 
