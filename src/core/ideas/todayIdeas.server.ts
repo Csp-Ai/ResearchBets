@@ -59,6 +59,14 @@ export type TodayIdea = {
   why: string[];
 };
 
+export type TodayIdeaScanTiming = {
+  eventsMs: number;
+  eventOddsMs: number;
+  injuriesMs: number;
+  localProcessingMs: number;
+  totalMs: number;
+};
+
 type OddsEvent = {
   id: string;
   commence_time: string;
@@ -105,6 +113,8 @@ const TARGET_PROBABILITY: Record<TodayIdea['structuralRisk'], number> = {
   medium: 0.72,
   high: 0.62,
 };
+
+const elapsed = (startedAt: number): number => Math.max(0, Date.now() - startedAt);
 
 const formatLocalDate = (iso: string, timeZone: string): string => {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -181,7 +191,9 @@ export async function scanTodayIdeas(input: {
   events: TodayIdeaEvent[];
   ideas: TodayIdea[];
   warnings: string[];
+  diagnostics: { scanTimingMs: TodayIdeaScanTiming };
 }> {
+  const scanStartedAt = Date.now();
   const sport = input.sport ?? 'NFL';
   const generatedAt = new Date().toISOString();
   const apiKey = resolveWithAliases(
@@ -190,6 +202,7 @@ export async function scanTodayIdeas(input: {
   );
 
   if (!apiKey) {
+    const totalMs = elapsed(scanStartedAt);
     return {
       mode: 'unavailable',
       generatedAt,
@@ -200,12 +213,23 @@ export async function scanTodayIdeas(input: {
       events: [],
       ideas: [],
       warnings: ['odds_api_key_missing'],
+      diagnostics: {
+        scanTimingMs: {
+          eventsMs: 0,
+          eventOddsMs: 0,
+          injuriesMs: 0,
+          localProcessingMs: totalMs,
+          totalMs,
+        },
+      },
     };
   }
 
   const baseUrl = resolveOddsApiBaseUrl();
   const eventsUrl = buildOddsEventsUrl({ baseUrl, sport, apiKey });
+  const eventsStartedAt = Date.now();
   const allEvents = await fetchJsonOrThrow<OddsEvent[]>(eventsUrl);
+  const eventsMs = elapsed(eventsStartedAt);
   const events = (Array.isArray(allEvents) ? allEvents : [])
     .filter(
       (event) => event.commence_time && formatLocalDate(event.commence_time, input.timeZone) === input.date,
@@ -225,6 +249,7 @@ export async function scanTodayIdeas(input: {
   }> = [];
   const warnings: string[] = [];
 
+  const eventOddsStartedAt = Date.now();
   for (const event of events) {
     try {
       const url = buildEventOddsUrl({
@@ -264,6 +289,7 @@ export async function scanTodayIdeas(input: {
       warnings.push(`event_odds_unavailable:${event.id}`);
     }
   }
+  const eventOddsMs = elapsed(eventOddsStartedAt);
 
   const grouped = new Map<string, typeof rows>();
   for (const row of rows) {
@@ -308,7 +334,9 @@ export async function scanTodayIdeas(input: {
   }
 
   const availabilityByPlayer = new Map<string, TodayIdea['availability']>();
+  let injuriesMs = 0;
   if (candidates.length > 0) {
+    const injuriesStartedAt = Date.now();
     try {
       const playerNames = [...new Set(candidates.map((candidate) => candidate.player))];
       const injuryResult = await fetchLiveInjuries({
@@ -337,6 +365,8 @@ export async function scanTodayIdeas(input: {
       }
     } catch {
       warnings.push('player_status:provider_unavailable');
+    } finally {
+      injuriesMs = elapsed(injuriesStartedAt);
     }
   }
 
@@ -454,6 +484,9 @@ export async function scanTodayIdeas(input: {
     if (selected.length >= limit) break;
   }
 
+  const totalMs = elapsed(scanStartedAt);
+  const localProcessingMs = Math.max(0, totalMs - eventsMs - eventOddsMs - injuriesMs);
+
   return {
     mode: 'live-market',
     generatedAt,
@@ -464,5 +497,14 @@ export async function scanTodayIdeas(input: {
     events: eventSummaries,
     ideas: selected,
     warnings,
+    diagnostics: {
+      scanTimingMs: {
+        eventsMs,
+        eventOddsMs,
+        injuriesMs,
+        localProcessingMs,
+        totalMs,
+      },
+    },
   };
 }
