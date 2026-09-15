@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { DuringCoach } from '@/src/components/track/DuringCoach';
 import { CardSurface } from '@/src/components/ui/CardSurface';
@@ -34,6 +34,19 @@ const liveStatusTone: Record<string, string> = {
   critical: 'border-rose-400/40 bg-rose-500/10 text-rose-100'
 };
 
+const LIVE_REFRESH_INTERVAL_MS = 15_000;
+const LIVE_REFRESH_TIMEOUT_MS = 10_000;
+
+type LiveRefreshState = 'idle' | 'refreshing' | 'fresh' | 'stale' | 'error';
+
+const refreshLabel = (state: LiveRefreshState) => {
+  if (state === 'refreshing') return 'Refreshing live data…';
+  if (state === 'fresh') return 'Live data verified';
+  if (state === 'stale') return 'Live data delayed · showing last verified update';
+  if (state === 'error') return 'Live data unavailable · progress remains unknown';
+  return 'Waiting for verified live data';
+};
+
 export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) {
   const nervous = useNervousSystem();
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
@@ -41,6 +54,7 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   const [autoRefresh, setAutoRefresh] = useState(mode === 'live');
   const [liveUpdates, setLiveUpdates] = useState<Record<string, LiveLegUpdate>>({});
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [refreshState, setRefreshState] = useState<LiveRefreshState>('idle');
   const [trackedTickets, setTrackedTickets] = useState<TrackedTicket[]>([]);
   const [coverage, setCoverage] = useState<LiveCoverageMap>({});
   const [sweatMode, setSweatMode] = useState(true);
@@ -49,6 +63,9 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   const [finalValues, setFinalValues] = useState<Record<string, string>>({});
   const [cashoutTaken, setCashoutTaken] = useState('');
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const requestRef = useRef<AbortController | null>(null);
+  const lastSuccessRef = useRef<string | null>(null);
 
   useEffect(() => {
     setTrackedTickets(listTrackedTickets());
@@ -60,6 +77,9 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   useEffect(() => {
     if (mode !== 'live') {
       setAutoRefresh(false);
+      setRefreshState('idle');
+      requestRef.current?.abort();
+      inFlightRef.current = false;
       return;
     }
     setAutoRefresh(true);
@@ -73,34 +93,73 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
   useEffect(() => {
     if (mode !== 'live' || !autoRefresh) return;
 
+    let disposed = false;
+
     const refresh = async () => {
-      if (document.visibilityState === 'hidden') return;
+      if (document.visibilityState === 'hidden' || inFlightRef.current) return;
       const payloadTickets = listTrackedTickets();
       if (payloadTickets.length === 0) return;
 
-      const response = await fetch('/api/live/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tickets: payloadTickets })
-      });
-      const payload = (await response.json()) as {
-        ok?: boolean;
-        data?: { updates?: Record<string, LiveLegUpdate>; coverage?: LiveCoverageMap };
-      };
-      if (!response.ok || !payload.ok || !payload.data?.updates) return;
-      setLiveUpdates(payload.data.updates);
-      setCoverage(payload.data.coverage ?? {});
-      const stamped = new Date().toISOString();
-      setLastUpdatedAt(stamped);
-      setNowIso(stamped);
+      inFlightRef.current = true;
+      setRefreshState('refreshing');
+      const controller = new AbortController();
+      requestRef.current = controller;
+      const timeout = window.setTimeout(() => controller.abort(), LIVE_REFRESH_TIMEOUT_MS);
+
+      try {
+        const response = await fetch('/api/live/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tickets: payloadTickets }),
+          signal: controller.signal
+        });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          data?: { updates?: Record<string, LiveLegUpdate>; coverage?: LiveCoverageMap };
+        };
+        if (!response.ok || !payload.ok || !payload.data?.updates) {
+          throw new Error('live_ticket_refresh_unavailable');
+        }
+        if (disposed) return;
+
+        setLiveUpdates(payload.data.updates);
+        setCoverage(payload.data.coverage ?? {});
+        const stamped = new Date().toISOString();
+        lastSuccessRef.current = stamped;
+        setLastUpdatedAt(stamped);
+        setNowIso(stamped);
+        setRefreshState('fresh');
+      } catch (error) {
+        if (disposed) return;
+        const aborted = controller.signal.aborted || (error as Error).name === 'AbortError';
+        if (aborted || error instanceof Error) {
+          setRefreshState(lastSuccessRef.current ? 'stale' : 'error');
+        }
+      } finally {
+        window.clearTimeout(timeout);
+        if (requestRef.current === controller) requestRef.current = null;
+        inFlightRef.current = false;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refresh();
     };
 
     void refresh();
     const timer = window.setInterval(() => {
       void refresh();
-    }, 15000);
+    }, LIVE_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      requestRef.current?.abort();
+      requestRef.current = null;
+      inFlightRef.current = false;
+    };
   }, [mode, autoRefresh]);
 
   const tickets = useMemo(
@@ -168,9 +227,24 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
           </button>
         </div>
         <span>
-          Last updated: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : '—'}
+          Last verified: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleTimeString() : '—'}
         </span>
       </div>
+
+      {mode === 'live' ? (
+        <p
+          className={`mt-2 text-xs ${
+            refreshState === 'stale' || refreshState === 'error'
+              ? 'text-amber-200'
+              : refreshState === 'fresh'
+                ? 'text-emerald-200'
+                : 'text-slate-400'
+          }`}
+          data-testid="live-refresh-state"
+        >
+          {refreshLabel(refreshState)}
+        </p>
+      ) : null}
 
       {saveToast ? <p className="mt-2 text-xs text-emerald-200">{saveToast}</p> : null}
 
