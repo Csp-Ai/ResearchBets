@@ -54,6 +54,25 @@ The canonical product converges around four engines:
 
 These engines may have separate implementations, but the user should experience them as one continuous decision system.
 
+## Cross-cutting calibration layer
+
+The four engines may be evaluated by a shared internal calibration capability, but calibration is **not** a fifth user-facing engine and must not create another competing product surface.
+
+Its purpose is to make later answers auditable and improvable by preserving and evaluating:
+
+- decision-time evidence and provenance,
+- freshness and availability state,
+- provider/source lineage where available,
+- analysis/recommendation/policy version,
+- recommendation strength and action class,
+- bettor response where observable,
+- settlement and reproducible counterfactual eligibility,
+- later evaluation of warning, abstention, and recommendation quality.
+
+Calibration may produce metrics, experiments, or candidate policy changes. It may not silently change production source weights, thresholds, recommendation policy, or confidence language. Material changes to product judgment require an explicit versioned implementation, tests, review, and deliberate promotion.
+
+The user should experience the benefits as better calibrated answers, not as an exposed agent hierarchy or self-governance console.
+
 ## One source of truth means one owner per concern
 
 | Concern                  | Authority                              | Rule                                                                                              |
@@ -75,7 +94,7 @@ This does **not** require one physical database or one enormous type. Browser dr
 
 1. Live, cache, demo, parsed, inferred, verified, stale, and unknown states remain distinguishable where relevant.
 2. No synthetic progress appears as live progress.
-3. Demo artifacts do not train bettor memory or performance claims.
+3. Demo artifacts do not train bettor memory, system calibration, or performance claims.
 4. Missing evidence lowers confidence or produces an explicit unknown.
 5. The same ticket identity survives Discover → X-Ray → Pulse → Autopsy.
 6. The first screen leads with one decision, one main risk, and one next action.
@@ -83,6 +102,9 @@ This does **not** require one physical database or one enormous type. Browser dr
 8. Personalization must be grounded in eligible reviewed outcomes, not generic profile inference.
 9. Legacy implementations may be studied but may not silently become production authorities again.
 10. Product complexity should move behind progressive disclosure rather than accumulating above the fold.
+11. Decision-time lineage required for later evaluation must not be overwritten by settlement-time knowledge.
+12. System evaluation may recommend a policy change but may not silently authorize or deploy one.
+13. Calibration claims must distinguish provider reliability, recommendation quality, bettor behavior, and outcome variance rather than collapsing them into one opaque score.
 
 ## Current phase
 
@@ -100,7 +122,7 @@ The active sequencing and measurable completion gates are maintained in `docs/EX
 4. **Unify persistence:** keep local stores as offline caches while `RuntimeStore` becomes durable authority.
 5. **Converge routes:** move unique `/today`, `/slip`, and `/track` capabilities into the canonical lifecycle, then convert them to compatibility redirects.
 6. **Archive UI generations:** retain legacy source and tests as reference fixtures, but exclude them from canonical imports and product navigation.
-7. **Close the learning loop:** capture recommendation decisions, settlement, counterfactual eligibility, and reviewed memory so the system can improve future advice without inventing performance claims.
+7. **Close the learning loop:** capture recommendation decisions, settlement, counterfactual eligibility, reviewed memory, and decision-time lineage so the system can improve future advice and later evaluate its own calibration without inventing performance claims.
 
 ## Definition of converged
 
