@@ -1,5 +1,6 @@
 import type { LoopProvenance } from '@/src/core/bettor-loop/provenance';
 import type { LifecycleDriverLineage, WeakestLegIdentity } from '@/src/core/decision/lifecycleDecision';
+import type { ThresholdInterventionCounterfactual } from '@/src/core/interventions/counterfactual';
 import type { Lineage } from '@/src/core/lineage/lineage';
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { CoverageLevel } from '@/src/core/review/missTagger';
@@ -49,4 +50,5 @@ export type PostmortemRecord = {
   nextTimeRule?: NextTimeRule;
   lifecycle_lineage?: LifecycleDriverLineage;
   weakest_leg_identity?: WeakestLegIdentity;
+  thresholdCounterfactuals?: ThresholdInterventionCounterfactual[];
 };
