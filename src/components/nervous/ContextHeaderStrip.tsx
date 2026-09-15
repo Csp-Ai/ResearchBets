@@ -21,8 +21,13 @@ export function ContextHeaderStrip({ lastUpdatedLabel }: { lastUpdatedLabel?: st
       <span className="font-medium text-white">{nervous.sport}</span>
       <span>{nervous.date}</span>
       <span>{nervous.tz}</span>
-      <span className="rounded border border-cyan-500/40 px-1.5 py-0.5">{nervous.mode}</span>
-      <span>{lastUpdatedLabel ?? 'Updated just now'}</span>
+      <span
+        className="rounded border border-white/15 px-1.5 py-0.5 text-slate-400"
+        title="Requested mode. The active surface reports effective live/cache/demo data separately."
+      >
+        requested {nervous.mode}
+      </span>
+      {lastUpdatedLabel ? <span>{lastUpdatedLabel}</span> : null}
       <select className="ml-auto rounded border border-white/20 bg-slate-900 px-2 py-1" value={nervous.sport} onChange={(event) => onChange({ sport: event.target.value })}>
         {SPORTS.map((sport) => <option key={sport} value={sport}>{sport}</option>)}
       </select>
