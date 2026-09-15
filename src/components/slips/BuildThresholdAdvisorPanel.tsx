@@ -140,6 +140,10 @@ export function BuildThresholdAdvisorPanel({
   const nervous = useNervousSystem();
   const [ideas, setIdeas] = useState<BuildThresholdIdea[]>([]);
   const [marketState, setMarketState] = useState<'loading' | 'live' | 'unavailable'>('loading');
+  const legSignature = useMemo(
+    () => legs.map((leg) => [leg.id, leg.player, leg.marketType, leg.line, leg.game ?? ''].join(':')).join('|'),
+    [legs],
+  );
 
   useEffect(() => {
     if (legs.length === 0) {
@@ -150,6 +154,7 @@ export function BuildThresholdAdvisorPanel({
 
     const controller = new AbortController();
     const params = new URLSearchParams({ sport: 'NFL', date: nervous.date, tz: nervous.tz });
+    setIdeas([]);
     setMarketState('loading');
 
     fetch(`/api/ideas/today?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
@@ -167,7 +172,7 @@ export function BuildThresholdAdvisorPanel({
       });
 
     return () => controller.abort();
-  }, [legs.length, nervous.date, nervous.tz]);
+  }, [legSignature, legs.length, nervous.date, nervous.tz]);
 
   const enrichedLegs = useMemo(
     () => enrichBuildSlipFromIdeas(legs, ideas),
@@ -180,7 +185,11 @@ export function BuildThresholdAdvisorPanel({
 
   if (legs.length === 0) return null;
 
+  const safety = marketState === 'live' ? advice.safety : null;
+  const escalation = marketState === 'live' ? advice.escalation : null;
+
   const applyMove = (move: BuildThresholdMove) => {
+    if (marketState !== 'live') return;
     onApply(enrichedLegs.map((leg) => applyBuildThresholdMove(leg, move)));
   };
 
@@ -210,38 +219,52 @@ export function BuildThresholdAdvisorPanel({
         </div>
       </div>
 
-      <div className="space-y-3">
-        {advice.safety ? (
-          <MoveCard
-            move={advice.safety}
-            title="Best safety move"
-            badge="Safer"
-            actionLabel={`Apply ${advice.safety.targetLine}+`}
-            onApply={() => applyMove(advice.safety!)}
-          />
-        ) : (
-          <div className="rounded-2xl border border-emerald-300/[0.09] bg-emerald-300/[0.02] p-4 text-[10px] leading-5 text-slate-400">
-            <span className="font-semibold text-emerald-100/75">No verified safety move.</span> ResearchBets will not invent a lower tier when the live scanner does not have one.
-          </div>
-        )}
+      {marketState === 'loading' ? (
+        <div className="rounded-2xl border border-cyan-300/[0.08] bg-cyan-300/[0.02] p-4 text-[10px] text-slate-400">
+          Checking the current alternate-market ladder before recommending a move.
+        </div>
+      ) : null}
 
-        {advice.escalation ? (
-          <MoveCard
-            move={advice.escalation}
-            title="Best selective escalation"
-            badge="Push budget"
-            actionLabel={`Escalate to ${advice.escalation.targetLine}+`}
-            onApply={() => applyMove(advice.escalation!)}
-          />
-        ) : (
-          <div className="rounded-2xl border border-amber-300/[0.09] bg-amber-300/[0.02] p-4 text-[10px] leading-5 text-slate-400">
-            <span className="font-semibold text-amber-100/75">Hold the current asks.</span>{' '}
-            {advice.report.budgetRemaining <= 0
-              ? 'The ticket has no unused push budget for another escalation.'
-              : 'No verified higher tier clears the selective-escalation guardrails.'}
-          </div>
-        )}
-      </div>
+      {marketState === 'unavailable' ? (
+        <div className="rounded-2xl border border-amber-300/[0.09] bg-amber-300/[0.02] p-4 text-[10px] leading-5 text-slate-400">
+          <span className="font-semibold text-amber-100/75">Threshold actions unavailable.</span> ResearchBets is failing closed because a fresh live ladder could not be verified.
+        </div>
+      ) : null}
+
+      {marketState === 'live' ? (
+        <div className="space-y-3">
+          {safety ? (
+            <MoveCard
+              move={safety}
+              title="Best safety move"
+              badge="Safer"
+              actionLabel={`Apply ${safety.targetLine}+`}
+              onApply={() => applyMove(safety)}
+            />
+          ) : (
+            <div className="rounded-2xl border border-emerald-300/[0.09] bg-emerald-300/[0.02] p-4 text-[10px] leading-5 text-slate-400">
+              <span className="font-semibold text-emerald-100/75">No verified safety move.</span> ResearchBets will not invent a lower tier when the live scanner does not have one.
+            </div>
+          )}
+
+          {escalation ? (
+            <MoveCard
+              move={escalation}
+              title="Best selective escalation"
+              badge="Push budget"
+              actionLabel={`Escalate to ${escalation.targetLine}+`}
+              onApply={() => applyMove(escalation)}
+            />
+          ) : (
+            <div className="rounded-2xl border border-amber-300/[0.09] bg-amber-300/[0.02] p-4 text-[10px] leading-5 text-slate-400">
+              <span className="font-semibold text-amber-100/75">Hold the current asks.</span>{' '}
+              {advice.report.budgetRemaining <= 0
+                ? 'The ticket has no unused push budget for another escalation.'
+                : 'No verified higher tier clears the selective-escalation guardrails.'}
+            </div>
+          )}
+        </div>
+      ) : null}
     </CardSurface>
   );
 }
