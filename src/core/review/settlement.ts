@@ -1,4 +1,10 @@
 import type { OpenTicket } from '@/src/core/live/openTickets';
+import {
+  listAppliedInterventionsForTicket,
+  type AppliedThresholdIntervention,
+} from '@/src/core/interventions/decisionStore';
+import { buildThresholdCounterfactuals } from '@/src/core/interventions/counterfactual';
+import { emitInterventionSettlementLinked } from '@/src/core/interventions/telemetry';
 import { tagMiss } from '@/src/core/review/missTagger';
 import { getDraftPostmortem, savePostmortem } from '@/src/core/review/store';
 import type { PostmortemRecord, TicketSettlementStatus } from '@/src/core/review/types';
@@ -9,6 +15,7 @@ export type SettleTicketInput = {
   status: TicketSettlementStatus;
   finalValues: Record<string, number>;
   cashoutTaken?: number;
+  appliedInterventions?: AppliedThresholdIntervention[];
 };
 
 const endgameSensitivityFor = (leg: OpenTicket['legs'][number]) => {
@@ -85,6 +92,12 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
       : `Coverage was ${input.ticket.coverage.coverage}; review gaps before similar builds.`
   ];
 
+  const thresholdCounterfactuals = buildThresholdCounterfactuals({
+    ticket: input.ticket,
+    interventions: input.appliedInterventions ?? [],
+    finalValues: input.finalValues,
+  });
+
   return {
     ticketId: input.ticket.ticketId,
     trace_id: input.ticket.trace_id,
@@ -107,12 +120,25 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
     fragility: { score: fragilityScore, chips: fragilityChips },
     narrative,
     coachSnapshot: getDraftPostmortem(input.ticket.ticketId),
-    nextTimeRule
+    nextTimeRule,
+    thresholdCounterfactuals: thresholdCounterfactuals.length > 0 ? thresholdCounterfactuals : undefined,
   };
 }
 
 export function settleTicket(input: SettleTicketInput): PostmortemRecord {
-  const record = createPostmortemRecord(input);
+  const appliedInterventions = input.appliedInterventions ?? listAppliedInterventionsForTicket({
+    traceId: input.ticket.trace_id,
+    slipId: input.ticket.slip_id,
+  });
+  const record = createPostmortemRecord({ ...input, appliedInterventions });
   savePostmortem(record);
+
+  for (const counterfactual of record.thresholdCounterfactuals ?? []) {
+    void emitInterventionSettlementLinked({
+      counterfactual,
+      mode: input.ticket.mode,
+    });
+  }
+
   return record;
 }
