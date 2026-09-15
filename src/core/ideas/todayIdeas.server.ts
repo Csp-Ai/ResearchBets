@@ -48,6 +48,14 @@ export type TodayIdea = {
     books: string[];
     sourceCount: number;
   };
+  stepUp?: {
+    line: number;
+    bestPrice: number;
+    consensusPrice: number;
+    marketImpliedProb: number;
+    books: string[];
+    sourceCount: number;
+  };
   why: string[];
 };
 
@@ -378,15 +386,20 @@ export async function scanTodayIdeas(input: {
     const gameCount = gameCounts.get(idea.eventId) ?? 0;
     if (usedPlayers.has(playerKey) || gameCount >= 2) continue;
 
-    const stepDownCandidate = statusAwareCandidates
-      .filter((candidate) =>
-        candidate.eventId === idea.eventId
-        && candidate.player.toLowerCase() === playerKey
-        && candidate.marketType === idea.marketType
-        && candidate.line < idea.line
-        && candidate.availability?.severity !== 'blocked',
-      )
+    const sameMarketCandidates = statusAwareCandidates.filter((candidate) =>
+      candidate.eventId === idea.eventId
+      && candidate.player.toLowerCase() === playerKey
+      && candidate.marketType === idea.marketType
+      && candidate.availability?.severity !== 'blocked',
+    );
+
+    const stepDownCandidate = sameMarketCandidates
+      .filter((candidate) => candidate.line < idea.line)
       .sort((a, b) => b.line - a.line || b.sourceCount - a.sourceCount)[0];
+
+    const stepUpCandidate = sameMarketCandidates
+      .filter((candidate) => candidate.line > idea.line)
+      .sort((a, b) => a.line - b.line || b.sourceCount - a.sourceCount)[0];
 
     const stepDown = stepDownCandidate
       ? {
@@ -399,13 +412,28 @@ export async function scanTodayIdeas(input: {
         }
       : undefined;
 
+    const stepUp = stepUpCandidate
+      ? {
+          line: stepUpCandidate.line,
+          bestPrice: stepUpCandidate.bestPrice,
+          consensusPrice: stepUpCandidate.consensusPrice,
+          marketImpliedProb: stepUpCandidate.marketImpliedProb,
+          books: stepUpCandidate.books,
+          sourceCount: stepUpCandidate.sourceCount,
+        }
+      : undefined;
+
     const probabilityGain = stepDown
       ? Math.max(0, stepDown.marketImpliedProb - idea.marketImpliedProb)
+      : 0;
+    const probabilityCost = stepUp
+      ? Math.max(0, idea.marketImpliedProb - stepUp.marketImpliedProb)
       : 0;
 
     selected.push({
       ...idea,
       stepDown,
+      stepUp,
       why: [
         `${Math.round(idea.marketImpliedProb * 100)}% sportsbook-price implied at the median posted price`,
         `${idea.sourceCount} book${idea.sourceCount === 1 ? '' : 's'} posting this exact threshold`,
@@ -415,6 +443,9 @@ export async function scanTodayIdeas(input: {
           : []),
         ...(stepDown
           ? [`Next lower posted tier: ${stepDown.line} (${Math.round(stepDown.marketImpliedProb * 100)}% market-implied, +${Math.round(probabilityGain * 100)} pts vs selected)`]
+          : []),
+        ...(stepUp
+          ? [`Next higher posted tier: ${stepUp.line} (${Math.round(stepUp.marketImpliedProb * 100)}% market-implied, -${Math.round(probabilityCost * 100)} pts vs selected)`]
           : []),
       ],
     });
