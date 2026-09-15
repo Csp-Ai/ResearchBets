@@ -40,10 +40,16 @@ export type ComputedProviderHealth = Omit<ProviderHealthSummary, 'providerErrors
   messages: string[];
 };
 
-export async function computeProviderHealth({ sport = 'NBA' }: { sport?: string }): Promise<ComputedProviderHealth> {
+const PROVIDER_HEALTH_TTL_MS = 30_000;
+const healthCache = new Map<string, { expiresAt: number; value: ComputedProviderHealth }>();
+const inFlightHealth = new Map<string, Promise<ComputedProviderHealth>>();
+
+async function computeProviderHealthUncached({ sport = 'NBA' }: { sport?: string }): Promise<ComputedProviderHealth> {
   const keyStatus = getLiveKeyStatus();
-  const oddsProbe = await runOddsProbe({ target: 'today_odds_fetch', sport });
-  const eventsProbe = await runEventsProbe({ sport });
+  const [oddsProbe, eventsProbe] = await Promise.all([
+    runOddsProbe({ target: 'today_odds_fetch', sport }),
+    runEventsProbe({ sport }),
+  ]);
   const statsConfigured = Boolean(resolveWithAliases(CANONICAL_KEYS.SPORTSDATA_API_KEY, ALIAS_KEYS[CANONICAL_KEYS.SPORTSDATA_API_KEY]));
 
   const checks: ProviderHealthCheckSummary = {
@@ -104,4 +110,25 @@ export async function computeProviderHealth({ sport = 'NBA' }: { sport?: string 
     providerErrors,
     messages,
   };
+}
+
+export async function computeProviderHealth({ sport = 'NBA' }: { sport?: string }): Promise<ComputedProviderHealth> {
+  const cacheKey = sport.toUpperCase();
+  const cached = healthCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const existing = inFlightHealth.get(cacheKey);
+  if (existing) return existing;
+
+  const request = computeProviderHealthUncached({ sport })
+    .then((value) => {
+      healthCache.set(cacheKey, { expiresAt: Date.now() + PROVIDER_HEALTH_TTL_MS, value });
+      return value;
+    })
+    .finally(() => {
+      inFlightHealth.delete(cacheKey);
+    });
+
+  inFlightHealth.set(cacheKey, request);
+  return request;
 }
