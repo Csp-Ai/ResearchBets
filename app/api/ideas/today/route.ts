@@ -16,6 +16,17 @@ const ideasCache = new Map<string, { expiresAt: number; data: unknown }>();
 const inFlightIdeas = new Map<string, Promise<unknown>>();
 
 type CacheState = 'memory-hit' | 'shared-inflight' | 'persistent-or-origin';
+type GenerationTiming = {
+  scanMs: number;
+  recentFormMs: number;
+  totalMs: number;
+};
+
+type IdeasPayloadWithDiagnostics = {
+  diagnostics?: {
+    generationTimingMs?: GenerationTiming;
+  };
+};
 
 const elapsed = (startedAt: number) => Math.max(0, Date.now() - startedAt);
 
@@ -43,18 +54,31 @@ const normalizeMarketAvailability = <T extends {
 };
 
 async function resolveIdeasData(input: { date: string; timeZone: string }): Promise<unknown> {
+  const totalStartedAt = Date.now();
+  const scanStartedAt = Date.now();
   const scanned = await scanTodayIdeas({
     date: input.date,
     timeZone: input.timeZone,
     sport: 'NFL',
     limit: 12,
   });
+  const scanMs = elapsed(scanStartedAt);
   const result = normalizeMarketAvailability(scanned);
 
   if (result.mode !== 'live-market' || result.ideas.length === 0) {
-    return result;
+    return {
+      ...result,
+      diagnostics: {
+        generationTimingMs: {
+          scanMs,
+          recentFormMs: 0,
+          totalMs: elapsed(totalStartedAt),
+        },
+      },
+    };
   }
 
+  const recentFormStartedAt = Date.now();
   const recent = await fetchNflRecentFormForIdeas(
     result.ideas.slice(0, RECENT_FORM_LIMIT).map((idea) => ({
       id: idea.id,
@@ -63,6 +87,7 @@ async function resolveIdeasData(input: { date: string; timeZone: string }): Prom
       line: idea.line,
     })),
   );
+  const recentFormMs = elapsed(recentFormStartedAt);
 
   const ideas = result.ideas.map((idea) => {
     const recentForm = recent.byIdeaId[idea.id];
@@ -81,12 +106,19 @@ async function resolveIdeasData(input: { date: string; timeZone: string }): Prom
     ...result,
     ideas,
     warnings: recent.warning ? [...result.warnings, recent.warning] : result.warnings,
+    diagnostics: {
+      generationTimingMs: {
+        scanMs,
+        recentFormMs,
+        totalMs: elapsed(totalStartedAt),
+      },
+    },
   };
 }
 
 const resolveIdeasDataPersistent = unstable_cache(
   async (date: string, timeZone: string) => resolveIdeasData({ date, timeZone }),
-  ['researchbets-today-ideas-v2'],
+  ['researchbets-today-ideas-v3'],
   { revalidate: 45 },
 );
 
@@ -115,6 +147,16 @@ async function getCachedIdeas(input: { date: string; timeZone: string }): Promis
   return { data: await request, cacheState: 'persistent-or-origin' };
 }
 
+const readGenerationTiming = (data: unknown): GenerationTiming | undefined => {
+  if (!data || typeof data !== 'object') return undefined;
+  return (data as IdeasPayloadWithDiagnostics).diagnostics?.generationTimingMs;
+};
+
+const generationTimingHeader = (timing?: GenerationTiming): string | undefined => {
+  if (!timing) return undefined;
+  return `scan;dur=${timing.scanMs}, recent-form;dur=${timing.recentFormMs}, generation;dur=${timing.totalMs}`;
+};
+
 export async function GET(request: Request) {
   const requestStartedAt = Date.now();
   const { searchParams } = new URL(request.url);
@@ -137,13 +179,19 @@ export async function GET(request: Request) {
   try {
     const { data, cacheState } = await getCachedIdeas({ date, timeZone });
     const totalMs = elapsed(requestStartedAt);
+    const generationTiming = readGenerationTiming(data);
+    const timingParts = [`request;dur=${totalMs}`];
+    const generation = generationTimingHeader(generationTiming);
+    if (generation) timingParts.push(generation);
+
     return NextResponse.json(
       { ok: true, data },
       {
         headers: {
           'Cache-Control': RESPONSE_CACHE_CONTROL,
-          'Server-Timing': `ideas;dur=${totalMs}`,
+          'Server-Timing': timingParts.join(', '),
           'X-ResearchBets-Cache': cacheState,
+          'X-ResearchBets-Timing-Scope': 'request timings are current; generation timings describe the cached payload generation',
         },
       },
     );
@@ -159,8 +207,9 @@ export async function GET(request: Request) {
         status: 503,
         headers: {
           'Cache-Control': 'public, max-age=0, s-maxage=5, stale-if-error=30',
-          'Server-Timing': `ideas;dur=${totalMs}`,
+          'Server-Timing': `request;dur=${totalMs}`,
           'X-ResearchBets-Cache': 'error',
+          'X-ResearchBets-Timing-Scope': 'request-only',
         },
       },
     );
