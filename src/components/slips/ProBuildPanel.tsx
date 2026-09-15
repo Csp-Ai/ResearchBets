@@ -38,6 +38,8 @@ export function ProBuildPanel({ legs, onApply }: { legs: SlipBuilderLeg[]; onApp
 
   const probabilityGap = useMemo(() => independentProb - breakEven, [independentProb, breakEven]);
 
+  if (legs.length === 0) return null;
+
   const applyProSize = (size: number) => {
     const ranked = [...legs]
       .map((leg) => ({ leg, score: proBuildScore(leg) }))
