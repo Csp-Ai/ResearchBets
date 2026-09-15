@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 import { GamesToday, mapPropToLeg, type TodayGame } from '@/features/dashboard/GamesToday';
-import { SlipBuilder, type SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
 import {
   SCOUT_ANALYZE_PREFILL_STORAGE_KEY,
   serializeDraftSlip
@@ -16,15 +16,12 @@ import { createTrackingFromDraft, saveSlip } from '@/src/core/slips/storage';
 import type { TodayPayload } from '@/src/core/today/types';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { appendQuery } from '@/src/components/landing/navigation';
-import { TruthSpineHeader } from '@/src/components/ui/TruthSpineHeader';
 import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 import { Badge } from '@/src/components/ui/Badge';
-import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 import { BuildThresholdAdvisorPanel } from '@/src/components/slips/BuildThresholdAdvisorPanel';
 import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
-import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
 import { SlipOptimizerPanel } from '@/src/components/slips/SlipOptimizerPanel';
 import {
   PreSubmitPatternWarningCard,
@@ -85,12 +82,10 @@ export default function SlipPageClient() {
 
   useEffect(() => {
     if (!isHydrated || typeof window === 'undefined') return undefined;
-
     const refreshPatternSummary = () => {
       setPatternSummary(getBettorMistakePatternSummary());
       setLearningAdvisory(getDraftLearningAdvisory(dedupedLegs));
     };
-
     refreshPatternSummary();
     window.addEventListener('storage', refreshPatternSummary);
     window.addEventListener('focus', refreshPatternSummary);
@@ -195,67 +190,69 @@ export default function SlipPageClient() {
     setSlip(next);
   };
 
+  const sourceLabel = boardMode === 'live' ? 'Live markets' : boardMode === 'cache' ? 'Cached markets' : 'Demo data';
+  const hasTicket = isHydrated && dedupedLegs.length > 0;
+
   return (
-    <section className="mx-auto max-w-7xl space-y-3">
-      <TruthSpineHeader
-        title="Draft Slip"
-        subtitle={
-          slip_id
-            ? 'Run in progress: your staged ticket keeps the same thread into Analyze and Track.'
-            : 'During loop: stage the ticket, enforce concentration checks, then analyze.'
-        }
-        actions={[
-          { label: 'Build from Board', href: nervous.toHref('/today'), tone: 'primary' },
-          { label: 'Try sample slip', href: appendQuery(nervous.toHref('/slip'), { sample: '1' }) },
-          { label: 'Analyze (Stress Test)', href: nervous.toHref('/stress-test') }
-        ]}
-      />
-      <SlipIntelBar legs={dedupedLegs} />
-      {preSubmitPatternWarning ? (
-        <PreSubmitPatternWarningCard warning={preSubmitPatternWarning} />
+    <section className="mx-auto max-w-6xl pb-16">
+      <header className="border-b border-white/10 pb-6 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+            Build
+          </p>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span>{nervous.sport}</span>
+            <span className="text-slate-700">/</span>
+            <span>{sourceLabel}</span>
+          </div>
+        </div>
+        <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.035em] text-slate-50 sm:text-4xl">
+          Build one ticket. Stress-test what can break it.
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+          Add the legs you actually want to bet. ResearchBets keeps the ticket in one place, shows the structural weak point, and gives you one clear next move.
+        </p>
+      </header>
+
+      {boardMode !== 'live' ? (
+        <div className="flex flex-wrap items-start gap-3 border-b border-amber-300/15 py-3 text-xs">
+          <Badge variant="warning" size="sm">{boardMode === 'demo' ? 'Demo data' : 'Cached data'}</Badge>
+          <div className="max-w-3xl text-slate-400">
+            <p className="m-0">
+              {boardMode === 'demo'
+                ? 'Live markets are unavailable. Board rows are examples, not live betting data.'
+                : 'Live refresh is unavailable. Showing the most recent cached slate.'}
+            </p>
+            {boardReason ? <p className="m-0 mt-1 text-[11px] text-slate-600">{boardReason.replace(/_/g, ' ')}</p> : null}
+          </div>
+        </div>
       ) : null}
-      {preSubmitPatternWarning ? (
-        <PreSubmitSuggestedFixesCard warning={preSubmitPatternWarning} />
-      ) : null}
-      <DuringStageTracker trace_id={trace_id ?? nervous.trace_id} mode={boardMode} compact />
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-4">
-          {games.length > 0 && boardMode !== 'live' ? (
-            <CardSurface className="border-amber-300/20 bg-amber-300/[0.04] p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="warning" size="sm">{boardMode === 'demo' ? 'Demo data' : 'Cached data'}</Badge>
-                <p className="text-xs text-amber-100/80">
-                  {boardMode === 'demo'
-                    ? 'Live markets are unavailable. These rows are deterministic examples, not live betting data.'
-                    : 'Live refresh is unavailable. Showing the most recent cached slate.'}
-                </p>
-              </div>
-              {boardReason ? <p className="mt-1 text-[10px] text-slate-500">Source status: {boardReason.replace(/_/g, ' ')}</p> : null}
-            </CardSurface>
-          ) : null}
+
+      <div className="grid gap-8 py-7 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div>
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="m-0 text-[10px] uppercase tracking-[0.16em] text-slate-500">Find a leg</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-100">Today&apos;s board</h2>
+            </div>
+            <Link href={nervous.toHref('/today')} className="text-xs text-cyan-200 hover:text-cyan-100">
+              Open full board →
+            </Link>
+          </div>
+
           {games.length === 0 ? (
             <AliveEmptyState
-              title="Today's prop board is empty"
-              message="No board rows are loaded yet. Go to Board to add props, or seed a deterministic sample in demo mode."
-              note={
-                boardMode === 'demo'
-                  ? 'Demo mode (live feeds off).'
-                  : 'Waiting for live events. No synthetic live progress is shown.'
-              }
+              title="No board rows available"
+              message="You can return to the Board, or load a deterministic sample when demo data is active."
+              note={boardMode === 'demo' ? 'Demo mode · live feeds unavailable.' : 'Waiting for market data.'}
               actions={
                 <>
-                  <Link
-                    href={nervous.toHref('/today')}
-                    className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950"
-                  >
-                    Go to Board to add props
+                  <Link href={nervous.toHref('/today')} className="ui-button ui-button-primary min-h-0 px-3 py-1.5">
+                    Open Board
                   </Link>
                   {boardMode === 'demo' ? (
-                    <Link
-                      href={appendQuery(nervous.toHref('/slip'), { sample: '1' })}
-                      className="rounded border border-white/20 px-3 py-1.5"
-                    >
-                      Seed sample props
+                    <Link href={appendQuery(nervous.toHref('/slip'), { sample: '1' })} className="ui-button ui-button-ghost min-h-0 px-3 py-1.5">
+                      Load sample
                     </Link>
                   ) : null}
                 </>
@@ -265,137 +262,114 @@ export default function SlipPageClient() {
             <GamesToday games={games} onAddLeg={addLeg} />
           )}
         </div>
-        <div className="xl:sticky xl:top-4 xl:h-fit space-y-3">
-          <CardSurface className="space-y-4 p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-100">Bet Ticket</h2>
-              <span className="mono-number text-xs text-slate-400">{dedupedLegs.length} legs</span>
+
+        <aside className="lg:sticky lg:top-4 lg:h-fit">
+          <div className="border-t border-white/10 lg:border-t-0">
+            <div className="flex items-center justify-between border-b border-white/10 py-3">
+              <div>
+                <p className="m-0 text-[10px] uppercase tracking-[0.16em] text-slate-500">Your ticket</p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-100">
+                  {dedupedLegs.length === 0 ? 'No legs yet' : `${dedupedLegs.length}-leg parlay`}
+                </h2>
+              </div>
+              {hasTicket ? (
+                <Button intent="ghost" className="min-h-0 px-2 py-1 text-xs text-slate-400" onClick={clearSlip}>
+                  Clear
+                </Button>
+              ) : null}
             </div>
+
             {!isHydrated ? (
-              <div className="space-y-2" aria-label="Ticket loading">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-10 w-full" />
+              <div className="space-y-2 py-4" aria-label="Ticket loading">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
               </div>
             ) : null}
+
             {isHydrated && dedupedLegs.length === 0 ? (
-              <AliveEmptyState
-                title="Start with one board action"
-                message="Add 2–3 leads from Board or load a sample; then we stage your ticket for Analyze and Track."
-                actions={
-                  <>
-                    <Link
-                      href={nervous.toHref('/today')}
-                      className="rounded border border-cyan-300/60 bg-cyan-400 px-3 py-1.5 text-slate-950"
-                    >
-                      Build from Board
-                    </Link>
-                    <Link
-                      href={appendQuery(nervous.toHref('/slip'), { sample: '1' })}
-                      className="rounded border border-white/20 px-3 py-1.5 text-slate-100"
-                    >
-                      Try sample
-                    </Link>
-                  </>
-                }
-              />
+              <div className="py-6 text-sm text-slate-400">
+                <p className="m-0 text-slate-200">Add a leg from the board.</p>
+                <p className="m-0 mt-2 leading-6">Your ticket, ResearchBets read, and next action will stay together here.</p>
+              </div>
             ) : null}
-            <ul className="space-y-2">
+
+            <ol className="divide-y divide-white/8">
               {isHydrated
                 ? dedupedLegs.map((leg, index) => (
-                    <li key={leg.id} className="row-shell">
-                      <div className="flex items-start justify-between gap-2">
+                    <li key={leg.id} className="py-4">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-100">
-                            {index + 1}. {leg.player}
+                          <p className="m-0 text-sm font-semibold text-slate-100">{leg.player}</p>
+                          <p className="m-0 mt-1 text-xs text-slate-400">
+                            {leg.marketType.replace(/_/g, ' ')} · {leg.line}
+                            {leg.odds ? <span className="font-mono text-slate-300"> · {leg.odds}</span> : null}
                           </p>
-                          <p className="text-xs text-slate-300">
-                            {leg.marketType.toUpperCase()} {leg.line}{' '}
-                            <span className="mono-number">{leg.odds ?? '—'}</span>
-                          </p>
+                          {leg.game ? <p className="m-0 mt-1 truncate text-[11px] text-slate-600">{leg.game}</p> : null}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            intent="ghost"
-                            className="min-h-0 px-2 py-1 text-[11px]"
-                            onClick={() => moveLeg(index, index - 1)}
-                            disabled={index === 0}
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            intent="ghost"
-                            className="min-h-0 px-2 py-1 text-[11px]"
-                            onClick={() => moveLeg(index, index + 1)}
-                            disabled={index === dedupedLegs.length - 1}
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            intent="ghost"
-                            className="min-h-0 px-2 py-1 text-[11px] text-rose-100"
-                            onClick={() => removeLeg(leg.id)}
-                          >
-                            Remove
-                          </Button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button type="button" aria-label={`Move ${leg.player} up`} className="px-1.5 py-1 text-xs text-slate-500 hover:text-white disabled:opacity-20" onClick={() => moveLeg(index, index - 1)} disabled={index === 0}>↑</button>
+                          <button type="button" aria-label={`Move ${leg.player} down`} className="px-1.5 py-1 text-xs text-slate-500 hover:text-white disabled:opacity-20" onClick={() => moveLeg(index, index + 1)} disabled={index === dedupedLegs.length - 1}>↓</button>
+                          <button type="button" className="ml-1 px-1 py-1 text-xs text-slate-500 hover:text-rose-200" onClick={() => removeLeg(leg.id)}>Remove</button>
                         </div>
-                      </div>
-                      <div className="mt-1">
-                        <Badge variant={leg.volatility === 'low' ? 'success' : 'warning'} size="sm">
-                          {leg.volatility ?? 'watch'}
-                        </Badge>
                       </div>
                     </li>
                   ))
                 : null}
-            </ul>
-            <Button
-              intent="ghost"
-              className="w-full text-sm text-slate-200 disabled:opacity-40"
-              onClick={onCopyLegs}
-              disabled={dedupedLegs.length === 0 || !isHydrated}
-            >
-              Copy legs{' '}
-              {copyState === 'done'
-                ? '✓'
-                : copyState === 'error'
-                  ? '(copy unavailable in this browser)'
-                  : ''}
-            </Button>
-          </CardSurface>
-          <BuildThresholdAdvisorPanel legs={dedupedLegs} onApply={setSlip} />
-          <SlipBuilder
-            legs={dedupedLegs}
-            onLegsChange={(nextLegs) => {
-              if (nextLegs.length === 0) {
-                clearSlip();
-                return;
-              }
-              setSlip(nextLegs);
-            }}
-          />
-          <ProBuildPanel legs={dedupedLegs} onApply={setSlip} />
-          <SlipOptimizerPanel legs={dedupedLegs} />
-          <div className="grid grid-cols-1 gap-3">
-            <Button
-              intent="secondary"
-              className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40"
-              onClick={onTrackSlip}
-              disabled={dedupedLegs.length === 0}
-            >
-              Track ({dedupedLegs.length})
-            </Button>
-            <Button
-              intent="primary"
-              className="w-full text-base disabled:cursor-not-allowed disabled:opacity-40"
-              onClick={onAnalyzeSlip}
-              disabled={dedupedLegs.length === 0}
-            >
-              Analyze ({dedupedLegs.length})
-            </Button>
+            </ol>
+
+            {hasTicket ? (
+              <div className="border-t border-white/10 pt-4">
+                <Button intent="primary" className="w-full text-sm" onClick={onAnalyzeSlip}>
+                  Analyze ticket
+                </Button>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button intent="secondary" className="w-full text-xs" onClick={onTrackSlip}>Track live</Button>
+                  <Button intent="ghost" className="w-full text-xs" onClick={onCopyLegs}>
+                    {copyState === 'done' ? 'Copied ✓' : copyState === 'error' ? 'Copy unavailable' : 'Copy legs'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
-        </div>
+        </aside>
       </div>
+
+      <SlipIntelBar legs={dedupedLegs} />
+
+      {hasTicket ? (
+        <div className="mt-6 space-y-3">
+          <details className="border-b border-white/10 pb-3">
+            <summary className="cursor-pointer list-none py-2 text-sm font-medium text-slate-200 hover:text-white">
+              Improve thresholds <span className="ml-2 text-xs font-normal text-slate-500">optional</span>
+            </summary>
+            <div className="pt-3">
+              <BuildThresholdAdvisorPanel legs={dedupedLegs} onApply={setSlip} />
+            </div>
+          </details>
+
+          <details className="border-b border-white/10 pb-3">
+            <summary className="cursor-pointer list-none py-2 text-sm font-medium text-slate-200 hover:text-white">
+              Advanced construction <span className="ml-2 text-xs font-normal text-slate-500">optional</span>
+            </summary>
+            <div className="grid gap-3 pt-3 lg:grid-cols-2">
+              <ProBuildPanel legs={dedupedLegs} onApply={setSlip} />
+              <SlipOptimizerPanel legs={dedupedLegs} />
+            </div>
+          </details>
+
+          {preSubmitPatternWarning ? (
+            <details className="border-b border-white/10 pb-3">
+              <summary className="cursor-pointer list-none py-2 text-sm font-medium text-slate-200 hover:text-white">
+                Bettor memory <span className="ml-2 text-xs font-normal text-slate-500">past-pattern check</span>
+              </summary>
+              <div className="grid gap-3 pt-3 lg:grid-cols-2">
+                <PreSubmitPatternWarningCard warning={preSubmitPatternWarning} />
+                <PreSubmitSuggestedFixesCard warning={preSubmitPatternWarning} />
+              </div>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
