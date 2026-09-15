@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 
 import { buildPropLegInsight } from '../../src/core/slips/propInsights';
 import type { MarketType } from '../../src/core/markets/marketType';
+import type { TodayLeague } from '../../src/core/today/types';
 import type { SlipBuilderLeg } from '../betslip/SlipBuilder';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Badge } from '@/src/components/ui/Badge';
@@ -11,17 +12,14 @@ import { Button } from '@/src/components/ui/button';
 
 export type TodayGame = {
   id: string;
-  league: 'NBA' | 'NFL';
+  league: TodayLeague;
   matchup: string;
-  teams: Array<{
-    team: string;
-    players: Array<{
-      id: string;
-      name: string;
-      injuryStatus: string;
-      matchupNotes: string;
-      props: Array<{ market: MarketType; line: string; odds?: string }>;
-    }>;
+  players: Array<{
+    id: string;
+    name: string;
+    injuryStatus: string;
+    matchupNotes: string;
+    props: Array<{ market: MarketType; line: string; odds?: string }>;
   }>;
 };
 
@@ -54,41 +52,34 @@ export function GamesToday({ games, onAddLeg }: { games: TodayGame[]; onAddLeg: 
               <Badge size="sm" variant="info">{game.league}</Badge>
             </div>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
-              {game.teams.map((team) => (
-                <div key={team.team}>
-                  <p className="text-xs text-slate-400">{team.team}</p>
-                  <ul className="mt-1 space-y-1.5">
-                    {team.players.slice(0, 3).map((player) => (
-                      <li key={player.id} className="rounded-md border border-slate-700/80 bg-slate-900/50 p-2">
-                        <p className="text-xs font-medium">{player.name}</p>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {player.props.map((prop) => {
-                            const chipId = `${player.id}-${prop.market}-${prop.line}`;
-                            const insight = buildPropLegInsight({ selection: player.name, market: prop.market, odds: prop.odds });
-                            const active = selectedChips.has(chipId);
-                            return (
-                              <Button
-                                key={chipId}
-                                intent={active ? 'primary' : 'ghost'}
-                                className="min-h-0 px-2 py-1 text-[11px]"
-                                title={`Add to slip · ${player.matchupNotes} · ${player.injuryStatus} · ${insight.riskTag} volatility`}
-                                onClick={() => {
-                                  setSelectedChips((prev) => {
-                                    const next = new Set(prev);
-                                    next.add(chipId);
-                                    return next;
-                                  });
-                                  onAddLeg(mapPropToLeg(player.name, prop, game.matchup));
-                                }}
-                              >
-                                {prop.market} {prop.line}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+              {game.players.slice(0, 6).map((player) => (
+                <div key={player.id} className="rounded-md border border-slate-700/80 bg-slate-900/50 p-2">
+                  <p className="text-xs font-medium">{player.name}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {player.props.map((prop) => {
+                      const chipId = `${player.id}-${prop.market}-${prop.line}`;
+                      const insight = buildPropLegInsight({ selection: player.name, market: prop.market, odds: prop.odds });
+                      const active = selectedChips.has(chipId);
+                      return (
+                        <Button
+                          key={chipId}
+                          intent={active ? 'primary' : 'ghost'}
+                          className="min-h-0 px-2 py-1 text-[11px]"
+                          title={`Add to slip · ${player.matchupNotes} · ${player.injuryStatus} · ${insight.riskTag} volatility`}
+                          onClick={() => {
+                            setSelectedChips((prev) => {
+                              const next = new Set(prev);
+                              next.add(chipId);
+                              return next;
+                            });
+                            onAddLeg(mapPropToLeg(player.name, prop, game.matchup));
+                          }}
+                        >
+                          {prop.market} {prop.line}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
