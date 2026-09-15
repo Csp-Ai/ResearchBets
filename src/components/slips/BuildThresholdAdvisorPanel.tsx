@@ -8,6 +8,7 @@ import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext'
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/button';
 import { CardSurface } from '@/src/components/ui/CardSurface';
+import { fetchTodayIdeasShared } from '@/src/core/ideas/todayIdeasClient';
 import {
   emitInterventionEvent,
   getInterventionId,
@@ -162,13 +163,15 @@ export function BuildThresholdAdvisorPanel({
     }
 
     const controller = new AbortController();
-    const params = new URLSearchParams({ sport: 'NFL', date: nervous.date, tz: nervous.tz });
     setMarketState('loading');
 
-    fetch(`/api/ideas/today?${params.toString()}`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('ideas_unavailable');
-        const payload = (await response.json()) as IdeasResponse;
+    fetchTodayIdeasShared<IdeasResponse>({
+      sport: 'NFL',
+      date: nervous.date,
+      tz: nervous.tz,
+      signal: controller.signal,
+    })
+      .then((payload) => {
         const rows = payload.ok ? payload.data?.ideas ?? [] : [];
         setIdeas(rows);
         setMarketState(payload.data?.mode === 'live-market' ? 'live' : 'unavailable');
