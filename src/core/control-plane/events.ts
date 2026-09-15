@@ -58,7 +58,9 @@ export const ControlPlaneEventNameSchema = z.enum([
   'prop_edge_snapshot_created',
   'live_poll_tick',
   'live_poll_degraded',
-  'learning_update'
+  'learning_update',
+  'intervention_presented',
+  'intervention_applied'
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {
@@ -66,7 +68,9 @@ const requiredPropertiesByEvent: Record<string, string[]> = {
   agent_invocation_completed: ['status', 'output_type', 'duration_ms'],
   agent_scored_decision: ['decision_id', 'market', 'score', 'rationale', 'features'],
   agent_error: ['status', 'error_code', 'error_type', 'error_message', 'retryable'],
-  user_outcome_recorded: ['outcome_id', 'bet_id', 'settlement_status', 'pnl_amount', 'settled_at']
+  user_outcome_recorded: ['outcome_id', 'bet_id', 'settlement_status', 'pnl_amount', 'settled_at'],
+  intervention_presented: ['intervention_id', 'intervention_type', 'leg_id', 'current_line', 'target_line'],
+  intervention_applied: ['intervention_id', 'intervention_type', 'leg_id', 'current_line', 'target_line']
 };
 
 export const ControlPlaneEventSchema = z
