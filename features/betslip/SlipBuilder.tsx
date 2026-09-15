@@ -43,6 +43,13 @@ export type SlipBuilderLeg = {
     marketImpliedProb: number;
     sourceCount?: number;
   };
+  adjacentUpperAlt?: {
+    line: number;
+    bestPrice: string;
+    consensusPrice: string;
+    marketImpliedProb: number;
+    sourceCount?: number;
+  };
 };
 
 export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {
