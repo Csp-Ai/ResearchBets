@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildThresholdCounterfactuals,
   evaluateThresholdInterventionCounterfactual,
   THRESHOLD_COUNTERFACTUAL_VERSION,
 } from '@/src/core/interventions/counterfactual';
@@ -114,6 +115,26 @@ describe('threshold intervention counterfactuals', () => {
 
     expect(result.eligible).toBe(false);
     expect(result.ineligibilityReason).toBe('target_line_mismatch');
+  });
+
+  it('retains the latest applied decision as an explicit ineligible link when the final ticket differs', () => {
+    const earlier = { ...intervention, appliedAt: '2026-09-14T19:00:00.000Z' };
+    const latest = {
+      ...intervention,
+      interventionId: 'trace-1:safety:leg-1:80:55',
+      appliedAt: '2026-09-14T20:30:00.000Z',
+      targetLine: 55,
+    };
+
+    const [result] = buildThresholdCounterfactuals({
+      ticket: verifiedTicket,
+      interventions: [earlier, latest],
+      finalValues: { 'leg-1': 67 },
+    });
+
+    expect(result?.interventionId).toBe(latest.interventionId);
+    expect(result?.eligible).toBe(false);
+    expect(result?.ineligibilityReason).toBe('target_line_mismatch');
   });
 
   it('captures when an applied escalation costs leg survival', () => {
