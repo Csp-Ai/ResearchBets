@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { fetchNflRecentFormForIdeas } from '@/src/core/ideas/nflRecentForm.server';
@@ -79,6 +80,12 @@ async function resolveIdeasData(input: { date: string; timeZone: string }): Prom
   };
 }
 
+const resolveIdeasDataPersistent = unstable_cache(
+  async (date: string, timeZone: string) => resolveIdeasData({ date, timeZone }),
+  ['researchbets-today-ideas-v2'],
+  { revalidate: 45 },
+);
+
 async function getCachedIdeas(input: { date: string; timeZone: string }): Promise<unknown> {
   const key = `NFL:${input.date}:${input.timeZone}`;
   const cached = ideasCache.get(key);
@@ -87,7 +94,7 @@ async function getCachedIdeas(input: { date: string; timeZone: string }): Promis
   const existing = inFlightIdeas.get(key);
   if (existing) return existing;
 
-  const request = resolveIdeasData(input)
+  const request = resolveIdeasDataPersistent(input.date, input.timeZone)
     .then((data) => {
       ideasCache.set(key, { expiresAt: Date.now() + IDEAS_CACHE_TTL_MS, data });
       return data;
