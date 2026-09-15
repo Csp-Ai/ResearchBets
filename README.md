@@ -21,7 +21,11 @@ Truth spine query params are preserved across navigation:
 - `tab` (where relevant)
 
 See route and continuity details in [docs/ROUTES.md](docs/ROUTES.md).
-The authoritative convergence decision record is [docs/CANONICAL_PRODUCT.md](docs/CANONICAL_PRODUCT.md); retained historical implementations are governed by [docs/LEGACY_CONTEXT.md](docs/LEGACY_CONTEXT.md).
+The authoritative convergence decision record is [docs/CANONICAL_PRODUCT.md](docs/CANONICAL_PRODUCT.md); company strategy is [docs/STRATEGY.md](docs/STRATEGY.md); the active 0→1 execution queue is [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md); retained historical implementations are governed by [docs/LEGACY_CONTEXT.md](docs/LEGACY_CONTEXT.md).
+
+## Current phase
+
+ResearchBets is currently moving from **Product Truth → Habit**. The immediate goal is a fast, truthful, coherent lifecycle that makes the value obvious in one session and creates the behavior: **before you place the parlay, X-Ray it.** Broad feature expansion is secondary until that loop is proven.
 
 ## Quickstart (demo-safe local)
 
@@ -76,6 +80,9 @@ npm run docs:check
 
 Core docs:
 
+- [docs/CANONICAL_PRODUCT.md](docs/CANONICAL_PRODUCT.md)
+- [docs/STRATEGY.md](docs/STRATEGY.md)
+- [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md)
 - [docs/SETUP.md](docs/SETUP.md)
 - [docs/ROUTES.md](docs/ROUTES.md)
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
@@ -95,6 +102,8 @@ Audit and operations docs:
 - Add deep technical content to `docs/*` and link from here.
 - Preserve truth spine continuity in page and API links.
 - Keep demo mode deterministic and secret-safe.
+- Prefer subtraction over adding another panel when the same user question can be answered more clearly.
+- Recommendation strength must not outrun available evidence.
 
 ## Bettor memory foundation
 
