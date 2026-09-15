@@ -15,6 +15,10 @@ const RESPONSE_CACHE_CONTROL = 'public, max-age=0, s-maxage=45, stale-while-reva
 const ideasCache = new Map<string, { expiresAt: number; data: unknown }>();
 const inFlightIdeas = new Map<string, Promise<unknown>>();
 
+type CacheState = 'memory-hit' | 'shared-inflight' | 'persistent-or-origin';
+
+const elapsed = (startedAt: number) => Math.max(0, Date.now() - startedAt);
+
 const normalizeMarketAvailability = <T extends {
   mode: 'live-market' | 'unavailable';
   events: unknown[];
@@ -86,13 +90,17 @@ const resolveIdeasDataPersistent = unstable_cache(
   { revalidate: 45 },
 );
 
-async function getCachedIdeas(input: { date: string; timeZone: string }): Promise<unknown> {
+async function getCachedIdeas(input: { date: string; timeZone: string }): Promise<{ data: unknown; cacheState: CacheState }> {
   const key = `NFL:${input.date}:${input.timeZone}`;
   const cached = ideasCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  if (cached && cached.expiresAt > Date.now()) {
+    return { data: cached.data, cacheState: 'memory-hit' };
+  }
 
   const existing = inFlightIdeas.get(key);
-  if (existing) return existing;
+  if (existing) {
+    return { data: await existing, cacheState: 'shared-inflight' };
+  }
 
   const request = resolveIdeasDataPersistent(input.date, input.timeZone)
     .then((data) => {
@@ -104,10 +112,11 @@ async function getCachedIdeas(input: { date: string; timeZone: string }): Promis
     });
 
   inFlightIdeas.set(key, request);
-  return request;
+  return { data: await request, cacheState: 'persistent-or-origin' };
 }
 
 export async function GET(request: Request) {
+  const requestStartedAt = Date.now();
   const { searchParams } = new URL(request.url);
   const timeZone = searchParams.get('tz') || 'America/Phoenix';
   const rawDate = searchParams.get('date') || undefined;
@@ -126,12 +135,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await getCachedIdeas({ date, timeZone });
+    const { data, cacheState } = await getCachedIdeas({ date, timeZone });
+    const totalMs = elapsed(requestStartedAt);
     return NextResponse.json(
       { ok: true, data },
-      { headers: { 'Cache-Control': RESPONSE_CACHE_CONTROL } },
+      {
+        headers: {
+          'Cache-Control': RESPONSE_CACHE_CONTROL,
+          'Server-Timing': `ideas;dur=${totalMs}`,
+          'X-ResearchBets-Cache': cacheState,
+        },
+      },
     );
   } catch {
+    const totalMs = elapsed(requestStartedAt);
     return NextResponse.json(
       {
         ok: false,
@@ -140,7 +157,11 @@ export async function GET(request: Request) {
       },
       {
         status: 503,
-        headers: { 'Cache-Control': 'public, max-age=0, s-maxage=5, stale-if-error=30' },
+        headers: {
+          'Cache-Control': 'public, max-age=0, s-maxage=5, stale-if-error=30',
+          'Server-Timing': `ideas;dur=${totalMs}`,
+          'X-ResearchBets-Cache': 'error',
+        },
       },
     );
   }
