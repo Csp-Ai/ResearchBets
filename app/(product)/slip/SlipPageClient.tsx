@@ -21,6 +21,7 @@ import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 import { Badge } from '@/src/components/ui/Badge';
 import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
+import { BuildThresholdAdvisorPanel } from '@/src/components/slips/BuildThresholdAdvisorPanel';
 import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { DuringStageTracker } from '@/src/components/track/DuringStageTracker';
@@ -407,6 +408,7 @@ export default function SlipPageClient() {
                   : ''}
             </Button>
           </CardSurface>
+          <BuildThresholdAdvisorPanel legs={dedupedLegs} onApply={setSlip} />
           <SlipBuilder
             legs={dedupedLegs}
             onLegsChange={(nextLegs) => {
@@ -436,11 +438,6 @@ export default function SlipPageClient() {
             >
               Analyze ({dedupedLegs.length})
             </Button>
-            {dedupedLegs.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                Actions unlock once at least one leg is added.
-              </p>
-            ) : null}
           </div>
         </div>
       </div>
