@@ -2,9 +2,13 @@
 
 This document is the product and architecture decision record for convergence. When an older audit, route map, UI variant, or implementation note conflicts with this file and `config/convergence.json`, this document wins.
 
+Company strategy lives in `docs/STRATEGY.md`. Active sequencing and acceptance gates live in `docs/EXECUTION_PLAN.md`. Those files may explain **why** and **what next**, but this document remains the authority for the canonical product shape and architectural ownership.
+
 ## North Star
 
 **ResearchBets is a Structural Risk Terminal for parlays — not a picks service.**
+
+At the company level, ResearchBets is building the decision layer between a bettor and a sportsbook. A sportsbook answers what can be bet; ResearchBets should explain what a ticket depends on, where it is fragile, what would improve it, how that thesis changes live, and what should be learned after settlement.
 
 It helps a bettor discover candidates, construct a ticket, identify structural failure risk, follow the same ticket live, and learn from settlement. It does not promise winners or manufacture certainty.
 
@@ -18,6 +22,37 @@ It helps a bettor discover candidates, construct a ticket, identify structural f
 | After            | Ticket Autopsy + Memory | `/review`       | Why did it break or hold, and what should change next time?       |
 
 `/ingest`, `/slip`, and `/today` remain supported as alternate or expanded entry surfaces while their unique capabilities are folded into the canonical lifecycle. Compatibility and internal routes are listed in `config/convergence.json`.
+
+The desired bettor habit is simple: **before you place the parlay, X-Ray it.** The lifecycle exists to make that habit more useful over time by preserving the same ticket thesis through live tracking and settlement.
+
+## Canonical experience rule
+
+Every canonical working screen should present information in this order:
+
+1. the ticket or object being acted on,
+2. the ResearchBets answer,
+3. one dominant next action,
+4. deeper detail on demand.
+
+The product should answer, as directly as possible:
+
+- What is happening?
+- What matters most?
+- Why?
+- What should I do next?
+
+The intelligence should feel deeper than the interface. Internal pipeline state, duplicate editors, decorative analysis machinery, or multiple competing CTAs should not dominate the first screen.
+
+## Core product engines
+
+The canonical product converges around four engines:
+
+1. **Market Truth Layer** — events, participants, markets, alternate thresholds, prices, freshness, and live/cache/demo/unavailable provenance.
+2. **Structural Risk Engine** — weakest-leg pressure, threshold aggressiveness, dependencies, correlation, concentrated exposure, fragility, volatility, and failure modes.
+3. **Decision Engine** — turns evidence into hold / step down / selectively escalate / remove / replace / gather-more-evidence actions.
+4. **Bettor Memory** — uses eligible reviewed outcomes to surface repeated bettor-specific patterns and next-time guardrails.
+
+These engines may have separate implementations, but the user should experience them as one continuous decision system.
 
 ## One source of truth means one owner per concern
 
@@ -38,13 +73,24 @@ This does **not** require one physical database or one enormous type. Browser dr
 
 ## Non-negotiable invariants
 
-1. Live, cache, demo, parsed, inferred, and verified states remain distinguishable.
+1. Live, cache, demo, parsed, inferred, verified, stale, and unknown states remain distinguishable where relevant.
 2. No synthetic progress appears as live progress.
 3. Demo artifacts do not train bettor memory or performance claims.
 4. Missing evidence lowers confidence or produces an explicit unknown.
 5. The same ticket identity survives Discover → X-Ray → Pulse → Autopsy.
 6. The first screen leads with one decision, one main risk, and one next action.
-7. Legacy implementations may be studied but may not silently become production authorities again.
+7. Recommendation strength cannot outrun its evidence. Threshold escalation and similarly strong actions fail closed when required evidence is unavailable.
+8. Personalization must be grounded in eligible reviewed outcomes, not generic profile inference.
+9. Legacy implementations may be studied but may not silently become production authorities again.
+10. Product complexity should move behind progressive disclosure rather than accumulating above the fold.
+
+## Current phase
+
+ResearchBets is currently between **Product Truth** and **Habit**.
+
+That means the current priority is not broad feature expansion. It is to make the canonical loop fast, truthful, coherent, mobile-usable, and valuable enough that bettors voluntarily return to X-Ray another ticket.
+
+The active sequencing and measurable completion gates are maintained in `docs/EXECUTION_PLAN.md`.
 
 ## Convergence order
 
@@ -54,7 +100,8 @@ This does **not** require one physical database or one enormous type. Browser dr
 4. **Unify persistence:** keep local stores as offline caches while `RuntimeStore` becomes durable authority.
 5. **Converge routes:** move unique `/today`, `/slip`, and `/track` capabilities into the canonical lifecycle, then convert them to compatibility redirects.
 6. **Archive UI generations:** retain legacy source and tests as reference fixtures, but exclude them from canonical imports and product navigation.
+7. **Close the learning loop:** capture recommendation decisions, settlement, counterfactual eligibility, and reviewed memory so the system can improve future advice without inventing performance claims.
 
 ## Definition of converged
 
-ResearchBets is converged when a ticket can be created once and resolved by the same identity across all four canonical stages; each stage reads a compatible canonical model; live/cache/demo provenance remains intact; and legacy implementations can be removed from the build without changing the consumer journey.
+ResearchBets is converged when a ticket can be created once and resolved by the same identity across all four canonical stages; each stage reads a compatible canonical model; live/cache/demo/stale/unknown provenance remains intact; one primary ResearchBets answer/action is obvious at each stage; and legacy implementations can be removed from the build without changing the consumer journey.

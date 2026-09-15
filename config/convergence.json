@@ -1,11 +1,29 @@
 {
-  "version": 1,
+  "version": 2,
   "northStar": "Structural Risk Terminal for parlays — not picks.",
+  "companyPosition": "Decision layer between a bettor and a sportsbook.",
+  "currentPhase": "product_truth_to_habit",
+  "habitStatement": "Before you place the parlay, X-Ray it.",
   "canonicalJourney": [
     { "stage": "discover_build", "label": "Discover + Build", "route": "/" },
     { "stage": "xray", "label": "Ticket X-Ray", "route": "/stress-test" },
     { "stage": "pulse", "label": "Ticket Pulse", "route": "/pulse" },
     { "stage": "autopsy_memory", "label": "Ticket Autopsy + Memory", "route": "/review" }
+  ],
+  "experiencePrinciples": [
+    "ticket_or_object_first",
+    "researchbets_answer_second",
+    "one_dominant_next_action",
+    "deeper_detail_on_demand",
+    "truth_before_confidence",
+    "recommendation_strength_cannot_outrun_evidence",
+    "prefer_subtraction_over_panel_growth"
+  ],
+  "coreEngines": [
+    "market_truth",
+    "structural_risk",
+    "decision_engine",
+    "bettor_memory"
   ],
   "alternateEntries": [
     { "route": "/ingest", "purpose": "Screenshot and pasted-slip ingestion" },
@@ -38,7 +56,9 @@
     "runtimePersistenceProvider": "src/core/persistence/runtimeStoreProvider.ts",
     "trackedTicket": "src/core/track/store.ts",
     "todayData": "src/core/today/service.server.ts",
-    "truthPresentation": "src/core/ui/truthPresentation.ts"
+    "truthPresentation": "src/core/ui/truthPresentation.ts",
+    "companyStrategy": "docs/STRATEGY.md",
+    "executionPlan": "docs/EXECUTION_PLAN.md"
   },
   "legacyModules": [
     "app/HomeLandingClient.tsx",
