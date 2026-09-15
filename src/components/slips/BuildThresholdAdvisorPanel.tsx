@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/button';
@@ -147,6 +148,7 @@ export function BuildThresholdAdvisorPanel({
   slipId?: string;
 }) {
   const nervous = useNervousSystem();
+  const { trace_id: draftTraceId, slip_id: draftSlipId } = useDraftSlip();
   const [ideas, setIdeas] = useState<BuildThresholdIdea[]>([]);
   const [marketState, setMarketState] = useState<'loading' | 'live' | 'unavailable'>('loading');
   const presentedInterventions = useRef(new Set<string>());
@@ -191,18 +193,20 @@ export function BuildThresholdAdvisorPanel({
 
   const safety = marketState === 'live' ? advice.safety : null;
   const escalation = marketState === 'live' ? advice.escalation : null;
+  const resolvedTraceId = traceId ?? draftTraceId ?? nervous.trace_id;
+  const resolvedSlipId = slipId ?? draftSlipId ?? nervous.slip_id;
 
   const telemetryContext = useMemo<InterventionTelemetryContext | null>(() => {
-    if (!traceId) return null;
+    if (!resolvedTraceId) return null;
     return {
-      traceId,
-      slipId,
+      traceId: resolvedTraceId,
+      slipId: resolvedSlipId,
       sport: nervous.sport,
       tz: nervous.tz,
       date: nervous.date,
       mode: nervous.mode,
     };
-  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz, slipId, traceId]);
+  }, [nervous.date, nervous.mode, nervous.sport, nervous.tz, resolvedSlipId, resolvedTraceId]);
 
   useEffect(() => {
     if (!telemetryContext || marketState !== 'live') return;
