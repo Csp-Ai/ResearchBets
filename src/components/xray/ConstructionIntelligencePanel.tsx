@@ -57,6 +57,13 @@ type LiveIdea = {
     marketImpliedProb: number;
     sourceCount: number;
   };
+  stepUp?: {
+    line: number;
+    bestPrice: number;
+    consensusPrice: number;
+    marketImpliedProb: number;
+    sourceCount: number;
+  };
 };
 
 type IdeasResponse = {
@@ -106,6 +113,15 @@ export function ConstructionIntelligencePanel() {
               sourceCount: idea.stepDown.sourceCount,
             }
           : undefined,
+        adjacentUpperAlt: idea.stepUp
+          ? {
+              line: idea.stepUp.line,
+              bestPrice: formatOdds(idea.stepUp.bestPrice),
+              consensusPrice: formatOdds(idea.stepUp.consensusPrice),
+              marketImpliedProb: idea.stepUp.marketImpliedProb,
+              sourceCount: idea.stepUp.sourceCount,
+            }
+          : undefined,
       };
     }),
     [liveIdeas, slip],
@@ -117,6 +133,8 @@ export function ConstructionIntelligencePanel() {
 
   const firstRepair = report.repairCandidates[0];
   const firstTax = firstRepair?.thresholdTax;
+  const firstEscalation = report.escalationCandidates[0];
+  const firstEscalationMove = firstEscalation?.thresholdOptimization.stepUp;
 
   return (
     <section className="relative overflow-hidden rounded-[28px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(9,14,22,.96),rgba(4,7,12,.99))] p-5 sm:p-6">
@@ -206,6 +224,13 @@ export function ConstructionIntelligencePanel() {
                       Step down {leg.thresholdTax.lineReduction} → {leg.thresholdTax.lowerLine}: +{Math.round(leg.thresholdTax.probabilityGain * 100)} pts sportsbook-implied probability · {leg.thresholdTax.currentConsensusPrice ?? 'current'} → {leg.thresholdTax.lowerConsensusPrice}
                     </div>
                   ) : null}
+
+                  {leg.thresholdOptimization.stepUp ? (
+                    <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[9px] ${leg.thresholdOptimization.decision === 'step_up' ? 'border-cyan-300/[0.10] bg-cyan-300/[0.025] text-cyan-100/70' : 'border-white/[0.06] bg-white/[0.015] text-slate-500'}`}>
+                      Next higher tier {leg.thresholdOptimization.stepUp.targetLine}: -{Math.round(leg.thresholdOptimization.stepUp.probabilityDelta * 100)} pts sportsbook-implied probability · {leg.thresholdOptimization.stepUp.consensusPrice}
+                      <div className="mt-1 text-[8px] opacity-75">{leg.thresholdOptimization.reason}</div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -264,15 +289,34 @@ export function ConstructionIntelligencePanel() {
               </div>
             )}
 
+            {firstEscalation && firstEscalationMove ? (
+              <div className="rounded-2xl border border-cyan-300/[0.12] bg-cyan-300/[0.03] p-4">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-cyan-100/55">Selective escalation</div>
+                <div className="mt-2 text-[14px] font-semibold text-slate-100">{firstEscalation.player}</div>
+                <div className="mt-1 text-[10px] text-slate-500">
+                  {firstEscalation.line} → {firstEscalationMove.targetLine} · {firstEscalationMove.bestPrice}
+                </div>
+                <div className="mt-3 rounded-xl border border-cyan-300/[0.09] bg-cyan-300/[0.02] p-3">
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.13em] text-cyan-100/55">Probability cost</div>
+                  <div className="mt-1 text-[12px] font-semibold text-cyan-50">
+                    +{firstEscalationMove.lineDelta} on the ask · -{Math.round(firstEscalationMove.probabilityDelta * 100)} pts market-implied
+                  </div>
+                  <p className="mt-1 text-[9px] leading-4 text-slate-500">
+                    ResearchBets only surfaces this because the ticket still has push budget and the next posted tier stays inside the escalation guardrail. Price-implied probability is not a win forecast.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.015] p-4">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-600">Threshold Tax</div>
-                <div className="text-[8px] text-slate-700">{report.pricedThresholdTaxCount} priced</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-600">Threshold Optimization</div>
+                <div className="text-[8px] text-slate-700">{report.pricedThresholdTaxCount} down · {report.pricedEscalationCount} up</div>
               </div>
               <p className="mt-2 text-[10px] leading-5 text-slate-500">
-                {report.pricedThresholdTaxCount > 0
-                  ? 'Priced comparisons use the nearest lower alternate tier currently returned by the live market scanner. The probability delta is sportsbook-price implied, not model confidence.'
-                  : 'ResearchBets will not invent a payout-vs-survival estimate. A true Threshold Tax needs the adjacent alternate tier and its live price; otherwise this panel shows structural pressure only.'}
+                {report.pricedThresholdTaxCount > 0 || report.pricedEscalationCount > 0
+                  ? 'Comparisons use the nearest verified lower and higher alternate tiers currently returned by the live market scanner. ResearchBets spends push budget only when the next higher tier has a limited sportsbook-implied probability cost.'
+                  : 'ResearchBets will not invent a payout-vs-survival estimate. Threshold Optimization needs verified adjacent alternate tiers and live prices; otherwise this panel shows structural pressure only.'}
               </p>
             </div>
           </div>
