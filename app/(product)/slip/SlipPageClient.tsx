@@ -41,17 +41,14 @@ import { buildPreSubmitPatternWarning } from '@/src/core/slips/preSubmitPatternW
 function mapTodayPayload(payload: TodayPayload): TodayGame[] {
   return payload.games.map((game) => ({
     id: game.id,
-    league: game.league === 'NFL' ? 'NFL' : 'NBA',
+    league: game.league,
     matchup: game.matchup,
-    teams: game.teams.map((team, idx) => ({
-      team,
-      players: game.propsPreview.slice(idx * 2, idx * 2 + 2).map((prop) => ({
-        id: `${team}-${prop.id}`,
-        name: prop.player,
-        injuryStatus: 'Active',
-        matchupNotes: prop.rationale[0] ?? 'Board signal',
-        props: [{ market: prop.market, line: prop.line ?? '0.5', odds: prop.odds }]
-      }))
+    players: game.propsPreview.map((prop) => ({
+      id: prop.id,
+      name: prop.player,
+      injuryStatus: 'Status not provided',
+      matchupNotes: prop.rationale[0] ?? prop.provenance ?? 'Board signal',
+      props: [{ market: prop.market, line: prop.line ?? '0.5', odds: prop.odds }]
     }))
   }));
 }
@@ -59,12 +56,10 @@ function mapTodayPayload(payload: TodayPayload): TodayGame[] {
 function getScoutDraftLegs(games: TodayGame[]): SlipBuilderLeg[] {
   const seeded: SlipBuilderLeg[] = [];
   for (const game of games) {
-    for (const team of game.teams) {
-      for (const player of team.players) {
-        for (const prop of player.props) {
-          seeded.push(mapPropToLeg(player.name, prop, game.matchup));
-          if (seeded.length === 2) return seeded;
-        }
+    for (const player of game.players) {
+      for (const prop of player.props) {
+        seeded.push(mapPropToLeg(player.name, prop, game.matchup));
+        if (seeded.length === 2) return seeded;
       }
     }
   }
@@ -76,6 +71,7 @@ export default function SlipPageClient() {
     useDraftSlip();
   const [games, setGames] = useState<TodayGame[]>([]);
   const [boardMode, setBoardMode] = useState<'live' | 'cache' | 'demo'>('demo');
+  const [boardReason, setBoardReason] = useState<string | undefined>();
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,66 +119,12 @@ export default function SlipPageClient() {
   useEffect(() => {
     fetch(nervous.toHref('/api/today'))
       .then((res) => (res.ok ? res.json() : null))
-      .then(
-        (
-          payload: {
-            ok?: boolean;
-            data?: {
-              mode: 'live' | 'cache' | 'demo';
-              games: Array<{ id: string; matchup: string; startTime: string }>;
-              board: Array<{
-                id: string;
-                gameId: string;
-                player: string;
-                market: string;
-                line: string;
-                odds?: string;
-              }>;
-            };
-          } | null
-        ) => {
-          if (!payload?.ok || !payload.data) return;
-          const data = payload.data;
-          setBoardMode(data.mode);
-          const asTodayPayload: TodayPayload = {
-            mode: data.mode,
-            generatedAt: new Date().toISOString(),
-            leagues: ['NBA', 'NFL', 'MLB', 'Soccer', 'UFC', 'NHL'],
-            games: data.games.map((g) => ({
-              id: g.id,
-              league: 'NBA',
-              status: 'upcoming',
-              startTime: g.startTime,
-              matchup: g.matchup,
-              teams: g.matchup.split('@').map((v) => v.trim()),
-              bookContext: 'Unified board resolver',
-              provenance: 'normalized_board',
-              lastUpdated: new Date().toISOString(),
-              propsPreview: data.board
-                .filter((b) => b.gameId === g.id)
-                .map((b) => ({
-                  id: b.id,
-                  player: b.player,
-                  market:
-                    b.market as TodayPayload['games'][number]['propsPreview'][number]['market'],
-                  line: b.line,
-                  odds: b.odds,
-                  rationale: ['Board signal'],
-                  provenance: 'normalized_board',
-                  lastUpdated: new Date().toISOString()
-                }))
-            })),
-            board: data.board.map((b) => ({
-              ...b,
-              market: b.market as TodayPayload['games'][number]['propsPreview'][number]['market'],
-              rationale: ['Board signal'],
-              provenance: 'normalized_board',
-              lastUpdated: new Date().toISOString()
-            }))
-          };
-          setGames(mapTodayPayload(asTodayPayload));
-        }
-      )
+      .then((payload: { ok?: boolean; data?: TodayPayload } | null) => {
+        if (!payload?.ok || !payload.data) return;
+        setBoardMode(payload.data.mode);
+        setBoardReason(payload.data.reason ?? payload.data.provenance?.reason);
+        setGames(mapTodayPayload(payload.data));
+      })
       .catch(() => undefined);
   }, [nervous]);
 
@@ -278,6 +220,19 @@ export default function SlipPageClient() {
       <DuringStageTracker trace_id={trace_id ?? nervous.trace_id} mode={boardMode} compact />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
+          {games.length > 0 && boardMode !== 'live' ? (
+            <CardSurface className="border-amber-300/20 bg-amber-300/[0.04] p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="warning" size="sm">{boardMode === 'demo' ? 'Demo data' : 'Cached data'}</Badge>
+                <p className="text-xs text-amber-100/80">
+                  {boardMode === 'demo'
+                    ? 'Live markets are unavailable. These rows are deterministic examples, not live betting data.'
+                    : 'Live refresh is unavailable. Showing the most recent cached slate.'}
+                </p>
+              </div>
+              {boardReason ? <p className="mt-1 text-[10px] text-slate-500">Source status: {boardReason.replace(/_/g, ' ')}</p> : null}
+            </CardSurface>
+          ) : null}
           {games.length === 0 ? (
             <AliveEmptyState
               title="Today's prop board is empty"
@@ -285,7 +240,7 @@ export default function SlipPageClient() {
               note={
                 boardMode === 'demo'
                   ? 'Demo mode (live feeds off).'
-                  : 'Waiting for live events — showing deterministic demo signals when needed.'
+                  : 'Waiting for live events. No synthetic live progress is shown.'
               }
               actions={
                 <>

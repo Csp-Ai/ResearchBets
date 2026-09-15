@@ -1,7 +1,11 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
+import {
+  DRAFT_SLIP_STORAGE_KEY,
+  DRAFT_SLIP_UPDATED_EVENT,
+  DraftSlipStore
+} from '@/src/core/slips/draftSlipStore';
 import { createTrackingFromDraft } from '@/src/core/slips/storage';
 
 const leg = {
@@ -16,6 +20,7 @@ const leg = {
 describe('DraftSlipStore continuity', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    vi.restoreAllMocks();
     DraftSlipStore.clearSlip();
   });
 
@@ -40,13 +45,56 @@ describe('DraftSlipStore continuity', () => {
     expect(next.trace_id).toBe(first.trace_id);
   });
 
-  it('hydrates legacy legs-only storage into a stable identity', () => {
-    window.sessionStorage.setItem('rb:draft-slip:v1', JSON.stringify([{ ...leg }]));
+  it('migrates legacy legs-only storage once into a stable identity without dispatching a mutation event', () => {
+    window.sessionStorage.setItem(DRAFT_SLIP_STORAGE_KEY, JSON.stringify([{ ...leg }]));
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
 
-    const state = DraftSlipStore.getState();
+    const state = DraftSlipStore.migrateStorage();
     expect(state.legs).toHaveLength(1);
     expect(state.slip_id).toBeTruthy();
     expect(state.trace_id).toBeTruthy();
+    expect(setItem).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalled();
+
+    const repeated = DraftSlipStore.getState();
+    expect(repeated.slip_id).toBe(state.slip_id);
+    expect(repeated.trace_id).toBe(state.trace_id);
+    expect(setItem).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('keeps repeated reads side-effect free after a mutation', () => {
+    let events = 0;
+    const onUpdate = () => {
+      events += 1;
+    };
+    window.addEventListener(DRAFT_SLIP_UPDATED_EVENT, onUpdate);
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+
+    DraftSlipStore.addLeg({ ...leg });
+    expect(events).toBe(1);
+    expect(setItem).toHaveBeenCalledTimes(1);
+
+    DraftSlipStore.getState();
+    DraftSlipStore.getState();
+    DraftSlipStore.getSlip();
+    DraftSlipStore.getIdentity();
+
+    expect(events).toBe(1);
+    expect(setItem).toHaveBeenCalledTimes(1);
+    window.removeEventListener(DRAFT_SLIP_UPDATED_EVENT, onUpdate);
+  });
+
+  it('notifies subscribers exactly once for one mutation', () => {
+    const listener = vi.fn();
+    const unsubscribe = DraftSlipStore.subscribe(listener);
+
+    DraftSlipStore.addLeg({ ...leg });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0]?.[0].legs).toHaveLength(1);
+    unsubscribe();
   });
 
   it('passes continuity identity from draft into tracking state', () => {

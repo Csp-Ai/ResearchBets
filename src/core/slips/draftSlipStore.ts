@@ -51,7 +51,7 @@ const issueIdentity = (state: DraftSlipState): DraftSlipState => {
 
 const normalizeState = (input: unknown): DraftSlipState => {
   if (Array.isArray(input)) {
-    return issueIdentity({ legs: dedupe(input as SlipBuilderLeg[]) });
+    return { legs: dedupe(input as SlipBuilderLeg[]) };
   }
 
   if (!input || typeof input !== 'object') return emptyState();
@@ -59,48 +59,79 @@ const normalizeState = (input: unknown): DraftSlipState => {
   const legs = Array.isArray(record.legs) ? dedupe(record.legs) : [];
   if (legs.length === 0) return emptyState();
 
-  return issueIdentity({
+  return {
     legs,
     slip_id: asValidId(record.slip_id),
     trace_id: asValidId(record.trace_id),
     createdAt: asValidId(record.createdAt),
     updatedAt: asValidId(record.updatedAt)
-  });
+  };
 };
 
-const writeToStorage = (state: DraftSlipState) => {
-  if (typeof window === 'undefined') return;
+const serializedState = (state: DraftSlipState): { state: DraftSlipState; raw: string } => {
   const next = state.legs.length > 0 ? issueIdentity(state) : emptyState();
-  window.sessionStorage.setItem(
-    DRAFT_SLIP_STORAGE_KEY,
-    JSON.stringify({ version: 2, ...next } satisfies StoredDraftSlipState)
-  );
-  window.dispatchEvent(
-    new CustomEvent(DRAFT_SLIP_UPDATED_EVENT, {
-      detail: { count: next.legs.length, slip_id: next.slip_id, trace_id: next.trace_id }
-    })
-  );
+  return {
+    state: next,
+    raw: JSON.stringify({ version: 2, ...next } satisfies StoredDraftSlipState)
+  };
+};
+
+const writeToStorage = (
+  state: DraftSlipState,
+  options: { emit?: boolean } = {}
+): DraftSlipState => {
+  if (typeof window === 'undefined') return state.legs.length > 0 ? issueIdentity(state) : emptyState();
+  const serialized = serializedState(state);
+  window.sessionStorage.setItem(DRAFT_SLIP_STORAGE_KEY, serialized.raw);
+
+  if (options.emit !== false) {
+    window.dispatchEvent(
+      new CustomEvent(DRAFT_SLIP_UPDATED_EVENT, {
+        detail: {
+          count: serialized.state.legs.length,
+          slip_id: serialized.state.slip_id,
+          trace_id: serialized.state.trace_id
+        }
+      })
+    );
+  }
+
+  return serialized.state;
 };
 
 const readFromStorage = (): DraftSlipState => {
   if (typeof window === 'undefined') return emptyState();
   const raw = window.sessionStorage.getItem(DRAFT_SLIP_STORAGE_KEY);
   if (!raw) return emptyState();
+
   try {
-    const next = normalizeState(JSON.parse(raw));
-    if (JSON.stringify(next) !== raw) {
-      writeToStorage(next);
-    }
-    return next;
+    return normalizeState(JSON.parse(raw));
   } catch {
     return emptyState();
   }
 };
 
+const migrateStorage = (): DraftSlipState => {
+  if (typeof window === 'undefined') return emptyState();
+  const raw = window.sessionStorage.getItem(DRAFT_SLIP_STORAGE_KEY);
+  if (!raw) return emptyState();
+
+  try {
+    const normalized = normalizeState(JSON.parse(raw));
+    const serialized = serializedState(normalized);
+    if (serialized.raw !== raw) {
+      window.sessionStorage.setItem(DRAFT_SLIP_STORAGE_KEY, serialized.raw);
+    }
+    return serialized.state;
+  } catch {
+    window.sessionStorage.removeItem(DRAFT_SLIP_STORAGE_KEY);
+    return emptyState();
+  }
+};
+
 const updateState = (updater: (state: DraftSlipState) => DraftSlipState): DraftSlipState => {
-  const next = updater(readFromStorage());
-  writeToStorage(next);
-  return readFromStorage();
+  const current = readFromStorage();
+  return writeToStorage(updater(current));
 };
 
 export const DraftSlipStore = {
@@ -114,8 +145,16 @@ export const DraftSlipStore = {
     const state = readFromStorage();
     return { slip_id: state.slip_id, trace_id: state.trace_id };
   },
+  migrateStorage(): DraftSlipState {
+    return migrateStorage();
+  },
   ensureIdentity(): DraftSlipIdentity {
-    const next = updateState((state) => (state.legs.length > 0 ? issueIdentity(state) : state));
+    const state = readFromStorage();
+    if (state.legs.length === 0) return {};
+    if (state.slip_id && state.trace_id) {
+      return { slip_id: state.slip_id, trace_id: state.trace_id };
+    }
+    const next = writeToStorage(issueIdentity(state));
     return { slip_id: next.slip_id, trace_id: next.trace_id };
   },
   addLeg(leg: SlipBuilderLeg): SlipBuilderLeg[] {

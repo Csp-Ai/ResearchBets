@@ -9,6 +9,29 @@ export const revalidate = 0;
 
 const RECENT_FORM_LIMIT = 5;
 
+const normalizeMarketAvailability = <T extends {
+  mode: 'live-market' | 'unavailable';
+  events: unknown[];
+  ideas: unknown[];
+  warnings: string[];
+}>(result: T): T => {
+  if (result.mode !== 'live-market' || result.ideas.length > 0 || result.events.length === 0) {
+    return result;
+  }
+
+  const unavailableEventCount = result.warnings.filter((warning) =>
+    warning.startsWith('event_odds_unavailable:'),
+  ).length;
+
+  if (unavailableEventCount < result.events.length) return result;
+
+  return {
+    ...result,
+    mode: 'unavailable',
+    warnings: [...new Set([...result.warnings, 'market_data_unavailable'])],
+  };
+};
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const timeZone = searchParams.get('tz') || 'America/Phoenix';
@@ -28,12 +51,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await scanTodayIdeas({
+    const scanned = await scanTodayIdeas({
       date,
       timeZone,
       sport: 'NFL',
       limit: 12,
     });
+    const result = normalizeMarketAvailability(scanned);
 
     if (result.mode !== 'live-market' || result.ideas.length === 0) {
       return NextResponse.json(
