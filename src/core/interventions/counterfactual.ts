@@ -72,7 +72,9 @@ export function evaluateThresholdInterventionCounterfactual(input: {
   const { ticket, intervention, finalValues } = input;
   const leg = ticket.legs.find((candidate) => candidate.legId === intervention.legId);
   const candidateFinalValue = finalValues[intervention.legId];
-  const finalValue = Number.isFinite(candidateFinalValue) ? candidateFinalValue : null;
+  const finalValue = typeof candidateFinalValue === 'number' && Number.isFinite(candidateFinalValue)
+    ? candidateFinalValue
+    : null;
 
   if (ticket.mode === 'demo' || ticket.provenance?.mode === 'demo') {
     return ineligible(ticket, intervention, 'demo_mode', finalValue);
@@ -129,10 +131,11 @@ export function buildThresholdCounterfactuals(input: {
   finalValues: Record<string, number>;
 }): ThresholdInterventionCounterfactual[] {
   const byLeg = new Map<string, AppliedThresholdIntervention>();
+  const latestFirst = [...input.interventions].sort(
+    (a, b) => Date.parse(b.appliedAt) - Date.parse(a.appliedAt),
+  );
 
-  for (const intervention of input.interventions) {
-    const leg = input.ticket.legs.find((candidate) => candidate.legId === intervention.legId);
-    if (!leg || !sameLine(leg.threshold, intervention.targetLine)) continue;
+  for (const intervention of latestFirst) {
     if (!byLeg.has(intervention.legId)) byLeg.set(intervention.legId, intervention);
   }
 
