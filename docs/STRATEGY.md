@@ -121,27 +121,63 @@ Turn settled history into personalized decision intelligence:
 
 Personalization must be grounded in reviewed outcomes, not generic profile theater. Demo or unverified artifacts must not become performance claims.
 
+## Cross-cutting capability: System Calibration
+
+ResearchBets should eventually learn not only **about the bettor**, but also **about the reliability of its own evidence and recommendations**.
+
+This is not a fifth user-facing engine and should not become another dashboard, agent console, or piece of internal machinery the bettor must understand. It is a platform capability that sits underneath all four engines.
+
+The long-term system should support three distinct learning loops:
+
+1. **Evidence reliability** — which providers, sources, enrichment paths, freshness windows, and fallback states are dependable in which contexts.
+2. **Bettor learning** — which construction patterns, risk tendencies, and repeated mistakes are specific to the individual bettor.
+3. **Recommendation learning** — when ResearchBets warnings, abstentions, threshold changes, removals, or escalations were calibrated, noisy, late, or unsupported.
+
+A mature ResearchBets system should be able to ask of itself:
+
+- Did the evidence available at decision time justify the strength of the recommendation?
+- Did the identified structural pressure actually matter after settlement?
+- Which recommendation classes are well calibrated and which generate too many false alarms?
+- When ResearchBets said **unknown** or withheld a strong action, was that abstention appropriate?
+- Are particular providers, data paths, or freshness states repeatedly associated with bad downstream reads?
+- Did a recommendation improve the ticket under a reproducible counterfactual, or does hindsight merely make it look smart?
+
+The principle is:
+
+> **ResearchBets should become self-calibrating, not self-authorizing.**
+
+System evaluation may produce metrics, proposals, experiments, or candidate policy changes. It must not silently rewrite production decision policy, confidence thresholds, source weights, or user-facing claims. Changes that affect product judgment should be versioned, tested, reviewed, and deliberately promoted.
+
+To make that possible later, decision-time records should preserve enough lineage to reconstruct what ResearchBets knew when it acted: evidence/provenance, freshness, relevant source identifiers, recommendation and policy version, and the exact alternative being proposed where applicable.
+
+Demo, synthetic, inferred-only, or otherwise ineligible records must not train reliability claims about the system.
+
 ## The compounding moat
 
 Odds, public statistics, LLM access, and UI can all be copied. The defensible loop is the longitudinal dataset created when ResearchBets connects:
 
-`ticket → recommendation → bettor decision → live evolution → outcome → counterfactual → learning`
+`ticket → evidence snapshot → recommendation → bettor decision → live evolution → outcome → counterfactual → system evaluation → learning`
 
 A particularly valuable record is not merely that a leg won or lost, but that:
 
 - the bettor considered a threshold,
-- ResearchBets recommended a change,
+- ResearchBets made a recommendation from a specific evidence state,
 - the bettor accepted or rejected it,
 - the event settled,
-- and the system can evaluate the counterfactual.
+- the system can evaluate the counterfactual,
+- and ResearchBets can later evaluate whether its own recommendation class and evidence path were trustworthy.
 
 Over time this can support calibrated claims about intervention quality instead of unsupported AI confidence language.
 
-The long-term proof question is:
+The long-term proof questions are:
 
 > **Do ResearchBets interventions measurably improve ticket construction quality versus comparable tickets where the intervention was not followed?**
 
-Do not claim this until the data is sufficient, reviewed, and methodologically defensible.
+and
+
+> **Can ResearchBets identify when its own evidence or recommendation process is poorly calibrated and improve it through reviewed, reproducible changes?**
+
+Do not claim either until the data is sufficient, reviewed, and methodologically defensible.
 
 ## Brand position
 
@@ -196,6 +232,9 @@ Do not optimize for vanity traffic first. The early company must prove behavior 
 - intervention acceptance rate by recommendation type,
 - counterfactual ticket survival / construction improvement,
 - calibration of structural warnings,
+- false-alarm and missed-warning rates on eligible reviewed outcomes,
+- evidence-source coverage, freshness, and downstream reliability by context,
+- abstention quality when ResearchBets withholds a strong recommendation,
 - bettor-specific pattern recurrence after a guardrail is introduced,
 - retention lift as verified memory depth increases.
 
@@ -209,8 +248,8 @@ The strategic sequence is:
 
 1. **Product Truth** — trustworthy data state, stable identity, fast useful answers, canonical lifecycle, no false certainty.
 2. **Habit** — make X-Ray useful enough that bettors instinctively run a ticket through it before lock.
-3. **Intelligence** — accumulate verified outcomes, decisions, counterfactuals, and bettor-specific patterns.
-4. **Proof** — demonstrate that specific ResearchBets interventions improve decision quality with defensible measurement.
+3. **Intelligence** — accumulate verified outcomes, decisions, counterfactuals, bettor-specific patterns, and the decision-time lineage needed to evaluate ResearchBets itself.
+4. **Proof** — demonstrate that specific ResearchBets interventions improve decision quality and that warning/recommendation classes are calibrated with defensible measurement.
 5. **Scale** — paid tiers, broader sport coverage, distribution, integrations, and B2B surfaces.
 
 Do not skip phases. Features that do not materially advance the current phase should be deprioritized.
@@ -224,5 +263,6 @@ Before adding a feature, ask:
 3. Does it create higher-quality verified longitudinal data?
 4. Does it help ResearchBets make a better decision recommendation rather than display more information?
 5. Would removing this feature make the product feel smarter?
+6. Does it improve our ability to audit or calibrate ResearchBets later without adding machinery the bettor has to understand?
 
 If the answer is mostly no, do not build it now.
