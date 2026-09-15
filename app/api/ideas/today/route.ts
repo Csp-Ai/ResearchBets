@@ -2,7 +2,10 @@ import { unstable_cache } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { fetchNflRecentFormForIdeas } from '@/src/core/ideas/nflRecentForm.server';
-import { scanTodayIdeas } from '@/src/core/ideas/todayIdeas.server';
+import {
+  scanTodayIdeas,
+  type TodayIdeaScanTiming,
+} from '@/src/core/ideas/todayIdeas.server';
 import { coerceIsoDate } from '@/src/core/nervous/spine';
 
 export const dynamic = 'force-dynamic';
@@ -20,11 +23,13 @@ type GenerationTiming = {
   scanMs: number;
   recentFormMs: number;
   totalMs: number;
+  scanBreakdownMs?: TodayIdeaScanTiming;
 };
 
 type IdeasPayloadWithDiagnostics = {
   diagnostics?: {
     generationTimingMs?: GenerationTiming;
+    scanTimingMs?: TodayIdeaScanTiming;
   };
 };
 
@@ -64,15 +69,18 @@ async function resolveIdeasData(input: { date: string; timeZone: string }): Prom
   });
   const scanMs = elapsed(scanStartedAt);
   const result = normalizeMarketAvailability(scanned);
+  const scanBreakdownMs = result.diagnostics?.scanTimingMs;
 
   if (result.mode !== 'live-market' || result.ideas.length === 0) {
     return {
       ...result,
       diagnostics: {
+        ...result.diagnostics,
         generationTimingMs: {
           scanMs,
           recentFormMs: 0,
           totalMs: elapsed(totalStartedAt),
+          scanBreakdownMs,
         },
       },
     };
@@ -107,10 +115,12 @@ async function resolveIdeasData(input: { date: string; timeZone: string }): Prom
     ideas,
     warnings: recent.warning ? [...result.warnings, recent.warning] : result.warnings,
     diagnostics: {
+      ...result.diagnostics,
       generationTimingMs: {
         scanMs,
         recentFormMs,
         totalMs: elapsed(totalStartedAt),
+        scanBreakdownMs,
       },
     },
   };
@@ -154,7 +164,21 @@ const readGenerationTiming = (data: unknown): GenerationTiming | undefined => {
 
 const generationTimingHeader = (timing?: GenerationTiming): string | undefined => {
   if (!timing) return undefined;
-  return `scan;dur=${timing.scanMs}, recent-form;dur=${timing.recentFormMs}, generation;dur=${timing.totalMs}`;
+  const parts = [
+    `scan;dur=${timing.scanMs}`,
+    `recent-form;dur=${timing.recentFormMs}`,
+    `generation;dur=${timing.totalMs}`,
+  ];
+  const scan = timing.scanBreakdownMs;
+  if (scan) {
+    parts.push(
+      `scan-events;dur=${scan.eventsMs}`,
+      `scan-event-odds;dur=${scan.eventOddsMs}`,
+      `scan-injuries;dur=${scan.injuriesMs}`,
+      `scan-local;dur=${scan.localProcessingMs}`,
+    );
+  }
+  return parts.join(', ');
 };
 
 export async function GET(request: Request) {
