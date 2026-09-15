@@ -6,6 +6,8 @@ import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Badge } from '@/src/components/ui/Badge';
 
 export function SlipOptimizerPanel({ legs }: { legs: SlipBuilderLeg[] }) {
+  if (legs.length === 0) return null;
+
   const combined = combineDisplayedParlayOdds(legs.map((leg) => leg.odds));
   const inBand = combined.american >= 600 && combined.american <= 1500;
 
