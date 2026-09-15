@@ -1,4 +1,8 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import {
+  optimizeThreshold,
+  type ThresholdOptimization,
+} from '@/src/core/slips/thresholdOptimizer';
 
 export type ConstructionTier = 'floor' | 'core' | 'pushed';
 export type ConstructionStatus = 'balanced' | 'watch' | 'overloaded';
@@ -39,6 +43,7 @@ export type ConstructionLeg = {
   shortWindow: boolean;
   suggestedTarget: string | null;
   thresholdTax: ThresholdTax | null;
+  thresholdOptimization: ThresholdOptimization;
   recentForm: RecentFormRead | null;
 };
 
@@ -52,7 +57,9 @@ export type ConstructionReport = {
   headline: string;
   summary: string;
   repairCandidates: ConstructionLeg[];
+  escalationCandidates: ConstructionLeg[];
   pricedThresholdTaxCount: number;
+  pricedEscalationCount: number;
   formTensionCount: number;
 };
 
@@ -248,6 +255,16 @@ export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
   else if (impliedProbability !== null && impliedProbability < PUSHED_PROBABILITY) tier = 'pushed';
   else tier = fallbackTier(leg, line);
 
+  const thresholdOptimization = optimizeThreshold({
+    currentLine: line,
+    currentProbability: impliedProbability,
+    currentTier: tier,
+    recentFormStatus: recentForm?.status,
+    lower: leg.adjacentAlt ?? null,
+    higher: leg.adjacentUpperAlt ?? null,
+    allowEscalation: true,
+  });
+
   return {
     legId: leg.id,
     player: leg.player,
@@ -259,10 +276,13 @@ export function classifyConstructionLeg(leg: SlipBuilderLeg): ConstructionLeg {
     shortWindow,
     suggestedTarget: shortWindow
       ? 'Prefer the equivalent full-game volume angle when available'
-      : thresholdTax
-        ? `${thresholdTax.lowerLine} at ${thresholdTax.lowerBestPrice}`
-        : suggestedTargetFor(leg, tier),
+      : thresholdOptimization.decision === 'step_down' && thresholdOptimization.stepDown
+        ? `${thresholdOptimization.stepDown.targetLine} at ${thresholdOptimization.stepDown.bestPrice}`
+        : thresholdTax
+          ? `${thresholdTax.lowerLine} at ${thresholdTax.lowerBestPrice}`
+          : suggestedTargetFor(leg, tier),
     thresholdTax,
+    thresholdOptimization,
     recentForm,
   };
 }
@@ -310,6 +330,22 @@ export function buildConstructionReport(slip: SlipBuilderLeg[]): ConstructionRep
       return aProb - bProb;
     });
 
+  const escalationCandidates = budgetRemaining > 0
+    ? legs
+        .filter((leg) => leg.thresholdOptimization.decision === 'step_up')
+        .sort((a, b) => {
+          const aSupport = a.recentForm?.status === 'support';
+          const bSupport = b.recentForm?.status === 'support';
+          if (aSupport !== bSupport) return aSupport ? -1 : 1;
+          const aCost = a.thresholdOptimization.stepUp?.probabilityDelta ?? 1;
+          const bCost = b.thresholdOptimization.stepUp?.probabilityDelta ?? 1;
+          if (aCost !== bCost) return aCost - bCost;
+          const aTarget = a.thresholdOptimization.stepUp?.targetProbability ?? 0;
+          const bTarget = b.thresholdOptimization.stepUp?.targetProbability ?? 0;
+          return bTarget - aTarget;
+        })
+    : [];
+
   return {
     legs,
     counts,
@@ -320,7 +356,9 @@ export function buildConstructionReport(slip: SlipBuilderLeg[]): ConstructionRep
     headline,
     summary,
     repairCandidates,
+    escalationCandidates,
     pricedThresholdTaxCount: legs.filter((leg) => Boolean(leg.thresholdTax)).length,
+    pricedEscalationCount: legs.filter((leg) => Boolean(leg.thresholdOptimization.stepUp)).length,
     formTensionCount: legs.filter((leg) => leg.recentForm?.status === 'tension').length,
   };
 }
