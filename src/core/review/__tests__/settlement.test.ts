@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { saveAppliedIntervention } from '@/src/core/interventions/decisionStore';
 import { settleTicket } from '@/src/core/review/settlement';
 import { listPostmortems, saveDraftPostmortem } from '@/src/core/review/store';
 import type { OpenTicket } from '@/src/core/live/openTickets';
@@ -97,5 +98,53 @@ describe('settlement flow persistence', () => {
       source_type: 'parser_derived',
       review_state: 'reviewed'
     });
+  });
+
+  it('links an explicit applied threshold intervention to verified settlement', () => {
+    const verifiedTicket: OpenTicket = {
+      ...ticket,
+      ticketId: 'ticket-linked-1',
+      trace_id: 'trace-linked-1',
+      run_id: 'trace-linked-1',
+      slip_id: 'slip-linked-1',
+      mode: 'live',
+      provenance: { mode: 'live', source_type: 'tracked_ticket', review_state: 'verified' },
+      legs: [{ ...ticket.legs[0]!, threshold: 4.5, currentValue: 5 }],
+      weakestLeg: { ...ticket.weakestLeg, threshold: 4.5, currentValue: 5 }
+    };
+
+    saveAppliedIntervention({
+      interventionId: 'trace-linked-1:safety:leg-1:5.5:4.5',
+      appliedAt: '2026-09-14T20:00:00.000Z',
+      traceId: 'trace-linked-1',
+      slipId: 'slip-linked-1',
+      mode: 'live',
+      interventionType: 'safety',
+      legId: 'leg-1',
+      player: 'Player A',
+      marketType: 'assists',
+      currentLine: 5.5,
+      targetLine: 4.5,
+      currentProbability: 0.44,
+      targetProbability: 0.62,
+      probabilityDelta: 0.18
+    });
+
+    const record = settleTicket({
+      ticket: verifiedTicket,
+      status: 'won',
+      finalValues: { 'leg-1': 5 }
+    });
+
+    expect(record.thresholdCounterfactuals).toHaveLength(1);
+    expect(record.thresholdCounterfactuals?.[0]).toMatchObject({
+      eligible: true,
+      originalLegSurvived: false,
+      recommendedLegSurvived: true,
+      effect: 'preserved_leg'
+    });
+
+    const persisted = listPostmortems().find((item) => item.ticketId === 'ticket-linked-1');
+    expect(persisted?.thresholdCounterfactuals?.[0]?.effect).toBe('preserved_leg');
   });
 });
