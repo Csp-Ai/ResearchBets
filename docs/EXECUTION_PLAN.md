@@ -52,6 +52,8 @@ Default surface hierarchy:
 
 Avoid multiple primary CTAs, duplicated representations of the same ticket, internal pipeline language, decorative complexity, or confidence language that outruns evidence.
 
+The underlying model should preserve the ticket as a changing structural state across the lifecycle. Screens may simplify that state, but they should not independently reinvent it.
+
 ## Workstream A — Complete the 1.0 lifecycle visually
 
 ### A1. Ticket Pulse — next
@@ -64,6 +66,7 @@ Primary view should show:
 - strongest/carrying leg,
 - weakest/pressured leg,
 - what materially changed since pregame X-Ray,
+- whether the original binding constraint strengthened, weakened, resolved, or was replaced by a new pressure,
 - live-data freshness/coverage,
 - one next action.
 
@@ -75,6 +78,7 @@ Acceptance gate:
 - stale/missing data is explicit,
 - no synthetic zero is treated as live progress,
 - pregame weakest-leg continuity is visible where identity/evidence supports it,
+- observed live changes remain distinguishable from ResearchBets interpretation,
 - one dominant action continues the lifecycle.
 
 ### A2. Ticket Review + Memory
@@ -86,6 +90,7 @@ Primary view should show:
 - whether the original X-Ray pressure actually mattered,
 - breaker leg / miss distance,
 - whether a recommended threshold change would have changed ticket survival,
+- whether the recommendation addressed the constraint it was intended to address even if another leg later failed,
 - one bettor-memory lesson,
 - one guardrail for next time.
 
@@ -94,6 +99,7 @@ Acceptance gate:
 - reviewed outcomes distinguish verified, inferred, and unavailable evidence,
 - no demo result trains performance memory,
 - counterfactual language is factual and conditional rather than hindsight theater,
+- recommendation evaluation is not reduced to final-ticket win/loss alone,
 - the next-time guardrail can flow back into Build/X-Ray.
 
 ### A3. Discover / Build front door
@@ -127,7 +133,7 @@ Check:
 - no horizontal overflow,
 - primary action reachable without hunting,
 - progressive disclosures remain usable,
-- ticket identity and context survive route transitions.
+- ticket identity and structural thesis survive route transitions.
 
 ## Workstream B — Time to useful answer
 
@@ -152,24 +158,30 @@ Do not publicly CDN-cache response objects that contain request-specific identit
 
 ## Workstream C — Build the longitudinal data moat
 
-ResearchBets must begin storing the decisions around the recommendation, not just the final ticket.
+ResearchBets must begin storing the decisions around the recommendation, not just the final ticket. Capture enough decision-time lineage now to support future calibration and state-transition analysis, but do not build a self-modifying system in the current phase.
 
 ### C1. Intervention event contract
 
-For each actionable recommendation, capture enough structure to later answer whether it helped:
+For each actionable recommendation, capture enough structure to later answer whether it helped, what ResearchBets knew when it acted, and what structural constraint the intervention was intended to change:
 
 - ticket / trace identity,
 - stage,
 - recommendation type,
 - affected leg,
+- identified primary pressure / target constraint,
 - before threshold/price,
 - recommended threshold/price,
+- relevant before-state dimensions or structured risk context where available,
 - evidence/provenance available at decision time,
+- freshness/availability state for evidence required by the recommendation,
+- source/provider identifiers where available and appropriate,
+- analysis/recommendation/policy version,
+- recommendation strength/confidence representation as actually shown or applied,
 - recommendation timestamp,
 - bettor accepted / rejected / ignored / unknown,
 - resulting submitted/tracked ticket state where known.
 
-Do not infer acceptance when it cannot be verified.
+Do not infer acceptance when it cannot be verified. Preserve the decision-time snapshot rather than reconstructing it later from settlement-time data. Do not require a giant state vector before shipping the event contract; preserve enough structured context that future versions can evaluate the intended constraint without relying on prose alone.
 
 ### C2. Settlement + counterfactual
 
@@ -179,13 +191,29 @@ After settlement, derive conservative counterfactuals such as:
 - recommended-ticket survival if the exact alternative was known and settlement data supports it,
 - breaker leg,
 - miss distance,
-- whether the intervention would have preserved the remaining ticket.
+- whether the intervention would have preserved the remaining ticket,
+- whether the targeted structural pressure was actually reduced even if another independent failure occurred.
 
 Store counterfactual methodology/version so later analysis is reproducible.
 
 ### C3. Memory feedback
 
 Only reviewed/eligible records should influence personalized guardrails. Feed repeated evidence-backed patterns back into Build and X-Ray as concise warnings, not another analytics dashboard.
+
+Favor within-bettor evidence such as repeated threshold aggression, recurring market-type fragility, repeated late-leg additions, or intervention patterns that helped this bettor under comparable conditions. Do not convert sparse behavior into broad personality claims.
+
+### C4. Future system-calibration eligibility
+
+Do not build adaptive source weighting or autonomous policy updates yet. Instead, make eligible records distinguish enough context that later offline evaluation can answer:
+
+- whether a structural warning was calibrated or noisy,
+- whether ResearchBets missed a recurring failure mode,
+- whether an abstention or `unknown` state was appropriate,
+- whether recommendation quality varies by evidence source, provider state, freshness, market type, sport, or policy version,
+- whether aggregate scores masked severe constraints,
+- whether candidate policy changes improve held-out eligible outcomes without weakening truth guardrails.
+
+Calibration datasets must exclude demo/synthetic records and preserve uncertainty. Any later policy/source-weight change must be versioned, tested, reviewed, and deliberately promoted rather than silently learned into production.
 
 ## Workstream D — Prove habit before broad monetization
 
@@ -206,15 +234,21 @@ Do not optimize MAU, feed engagement, or session length at the expense of the de
 
 ## Workstream E — Proof before scale
 
-Only after enough eligible data exists should ResearchBets evaluate intervention effectiveness.
+Only after enough eligible data exists should ResearchBets evaluate intervention effectiveness and system calibration.
 
 Questions to answer:
 
 - Which intervention types are most often accepted?
 - Which warnings are calibrated versus noisy?
+- What are false-alarm and missed-warning rates for eligible warning classes?
+- When ResearchBets withheld a strong recommendation because evidence was insufficient, was that abstention appropriately cautious?
 - Do threshold reductions preserve more tickets in comparable contexts?
 - When selective escalation is recommended, does the added risk remain within the intended guardrail?
 - Does personalized memory reduce recurrence of the same construction mistake?
+- Do particular evidence sources, freshness states, or provider paths correlate with materially different downstream recommendation quality?
+- Do severe structural constraints predict failure better than undifferentiated aggregate scores?
+- Did an intervention improve the intended ticket dimension even when the final parlay still lost for another reason?
+- Do proposed policy changes improve held-out eligible records before they are considered for production?
 
 Any public performance claim must state sample, eligibility, methodology, and uncertainty. ResearchBets should never imply guaranteed winnings.
 
@@ -227,9 +261,12 @@ Until the canonical loop proves habit, deprioritize:
 - generalized sports-news surfaces,
 - fantasy-product expansion,
 - autonomous wagering,
+- autonomous self-modification of recommendation policy or source weights,
+- visible agent-governance/AI-ops dashboards,
 - broad creator/tout marketplace features,
 - large new sport matrices before the core flow works deeply in the current sport,
 - cosmetic dashboard metrics without a decision consequence,
+- exposed multidimensional ticket dashboards that add complexity without changing the decision,
 - monetization mechanics that create pressure to increase betting volume.
 
 Legacy code can remain as context, but deferred concepts should not regain canonical navigation or ownership accidentally.
@@ -248,17 +285,19 @@ Use this protocol for ongoing implementation:
 8. **No merge before green deployment.** Review route-size and First Load JS output for accidental regressions.
 9. **Keep PRs explainable.** Each PR should state the user problem, strategic mapping, acceptance criteria, and what remains intentionally out of scope.
 10. **Update authority docs when strategy changes.** Do not let chat decisions become invisible product policy.
+11. **Version judgment changes.** Any future change to recommendation policy, calibration thresholds, or source weighting must be explicit, reproducible, testable, and reviewable.
+12. **Keep observation separate from interpretation.** New data contracts and UI simplifications must not erase whether a claim was observed, derived, inferred, or speculative.
 
 ## Immediate execution queue
 
 Unless a build failure or production-truth issue interrupts it, execute in this order:
 
-1. **Pulse answer-first redesign** using `/slip` and X-Ray as the visual/hierarchy reference.
-2. **Review/Memory answer-first redesign** with original-thesis vs outcome continuity.
+1. **Pulse answer-first redesign** using `/slip` and X-Ray as the visual/hierarchy reference, with explicit continuity from the pregame primary pressure.
+2. **Review/Memory answer-first redesign** with original-thesis vs outcome continuity and targeted-intervention evaluation.
 3. **Canonical journey mobile QA** with populated ticket and real route transitions.
 4. **Measure production time-to-data** using the timing/cache headers already added; optimize the measured cold bottleneck.
-5. **Intervention event schema + logging** for accepted/rejected/unknown recommendation decisions.
-6. **Counterfactual settlement foundation** so Autopsy can measure whether a specific recommended change would have mattered.
+5. **Intervention event schema + logging** for accepted/rejected/unknown recommendation decisions, including target constraint and decision-time provenance/version lineage needed for future calibration.
+6. **Counterfactual settlement foundation** so Autopsy can measure whether a specific recommended change would have mattered and whether it addressed the intended constraint.
 7. **Habit analytics** centered on repeat X-Ray usage and lifecycle completion.
 8. **Private-user validation** focused on comprehension, trust, repeat behavior, and recommendation usefulness before expanding scope.
 
@@ -268,10 +307,12 @@ ResearchBets has reached a credible 0→1 product when all of the following are 
 
 - a new user can understand the product in one session,
 - one ticket identity survives Build → X-Ray → Pulse → Review,
+- the primary structural pressure can be followed through the lifecycle where evidence supports it,
 - every stage has one obvious primary answer/action,
 - warm useful data is consistently fast,
 - live/cache/demo/stale/unknown states are truthful,
-- the system captures recommendation decisions and eligible outcomes,
+- observed facts remain distinguishable from inference,
+- the system captures recommendation decisions, target constraints, decision-time lineage, and eligible outcomes,
 - reviewed outcomes can generate a next-time guardrail,
 - users voluntarily return to X-Ray another ticket,
 - and the product feels simpler as its intelligence becomes more sophisticated.
