@@ -24,79 +24,93 @@ export function TicketPulsePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#03060a] text-white">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute -left-28 -top-20 h-[26rem] w-[26rem] rounded-full bg-emerald-400/[0.055] blur-[150px]" />
-        <div className="absolute -right-40 top-[22rem] h-[28rem] w-[28rem] rounded-full bg-cyan-400/[0.05] blur-[160px]" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-4 sm:px-6 sm:pt-6">
-        <header className="flex items-center justify-between">
+      <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-5 sm:px-6 sm:pt-7">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5">
           <Link href={nervous.toHref('/')} className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-[14px] border border-cyan-100/[0.12] bg-white/[0.035] text-[13px] font-black">R</div>
+            <div className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[0.03] text-[12px] font-black">R</div>
             <div>
-              <div className="text-[14px] font-semibold tracking-[-0.03em]">ResearchBets</div>
-              <div className="text-[9px] uppercase tracking-[0.2em] text-slate-600">Ticket Pulse</div>
+              <div className="text-sm font-semibold tracking-[-0.02em]">ResearchBets</div>
+              <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500">Ticket Pulse</div>
             </div>
           </Link>
-          <div className="flex items-center gap-2 rounded-full border border-emerald-300/[0.12] bg-emerald-300/[0.04] px-3 py-2 text-[10px] text-emerald-100/70">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-45" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
-            </span>
-            {mode === 'live' ? 'Live tracking' : mode === 'cache' ? 'Cached tracking' : 'Demo tracking'}
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Requested context</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {mode === 'live' ? 'Live tracking' : mode === 'cache' ? 'Cached tracking' : 'Demo tracking'}
+            </div>
           </div>
         </header>
 
-        <section className="relative mt-5 overflow-hidden rounded-[30px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(8,15,23,.94),rgba(3,7,12,.98))] px-5 py-6 sm:px-7 sm:py-8">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/[0.24] to-transparent" />
-          <div className="relative grid gap-6 lg:grid-cols-[1.15fr_.85fr] lg:items-end">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100/55">During · Ticket Pulse</div>
-              <h1 className="mt-3 max-w-3xl text-[40px] font-semibold leading-[0.95] tracking-[-0.06em] sm:text-[60px]">
-                Watch the ticket
-                <span className="block bg-gradient-to-r from-white via-emerald-100 to-slate-400 bg-clip-text text-transparent">change shape live.</span>
+        <section className="py-7 sm:py-9">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-3xl">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100/60">
+                ResearchBets live read
+              </div>
+              <h1 className="mt-3 text-[34px] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-[48px]">
+                What changed since X-Ray?
               </h1>
-              <p className="mt-4 max-w-2xl text-[13px] leading-6 text-slate-500 sm:text-[14px]">
-                The same ticket identity from X-Ray now moves through live pace, strongest-leg support, weakest-leg pressure, coverage quality, and settlement.
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+                Pulse keeps the same ticket thesis alive during the game: what is carrying, what is under pressure, and whether the original weak point still matters.
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-white/[0.065] bg-black/20 p-3">
-                <div className="text-[8px] uppercase tracking-[0.14em] text-slate-600">Tracked</div>
-                <div className="mt-1 text-[21px] font-semibold">{ticketCount}</div>
-              </div>
-              <div className="rounded-2xl border border-white/[0.065] bg-black/20 p-3">
-                <div className="text-[8px] uppercase tracking-[0.14em] text-slate-600">Refresh</div>
-                <div className="mt-1 text-[15px] font-semibold">15s</div>
-              </div>
-              <div className="rounded-2xl border border-white/[0.065] bg-black/20 p-3">
-                <div className="text-[8px] uppercase tracking-[0.14em] text-slate-600">Stage</div>
-                <div className="mt-1 text-[13px] font-semibold">During</div>
+            <div className="min-w-[180px] border-l border-white/10 pl-4">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Tracked tickets</div>
+              <div className="mt-1 font-mono text-2xl font-semibold text-slate-100">{ticketCount}</div>
+              <div className="mt-2 text-[11px] leading-5 text-slate-500">
+                Live freshness and coverage are verified per ticket below. Missing evidence stays unknown.
               </div>
             </div>
           </div>
-
-          <div className="relative mt-6 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.14em] text-slate-600">
-            <span className="rounded-full border border-cyan-300/[0.12] bg-cyan-300/[0.035] px-3 py-2 text-cyan-100/65">Discover</span>
-            <span>→</span>
-            <Link href={nervous.toHref('/stress-test')} className="rounded-full border border-amber-300/[0.12] bg-amber-300/[0.035] px-3 py-2 text-amber-100/65">X-Ray</Link>
-            <span>→</span>
-            <span className="rounded-full border border-emerald-300/[0.18] bg-emerald-300/[0.055] px-3 py-2 text-emerald-100/80">Pulse</span>
-            <span>→</span>
-            <Link href={nervous.toHref('/review')} className="rounded-full border border-violet-300/[0.10] bg-violet-300/[0.025] px-3 py-2 text-violet-100/55">Autopsy</Link>
-          </div>
         </section>
 
-        <section className="mt-6 overflow-hidden rounded-[28px] border border-white/[0.065] bg-white/[0.018] p-1 sm:p-2">
+        <section className="border-y border-white/10 py-5">
           <OpenTicketsPanel mode={mode} />
         </section>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Link href={nervous.toHref('/stress-test')} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[11px] font-semibold text-slate-300">← Back to X-Ray</Link>
-          <Link href={nervous.toHref('/history')} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[11px] font-semibold text-slate-300">Ticket history</Link>
-          <Link href={nervous.toHref('/review')} className="rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#071015]">Open Autopsy →</Link>
-        </div>
+        <section className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Next lifecycle action</div>
+            <p className="mt-1 text-sm text-slate-300">
+              When the ticket settles, compare the original X-Ray pressure with what actually broke or held.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={nervous.toHref('/stress-test')}
+              className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-medium text-slate-300 hover:border-white/20"
+            >
+              Back to X-Ray
+            </Link>
+            <Link
+              href={nervous.toHref('/review')}
+              className="rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#071015]"
+            >
+              Review outcome →
+            </Link>
+          </div>
+        </section>
+
+        <details className="mt-5 border-t border-white/8 pt-4 text-xs text-slate-400">
+          <summary className="cursor-pointer select-none font-medium text-slate-400 hover:text-white">
+            More ticket tools
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={nervous.toHref('/history')}
+              className="rounded-lg border border-white/10 px-3 py-2 text-slate-300"
+            >
+              Ticket history
+            </Link>
+            <Link
+              href={nervous.toHref('/')}
+              className="rounded-lg border border-white/10 px-3 py-2 text-slate-300"
+            >
+              Build another ticket
+            </Link>
+          </div>
+        </details>
       </div>
     </main>
   );
