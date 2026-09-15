@@ -28,6 +28,8 @@ export function TruthSpineHeader({
 }) {
   const nervous = useNervousSystem();
   const activeTrace = traceId ?? nervous.trace_id;
+  const modeLabel = runtimeSummary?.modeLabel ?? `Requested ${nervous.mode}`;
+  const freshnessLabel = freshness ?? runtimeSummary?.freshnessLabel;
 
   return (
     <header className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
@@ -49,8 +51,11 @@ export function TruthSpineHeader({
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-        <span className="rounded-full border border-white/15 px-2 py-1" title={runtimeSummary?.modeDetail}>{runtimeSummary?.modeLabel ?? nervous.mode}</span>
-        <span>{nervous.sport} · {nervous.date} · {nervous.tz} · {freshness ? `Updated ${freshness}` : `Updated ${runtimeSummary?.freshnessLabel ?? 'just now'}`}</span>
+        <span className="rounded-full border border-white/15 px-2 py-1" title={runtimeSummary?.modeDetail ?? 'Requested context; effective data mode is reported by the surface when known.'}>{modeLabel}</span>
+        <span>
+          {nervous.sport} · {nervous.date} · {nervous.tz}
+          {freshnessLabel ? ` · ${freshness ? `Updated ${freshnessLabel}` : freshnessLabel}` : ''}
+        </span>
         {activeTrace ? (
           <button
             type="button"

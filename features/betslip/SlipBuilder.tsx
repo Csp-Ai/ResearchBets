@@ -2,13 +2,8 @@
 
 import React from 'react';
 
-import { useMemo } from 'react';
-
-import { EmptyStateCard } from '../../src/components/shared/EmptyStateCard';
 import type { MarketType } from '../../src/core/markets/marketType';
 import { Badge } from '@/src/components/ui/Badge';
-import { CardSurface } from '@/src/components/ui/CardSurface';
-import { Button } from '@/src/components/ui/button';
 
 export type SlipBuilderLeg = {
   id: string;
@@ -52,47 +47,38 @@ export type SlipBuilderLeg = {
   };
 };
 
-export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {
-  const totalConfidence = useMemo(() => {
-    const values = legs.map((leg) => leg.confidence).filter((value): value is number => typeof value === 'number');
-    if (values.length === 0) return null;
-    return values.reduce((sum, value) => sum + value, 0) / values.length;
-  }, [legs]);
+export function SlipBuilder({ legs }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {
+  if (legs.length === 0) return null;
+
+  const enrichedCount = legs.filter(
+    (leg) => leg.recentForm || typeof leg.confidence === 'number' || leg.deadLegRisk || leg.volatility
+  ).length;
+
+  if (enrichedCount === 0) return null;
 
   return (
-    <CardSurface className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Slip builder</h3>
-        <p className="mono-number text-xs text-slate-400">{legs.length} legs {totalConfidence !== null ? `· ${Math.round(totalConfidence * 100)}% avg` : ''}</p>
-      </div>
-      <ul className="space-y-2 text-sm">
+    <details className="rounded-xl border border-white/[0.07] bg-white/[0.015] p-3">
+      <summary className="cursor-pointer list-none text-xs font-semibold text-slate-300">
+        Leg evidence details <span className="font-normal text-slate-500">({enrichedCount} enriched)</span>
+      </summary>
+      <div className="mt-3 space-y-2">
         {legs.map((leg) => (
-          <li key={leg.id} className="row-shell">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-100">{leg.player}</p>
-                <p className="truncate text-xs text-slate-300">{leg.marketType.toUpperCase()} {leg.line} <span className="mono-number">{leg.odds ?? '—'}</span></p>
+          <div key={leg.id} className="border-t border-white/[0.06] pt-2 first:border-t-0 first:pt-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-200">{leg.player}</p>
+                <p className="text-[11px] text-slate-500">{leg.marketType.replace(/_/g, ' ')} · {leg.line}</p>
               </div>
-              <Button intent="ghost" className="min-h-0 px-2 py-1 text-xs" onClick={() => onLegsChange(legs.filter((row) => row.id !== leg.id))}>Remove</Button>
+              <div className="flex flex-wrap gap-1">
+                {leg.volatility ? <Badge variant="warning" size="sm">{leg.volatility}</Badge> : null}
+                {typeof leg.confidence === 'number' ? <Badge variant="info" size="sm">Estimate {Math.round(leg.confidence * 100)}%</Badge> : null}
+                {leg.recentForm ? <Badge variant="info" size="sm">{leg.recentForm.l5Hits}/{leg.recentForm.l5Games} L5</Badge> : null}
+                {leg.deadLegRisk ? <Badge variant={leg.deadLegRisk === 'high' ? 'danger' : leg.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm" title={leg.deadLegReasons?.join(', ')}>Dead-leg {leg.deadLegRisk}</Badge> : null}
+              </div>
             </div>
-            <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
-              {leg.volatility ? <Badge variant="warning" size="sm">{leg.volatility}</Badge> : null}
-              {typeof leg.confidence === 'number' ? <Badge variant="info" size="sm">Hit est {Math.round(leg.confidence * 100)}%</Badge> : null}
-              {leg.recentForm ? <Badge variant="info" size="sm">{leg.recentForm.l5Hits}/{leg.recentForm.l5Games} L5 · {leg.recentForm.l10Hits}/{leg.recentForm.l10Games} L10</Badge> : null}
-              {leg.deadLegRisk ? <Badge variant={leg.deadLegRisk === 'high' ? 'danger' : leg.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm" title={leg.deadLegReasons?.join(', ')}>Dead-leg {leg.deadLegRisk}</Badge> : null}
-            </div>
-          </li>
+          </div>
         ))}
-      </ul>
-      {legs.length === 0 ? (
-        <div className="mt-3">
-          <EmptyStateCard
-            title="No legs in draft"
-            guidance="Click any prop above to add it. Legs will accumulate here."
-            primaryCta={{ label: 'Browse props', href: '/dashboard' }}
-          />
-        </div>
-      ) : null}
-    </CardSurface>
+      </div>
+    </details>
   );
 }

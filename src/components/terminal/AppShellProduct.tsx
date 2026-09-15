@@ -56,8 +56,16 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(COPY_TOAST_EVENT, onToast);
   }, []);
 
-  const isProduct = useMemo(() => PRODUCT_PREFIXES.some((prefix) => (prefix === '/' ? pathname === '/' : pathname?.startsWith(prefix))), [pathname]);
-  const showRail = useMemo(() => RAIL_ROUTES.some((route) => (route === '/' ? pathname === '/' : pathname?.startsWith(route))), [pathname]);
+  const isProduct = useMemo(
+    () => PRODUCT_PREFIXES.some((prefix) => (prefix === '/' ? pathname === '/' : pathname?.startsWith(prefix))),
+    [pathname]
+  );
+  const isSlipRoute = pathname === '/slip' || pathname?.startsWith('/slip/');
+  const showRail = useMemo(
+    () => !isSlipRoute && RAIL_ROUTES.some((route) => (route === '/' ? pathname === '/' : pathname?.startsWith(route))),
+    [isSlipRoute, pathname]
+  );
+  const showContextChrome = !isSlipRoute;
 
   if (!isProduct) return <>{children}</>;
 
@@ -93,7 +101,11 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-3">
             <ContextBadge />
-            <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">Analyze ({slip.length})</button>
+            {!isSlipRoute ? (
+              <button type="button" onClick={toStressTest} className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950">
+                Analyze ({slip.length})
+              </button>
+            ) : null}
             <details className="relative">
               <summary className="terminal-focus cursor-pointer list-none rounded-full border border-white/15 px-2 py-1 text-xs text-slate-200">⚙</summary>
               <div className="absolute right-0 mt-2 w-36 rounded-lg border border-white/10 bg-slate-900 p-2 text-sm">
@@ -109,8 +121,8 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <ContextHeaderStrip />
-      <SurfaceHeaderBar />
+      {showContextChrome ? <ContextHeaderStrip /> : null}
+      {showContextChrome ? <SurfaceHeaderBar /> : null}
       <div className={`grid gap-6 ${showRail ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
         <main className="min-w-0 space-y-6 pb-28 sm:pb-10">{children}</main>
         <aside className={`sticky top-20 hidden h-fit space-y-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4 ${showRail ? 'lg:block' : ''}`}>
@@ -118,7 +130,7 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
             <h2 className="text-sm font-semibold">Draft Slip</h2>
             {slip.length > 0 ? <button type="button" className="text-xs text-slate-400 hover:text-white" onClick={clearSlip}>Clear</button> : null}
           </div>
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Pipeline: Browse → Add → Slip → Stress Test</p>
+          <p className="text-[11px] text-slate-500">Your staged ticket stays with you as you move into analysis.</p>
           {slip.length === 0 ? <p className="text-xs text-slate-400">Add props from Board to start a stress-ready ticket.</p> : (
             <ul className="space-y-2 text-xs">
               {slip.map((leg) => (
