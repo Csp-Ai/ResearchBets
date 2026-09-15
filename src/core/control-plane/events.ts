@@ -60,7 +60,8 @@ export const ControlPlaneEventNameSchema = z.enum([
   'live_poll_degraded',
   'learning_update',
   'intervention_presented',
-  'intervention_applied'
+  'intervention_applied',
+  'intervention_settlement_linked'
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {
@@ -70,7 +71,15 @@ const requiredPropertiesByEvent: Record<string, string[]> = {
   agent_error: ['status', 'error_code', 'error_type', 'error_message', 'retryable'],
   user_outcome_recorded: ['outcome_id', 'bet_id', 'settlement_status', 'pnl_amount', 'settled_at'],
   intervention_presented: ['intervention_id', 'intervention_type', 'leg_id', 'current_line', 'target_line'],
-  intervention_applied: ['intervention_id', 'intervention_type', 'leg_id', 'current_line', 'target_line']
+  intervention_applied: ['intervention_id', 'intervention_type', 'leg_id', 'current_line', 'target_line'],
+  intervention_settlement_linked: [
+    'intervention_id',
+    'ticket_id',
+    'leg_id',
+    'settlement_verification',
+    'counterfactual_eligible',
+    'methodology_version'
+  ]
 };
 
 export const ControlPlaneEventSchema = z
