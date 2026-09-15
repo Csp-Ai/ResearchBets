@@ -13,7 +13,7 @@ export function useDraftSlip() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    setDraft(DraftSlipStore.getState());
+    setDraft(DraftSlipStore.migrateStorage());
     setIsHydrated(true);
     return DraftSlipStore.subscribe(setDraft);
   }, []);
