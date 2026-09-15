@@ -33,14 +33,14 @@ export const DEMO_TODAY_PAYLOAD: TodayPayload = {
       startTime: '8:20 PM ET',
       matchup: 'KC @ BUF',
       teams: ['KC', 'BUF'],
-      bookContext: 'PrizePicks-style',
+      bookContext: 'Deterministic NFL demo',
       provenance: 'Internal deterministic slate',
       lastUpdated: '2026-01-15T19:25:00.000Z',
       propsPreview: [
-        { id: 'nfl1', player: 'Josh Allen', market: 'points', line: '1.5 TD', rationale: ['Red-zone rush share', 'Top implied team total'], provenance: 'news + model prior', lastUpdated: '2026-01-15T19:24:00.000Z' },
-        { id: 'nfl2', player: 'Patrick Mahomes', market: 'assists', line: '282.5 yds', rationale: ['Blitz rate mismatch', 'Coverage shell tends to concede underneath'], provenance: 'stats-demo', lastUpdated: '2026-01-15T19:24:00.000Z' },
-        { id: 'nfl3', player: 'James Cook', market: 'ra', line: '87.5', rationale: ['Route+rush blend elevated', 'Neutral script projection'], provenance: 'projection snapshot', lastUpdated: '2026-01-15T19:23:30.000Z' },
-        { id: 'nfl4', player: 'Travis Kelce', market: 'rebounds', line: '63.5 rec yds', rationale: ['Slot seam target concentration', 'Recent first-read trend up'], provenance: 'target-tree model', lastUpdated: '2026-01-15T19:23:00.000Z' }
+        { id: 'nfl1', player: 'Josh Allen', market: 'passing_tds', line: '1.5', odds: '-120', rationale: ['Red-zone passing volume', 'High implied team scoring environment'], provenance: 'deterministic NFL demo', lastUpdated: '2026-01-15T19:24:00.000Z' },
+        { id: 'nfl2', player: 'Patrick Mahomes', market: 'passing_yards', line: '282.5', odds: '-110', rationale: ['Blitz rate mismatch', 'Coverage shell tends to concede underneath'], provenance: 'deterministic NFL demo', lastUpdated: '2026-01-15T19:24:00.000Z' },
+        { id: 'nfl3', player: 'James Cook', market: 'rushing_yards', line: '87.5', odds: '-108', rationale: ['Rush volume elevated', 'Neutral script projection'], provenance: 'deterministic NFL demo', lastUpdated: '2026-01-15T19:23:30.000Z' },
+        { id: 'nfl4', player: 'Travis Kelce', market: 'receiving_yards', line: '63.5', odds: '-112', rationale: ['Slot seam target concentration', 'Recent first-read trend up'], provenance: 'deterministic NFL demo', lastUpdated: '2026-01-15T19:23:00.000Z' }
       ]
     },
     {
@@ -81,8 +81,6 @@ export const DEMO_TODAY_PAYLOAD: TodayPayload = {
     }
   ]
 };
-
-
 
 function buildBoardFromGames(payload: TodayPayload): TodayPayload['board'] {
   return payload.games.flatMap((game) => game.propsPreview.map((prop) => ({
