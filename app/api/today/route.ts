@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
+import { getLiveKeyStatus } from '@/src/core/live/modeResolver.server';
+import { parseUrlModeIntent, resolveRuntimeMode, type ProviderHealthSummary } from '@/src/core/live/runtimeMode';
 import { coerceIsoDate, normalizeSpine } from '@/src/core/nervous/spine';
-import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
-import { computeProviderHealth } from '@/src/core/health/providerHealth.server';
-import { parseUrlModeIntent, resolveRuntimeMode } from '@/src/core/live/runtimeMode';
 import { createDemoTodayPayload } from '@/src/core/today/demoToday';
 import { resolveToday } from '@/src/core/today/resolveToday.server';
 import type { TodayPayload } from '@/src/core/today/types';
+import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
 
 const LIVE_STEPS = [
   'resolve_context',
@@ -20,6 +20,21 @@ const LIVE_STEPS = [
 ] as const;
 
 type LiveStep = (typeof LIVE_STEPS)[number];
+
+const elapsed = (startedAt: number) => Math.max(0, Date.now() - startedAt);
+
+function eligibilityHealth(): ProviderHealthSummary {
+  const status = getLiveKeyStatus();
+  const liveEligible = status.liveModeEnabled && status.requiredKeysPresent;
+  return {
+    mode: liveEligible ? 'live' : 'demo',
+    reason: liveEligible
+      ? 'live_eligible'
+      : status.liveModeEnabled
+        ? 'missing_keys'
+        : 'live_mode_disabled',
+  };
+}
 
 function parseWarningStep(providerWarnings: string[] = []): LiveStep | undefined {
   for (const warning of providerWarnings) {
@@ -56,13 +71,17 @@ function alignTodayPayload(payload: TodayPayload, contextWarnings: string[], int
 }
 
 export async function GET(request: Request) {
+  const requestStartedAt = Date.now();
   try {
+    const contextStartedAt = Date.now();
     const { searchParams } = new URL(request.url);
     const { spine, warnings: contextWarnings } = getTraceContext(request);
+    const contextMs = elapsed(contextStartedAt);
 
+    // Do not probe providers before the actual slate request. Eligibility is an
+    // environment/key check; resolveToday owns provider truth and cache fallback.
     const urlIntent = parseUrlModeIntent(searchParams);
-    const providerHealth = await computeProviderHealth({ sport: spine.sport });
-    const resolvedMode = resolveRuntimeMode({ urlIntent, providerHealth });
+    const resolvedMode = resolveRuntimeMode({ urlIntent, providerHealth: eligibilityHealth() });
 
     const forceRefresh = searchParams.get('refresh') === '1' || searchParams.get('force') === '1';
     const strictLive = searchParams.get('strict_live') === '1';
@@ -80,6 +99,7 @@ export async function GET(request: Request) {
       date: responseSpine.date,
     } as const;
 
+    const resolveStartedAt = Date.now();
     let payload: TodayPayload;
     try {
       payload = await resolveToday({
@@ -92,7 +112,7 @@ export async function GET(request: Request) {
       });
     } catch (error) {
       if (resolvedMode.mode === 'demo') {
-        payload = await resolveToday({ sport: responseSpine.sport.toUpperCase() as 'NBA', tz: responseSpine.tz, date: responseSpine.date, mode: 'demo' });
+        payload = await resolveToday({ sport: responseSpine.sport.toUpperCase() as 'NBA' | 'NFL' | 'NHL' | 'MLB' | 'UFC', tz: responseSpine.tz, date: responseSpine.date, mode: 'demo' });
       } else if (strictLive) {
         const generatedAt = new Date().toISOString();
         payload = {
@@ -114,6 +134,7 @@ export async function GET(request: Request) {
         throw error;
       }
     }
+    const resolveMs = elapsed(resolveStartedAt);
 
     const warnings = dateDefaulted ? [...contextWarnings, 'date_defaulted'] : contextWarnings;
     const modeAlignedPayload = alignTodayPayload(payload, warnings, requestIntent, resolvedMode.reason);
@@ -143,7 +164,13 @@ export async function GET(request: Request) {
       ...(debugEnabled && sanitizedDebug ? { debug: sanitizedDebug } : {})
     };
 
-    return NextResponse.json(responseBody);
+    const totalMs = elapsed(requestStartedAt);
+    return NextResponse.json(responseBody, {
+      headers: {
+        'Server-Timing': `context;dur=${contextMs}, slate;dur=${resolveMs}, total;dur=${totalMs}`,
+        'X-ResearchBets-Mode': modeAlignedPayload.mode,
+      },
+    });
   } catch {
     let fallbackSpine;
     try {
@@ -179,6 +206,11 @@ export async function GET(request: Request) {
         generatedAt: demoPayload.generatedAt
       },
       board
+    }, {
+      headers: {
+        'Server-Timing': `total;dur=${elapsed(requestStartedAt)}`,
+        'X-ResearchBets-Mode': 'demo',
+      },
     });
   }
 }
