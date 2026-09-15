@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "northStar": "Structural Risk Terminal for parlays — not picks.",
+  "canonicalJourney": [
+    { "stage": "discover_build", "label": "Discover + Build", "route": "/" },
+    { "stage": "xray", "label": "Ticket X-Ray", "route": "/stress-test" },
+    { "stage": "pulse", "label": "Ticket Pulse", "route": "/pulse" },
+    { "stage": "autopsy_memory", "label": "Ticket Autopsy + Memory", "route": "/review" }
+  ],
+  "alternateEntries": [
+    { "route": "/ingest", "purpose": "Screenshot and pasted-slip ingestion" },
+    { "route": "/slip", "purpose": "Detailed manual ticket workbench during migration" },
+    { "route": "/today", "purpose": "Expanded board during migration" }
+  ],
+  "compatibilityRoutes": ["/cockpit", "/landing", "/research", "/live", "/track"],
+  "internalRoutes": [
+    "/control",
+    "/dashboard",
+    "/discover",
+    "/tonight",
+    "/history",
+    "/community",
+    "/profile",
+    "/journal",
+    "/pending-bets",
+    "/settings",
+    "/traces",
+    "/dev/*"
+  ],
+  "authorities": {
+    "navigationContext": "src/core/nervous/spine.ts",
+    "navigationBuilder": "src/core/nervous/routes.ts",
+    "lifecycleIdentity": "src/core/lineage/lineage.ts",
+    "draftTicket": "src/core/slips/draftSlipStore.ts",
+    "analysisReadModel": "src/core/run/researchRunDTO.ts",
+    "analysisPipeline": "src/core/pipeline/runSlip.ts",
+    "durablePersistence": "src/core/persistence/runtimeStore.ts",
+    "runtimePersistenceProvider": "src/core/persistence/runtimeStoreProvider.ts",
+    "trackedTicket": "src/core/track/store.ts",
+    "todayData": "src/core/today/service.server.ts",
+    "truthPresentation": "src/core/ui/truthPresentation.ts"
+  },
+  "legacyModules": [
+    "app/HomeLandingClient.tsx",
+    "app/HomeLandingClientV2.tsx",
+    "app/HomeLandingClientV3.tsx",
+    "app/HomeLandingClientV4.tsx",
+    "src/components/landing/HomeLandingClientV2.tsx",
+    "src/components/landing/HomeLandingClientV3.tsx",
+    "src/components/landing/HomeLandingClientV4.tsx",
+    "src/components/landing/FrontdoorLandingClient.tsx",
+    "src/components/landing/BettorCockpitLanding.tsx",
+    "src/components/landing/LandingPageClient.tsx"
+  ],
+  "canonicalImportRoots": [
+    "app/page.tsx",
+    "app/_components",
+    "app/(product)/stress-test",
+    "app/(product)/pulse",
+    "app/(product)/review",
+    "src/components/home",
+    "src/components/xray"
+  ]
+}

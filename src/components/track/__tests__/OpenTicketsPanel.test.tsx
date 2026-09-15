@@ -20,7 +20,11 @@ describe('OpenTicketsPanel', () => {
     expect(screen.getByText(/Tracked ticket #1/)).toBeTruthy();
     expect(screen.getAllByText(/Strongest leg/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Weakest leg/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/live read is still watchful, not broken|ticket is now under pressure live|original ticket thesis is still holding live/i)).toBeTruthy();
+    expect(
+      screen.getByText(
+        /live read is still watchful, not broken|ticket is now under pressure live|original ticket thesis is still holding live/i
+      )
+    ).toBeTruthy();
     expect(screen.getByTestId('exposure-row')).toBeTruthy();
   });
 
@@ -30,6 +34,8 @@ describe('OpenTicketsPanel', () => {
       createdAt: '2026-02-26T10:00:00.000Z',
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
+      mode: 'live',
+      provenance: { mode: 'live', source_type: 'tracked_ticket', review_state: 'verified' },
       legs: [
         {
           legId: 'leg-1',
@@ -153,12 +159,14 @@ describe('OpenTicketsPanel', () => {
     expect(records[0]?.ticketId).toBe('ticket-postmortem');
   });
 
-  it('shows partial live coverage chip when game ids are missing', async () => {
+  it('fails closed when live game ids are missing', async () => {
     saveTrackedTicket({
       ticketId: 'ticket-coverage',
-      createdAt: '2026-02-26T10:00:00.000Z',
+      createdAt: new Date().toISOString(),
       sourceHint: 'paste',
       rawSlipText: 'Player over 10.5 points',
+      mode: 'live',
+      provenance: { mode: 'live', source_type: 'tracked_ticket', review_state: 'verified' },
       legs: [
         {
           legId: 'leg-1',
@@ -195,10 +203,8 @@ describe('OpenTicketsPanel', () => {
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     render(<OpenTicketsPanel mode="live" />);
 
-    await waitFor(() =>
-      expect(screen.getAllByText('Partial live coverage').length).toBeGreaterThan(0)
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Expand legs' }));
-    expect(screen.getByText('no_game_id')).toBeTruthy();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.getByText('No open tickets')).toBeTruthy();
+    expect(screen.queryByText('Partial live coverage')).toBeNull();
   });
 });

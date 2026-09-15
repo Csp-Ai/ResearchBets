@@ -10,6 +10,7 @@ import '@fontsource/dm-mono/400.css';
 import '@fontsource/dm-mono/500.css';
 
 import './globals.css';
+import '../public/cockpit-v2.css';
 
 export const metadata: Metadata = {
   title: 'ResearchBets — Build. Check. Improve.',

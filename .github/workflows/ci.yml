@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: packages/agent-schemas/package-lock.json
       - name: Validate schema package exists
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Lint and typecheck all services
         run: |
           set -euo pipefail
@@ -85,7 +85,6 @@ jobs:
             fi
           done
 
-
   web-quality:
     name: Web quality gates
     runs-on: ubuntu-latest
@@ -96,7 +95,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -115,7 +114,8 @@ jobs:
       - name: Unused code audit
         run: npm run audit:unused:ci
       - name: Canonical entry policy
-        run: echo "Canonical entry: / (shared with /cockpit alias). Demo/cache expected when keys missing."
+        run: |
+          echo "Canonical entry: / (shared with /cockpit alias). Demo/cache expected when keys missing."
 
   dependency-audit:
     name: Dependency audit (production gate)
@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -148,7 +148,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -169,7 +169,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Run RIA audit (PR-aware)
         env:
           RIA_MODE: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}

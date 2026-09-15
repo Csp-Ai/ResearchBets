@@ -475,7 +475,7 @@ export default function CockpitLandingClient({
   const ticketModeState: 'setup' | 'analysis' | 'live' | 'after' =
     liveCommand?.stage === 'after'
       ? 'after'
-      : liveCommand?.stage === 'live'
+      : liveCommand?.stage === 'live' || trackedContext.ticket?.mode === 'live'
         ? 'live'
         : legCount === 0
           ? 'setup'
@@ -486,7 +486,8 @@ export default function CockpitLandingClient({
       return {
         countLabel: '0 legs',
         shapeLabel: 'Build a 2–4 leg ticket',
-        recommendation: 'Build from the board to expose weakest-leg and correlation pressure early.',
+        recommendation:
+          'Build from the board to expose weakest-leg and correlation pressure early.',
         nextAction: 'Start with 2 legs, review posture, then run analysis before adding more.',
         tone: 'setup',
         weakestPreviewTitle: 'Weakest leg will appear after analysis',
@@ -886,7 +887,9 @@ export default function CockpitLandingClient({
                             <span className="decision-strength">{decision.strengthLabel}</span>
                             <span className="decision-divider">·</span>
                             <span className="decision-watch">{decision.posture}</span>
-                            <span className={`decision-context ${leg.deadLegRisk ? 'context-alert' : ''}`}>
+                            <span
+                              className={`decision-context ${leg.deadLegRisk ? 'context-alert' : ''}`}
+                            >
                               {decision.ticketContext}
                             </span>
                           </div>
@@ -952,10 +955,10 @@ export default function CockpitLandingClient({
                   ? 'Same ticket, now in live management mode.'
                   : ticketModeState === 'after'
                     ? 'Outcome preserved for review and postmortem.'
-                    : legCount === 0
-                      ? 'Decision room opens at 2–4 legs'
-                      : analysis.traceId
-                        ? statusText
+                    : (analysis.traceId ?? nervous.trace_id)
+                      ? statusText
+                      : legCount === 0
+                        ? 'Decision room opens at 2–4 legs'
                         : 'Shape the ticket, then run analysis'
               }
               action={

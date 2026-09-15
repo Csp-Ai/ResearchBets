@@ -2,7 +2,10 @@
 
 import type { ReactNode } from 'react';
 
-import { LiveNervousSystemStrip, type LiveNervousSystemStripProps } from '@/src/components/nervous/LiveNervousSystemStrip';
+import {
+  LiveNervousSystemStrip,
+  type LiveNervousSystemStripProps
+} from '@/src/components/nervous/LiveNervousSystemStrip';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { getTruthModeCopy } from '@/src/core/ui/truthPresentation';
 
@@ -10,7 +13,7 @@ export function CockpitHeader({
   title,
   purpose,
   ctas,
-  strip,
+  strip
 }: {
   title: string;
   purpose: string;
@@ -18,26 +21,42 @@ export function CockpitHeader({
   strip: LiveNervousSystemStripProps;
 }) {
   const nervous = useNervousSystem();
-  const modeCopy = getTruthModeCopy({ mode: strip.mode, reason: strip.reason, intentMode: strip.intentMode });
+  const modeCopy = getTruthModeCopy({
+    mode: strip.mode,
+    reason: strip.reason,
+    intentMode: strip.intentMode
+  });
 
   return (
-    <header className="space-y-2">
-      <div className="rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <header className="cockpit-runtime-header">
+      <p className="sr-only">{purpose}</p>
+      <div className="cockpit-brand-row">
+        <div className="cockpit-brand-lockup">
+          <span className="cockpit-brand-mark" aria-hidden>
+            R
+          </span>
           <div>
-            <p className="text-[11px] uppercase tracking-[0.08em] text-slate-400">{title}</p>
-            <p className="text-sm text-slate-300">{purpose}</p>
+            <p className="cockpit-brand-name">ResearchBets</p>
+            <p className="cockpit-brand-purpose">{title}</p>
           </div>
-          {ctas ? <div className="flex flex-wrap gap-2">{ctas}</div> : null}
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-          <span className="rounded-full border border-white/15 px-2 py-1">{nervous.sport}</span>
-          <span className="rounded-full border border-white/15 px-2 py-1">{nervous.date}</span>
-          <span className="rounded-full border border-white/15 px-2 py-1">{nervous.tz}</span>
-          <span className="rounded-full border border-white/15 px-2 py-1" title={modeCopy.detail}>{modeCopy.label}</span>
-        </div>
+        {ctas ? <div className="cockpit-header-ctas">{ctas}</div> : null}
       </div>
-      <LiveNervousSystemStrip {...strip} />
+
+      <div className="cockpit-runtime-summary" title={purpose}>
+        <span className={`cockpit-status-dot mode-${strip.mode}`} aria-hidden />
+        <span className="cockpit-runtime-mode" title={modeCopy.detail}>
+          {modeCopy.label}
+        </span>
+        <span className="cockpit-runtime-divider" aria-hidden />
+        <span>{nervous.sport}</span>
+        <span>{nervous.date}</span>
+        <span className="cockpit-runtime-tz">{nervous.tz}</span>
+      </div>
+
+      <div className="cockpit-runtime-expanded">
+        <LiveNervousSystemStrip {...strip} />
+      </div>
     </header>
   );
 }

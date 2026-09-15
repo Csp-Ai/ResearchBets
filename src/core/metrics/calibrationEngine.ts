@@ -1,3 +1,4 @@
+import { hasWeakestLegEvaluation } from '@/src/core/metrics/calibrationEvidence';
 import type { SlipOutcomeRecord } from '@/src/core/persistence/runtimeStore';
 
 export interface ConfidenceBucketAccuracy {
@@ -18,6 +19,7 @@ export interface CalibrationMetrics {
   modify_prevented_rate: number;
   pass_skip_win_delta: number;
   weakest_leg_accuracy: number;
+  weakest_leg_runs_analyzed: number;
   verdict_accuracy_by_type: Record<'TAKE' | 'MODIFY' | 'PASS', number>;
   confidence_bucket_accuracy: ConfidenceBucketAccuracy[];
   runs_analyzed: number;
@@ -44,6 +46,7 @@ export function computeCalibrationMetricsFromOutcomes(outcomes: SlipOutcomeRecor
       modify_prevented_rate: 0,
       pass_skip_win_delta: 0,
       weakest_leg_accuracy: 0,
+      weakest_leg_runs_analyzed: 0,
       verdict_accuracy_by_type: { TAKE: 0, MODIFY: 0, PASS: 0 },
       confidence_bucket_accuracy: BUCKETS.map((bucket) => ({
         range: `${bucket.min}-${bucket.max}%`,
@@ -78,9 +81,10 @@ export function computeCalibrationMetricsFromOutcomes(outcomes: SlipOutcomeRecor
     passes.length
   );
 
+  const weakestLegOutcomes = outcomes.filter((item) => hasWeakestLegEvaluation(item.topReasons));
   const weakestLegAccuracy = pct(
-    outcomes.filter((item) => item.hitWeakestLeg).length,
-    outcomes.length
+    weakestLegOutcomes.filter((item) => item.hitWeakestLeg).length,
+    weakestLegOutcomes.length
   );
 
   const verdictAccuracyByType = {
@@ -128,6 +132,7 @@ export function computeCalibrationMetricsFromOutcomes(outcomes: SlipOutcomeRecor
     modify_prevented_rate: modifyPreventedRate,
     pass_skip_win_delta: round(passLossRate - takeAccuracy),
     weakest_leg_accuracy: weakestLegAccuracy,
+    weakest_leg_runs_analyzed: weakestLegOutcomes.length,
     verdict_accuracy_by_type: verdictAccuracyByType,
     confidence_bucket_accuracy: confidenceBucketAccuracy,
     runs_analyzed: outcomes.length,

@@ -6,8 +6,8 @@ import { useMemo } from 'react';
 
 import { EmptyStateCard } from '../../src/components/shared/EmptyStateCard';
 import type { MarketType } from '../../src/core/markets/marketType';
-import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Badge } from '@/src/components/ui/Badge';
+import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 
 export type SlipBuilderLeg = {
@@ -21,6 +21,28 @@ export type SlipBuilderLeg = {
   game?: string;
   deadLegRisk?: 'low' | 'med' | 'high';
   deadLegReasons?: string[];
+  marketImpliedProb?: number;
+  consensusPrice?: string;
+  recentForm?: {
+    l5HitRate: number;
+    l10HitRate: number;
+    l5Hits: number;
+    l5Games: number;
+    l10Hits: number;
+    l10Games: number;
+    recentAverage: number;
+    sampleSize: number;
+    season: string;
+    asOf: string;
+    source: 'SportsDataIO';
+  };
+  adjacentAlt?: {
+    line: number;
+    bestPrice: string;
+    consensusPrice: string;
+    marketImpliedProb: number;
+    sourceCount?: number;
+  };
 };
 
 export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; onLegsChange: (legs: SlipBuilderLeg[]) => void }) {
@@ -49,6 +71,7 @@ export function SlipBuilder({ legs, onLegsChange }: { legs: SlipBuilderLeg[]; on
             <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
               {leg.volatility ? <Badge variant="warning" size="sm">{leg.volatility}</Badge> : null}
               {typeof leg.confidence === 'number' ? <Badge variant="info" size="sm">Hit est {Math.round(leg.confidence * 100)}%</Badge> : null}
+              {leg.recentForm ? <Badge variant="info" size="sm">{leg.recentForm.l5Hits}/{leg.recentForm.l5Games} L5 · {leg.recentForm.l10Hits}/{leg.recentForm.l10Games} L10</Badge> : null}
               {leg.deadLegRisk ? <Badge variant={leg.deadLegRisk === 'high' ? 'danger' : leg.deadLegRisk === 'med' ? 'warning' : 'success'} size="sm" title={leg.deadLegReasons?.join(', ')}>Dead-leg {leg.deadLegRisk}</Badge> : null}
             </div>
           </li>

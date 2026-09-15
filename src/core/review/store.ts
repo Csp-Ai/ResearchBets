@@ -95,10 +95,16 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
+export function listPersistedPostmortems(): PostmortemRecord[] {
+  return readJson<PostmortemRecord[]>(POSTMORTEMS_KEY, [])
+    .map(migratePostmortem)
+    .filter((record) => record.provenance?.mode !== 'demo')
+    .sort((a, b) => Date.parse(b.settledAt) - Date.parse(a.settledAt));
+}
+
 export function listPostmortems(): PostmortemRecord[] {
-  const records = readJson<PostmortemRecord[]>(POSTMORTEMS_KEY, []).map(migratePostmortem);
-  if (records.length > 0)
-    return [...records].sort((a, b) => Date.parse(b.settledAt) - Date.parse(a.settledAt));
+  const records = listPersistedPostmortems();
+  if (records.length > 0) return records;
   return demoPostmortems();
 }
 
@@ -111,7 +117,8 @@ export function savePostmortem(record: PostmortemRecord) {
   ].slice(0, 100);
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(POSTMORTEMS_KEY, JSON.stringify(deduped));
-    window.localStorage.setItem(EDGE_KEY, JSON.stringify(buildEdgeProfile(deduped)));
+    const realRecords = deduped.filter((item) => item.provenance?.mode !== 'demo');
+    window.localStorage.setItem(EDGE_KEY, JSON.stringify(buildEdgeProfile(realRecords)));
   }
 }
 
@@ -134,9 +141,10 @@ export function getDraftPostmortem(ticketId: string): DraftPostmortemSnapshot | 
 }
 
 export function getEdgeProfile(): EdgeProfile {
+  const records = listPersistedPostmortems();
   const cached = readJson<EdgeProfile | null>(EDGE_KEY, null);
-  if (cached) return cached;
-  const built = buildEdgeProfile(listPostmortems());
+  if (cached && records.length > 0) return cached;
+  const built = buildEdgeProfile(records);
   if (typeof window !== 'undefined') window.localStorage.setItem(EDGE_KEY, JSON.stringify(built));
   return built;
 }
