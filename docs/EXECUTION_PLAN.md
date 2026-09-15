@@ -152,11 +152,11 @@ Do not publicly CDN-cache response objects that contain request-specific identit
 
 ## Workstream C — Build the longitudinal data moat
 
-ResearchBets must begin storing the decisions around the recommendation, not just the final ticket.
+ResearchBets must begin storing the decisions around the recommendation, not just the final ticket. Capture enough decision-time lineage now to support future calibration, but do not build a self-modifying system in the current phase.
 
 ### C1. Intervention event contract
 
-For each actionable recommendation, capture enough structure to later answer whether it helped:
+For each actionable recommendation, capture enough structure to later answer whether it helped and what ResearchBets knew when it acted:
 
 - ticket / trace identity,
 - stage,
@@ -165,11 +165,15 @@ For each actionable recommendation, capture enough structure to later answer whe
 - before threshold/price,
 - recommended threshold/price,
 - evidence/provenance available at decision time,
+- freshness/availability state for evidence required by the recommendation,
+- source/provider identifiers where available and appropriate,
+- analysis/recommendation/policy version,
+- recommendation strength/confidence representation as actually shown or applied,
 - recommendation timestamp,
 - bettor accepted / rejected / ignored / unknown,
 - resulting submitted/tracked ticket state where known.
 
-Do not infer acceptance when it cannot be verified.
+Do not infer acceptance when it cannot be verified. Preserve the decision-time snapshot rather than reconstructing it later from settlement-time data.
 
 ### C2. Settlement + counterfactual
 
@@ -186,6 +190,18 @@ Store counterfactual methodology/version so later analysis is reproducible.
 ### C3. Memory feedback
 
 Only reviewed/eligible records should influence personalized guardrails. Feed repeated evidence-backed patterns back into Build and X-Ray as concise warnings, not another analytics dashboard.
+
+### C4. Future system-calibration eligibility
+
+Do not build adaptive source weighting or autonomous policy updates yet. Instead, make eligible records distinguish enough context that later offline evaluation can answer:
+
+- whether a structural warning was calibrated or noisy,
+- whether ResearchBets missed a recurring failure mode,
+- whether an abstention or `unknown` state was appropriate,
+- whether recommendation quality varies by evidence source, provider state, freshness, market type, sport, or policy version,
+- whether a candidate policy change improves held-out eligible outcomes without weakening truth guardrails.
+
+Calibration datasets must exclude demo/synthetic records and preserve uncertainty. Any later policy/source-weight change must be versioned, tested, reviewed, and deliberately promoted rather than silently learned into production.
 
 ## Workstream D — Prove habit before broad monetization
 
@@ -206,15 +222,19 @@ Do not optimize MAU, feed engagement, or session length at the expense of the de
 
 ## Workstream E — Proof before scale
 
-Only after enough eligible data exists should ResearchBets evaluate intervention effectiveness.
+Only after enough eligible data exists should ResearchBets evaluate intervention effectiveness and system calibration.
 
 Questions to answer:
 
 - Which intervention types are most often accepted?
 - Which warnings are calibrated versus noisy?
+- What are false-alarm and missed-warning rates for eligible warning classes?
+- When ResearchBets withheld a strong recommendation because evidence was insufficient, was that abstention appropriately cautious?
 - Do threshold reductions preserve more tickets in comparable contexts?
 - When selective escalation is recommended, does the added risk remain within the intended guardrail?
 - Does personalized memory reduce recurrence of the same construction mistake?
+- Do particular evidence sources, freshness states, or provider paths correlate with materially different downstream recommendation quality?
+- Do proposed policy changes improve held-out eligible records before they are considered for production?
 
 Any public performance claim must state sample, eligibility, methodology, and uncertainty. ResearchBets should never imply guaranteed winnings.
 
@@ -227,6 +247,8 @@ Until the canonical loop proves habit, deprioritize:
 - generalized sports-news surfaces,
 - fantasy-product expansion,
 - autonomous wagering,
+- autonomous self-modification of recommendation policy or source weights,
+- visible agent-governance/AI-ops dashboards,
 - broad creator/tout marketplace features,
 - large new sport matrices before the core flow works deeply in the current sport,
 - cosmetic dashboard metrics without a decision consequence,
@@ -248,6 +270,7 @@ Use this protocol for ongoing implementation:
 8. **No merge before green deployment.** Review route-size and First Load JS output for accidental regressions.
 9. **Keep PRs explainable.** Each PR should state the user problem, strategic mapping, acceptance criteria, and what remains intentionally out of scope.
 10. **Update authority docs when strategy changes.** Do not let chat decisions become invisible product policy.
+11. **Version judgment changes.** Any future change to recommendation policy, calibration thresholds, or source weighting must be explicit, reproducible, testable, and reviewable.
 
 ## Immediate execution queue
 
@@ -257,7 +280,7 @@ Unless a build failure or production-truth issue interrupts it, execute in this 
 2. **Review/Memory answer-first redesign** with original-thesis vs outcome continuity.
 3. **Canonical journey mobile QA** with populated ticket and real route transitions.
 4. **Measure production time-to-data** using the timing/cache headers already added; optimize the measured cold bottleneck.
-5. **Intervention event schema + logging** for accepted/rejected/unknown recommendation decisions.
+5. **Intervention event schema + logging** for accepted/rejected/unknown recommendation decisions, including decision-time provenance/version lineage needed for future calibration.
 6. **Counterfactual settlement foundation** so Autopsy can measure whether a specific recommended change would have mattered.
 7. **Habit analytics** centered on repeat X-Ray usage and lifecycle completion.
 8. **Private-user validation** focused on comprehension, trust, repeat behavior, and recommendation usefulness before expanding scope.
@@ -271,7 +294,7 @@ ResearchBets has reached a credible 0→1 product when all of the following are 
 - every stage has one obvious primary answer/action,
 - warm useful data is consistently fast,
 - live/cache/demo/stale/unknown states are truthful,
-- the system captures recommendation decisions and eligible outcomes,
+- the system captures recommendation decisions, decision-time lineage, and eligible outcomes,
 - reviewed outcomes can generate a next-time guardrail,
 - users voluntarily return to X-Ray another ticket,
 - and the product feels simpler as its intelligence becomes more sophisticated.
