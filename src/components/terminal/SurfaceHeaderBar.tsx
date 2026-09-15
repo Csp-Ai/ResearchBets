@@ -42,7 +42,12 @@ export function SurfaceHeaderBar() {
         <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100">ResearchBets</p>
         <p className="text-xs font-medium text-slate-200">{label}</p>
         <div className="flex items-center gap-1">
-          <span className="rounded border border-cyan-300/40 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] uppercase text-cyan-100">{nervous.mode}</span>
+          <span
+            className="rounded border border-white/15 px-1.5 py-0.5 text-[10px] text-slate-400"
+            title="Requested mode. Effective data mode is reported by the active surface."
+          >
+            requested {nervous.mode}
+          </span>
           {hasGuardrail ? <span className="rounded border border-amber-300/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase text-amber-100">Guardrail</span> : null}
         </div>
       </div>
