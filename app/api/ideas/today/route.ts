@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { fetchNflRecentFormForIdeas } from '@/src/core/ideas/nflRecentForm.server';
@@ -8,6 +9,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const RECENT_FORM_LIMIT = 5;
+const IDEAS_CACHE_TTL_MS = 45_000;
+const RESPONSE_CACHE_CONTROL = 'public, max-age=0, s-maxage=45, stale-while-revalidate=120';
+
+const ideasCache = new Map<string, { expiresAt: number; data: unknown }>();
+const inFlightIdeas = new Map<string, Promise<unknown>>();
 
 const normalizeMarketAvailability = <T extends {
   mode: 'live-market' | 'unavailable';
@@ -32,6 +38,75 @@ const normalizeMarketAvailability = <T extends {
   };
 };
 
+async function resolveIdeasData(input: { date: string; timeZone: string }): Promise<unknown> {
+  const scanned = await scanTodayIdeas({
+    date: input.date,
+    timeZone: input.timeZone,
+    sport: 'NFL',
+    limit: 12,
+  });
+  const result = normalizeMarketAvailability(scanned);
+
+  if (result.mode !== 'live-market' || result.ideas.length === 0) {
+    return result;
+  }
+
+  const recent = await fetchNflRecentFormForIdeas(
+    result.ideas.slice(0, RECENT_FORM_LIMIT).map((idea) => ({
+      id: idea.id,
+      player: idea.player,
+      marketType: idea.marketType,
+      line: idea.line,
+    })),
+  );
+
+  const ideas = result.ideas.map((idea) => {
+    const recentForm = recent.byIdeaId[idea.id];
+    if (!recentForm) return idea;
+    return {
+      ...idea,
+      recentForm,
+      why: [
+        ...idea.why,
+        `Recent form at this threshold: ${recentForm.l5Hits}/${recentForm.l5Games} L5 · ${recentForm.l10Hits}/${recentForm.l10Games} L10 · ${recentForm.recentAverage} recent average`,
+      ],
+    };
+  });
+
+  return {
+    ...result,
+    ideas,
+    warnings: recent.warning ? [...result.warnings, recent.warning] : result.warnings,
+  };
+}
+
+const resolveIdeasDataPersistent = unstable_cache(
+  async (date: string, timeZone: string) => resolveIdeasData({ date, timeZone }),
+  ['researchbets-today-ideas-v2'],
+  { revalidate: 45 },
+);
+
+async function getCachedIdeas(input: { date: string; timeZone: string }): Promise<unknown> {
+  const key = `NFL:${input.date}:${input.timeZone}`;
+  const cached = ideasCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const existing = inFlightIdeas.get(key);
+  if (existing) return existing;
+
+  const request = resolveIdeasDataPersistent(input.date, input.timeZone)
+    .then((data) => {
+      ideasCache.set(key, { expiresAt: Date.now() + IDEAS_CACHE_TTL_MS, data });
+      return data;
+    })
+    .finally(() => {
+      inFlightIdeas.delete(key);
+    });
+
+  inFlightIdeas.set(key, request);
+  return request;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const timeZone = searchParams.get('tz') || 'America/Phoenix';
@@ -51,60 +126,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const scanned = await scanTodayIdeas({
-      date,
-      timeZone,
-      sport: 'NFL',
-      limit: 12,
-    });
-    const result = normalizeMarketAvailability(scanned);
-
-    if (result.mode !== 'live-market' || result.ideas.length === 0) {
-      return NextResponse.json(
-        { ok: true, data: result },
-        {
-          headers: {
-            'Cache-Control': 'private, max-age=0, s-maxage=45, stale-while-revalidate=120',
-          },
-        },
-      );
-    }
-
-    const recent = await fetchNflRecentFormForIdeas(
-      result.ideas.slice(0, RECENT_FORM_LIMIT).map((idea) => ({
-        id: idea.id,
-        player: idea.player,
-        marketType: idea.marketType,
-        line: idea.line,
-      })),
-    );
-
-    const ideas = result.ideas.map((idea) => {
-      const recentForm = recent.byIdeaId[idea.id];
-      if (!recentForm) return idea;
-      return {
-        ...idea,
-        recentForm,
-        why: [
-          ...idea.why,
-          `Recent form at this threshold: ${recentForm.l5Hits}/${recentForm.l5Games} L5 · ${recentForm.l10Hits}/${recentForm.l10Games} L10 · ${recentForm.recentAverage} recent average`,
-        ],
-      };
-    });
-
-    const data = {
-      ...result,
-      ideas,
-      warnings: recent.warning ? [...result.warnings, recent.warning] : result.warnings,
-    };
-
+    const data = await getCachedIdeas({ date, timeZone });
     return NextResponse.json(
       { ok: true, data },
-      {
-        headers: {
-          'Cache-Control': 'private, max-age=0, s-maxage=45, stale-while-revalidate=120',
-        },
-      },
+      { headers: { 'Cache-Control': RESPONSE_CACHE_CONTROL } },
     );
   } catch {
     return NextResponse.json(
@@ -113,7 +138,10 @@ export async function GET(request: Request) {
         error: 'today_ideas_unavailable',
         message: 'Live market ideas are temporarily unavailable.',
       },
-      { status: 503 },
+      {
+        status: 503,
+        headers: { 'Cache-Control': 'public, max-age=0, s-maxage=5, stale-if-error=30' },
+      },
     );
   }
 }

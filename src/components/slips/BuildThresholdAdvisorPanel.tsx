@@ -140,13 +140,10 @@ export function BuildThresholdAdvisorPanel({
   const nervous = useNervousSystem();
   const [ideas, setIdeas] = useState<BuildThresholdIdea[]>([]);
   const [marketState, setMarketState] = useState<'loading' | 'live' | 'unavailable'>('loading');
-  const legSignature = useMemo(
-    () => legs.map((leg) => [leg.id, leg.player, leg.marketType, leg.line, leg.game ?? ''].join(':')).join('|'),
-    [legs],
-  );
+  const hasLegs = legs.length > 0;
 
   useEffect(() => {
-    if (legs.length === 0) {
+    if (!hasLegs) {
       setIdeas([]);
       setMarketState('unavailable');
       return;
@@ -154,10 +151,9 @@ export function BuildThresholdAdvisorPanel({
 
     const controller = new AbortController();
     const params = new URLSearchParams({ sport: 'NFL', date: nervous.date, tz: nervous.tz });
-    setIdeas([]);
     setMarketState('loading');
 
-    fetch(`/api/ideas/today?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
+    fetch(`/api/ideas/today?${params.toString()}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error('ideas_unavailable');
         const payload = (await response.json()) as IdeasResponse;
@@ -172,7 +168,7 @@ export function BuildThresholdAdvisorPanel({
       });
 
     return () => controller.abort();
-  }, [legSignature, legs.length, nervous.date, nervous.tz]);
+  }, [hasLegs, nervous.date, nervous.tz]);
 
   const enrichedLegs = useMemo(
     () => enrichBuildSlipFromIdeas(legs, ideas),
