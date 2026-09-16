@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { fetchTodayIdeasShared } from '@/src/core/ideas/todayIdeasClient';
 import {
   buildConstructionReport,
   type ConstructionLeg,
@@ -79,12 +80,14 @@ export function ConstructionIntelligencePanel() {
   useEffect(() => {
     if (!isHydrated || slip.length === 0) return;
     const controller = new AbortController();
-    const params = new URLSearchParams({ sport: 'NFL', date: nervous.date, tz: nervous.tz });
 
-    fetch(`/api/ideas/today?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = (await response.json()) as IdeasResponse;
+    fetchTodayIdeasShared<IdeasResponse>({
+      sport: 'NFL',
+      date: nervous.date,
+      tz: nervous.tz,
+      signal: controller.signal,
+    })
+      .then((payload) => {
         const rows = payload.ok ? payload.data?.ideas ?? [] : [];
         setLiveIdeas(Object.fromEntries(rows.map((idea) => [idea.id, idea])));
       })
