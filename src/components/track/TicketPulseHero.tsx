@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { emitHabitUsefulAnswer } from '@/src/core/analytics/habitLoop';
 import { deriveLiveCommandSurface } from '@/src/core/cockpit/ticketLoop';
 import {
   buildOpenTickets,
@@ -159,6 +160,28 @@ export function TicketPulseHero() {
       })[0],
     [surfaces],
   );
+
+  useEffect(() => {
+    if (!primary) return;
+    void emitHabitUsefulAnswer({
+      stage: 'pulse',
+      route: '/pulse',
+      spine: { ...nervous, ticketId: primary.ticket.ticketId },
+      answerType: 'live_ticket_pressure',
+      properties: {
+        pressure_tone: primary.command.ticketPressure.tone,
+        live_coverage: primary.ticket.coverage.coverage,
+      },
+    });
+  }, [
+    nervous.date,
+    nervous.mode,
+    nervous.slip_id,
+    nervous.sport,
+    nervous.trace_id,
+    nervous.tz,
+    primary,
+  ]);
 
   const totalLegs = tickets.reduce((sum, ticket) => sum + ticket.legs.length, 0);
   const carrying = tickets.reduce((sum, ticket) => sum + ticket.onPaceCount, 0);
