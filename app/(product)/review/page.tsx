@@ -57,12 +57,7 @@ export default function ReviewPage() {
     });
   }, [
     latest,
-    nervous.date,
-    nervous.mode,
-    nervous.slip_id,
-    nervous.sport,
-    nervous.trace_id,
-    nervous.tz,
+    nervous,
   ]);
 
   const settledIdentity = latest?.weakest_leg_identity ?? latest?.lifecycle_lineage?.settled;
