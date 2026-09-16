@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { EdgeProfileCard } from '@/src/components/review/EdgeProfileCard';
+import { emitHabitUsefulAnswer } from '@/src/core/analytics/habitLoop';
 import { PostmortemList } from '@/src/components/review/PostmortemList';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { matchesLifecycleIdentity } from '@/src/core/lineage/lineage';
@@ -36,6 +37,34 @@ export default function ReviewPage() {
 
   const profile = useMemo(() => getEdgeProfile(), []);
   const latest = records[0];
+
+  useEffect(() => {
+    if (!latest) return;
+    void emitHabitUsefulAnswer({
+      stage: 'review_memory',
+      route: '/review',
+      spine: {
+        ...nervous,
+        ticketId: latest.ticketId,
+        trace_id: latest.trace_id ?? nervous.trace_id,
+        slip_id: latest.slip_id ?? nervous.slip_id,
+      },
+      answerType: 'settlement_learning',
+      properties: {
+        settlement_status: latest.status,
+        reviewed_leg_count: latest.legs.length,
+      },
+    });
+  }, [
+    latest,
+    nervous.date,
+    nervous.mode,
+    nervous.slip_id,
+    nervous.sport,
+    nervous.trace_id,
+    nervous.tz,
+  ]);
+
   const settledIdentity = latest?.weakest_leg_identity ?? latest?.lifecycle_lineage?.settled;
   const pregameIdentity = latest?.lifecycle_lineage?.pregame;
   const liveIdentity = latest?.lifecycle_lineage?.live;
