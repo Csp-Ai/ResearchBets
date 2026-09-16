@@ -162,7 +162,7 @@ export function TicketPulseHero() {
   );
 
   useEffect(() => {
-    if (!primary) return;
+    if (!primary?.command) return;
     void emitHabitUsefulAnswer({
       stage: 'pulse',
       route: '/pulse',
@@ -174,12 +174,7 @@ export function TicketPulseHero() {
       },
     });
   }, [
-    nervous.date,
-    nervous.mode,
-    nervous.slip_id,
-    nervous.sport,
-    nervous.trace_id,
-    nervous.tz,
+    nervous,
     primary,
   ]);
 
