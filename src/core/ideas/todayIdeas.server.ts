@@ -230,11 +230,23 @@ export async function scanTodayIdeas(input: {
   const eventsStartedAt = Date.now();
   const allEvents = await fetchJsonOrThrow<OddsEvent[]>(eventsUrl);
   const eventsMs = elapsed(eventsStartedAt);
-  const events = (Array.isArray(allEvents) ? allEvents : [])
-    .filter(
-      (event) => event.commence_time && formatLocalDate(event.commence_time, input.timeZone) === input.date,
-    )
+  const scheduledEvents = (Array.isArray(allEvents) ? allEvents : [])
+    .filter((event) => event.commence_time)
     .sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time));
+  const requestedEvents = scheduledEvents.filter(
+    (event) => formatLocalDate(event.commence_time, input.timeZone) === input.date,
+  );
+  const nextSlateDate = requestedEvents.length === 0
+    ? scheduledEvents
+        .map((event) => formatLocalDate(event.commence_time, input.timeZone))
+        .find((date) => date >= input.date)
+    : input.date;
+  const effectiveDate = nextSlateDate ?? input.date;
+  const events = requestedEvents.length > 0
+    ? requestedEvents
+    : scheduledEvents.filter(
+        (event) => formatLocalDate(event.commence_time, input.timeZone) === effectiveDate,
+      );
   const eventSummaries = events.map(eventSummary);
 
   const marketQuery = NFL_MARKETS.map((market) => market.apiKey).join(',');
@@ -247,7 +259,9 @@ export async function scanTodayIdeas(input: {
     book: string;
     structuralRisk: TodayIdea['structuralRisk'];
   }> = [];
-  const warnings: string[] = [];
+  const warnings: string[] = effectiveDate !== input.date
+    ? [`next_slate:${effectiveDate}`]
+    : [];
 
   const eventOddsStartedAt = Date.now();
   for (const event of events) {
@@ -490,7 +504,7 @@ export async function scanTodayIdeas(input: {
   return {
     mode: 'live-market',
     generatedAt,
-    date: input.date,
+    date: effectiveDate,
     timeZone: input.timeZone,
     sport,
     games: events.length,

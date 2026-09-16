@@ -44,40 +44,10 @@ export default function IngestionPage() {
   const ocrAbortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const onSubmit = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      const response = await fetch('/api/slips/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source_type: sourceType,
-          source: 'paste',
-          raw_text: slipText,
-          spine: { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }
-        })
-      });
-      const payload = await response.json();
-      const parsed = parseSlipSubmitEnvelope(payload);
-      if (!response.ok || !parsed.success || !parsed.data.ok) {
-        throw new Error(parsed.success && !parsed.data.ok ? parsed.data.error.message : 'Unable to submit slip.');
-      }
-      setSubmittedSlipId(parsed.data.data.slip_id ?? null);
-      setSubmittedTraceId(parsed.data.data.trace_id ?? null);
-      setHasHistoricalDate(/\b(202[0-5]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(slipText));
-      setStatus(parsed.data.data.parse?.needs_review ? 'Saved. Parsing confidence is low, confirm legs next.' : 'Saved and parsed. Ticket X-Ray is ready.');
-    } catch (submitError) {
-      setStatus(submitError instanceof Error ? submitError.message : 'Unable to submit slip.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onOpenXRay = async () => {
-    if (!submittedSlipId || !slipText.trim()) return;
+  const prepareXRay = async (slipId: string, traceId: string | null) => {
+    if (!slipText.trim()) return;
     setXrayLoading(true);
-    setStatus('Preparing Ticket X-Ray…');
+    setStatus('Reading the ticket and building X-Ray…');
     try {
       const response = await fetch('/api/slips/parseText', {
         method: 'POST',
@@ -85,8 +55,8 @@ export default function IngestionPage() {
         body: JSON.stringify({
           text: slipText,
           sourceHint: artifactType === 'slip_screenshot' ? 'screenshot' : 'paste',
-          trace_id: submittedTraceId ?? nervous.trace_id,
-          slip_id: submittedSlipId,
+          trace_id: traceId ?? nervous.trace_id,
+          slip_id: slipId,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as ParseTextResponse;
@@ -111,12 +81,54 @@ export default function IngestionPage() {
         })),
       );
 
-      router.push(nervous.toHref('/stress-test'));
+      const detectedSport = payload.data.legs[0]?.league === 'NFL' ? 'NFL' : nervous.sport;
+      router.push(nervous.toHref('/stress-test', {
+        sport: detectedSport,
+        slip_id: slipId,
+        trace_id: traceId ?? nervous.trace_id,
+      }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to prepare Ticket X-Ray.');
     } finally {
       setXrayLoading(false);
     }
+  };
+
+  const onSubmit = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      const response = await fetch('/api/slips/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_type: sourceType,
+          source: 'paste',
+          raw_text: slipText,
+          spine: { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }
+        })
+      });
+      const payload = await response.json();
+      const parsed = parseSlipSubmitEnvelope(payload);
+      if (!response.ok || !parsed.success || !parsed.data.ok) {
+        throw new Error(parsed.success && !parsed.data.ok ? parsed.data.error.message : 'Unable to submit slip.');
+      }
+      const slipId = parsed.data.data.slip_id;
+      const traceId = parsed.data.data.trace_id ?? null;
+      setSubmittedSlipId(slipId);
+      setSubmittedTraceId(traceId);
+      setHasHistoricalDate(/\b(202[0-5]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(slipText));
+      await prepareXRay(slipId, traceId);
+    } catch (submitError) {
+      setStatus(submitError instanceof Error ? submitError.message : 'Unable to submit slip.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onOpenXRay = async () => {
+    if (!submittedSlipId) return;
+    await prepareXRay(submittedSlipId, submittedTraceId);
   };
 
   const onUploadClick = () => {
@@ -151,7 +163,7 @@ export default function IngestionPage() {
     setOcrProgress('Reading text… 0%');
     setOcrError(null);
     setStatus(null);
-    setArtifactStatus('Saving original upload to bettor history…');
+    setArtifactStatus('Reading the screenshot locally. Sign-in is optional for analysis.');
     setSubmittedSlipId(null);
     setSubmittedTraceId(null);
     const abortController = new AbortController();
@@ -167,6 +179,8 @@ export default function IngestionPage() {
       if (uploadResponse.ok && uploadPayload?.artifact?.artifact_id) {
         persistedArtifactId = uploadPayload.artifact.artifact_id as string;
         setArtifactStatus('Original screenshot saved. Extracting text before parser analysis…');
+      } else if (uploadResponse.status === 401) {
+        setArtifactStatus('Not signed in — the screenshot stays local, and analysis still works normally.');
       } else {
         setArtifactStatus(uploadPayload?.error ?? 'Upload could not be persisted. Continuing with local OCR only.');
       }
@@ -186,7 +200,7 @@ export default function IngestionPage() {
       });
 
       setSlipText(normalized);
-      setStatus('Screenshot text extracted. Review it, save the slip, then open Ticket X-Ray.');
+      setStatus('Screenshot text extracted. Review it, then tap Analyze ticket.');
 
       if (persistedArtifactId) {
         setArtifactStatus('Screenshot saved. Running sportsbook parser on the extracted text…');
@@ -251,7 +265,7 @@ export default function IngestionPage() {
         <div className="flex flex-wrap gap-2">
           <Button intent="secondary" onClick={onUploadClick} disabled={loading || isOcrRunning || xrayLoading}>Upload screenshot</Button>
           {isOcrRunning ? <Button intent="secondary" onClick={() => void onCancelOcr()}>Cancel OCR</Button> : null}
-          <Button intent="primary" onClick={() => void onSubmit()} disabled={loading || isOcrRunning || xrayLoading || !slipText.trim()}>{loading ? 'Saving…' : submittedSlipId ? 'Saved ✓' : 'Save slip'}</Button>
+          <Button intent="primary" onClick={() => void onSubmit()} disabled={loading || isOcrRunning || xrayLoading || !slipText.trim()}>{loading || xrayLoading ? 'Building X-Ray…' : 'Analyze ticket'}</Button>
         </div>
       </Surface>
 

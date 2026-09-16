@@ -131,7 +131,7 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
             {slip.length > 0 ? <button type="button" className="text-xs text-slate-400 hover:text-white" onClick={clearSlip}>Clear</button> : null}
           </div>
           <p className="text-[11px] text-slate-500">Your staged ticket stays with you as you move into analysis.</p>
-          {slip.length === 0 ? <p className="text-xs text-slate-400">Add props from Board to start a stress-ready ticket.</p> : (
+          {slip.length === 0 ? <p className="text-xs text-slate-400">Paste or scan a sportsbook ticket to start your X-Ray.</p> : (
             <ul className="space-y-2 text-xs">
               {slip.map((leg) => (
                 <li key={leg.id} className="rounded-lg border border-white/10 bg-slate-900/60 p-2">
@@ -142,7 +142,11 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
               ))}
             </ul>
           )}
-          <button type="button" onClick={toStressTest} className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Analyze ({slip.length})</button>
+          {slip.length === 0 ? (
+            <Link href={nervous.toHref('/ingest')} className="block w-full rounded-lg bg-cyan-400 px-3 py-2 text-center text-sm font-semibold text-slate-950">Scan / paste ticket</Link>
+          ) : (
+            <button type="button" onClick={toStressTest} className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Analyze ({slip.length})</button>
+          )}
         </aside>
       </div>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 py-2 backdrop-blur sm:hidden">
@@ -157,7 +161,11 @@ export function AppShellProduct({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
-      {showRail ? <button type="button" onClick={() => setMobileSlipOpen((value) => !value)} className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden">Slip ({slip.length})</button> : null}
+      {showRail && slip.length === 0 ? (
+        <Link href={nervous.toHref('/ingest')} className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-center text-sm font-semibold text-slate-950 shadow-lg sm:hidden">Scan / paste ticket</Link>
+      ) : showRail ? (
+        <button type="button" onClick={() => setMobileSlipOpen((value) => !value)} className="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg sm:hidden">Slip ({slip.length})</button>
+      ) : null}
       {mobileSlipOpen && showRail ? (
         <div className="fixed inset-x-0 bottom-24 z-40 mx-3 rounded-xl border border-white/10 bg-slate-950 p-3 sm:hidden">
           <div className="mb-2 flex items-center justify-between"><p className="text-sm font-semibold">Draft Slip</p>{slip.length > 0 ? <button type="button" className="text-xs text-slate-400" onClick={clearSlip}>Clear</button> : null}</div>

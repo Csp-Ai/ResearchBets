@@ -3,9 +3,13 @@
 import { useState } from 'react';
 
 import { TicketXRay } from '@/src/components/xray/TicketXRay';
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 export function XRayVisualDetails() {
   const [open, setOpen] = useState(false);
+  const { slip, isHydrated } = useDraftSlip();
+
+  if (!isHydrated || slip.length === 0) return <TicketXRay />;
 
   return (
     <section className="border-t border-white/10 pt-4">

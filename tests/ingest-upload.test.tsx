@@ -47,6 +47,6 @@ describe('ingest upload screenshot flow', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(screen.getByDisplayValue(/Leg A over 22.5 points/)).toBeTruthy());
-    await waitFor(() => expect((screen.getAllByRole('button', { name: 'Save slip' })[0] as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getAllByRole('button', { name: 'Analyze ticket' })[0] as HTMLButtonElement).disabled).toBe(false));
   });
 });

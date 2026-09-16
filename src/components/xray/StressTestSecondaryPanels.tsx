@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 
 const LoadingPanel = ({ height }: { height: string }) => (
   <div
@@ -28,6 +29,9 @@ const ResearchPageContent = dynamic(
 export function StressTestSecondaryPanels() {
   const [showStructure, setShowStructure] = useState(false);
   const [showDeepResearch, setShowDeepResearch] = useState(false);
+  const { slip, isHydrated } = useDraftSlip();
+
+  if (!isHydrated || slip.length === 0) return null;
 
   return (
     <section className="space-y-5">

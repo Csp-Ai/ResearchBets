@@ -58,6 +58,31 @@ describe('smoke: ingest to research workflow', () => {
             { status: 200 }
           );
         }
+        if (String(input).includes('/api/slips/parseText')) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                ticketId: 'ticket-1',
+                createdAt: '2026-09-16T00:00:00.000Z',
+                rawSlipText: 'Jayson Tatum over 29.5 points (-110)',
+                sourceHint: 'paste',
+                legs: [{
+                  legId: 'leg-1',
+                  league: 'NBA',
+                  player: 'Jayson Tatum',
+                  marketType: 'points',
+                  threshold: 29.5,
+                  direction: 'over',
+                  odds: '-110',
+                  source: 'paste',
+                  parseConfidence: 'high',
+                }],
+              },
+            }),
+            { status: 200 }
+          );
+        }
         return new Response(JSON.stringify({}), { status: 200 });
       })
     );
@@ -67,14 +92,9 @@ describe('smoke: ingest to research workflow', () => {
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target: { value: 'Jayson Tatum over 29.5 points (-110)' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save slip' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze ticket' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Deep analysis' })).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Deep analysis' }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringContaining('/research')));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringContaining('/stress-test')));
     expect(push).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace-smoke-ivan'));
   });
 });

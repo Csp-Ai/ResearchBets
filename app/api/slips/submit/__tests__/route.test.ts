@@ -58,4 +58,33 @@ describe('/api/slips/submit POST', () => {
     expect(payload.data.spine.trace_id).toBe(payload.trace_id);
     expect(payload.data.spine.slip_id).toBe(payload.data.slip_id);
   });
+
+  it('keeps anonymous X-Ray available when optional persistence fails', async () => {
+    vi.doMock('@/src/core/persistence/runtimeStoreProvider', () => ({
+      getRuntimeStore: () => ({
+        createSlipSubmission: vi.fn(async () => {
+          throw new Error('database unavailable');
+        }),
+      })
+    }));
+
+    const { POST } = await import('../route');
+    const response = await POST(new Request('http://localhost:3000/api/slips/submit?sport=NFL&tz=UTC&date=2026-09-16&mode=live', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'paste',
+        raw_text: 'Rashee Rice 4+ receptions',
+      })
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      data: {
+        slip_id: expect.any(String),
+        parse: { legs_count: 1 },
+      },
+    });
+  });
 });
