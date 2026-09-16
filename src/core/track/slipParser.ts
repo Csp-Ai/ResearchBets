@@ -2,6 +2,7 @@ import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
 import type { ParseConfidence, TrackedTicketLeg } from '@/src/core/track/types';
 
 const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: string }> = [
+  { pattern: /\b(?:rushing|rush)\s*\+\s*(?:receiving|rec)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_yards', label: 'Rushing + receiving yards' },
   { pattern: /\b(?:passing|pass)\s+(?:yards?|yds?)\b/i, marketType: 'passing_yards', label: 'Passing yards' },
   { pattern: /\b(?:passing|pass)\s+(?:touchdowns?|tds?)\b/i, marketType: 'passing_tds', label: 'Passing TDs' },
   { pattern: /\b(?:rushing|rush)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_yards', label: 'Rushing yards' },
@@ -27,8 +28,22 @@ const NFL_MARKETS = new Set<MarketType>([
   'anytime_td',
 ]);
 
-const ALT_DESCRIPTOR = /^(.+?)\s*-\s*ALT\s+(PASSING|RUSHING|RECEIVING)\s+(YDS?|YARDS?|TDS?|TOUCHDOWNS?|ATTEMPTS?|RECEPTIONS?)$/i;
+const ALT_DESCRIPTOR = /^(.+?)\s*[-–—]\s*ALT\s+(PASSING|RUSHING|RECEIVING|RUSHING\s*\+\s*RECEIVING)\s+(YDS?|YARDS?|TDS?|TOUCHDOWNS?|ATTEMPTS?|RECEPTIONS?)$/i;
+const ALT_RECEPTIONS_DESCRIPTOR = /^(.+?)\s*[-–—]\s*ALT\s+RECEPTIONS?$/i;
 const GENERIC_PLUS_PROP = /^(.+?)\s+(\d+(?:\.\d+)?)\+\s+(YARDS?|RECEPTIONS?|CARRIES|PASSING\s+TOUCHDOWNS?)(?:\s+([+-]\d{2,5}))?(?:\s+([A-Z]{2,4}\s*@\s*[A-Z]{2,4}))?$/i;
+
+function sanitizeSportsbookLine(input: string): string {
+  const afterBreadcrumb = input.includes('>') ? input.split('>').at(-1) ?? input : input;
+  return afterBreadcrumb
+    .replace(/^[^A-Za-z0-9]+/, '')
+    .replace(/^\d+\s+(?=[A-Z][A-Za-z'.-]+\s+[A-Z])/, '')
+    .replace(/^Te\s+(?=[A-Z][A-Za-z'.-]+\s+[A-Z])/, '')
+    .replace(/\[[A-Za-z0-9]+\b/g, '')
+    .replace(/[©®]+/g, ' ')
+    .replace(/[&)\]]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function canonicalMarket(input: string): { marketType: MarketType; marketLabel: string; inferred: boolean } {
   for (const token of MARKET_TOKEN_MAP) {
@@ -54,12 +69,22 @@ function comparablePlayer(input: string): string {
     .replace(/[^a-z0-9']/g, '');
 }
 
+function samePlayer(left: string, right: string): boolean {
+  const a = comparablePlayer(left);
+  const b = comparablePlayer(right);
+  return a === b || (Math.min(a.length, b.length) >= 6 && (a.startsWith(b) || b.startsWith(a)));
+}
+
 function descriptorMarket(line: string): { player: string; market: string } | null {
+  const receptions = line.match(ALT_RECEPTIONS_DESCRIPTOR);
+  if (receptions?.[1]) {
+    return { player: normalizePlayerName(receptions[1]), market: 'receptions' };
+  }
   const match = line.match(ALT_DESCRIPTOR);
   if (!match?.[1] || !match[2] || !match[3]) return null;
   const family = match[2].toLowerCase();
   const unit = match[3].toLowerCase();
-  let market = `${family} yards`;
+  let market = `${family.replace(/\s*\+\s*/g, ' + ')} yards`;
   if (unit.startsWith('td') || unit.startsWith('touchdown')) market = 'passing touchdowns';
   else if (unit.startsWith('attempt')) market = 'carries';
   else if (unit.startsWith('reception')) market = 'receptions';
@@ -69,18 +94,33 @@ function descriptorMarket(line: string): { player: string; market: string } | nu
 function coalesceSportsbookFragments(lines: string[]): string[] {
   const output: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const current = lines[index]!;
-    const next = lines[index + 1];
+    const current = sanitizeSportsbookLine(lines[index]!);
     const main = current.match(GENERIC_PLUS_PROP);
-    const descriptor = next ? descriptorMarket(next) : null;
+    let descriptor: ReturnType<typeof descriptorMarket> = null;
+    let descriptorEnd = index;
 
-    if (main?.[1] && main[2] && descriptor && comparablePlayer(main[1]) === comparablePlayer(descriptor.player)) {
+    if (main) {
+      for (let end = index + 1; end <= Math.min(index + 3, lines.length - 1); end += 1) {
+        const joined = lines
+          .slice(index + 1, end + 1)
+          .map(sanitizeSportsbookLine)
+          .join(' ');
+        const candidate = descriptorMarket(joined);
+        if (candidate && main[1] && samePlayer(main[1], candidate.player)) {
+          descriptor = candidate;
+          descriptorEnd = end;
+          break;
+        }
+      }
+    }
+
+    if (main?.[1] && main[2] && descriptor) {
       const player = normalizePlayerName(main[1]);
       const threshold = main[2];
       const odds = main[4] ? ` ${main[4]}` : '';
       const teams = main[5] ? ` ${main[5]}` : '';
       output.push(`${player} over ${threshold} ${descriptor.market}${odds}${teams}`);
-      index += 1;
+      index = descriptorEnd;
       continue;
     }
 
