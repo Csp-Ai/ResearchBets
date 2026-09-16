@@ -262,6 +262,7 @@ export function ResearchBetsHome() {
   const selectedCount = slip.length;
   const games = payload?.games ?? 0;
   const qualified = payload?.ideas.length ?? 0;
+  const displayDate = payload?.date ?? nervous.date;
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#03060a] text-white">
@@ -304,7 +305,7 @@ export function ResearchBetsHome() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-50" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
             </span>
-            NFL · {nervous.date}
+            NFL · {displayDate}
           </div>
         </header>
 
@@ -319,14 +320,16 @@ export function ResearchBetsHome() {
             </div>
 
             <h1 className="mt-4 max-w-3xl text-[42px] font-semibold leading-[0.94] tracking-[-0.062em] sm:text-[64px] lg:text-[76px]">
-              I scanned {loading ? 'today’s slate' : `${games} games`}.
+              {loading ? 'Scanning the NFL board.' : games === 0 ? 'No live NFL slate yet.' : `I scanned ${games} games.`}
               <span className="block bg-gradient-to-r from-white via-cyan-100 to-slate-400 bg-clip-text text-transparent">
-                Here are the plays worth your attention.
+                {games === 0 && !loading ? 'Your sportsbook ticket still works.' : 'Here are the plays worth your attention.'}
               </span>
             </h1>
 
             <p className="mt-5 max-w-2xl text-[15px] leading-7 text-slate-400 sm:text-[16px]">
-              Live markets in. Junk lines out. ResearchBets finds useful thresholds, shows what supports them, then stress-tests the ticket before you lock it.
+              {games === 0 && !loading
+                ? 'Paste or scan any sportsbook ticket. ResearchBets will identify the legs, map the dependencies, and show what to repair before you lock it.'
+                : 'Live markets in. Junk lines out. ResearchBets finds useful thresholds, shows what supports them, then stress-tests the ticket before you lock it.'}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2 text-[10px] text-slate-500">
@@ -352,9 +355,16 @@ export function ResearchBetsHome() {
                 <p className="mt-2 max-w-xl text-[13px] leading-6 text-slate-500">
                   ResearchBets scanned {games} games and is holding the line instead of padding the feed with bad parlay legs.
                 </p>
-                <Link href={nervous.toHref('/cockpit', { sport: 'NFL', mode: 'live' })} className="mt-4 inline-flex rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-[11px] font-semibold text-slate-300">
-                  Explore near-misses →
-                </Link>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link href={nervous.toHref('/ingest', { sport: 'NFL' })} className="inline-flex rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018]">
+                    Scan / paste my ticket →
+                  </Link>
+                  {games > 0 ? (
+                    <Link href={nervous.toHref('/cockpit', { sport: 'NFL', mode: 'live' })} className="inline-flex rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-[11px] font-semibold text-slate-300">
+                      Explore near-misses
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible">
@@ -406,7 +416,7 @@ export function ResearchBetsHome() {
           />
         </div>
 
-        <section className="py-8">
+        {qualified >= 2 ? <section className="py-8">
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-slate-600">One tap</div>
@@ -429,7 +439,16 @@ export function ResearchBetsHome() {
               </button>
             ))}
           </div>
-        </section>
+        </section> : (
+          <section className="py-8">
+            <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-5">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-600">Have a ticket already?</div>
+              <h2 className="mt-2 text-[26px] font-semibold tracking-[-0.05em]">Bring your sportsbook slip.</h2>
+              <p className="mt-2 max-w-xl text-[12px] leading-5 text-slate-500">A quiet board should not block the product. Screenshot or paste your legs and go straight to Ticket X-Ray.</p>
+              <Link href={nervous.toHref('/ingest', { sport: 'NFL' })} className="mt-4 inline-flex rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018]">Analyze my ticket →</Link>
+            </div>
+          </section>
+        )}
 
         <section className="relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-[linear-gradient(155deg,rgba(11,17,27,.82),rgba(4,7,12,.92))] p-5 sm:p-7">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-100/[0.18] to-transparent" />
@@ -512,23 +531,18 @@ export function ResearchBetsHome() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#05080d]/[0.90] px-3 py-3 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold text-slate-100">{selectedCount ? `${selectedCount} legs selected` : 'Build a ticket in one tap'}</div>
-            <div className="mt-0.5 truncate text-[9px] text-slate-600">{selectedCount >= 2 ? 'Ready for weakest-leg + correlation analysis.' : 'Choose a preset or add individual ideas.'}</div>
+            <div className="text-[11px] font-semibold text-slate-100">{selectedCount ? `${selectedCount} legs selected` : qualified >= 2 ? 'Build a ticket in one tap' : 'Already have a ticket?'}</div>
+            <div className="mt-0.5 truncate text-[9px] text-slate-600">{selectedCount >= 2 ? 'Ready for weakest-leg + correlation analysis.' : qualified >= 2 ? 'Choose a preset or add individual ideas.' : 'Scan or paste it for an immediate X-Ray.'}</div>
           </div>
           {selectedCount >= 2 ? (
             <Link href={nervous.toHref('/stress-test')} className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018]">Stress-test</Link>
+          ) : qualified >= 2 ? (
+            <button type="button" onClick={() => {
+              const balanced = PRESETS.find((preset) => preset.id === 'balanced');
+              if (balanced) buildPreset(balanced);
+            }} className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018]">Build balanced</button>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                const balanced = PRESETS.find((preset) => preset.id === 'balanced');
-                if (balanced) buildPreset(balanced);
-              }}
-              disabled={qualified < 2}
-              className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018] disabled:opacity-35"
-            >
-              Build balanced
-            </button>
+            <Link href={nervous.toHref('/ingest', { sport: 'NFL' })} className="shrink-0 rounded-xl bg-white px-4 py-3 text-[11px] font-bold text-[#081018]">Scan ticket</Link>
           )}
         </div>
       </div>
