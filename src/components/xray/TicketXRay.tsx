@@ -157,13 +157,7 @@ export function TicketXRay() {
     });
   }, [
     isHydrated,
-    nervous.date,
-    nervous.mode,
-    nervous.slip_id,
-    nervous.sport,
-    nervous.ticketId,
-    nervous.trace_id,
-    nervous.tz,
+    nervous,
     report.legs.length,
     report.weakest_leg_id,
   ]);
