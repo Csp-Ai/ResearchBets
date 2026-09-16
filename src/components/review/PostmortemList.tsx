@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { emitHabitGuardrailApplied } from '@/src/core/analytics/habitLoop';
 import { getLoopTrustBadges } from '@/src/core/bettor-loop/provenance';
 import type { PostmortemRecord } from '@/src/core/review/types';
 import { Badge } from '@/src/components/ui/Badge';
@@ -110,6 +111,12 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
                         onClick={() => {
                           saveGuardrail(record.nextTimeRule!);
                           setAppliedByTicket((prev) => ({ ...prev, [record.ticketId]: true }));
+                          void emitHabitGuardrailApplied({
+                            ticketId: record.ticketId,
+                            traceId: record.trace_id,
+                            slipId: record.slip_id,
+                            guardrailId: `${record.ticketId}:${record.nextTimeRule!.title}`,
+                          });
                         }}
                       >
                         {appliedByTicket[record.ticketId]

@@ -32,7 +32,12 @@ Already established:
 - `/slip` reference redesign around one ticket / one answer / one primary action,
 - answer-first X-Ray direction,
 - live polling resilience with stale/unknown behavior instead of fabricated progress,
-- request timing/cache instrumentation for `/api/today` and `/api/ideas/today`.
+- request timing/cache instrumentation for `/api/today` and `/api/ideas/today`,
+- answer-first Pulse and Review/Memory surfaces,
+- canonical mobile lifecycle QA gate,
+- explicit intervention decision capture and verified settlement linkage,
+- shared client ideas request deduplication and scan-phase timing,
+- versioned canonical habit-loop telemetry for stage views, useful answers, and applied guardrails.
 
 These are foundations, not the finish line.
 
@@ -292,14 +297,12 @@ Use this protocol for ongoing implementation:
 
 Unless a build failure or production-truth issue interrupts it, execute in this order:
 
-1. **Pulse answer-first redesign** using `/slip` and X-Ray as the visual/hierarchy reference, with explicit continuity from the pregame primary pressure.
-2. **Review/Memory answer-first redesign** with original-thesis vs outcome continuity and targeted-intervention evaluation.
-3. **Canonical journey mobile QA** with populated ticket and real route transitions.
-4. **Measure production time-to-data** using the timing/cache headers already added; optimize the measured cold bottleneck.
-5. **Intervention event schema + logging** for accepted/rejected/unknown recommendation decisions, including target constraint and decision-time provenance/version lineage needed for future calibration.
-6. **Counterfactual settlement foundation** so Autopsy can measure whether a specific recommended change would have mattered and whether it addressed the intended constraint.
-7. **Habit analytics** centered on repeat X-Ray usage and lifecycle completion.
-8. **Private-user validation** focused on comprehension, trust, repeat behavior, and recommendation usefulness before expanding scope.
+1. **Private-user validation** across real ticket lifecycles, focused on comprehension, trust, recommendation usefulness, and voluntary repeat X-Ray usage.
+2. **Habit readout** from the canonical lifecycle events: Build → X-Ray, X-Ray → Pulse, Pulse → Review, applied recommendations/guardrails, first useful answer time, and 7-day repeat X-Ray.
+3. **Measure production time-to-data** using the timing/cache headers already added; optimize only the measured cold bottleneck.
+4. **Durable lifecycle continuity** for tracked tickets, original thesis, interventions, settlement, and saved guardrails beyond one browser-local session.
+5. **Evidence-led front-door refinement** based on observed private-user friction rather than another speculative redesign.
+6. **Restore GitHub Actions runner execution** so repository CI executes real steps again; keep exact-head Vercel green as the release gate until then.
 
 ## 0→1 completion gate
 

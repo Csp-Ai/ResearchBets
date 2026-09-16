@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
+import { emitHabitUsefulAnswer } from '@/src/core/analytics/habitLoop';
 import {
   getBettorMistakePatternSummary,
   getDraftLearningAdvisory,
@@ -141,6 +142,25 @@ export function TicketXRay() {
       }),
     );
   }, [isHydrated, slip]);
+
+  useEffect(() => {
+    if (!isHydrated || report.legs.length === 0) return;
+    void emitHabitUsefulAnswer({
+      stage: 'xray',
+      route: '/stress-test',
+      spine: nervous,
+      answerType: 'structural_risk',
+      properties: {
+        leg_count: report.legs.length,
+        primary_pressure_leg_id: report.weakest_leg_id ?? null,
+      },
+    });
+  }, [
+    isHydrated,
+    nervous,
+    report.legs.length,
+    report.weakest_leg_id,
+  ]);
 
   const positions = useMemo(
     () => new Map(report.legs.map((leg, index) => [leg.leg_id, nodePosition(index, report.legs.length)])),
