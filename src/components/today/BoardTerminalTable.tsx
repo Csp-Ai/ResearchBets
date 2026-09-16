@@ -53,6 +53,7 @@ const MARKET_LABEL: Record<MarketType, string> = {
   passing_yards: 'Pass Yards',
   passing_tds: 'Pass TDs',
   rushing_yards: 'Rush Yards',
+  rushing_receiving_yards: 'Rushing + Receiving Yards',
   receiving_yards: 'Receiving Yards',
   receptions: 'Receptions',
   carries: 'Carries',

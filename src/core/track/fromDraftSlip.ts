@@ -8,6 +8,7 @@ const NFL_MARKETS = new Set<SlipBuilderLeg['marketType']>([
   'passing_yards',
   'passing_tds',
   'rushing_yards',
+  'rushing_receiving_yards',
   'receiving_yards',
   'receptions',
   'carries',

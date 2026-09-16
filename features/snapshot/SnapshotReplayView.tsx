@@ -50,6 +50,7 @@ const MARKET_TYPE_TAGS: Record<MarketType, string> = {
   passing_yards: 'PASS YDS',
   passing_tds: 'PASS TD',
   rushing_yards: 'RUSH YDS',
+  rushing_receiving_yards: 'RUSH + REC YDS',
   receiving_yards: 'REC YDS',
   receptions: 'REC',
   carries: 'CAR',

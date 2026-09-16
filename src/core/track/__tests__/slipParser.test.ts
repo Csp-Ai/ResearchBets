@@ -115,6 +115,7 @@ describe('parseSlipTextToLegs', () => {
     );
 
     expect(legs).toHaveLength(3);
+    expect(legs[2]?.marketType).toBe('rushing_receiving_yards');
     expect(legs.map((leg) => [leg.player, leg.marketLabel, leg.threshold])).toEqual([
       ['Rashee Rice', 'Receptions', 4],
       ['Travis Kelce', 'Receptions', 4],

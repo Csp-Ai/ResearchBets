@@ -49,6 +49,7 @@ describe('theoddsapi provider mapping', () => {
     expect(marketToOddsApi('passing_yards')).toBe('player_pass_yds');
     expect(marketToOddsApi('passing_tds')).toBe('player_pass_tds');
     expect(marketToOddsApi('rushing_yards')).toBe('player_rush_yds');
+    expect(marketToOddsApi('rushing_receiving_yards')).toBe('player_rush_reception_yds');
     expect(marketToOddsApi('receiving_yards')).toBe('player_reception_yds');
     expect(marketToOddsApi('receptions')).toBe('player_receptions');
     expect(marketToOddsApi('carries')).toBe('player_rush_attempts');

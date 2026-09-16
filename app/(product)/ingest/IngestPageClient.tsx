@@ -28,7 +28,7 @@ export default function IngestionPage() {
   const [slipText, setSlipText] = useState(prefill);
   const [sourceType, setSourceType] = useState<'self' | 'shared'>('self');
   const nervous = useNervousSystem();
-  const { setSlip } = useDraftSlip();
+  const { replaceState } = useDraftSlip();
   const [loading, setLoading] = useState(false);
   const [xrayLoading, setXrayLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -63,23 +63,25 @@ export default function IngestionPage() {
       if (!response.ok || !payload.ok || !payload.data) {
         throw new Error(payload.error?.message ?? 'Unable to prepare this slip for Ticket X-Ray.');
       }
-      if (payload.data.legs.length === 0) {
-        throw new Error('No verified legs were detected yet. Review the extracted text before opening X-Ray.');
+      if (payload.data.legs.length === 0 || payload.data.legs.some((leg) => leg.needsReview || leg.parseConfidence === 'low' || leg.player === 'Needs review')) {
+        throw new Error('Some legs could not be read reliably. Edit the text to include each player, market, and threshold, then try again.');
       }
 
-      setSlip(
-        payload.data.legs.map((leg) => ({
+      replaceState({
+        slip_id: slipId,
+        trace_id: traceId ?? nervous.trace_id,
+        legs: payload.data.legs.map((leg) => ({
           id: leg.legId,
           player: leg.player,
           marketType: leg.marketType,
-          line: `${leg.direction === 'under' ? 'Under' : 'Over'} ${leg.threshold}`,
+          line: leg.ladder ? `${leg.threshold}+` : `${leg.direction === 'under' ? 'Under' : 'Over'} ${leg.threshold}`,
           odds: leg.odds,
           game: leg.teams ?? leg.gameId,
           volatility: leg.needsReview ? 'high' : leg.parseConfidence === 'medium' ? 'medium' : 'low',
           deadLegRisk: leg.needsReview ? 'high' : undefined,
           deadLegReasons: leg.needsReview ? ['Parser marked this leg for review before trust.'] : undefined,
         })),
-      );
+      });
 
       const detectedSport = payload.data.legs[0]?.league === 'NFL' ? 'NFL' : nervous.sport;
       router.push(nervous.toHref('/stress-test', {
