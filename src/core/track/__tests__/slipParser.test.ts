@@ -95,6 +95,34 @@ describe('parseSlipTextToLegs', () => {
     });
   });
 
+  it('recovers legs from noisy sportsbook OCR without turning chrome into selections', () => {
+    const legs = parseSlipTextToLegs(
+      [
+        'Box Score > Play-by-play > Go to event > Te Rashee Rice 4+ Receptions',
+        'RASHEE RICE – ALT RECEPTIONS',
+        '–1) LJJ',
+        '4',
+        '2 Travis Kelce 4+ Receptions ©',
+        'TRAVIS KELCE – ALT RECEPTIONS',
+        '–1) LJJ',
+        '4',
+        '2 Kenneth Walker III 70+ Yards &)',
+        '©) KENNETH WALKER [11 – ALT RUSHING +',
+        'RECEIVING',
+        'YDS',
+      ].join('\n'),
+      'screenshot',
+    );
+
+    expect(legs).toHaveLength(3);
+    expect(legs.map((leg) => [leg.player, leg.marketLabel, leg.threshold])).toEqual([
+      ['Rashee Rice', 'Receptions', 4],
+      ['Travis Kelce', 'Receptions', 4],
+      ['Kenneth Walker III', 'Rushing + receiving yards', 70],
+    ]);
+    expect(legs.every((leg) => leg.needsReview === false)).toBe(true);
+  });
+
   it('keeps unknown markets in review rather than pretending they are verified', () => {
     const [leg] = parseSlipTextToLegs('Mystery Player 12.5 mystery stat +100', 'paste');
 
