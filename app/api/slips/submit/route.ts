@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
   try {
     const body = parsed.data;
-    const store = getRuntimeStore();
+    let store: ReturnType<typeof getRuntimeStore> | null = null;
 
     const anonSessionId =
       body.anon_session_id || body.anon_id || body.spine?.anon_id || randomUUID();
@@ -73,19 +73,25 @@ export async function POST(request: Request) {
     const checksum = createHash('sha256').update(rawText).digest('hex');
     const id = body.slip_id ?? randomUUID();
 
-    await store.createSlipSubmission({
-      id,
-      anonSessionId,
-      userId,
-      createdAt: new Date().toISOString(),
-      source: body.source ?? 'paste',
-      rawText,
-      parseStatus: 'received',
-      extractedLegs: (body.legs ?? null) as Record<string, unknown>[] | null,
-      traceId: trace.trace_id,
-      requestId,
-      checksum
-    });
+    try {
+      store = getRuntimeStore();
+      await store.createSlipSubmission({
+        id,
+        anonSessionId,
+        userId,
+        createdAt: new Date().toISOString(),
+        source: body.source ?? 'paste',
+        rawText,
+        parseStatus: 'received',
+        extractedLegs: (body.legs ?? null) as Record<string, unknown>[] | null,
+        traceId: trace.trace_id,
+        requestId,
+        checksum
+      });
+    } catch {
+      // Anonymous X-Ray must stay available when optional cloud persistence is degraded.
+      store = null;
+    }
 
     const parsedSlip = parseSlipText(rawText);
     const sourceType = body.source_type ?? 'self';
@@ -133,8 +139,9 @@ export async function POST(request: Request) {
       // Keep deterministic runtime flow alive when Supabase is not configured.
     }
 
-    await new DbEventEmitter(store).emit(
-      {
+    if (store) {
+      await new DbEventEmitter(store).emit(
+        {
         event_name: 'slip_submitted',
         timestamp: new Date().toISOString(),
         request_id: requestId,
@@ -157,9 +164,10 @@ export async function POST(request: Request) {
           needs_review: parsedSlip.legs.length === 0,
           source_type: sourceType
         }
-      },
-      baseSpine
-    );
+        },
+        baseSpine
+      ).catch(() => undefined);
+    }
 
     const spine: ContextSpine = { ...baseSpine, trace_id: trace.trace_id, slip_id: id };
     const response = SlipSubmitResultSchema.parse({
