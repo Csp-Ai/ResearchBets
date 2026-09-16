@@ -26,16 +26,7 @@ export function HabitLoopTracker() {
       previousStage: previousStage.current,
     });
     previousStage.current = stage;
-  }, [
-    pathname,
-    nervous.date,
-    nervous.mode,
-    nervous.slip_id,
-    nervous.sport,
-    nervous.ticketId,
-    nervous.trace_id,
-    nervous.tz,
-  ]);
+  }, [pathname, nervous]);
 
   return null;
 }
