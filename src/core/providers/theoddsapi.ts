@@ -181,6 +181,8 @@ export const marketToOddsApi = (marketType: MarketType): string => {
       return 'player_pass_tds';
     case 'rushing_yards':
       return 'player_rush_yds';
+    case 'rushing_receiving_yards':
+      return 'player_rush_reception_yds';
     case 'receiving_yards':
       return 'player_reception_yds';
     case 'receptions':
@@ -215,6 +217,8 @@ const toMarketType = (marketKey: string): MarketType | null => {
       return 'passing_tds';
     case 'player_rush_yds':
       return 'rushing_yards';
+    case 'player_rush_reception_yds':
+      return 'rushing_receiving_yards';
     case 'player_reception_yds':
       return 'receiving_yards';
     case 'player_receptions':

@@ -23,6 +23,7 @@ const marketLabel: Record<TodayPropKey['market'], string> = {
   passing_yards: 'Passing Yards',
   passing_tds: 'Passing TDs',
   rushing_yards: 'Rushing Yards',
+  rushing_receiving_yards: 'Rushing + Receiving Yards',
   receiving_yards: 'Receiving Yards',
   receptions: 'Receptions',
   carries: 'Carries',

@@ -2,7 +2,7 @@ import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
 import type { ParseConfidence, TrackedTicketLeg } from '@/src/core/track/types';
 
 const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: string }> = [
-  { pattern: /\b(?:rushing|rush)\s*\+\s*(?:receiving|rec)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_yards', label: 'Rushing + receiving yards' },
+  { pattern: /\b(?:rushing|rush)\s*\+\s*(?:receiving|rec)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_receiving_yards', label: 'Rushing + receiving yards' },
   { pattern: /\b(?:passing|pass)\s+(?:yards?|yds?)\b/i, marketType: 'passing_yards', label: 'Passing yards' },
   { pattern: /\b(?:passing|pass)\s+(?:touchdowns?|tds?)\b/i, marketType: 'passing_tds', label: 'Passing TDs' },
   { pattern: /\b(?:rushing|rush)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_yards', label: 'Rushing yards' },
@@ -22,6 +22,7 @@ const NFL_MARKETS = new Set<MarketType>([
   'passing_yards',
   'passing_tds',
   'rushing_yards',
+  'rushing_receiving_yards',
   'receiving_yards',
   'receptions',
   'carries',
