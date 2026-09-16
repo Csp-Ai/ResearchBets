@@ -6,7 +6,7 @@ const readFirst = (value: string | string[] | undefined) => Array.isArray(value)
 
 export function CanonicalLanding({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const initialSpine = normalizeSpine({
-    sport: readFirst(searchParams?.sport),
+    sport: readFirst(searchParams?.sport) ?? 'NFL',
     date: readFirst(searchParams?.date),
     tz: readFirst(searchParams?.tz),
     mode: readFirst(searchParams?.mode),
