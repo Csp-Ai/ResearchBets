@@ -19,7 +19,15 @@ describe('GamesToday', () => {
             id: '1',
             league: 'NBA',
             matchup: 'LAL @ DAL',
-            teams: [{ team: 'LAL', players: [{ id: 'p1', name: 'LeBron James', injuryStatus: 'Active', matchupNotes: 'pace up', props: [{ market: 'points', line: '25.5' }] }] }],
+            players: [
+              {
+                id: 'p1',
+                name: 'LeBron James',
+                injuryStatus: 'Active',
+                matchupNotes: 'pace up',
+                props: [{ market: 'points', line: '25.5' }],
+              },
+            ],
           },
         ]}
         onAddLeg={() => undefined}
@@ -28,6 +36,6 @@ describe('GamesToday', () => {
 
     expect(html).toContain('LAL @ DAL');
     expect(html).toContain('points 25.5');
-    expect(html).toContain('Click a prop chip to add to slip');
+    expect(html).toContain('Click a market to add to slip.');
   });
 });
