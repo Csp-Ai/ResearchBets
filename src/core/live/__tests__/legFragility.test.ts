@@ -32,6 +32,28 @@ describe('computeLegFragility', () => {
     expect(result.roleHint).toBe('primary_handler');
   });
 
+  it('raises fragility when verified live opportunity is thin', () => {
+    const active = computeLegFragility(
+      leg({
+        opportunityHealth: 'active',
+        opportunityCount: 8,
+        opportunityLabel: 'targets',
+        liveClock: { quarter: 2, timeRemainingSec: 300, elapsedGameMinutes: 19 },
+      }),
+      'full'
+    );
+    const thin = computeLegFragility(
+      leg({
+        opportunityHealth: 'thin',
+        opportunityCount: 1,
+        opportunityLabel: 'targets',
+        liveClock: { quarter: 2, timeRemainingSec: 300, elapsedGameMinutes: 19 },
+      }),
+      'full'
+    );
+    expect(thin.fragilityScore).toBeGreaterThan(active.fragilityScore);
+  });
+
   it('inflates fragility for partial coverage deterministically', () => {
     const base = computeLegFragility(leg({ requiredRemaining: 1, liveClock: { quarter: 2, timeRemainingSec: 140, elapsedGameMinutes: 22 } }), 'full');
     const partial = computeLegFragility(leg({ requiredRemaining: 1, coverage: { coverage: 'missing' }, liveClock: { quarter: 2, timeRemainingSec: 140, elapsedGameMinutes: 22 } }), 'partial');
