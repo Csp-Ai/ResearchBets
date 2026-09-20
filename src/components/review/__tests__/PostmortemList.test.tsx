@@ -37,6 +37,7 @@ const record: PostmortemRecord = {
       'First provider-verified snapshot after ResearchBets tracking began; not asserted as sportsbook placement-time state.',
     legs: {
       'leg-live': {
+        capturedAt: '2026-09-20T20:05:00.000Z',
         currentValue: 89,
         elapsedGameMinutes: 12,
         quarter: 2,
