@@ -1,7 +1,11 @@
 import { buildLoopProvenance, type LoopProvenance } from '@/src/core/bettor-loop/provenance';
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { SlipTrackingState } from '@/src/core/slips/trackingTypes';
-import type { CoverageReason, TrackedTicket } from '@/src/core/track/types';
+import type {
+  CoverageReason,
+  TrackedTicket,
+  TrackedTicketEntrySnapshot,
+} from '@/src/core/track/types';
 
 export type LiveClock = {
   quarter: 1 | 2 | 3 | 4;
@@ -79,6 +83,7 @@ export type OpenTicket = {
   run_id?: string;
   slip_id?: string;
   provenance?: LoopProvenance;
+  entrySnapshot?: TrackedTicketEntrySnapshot;
 };
 
 export type ExposureSummary = { byGame: string[]; highVarianceLegs: number; overlaps: string[] };
@@ -379,6 +384,7 @@ function toTicketFromTracked(
     trace_id: ticket.trace_id,
     run_id: ticket.run_id,
     slip_id: ticket.slip_id,
+    entrySnapshot: ticket.entrySnapshot,
     provenance:
       ticket.provenance ??
       buildLoopProvenance({
