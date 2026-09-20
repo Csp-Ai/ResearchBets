@@ -176,7 +176,8 @@ export function evaluateLiveLeg(input: LiveLegInput): LiveLegState {
 const weakestScore = (leg: LiveLegState) =>
   ({ ahead: 0, on_pace: 1, behind: 3, needs_spike: 5 })[leg.status] +
   { stable: 0, moderate: 1, high: 2 }[leg.volatility] +
-  (leg.minutesRisk ? 2 : 0);
+  (leg.minutesRisk ? 2 : 0) +
+  (leg.opportunityHealth === 'thin' ? 2 : 0);
 
 function computeClock(createdAtIso: string, nowIso: string): LiveClock {
   const elapsedMin = Math.max(0, (Date.parse(nowIso) - Date.parse(createdAtIso)) / 60000);
