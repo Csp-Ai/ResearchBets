@@ -6,20 +6,24 @@ Company strategy lives in `docs/STRATEGY.md`. Active sequencing and acceptance g
 
 ## North Star
 
-**ResearchBets is a Structural Risk Terminal for parlays — not a picks service.**
+**ResearchBets is the decision intelligence layer for parlays — from idea to settlement.**
 
-At the company level, ResearchBets is building the decision layer between a bettor and a sportsbook. A sportsbook answers what can be bet; ResearchBets should explain what a ticket depends on, where it is fragile, what would improve it, how that thesis changes live, and what should be learned after settlement.
+At the company level, ResearchBets is the decision layer between a bettor and a sportsbook. A sportsbook answers what can be bet; ResearchBets should help the bettor understand **what is worth investigating, how to express the thesis, what the resulting ticket depends on, where it is fragile, how that thesis changes live, and what should be learned after settlement**.
 
-It helps a bettor discover candidates, construct a ticket, identify structural failure risk, follow the same ticket live, and learn from settlement. It does not promise winners or manufacture certainty.
+The initial wedge remains:
+
+> **Structural Risk Terminal for parlays — not a picks service.**
+
+Structural risk is the core pre-lock job and the identity of Ticket X-Ray, but it is not the entire company definition. ResearchBets should preserve one decision context across research, construction, X-Ray, live Pulse, and settlement Review. It does not promise winners or manufacture certainty.
 
 ## Canonical lifecycle
 
 | Stage            | Product name            | Canonical route | Primary question                                                  |
 | ---------------- | ----------------------- | --------------- | ----------------------------------------------------------------- |
-| Discover + Build | ResearchBets Home       | `/`             | What is worth investigating, and what belongs together?           |
-| Before           | Ticket X-Ray            | `/stress-test`  | What is most likely to break this ticket before lock?             |
-| During           | Ticket Pulse            | `/pulse`        | What is carrying the ticket, and what is under verified pressure? |
-| After            | Ticket Autopsy + Memory | `/review`       | Why did it break or hold, and what should change next time?       |
+| Discover + Build | ResearchBets Home       | `/`             | What is worth investigating, and how should the thesis be expressed? |
+| Before           | Ticket X-Ray            | `/stress-test`  | What does this ticket depend on, and what should change before lock? |
+| During           | Ticket Pulse            | `/pulse`        | Is the original thesis holding, and what is under verified pressure? |
+| After            | Ticket Autopsy + Memory | `/review`       | What actually held or broke, and what should change next time?       |
 
 `/ingest`, `/slip`, and `/today` remain supported as alternate or expanded entry surfaces while their unique capabilities are folded into the canonical lifecycle. Compatibility and internal routes are listed in `config/convergence.json`.
 
@@ -65,10 +69,12 @@ Conceptually, the system may reason across dimensions such as threshold pressure
 - X-Ray, Pulse, and Autopsy must preserve continuity of the same ticket state and thesis rather than generate unrelated analyses;
 - state transitions should distinguish what changed in the world from what changed only in ResearchBets interpretation;
 - interventions should preserve before-state, proposed change, and resulting state when observable;
+- decision-time entry context is canonical state: pregame and live-selected thresholds must not be treated as equivalent when the live selection was made after meaningful production had already occurred;
+- market expression is part of the thesis: a valid player/role read may still be expressed through the wrong market or an unnecessarily aggressive threshold;
 - verified observations, derived measurements, inferences, and speculation must remain distinguishable in the data model and presentation policy;
 - bettor-specific learning should be based on repeated eligible within-bettor patterns rather than broad personality inference.
 
-The bettor should not have to inspect this state model directly. The UI should compress it into the primary pressure, supporting evidence, and one next action.
+The bettor should not have to inspect this state model directly. The UI should compress it into the current thesis, primary pressure, supporting evidence, and one next action.
 
 ## Cross-cutting calibration layer
 
