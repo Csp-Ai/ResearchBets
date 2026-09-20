@@ -33,6 +33,7 @@ export type LiveCommandLeg = {
   status: CommandLegStatus;
   progressLabel: string;
   why: string;
+  opportunityLabel?: string;
   isStrongest: boolean;
   isWeakest: boolean;
 };
@@ -520,6 +521,21 @@ export function explainBettorLeg(leg: LiveLegState, status: BettorLegStatus): st
   if (status === 'cleared') return 'Already cleared and no longer adds pressure.';
   if (status === 'needs one event') return 'One clean event clears this leg.';
   if (leg.minutesRisk) return 'Minutes risk is rising with the current margin.';
+  if (
+    leg.opportunityHealth === 'thin'
+    && typeof leg.opportunityCount === 'number'
+    && leg.opportunityLabel
+  ) {
+    return `Verified live usage is thin (${leg.opportunityCount} ${leg.opportunityLabel}); opportunity, not just pace, is the pressure.`;
+  }
+  if (
+    (status === 'behind pace' || status === 'critical' || status === 'slightly behind')
+    && leg.opportunityHealth === 'active'
+    && typeof leg.opportunityCount === 'number'
+    && leg.opportunityLabel
+  ) {
+    return `Production is behind despite ${leg.opportunityCount} ${leg.opportunityLabel}; opportunity is present, execution is lagging.`;
+  }
   if (status === 'ahead of pace') return 'Current game flow is carrying this leg.';
   if (status === 'on pace') return 'Volume is landing where it needs to.';
   if (status === 'slightly behind') return 'A small push gets this leg back on track.';
@@ -548,10 +564,13 @@ export function selectStrongestLeg(legs: LiveLegState[]): LiveLegState | null {
 }
 
 export function selectWeakestLeg(legs: LiveLegState[]): LiveLegState | null {
+  const usagePenalty = (leg: LiveLegState) => leg.opportunityHealth === 'thin' ? 2 : 0;
   return (
     [...legs].sort((a, b) => {
       const statusGap = rank[classifyBettorLegStatus(b)] - rank[classifyBettorLegStatus(a)];
       if (statusGap !== 0) return statusGap;
+      const usageGap = usagePenalty(b) - usagePenalty(a);
+      if (usageGap !== 0) return usageGap;
       return b.requiredRemaining - a.requiredRemaining;
     })[0] ?? null
   );
@@ -621,6 +640,8 @@ function deriveGameScript(ticket: OpenTicket, pressure: TicketPressureSummary) {
   const lateWindow = ticket.legs.some((leg) => (leg.liveClock?.quarter ?? 1) >= 3);
   if (ticket.legs.some((leg) => leg.minutesRisk))
     return 'Margin risk is rising, so minutes-sensitive legs need attention.';
+  if (ticket.legs.some((leg) => leg.opportunityHealth === 'thin'))
+    return 'At least one leg is under verified usage pressure, so opportunity matters more than the raw progress bar.';
   if (highVariance >= 2 && pressure.tone !== 'steady')
     return 'Higher-variance legs are creating most of the swing right now.';
   if (lateWindow && pressure.tone === 'steady')
@@ -630,6 +651,10 @@ function deriveGameScript(ticket: OpenTicket, pressure: TicketPressureSummary) {
 
 function toCommandLeg(raw: LiveLegState): LiveCommandLeg {
   const status = classifyBettorLegStatus(raw);
+  const opportunityLabel =
+    typeof raw.opportunityCount === 'number' && raw.opportunityLabel
+      ? `${raw.opportunityCount} ${raw.opportunityLabel}`
+      : undefined;
   return {
     legId: raw.legId,
     player: raw.player,
@@ -637,6 +662,7 @@ function toCommandLeg(raw: LiveLegState): LiveCommandLeg {
     status,
     progressLabel: progressLabelFor(raw, status),
     why: explainBettorLeg(raw, status),
+    opportunityLabel,
     isStrongest: false,
     isWeakest: false
   };
