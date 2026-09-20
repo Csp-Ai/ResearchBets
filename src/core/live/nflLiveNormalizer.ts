@@ -10,6 +10,10 @@ export type NflLiveMarket =
   | 'anytime_td';
 
 export type SportsDataNflPlayerGame = Record<string, unknown>;
+export type NflOpportunityMetric = {
+  count: number;
+  label: 'pass attempts' | 'carries' | 'targets';
+};
 export type SportsDataNflScore = Record<string, unknown>;
 export type SportsDataNflBoxScore = {
   Score?: SportsDataNflScore | null;
@@ -162,6 +166,31 @@ export const playerStatForMarket = (
       return toNumber(player.RushingAttempts);
     case 'anytime_td':
       return toNumber(player.Touchdowns);
+  }
+};
+
+export const playerOpportunityForMarket = (
+  player: SportsDataNflPlayerGame,
+  market: NflLiveMarket,
+): NflOpportunityMetric | undefined => {
+  switch (market) {
+    case 'passing_yards':
+    case 'passing_tds': {
+      const count = toNumber(player.PassingAttempts);
+      return count === undefined ? undefined : { count, label: 'pass attempts' };
+    }
+    case 'rushing_yards':
+    case 'carries': {
+      const count = toNumber(player.RushingAttempts);
+      return count === undefined ? undefined : { count, label: 'carries' };
+    }
+    case 'receiving_yards':
+    case 'receptions': {
+      const count = toNumber(player.ReceivingTargets);
+      return count === undefined ? undefined : { count, label: 'targets' };
+    }
+    case 'anytime_td':
+      return undefined;
   }
 };
 
