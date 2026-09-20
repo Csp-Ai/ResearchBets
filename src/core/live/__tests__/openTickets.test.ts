@@ -12,6 +12,22 @@ const trackedTicket = (): TrackedTicket => ({
   createdAt: '2026-09-13T20:00:00.000Z',
   sourceHint: 'paste',
   rawSlipText: 'Trey McBride over 80 receiving yards',
+  entrySnapshot: {
+    capturedAt: '2026-09-13T20:05:00.000Z',
+    captureSource: 'first_verified_after_tracking',
+    timing: 'live',
+    exactDecisionTime: false,
+    legs: {
+      'leg-covered': {
+        currentValue: 35,
+        elapsedGameMinutes: 12,
+        quarter: 2,
+        timeRemainingSec: 840,
+        opportunityCount: 7,
+        opportunityLabel: 'targets',
+      },
+    },
+  },
   legs: [
     {
       legId: 'leg-covered',
@@ -159,6 +175,11 @@ describe('openTickets weakest leg reasons', () => {
       currentValue: 74,
       coverage: { coverage: 'covered' },
       liveClock: { quarter: 3, timeRemainingSec: 450, elapsedGameMinutes: 30 },
+    });
+    expect(tickets[0]?.entrySnapshot).toMatchObject({
+      timing: 'live',
+      exactDecisionTime: false,
+      legs: { 'leg-covered': { currentValue: 35, opportunityCount: 7 } },
     });
     expect(tickets[0]?.weakestLeg.legId).toBe('leg-covered');
     expect(tickets[0]?.coverage).toEqual({
