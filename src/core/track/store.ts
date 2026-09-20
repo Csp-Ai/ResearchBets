@@ -112,7 +112,10 @@ type VerifiedEntryUpdate = {
   opportunityLabel?: 'pass attempts' | 'carries' | 'targets';
 };
 
-const completeEntryState = (update?: VerifiedEntryUpdate): TrackedTicketEntryLegState | null => {
+const completeEntryState = (
+  update: VerifiedEntryUpdate | undefined,
+  capturedAt: string,
+): TrackedTicketEntryLegState | null => {
   if (
     typeof update?.currentValue !== 'number' ||
     typeof update.elapsedGameMinutes !== 'number' ||
@@ -123,6 +126,7 @@ const completeEntryState = (update?: VerifiedEntryUpdate): TrackedTicketEntryLeg
   }
 
   return {
+    capturedAt,
     currentValue: update.currentValue,
     elapsedGameMinutes: update.elapsedGameMinutes,
     quarter: update.quarter,
@@ -160,26 +164,38 @@ export function captureFirstVerifiedEntrySnapshot(input: {
   if (index < 0) return null;
 
   const ticket = store.tickets[index]!;
-  if (ticket.entrySnapshot) return ticket;
+  const existingSnapshot = ticket.entrySnapshot;
+  const existingLegs = existingSnapshot?.legs ?? {};
 
-  const legStates = Object.fromEntries(
+  const newlyVerifiedLegs = Object.fromEntries(
     ticket.legs.flatMap((leg) => {
-      const state = completeEntryState(input.updates[leg.legId]);
+      if (existingLegs[leg.legId]) return [];
+      const state = completeEntryState(input.updates[leg.legId], input.capturedAt);
       return state ? [[leg.legId, state] as const] : [];
     }),
   );
 
-  if (Object.keys(legStates).length === 0) return ticket;
+  if (Object.keys(newlyVerifiedLegs).length === 0) return ticket;
 
-  const entrySnapshot: TrackedTicketEntrySnapshot = {
-    capturedAt: input.capturedAt,
-    captureSource: 'first_verified_after_tracking',
-    timing: timingFromEntryStates(legStates),
-    exactDecisionTime: false,
-    note:
-      'First provider-verified snapshot after ResearchBets tracking began; not asserted as sportsbook placement-time state.',
-    legs: legStates,
-  };
+  const combinedLegs = { ...existingLegs, ...newlyVerifiedLegs };
+  const entrySnapshot: TrackedTicketEntrySnapshot = existingSnapshot
+    ? {
+        ...existingSnapshot,
+        timing:
+          existingSnapshot.timing === 'unknown'
+            ? timingFromEntryStates(combinedLegs)
+            : existingSnapshot.timing,
+        legs: combinedLegs,
+      }
+    : {
+        capturedAt: input.capturedAt,
+        captureSource: 'first_verified_after_tracking',
+        timing: timingFromEntryStates(combinedLegs),
+        exactDecisionTime: false,
+        note:
+          'First provider-verified snapshot after ResearchBets tracking began; not asserted as sportsbook placement-time state.',
+        legs: combinedLegs,
+      };
 
   const updated = { ...ticket, entrySnapshot };
   const tickets = [...store.tickets];
