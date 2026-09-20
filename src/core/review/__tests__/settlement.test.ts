@@ -112,6 +112,7 @@ describe('settlement flow persistence', () => {
         exactDecisionTime: false,
         legs: {
           'leg-1': {
+            capturedAt: '2026-09-20T20:05:00.000Z',
             currentValue: 4,
             elapsedGameMinutes: 12,
             quarter: 2,
