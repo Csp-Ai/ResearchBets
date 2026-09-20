@@ -56,12 +56,13 @@ describe('PostmortemList entry context', () => {
 
     fireEvent.click(screen.getByText('Expand detail'));
 
-    expect(screen.getByText('Entry context')).toBeTruthy();
-    expect(screen.getByText('First verified after tracking')).toBeTruthy();
-    expect(screen.getByText(/89\/150/)).toBeTruthy();
-    expect(screen.getByText(/61 remaining/)).toBeTruthy();
-    expect(screen.getByText(/Q2 14:00/)).toBeTruthy();
-    expect(screen.getByText(/6 targets/)).toBeTruthy();
-    expect(screen.getByText(/not asserted as sportsbook placement-time state/i)).toBeTruthy();
+    const context = screen.getByTestId('entry-context-ticket-live-entry');
+    expect(context.textContent).toContain('Entry context');
+    expect(context.textContent).toContain('First verified after tracking');
+    expect(context.textContent).toContain('89/150');
+    expect(context.textContent).toContain('61 remaining');
+    expect(context.textContent).toContain('Q2 14:00');
+    expect(context.textContent).toContain('6 targets');
+    expect(context.textContent).toMatch(/not asserted as sportsbook placement-time state/i);
   });
 });
