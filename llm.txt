@@ -1,7 +1,12 @@
 # ResearchBets llm.txt (always read)
 
 ## North Star
-Structural Risk Terminal for parlays (not picks).
+Decision intelligence layer for parlays — from idea to settlement.
+
+Initial wedge: Structural Risk Terminal for parlays (not picks).
+Habit: Before you place the parlay, X-Ray it.
+
+Do not collapse the whole company back into the wedge. Research, market/threshold expression, X-Ray, live thesis health, settlement review, bettor memory, and system calibration are one continuous decision loop.
 
 ## Canonical product authority
 - Product decision record: `docs/CANONICAL_PRODUCT.md`

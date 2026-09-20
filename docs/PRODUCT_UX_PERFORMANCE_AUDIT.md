@@ -10,7 +10,7 @@ Treat this as a customer-journey teardown, visual-design critique, performance i
 
 ## Product truth
 
-ResearchBets is a Structural Risk Terminal for parlays, not a picks service.
+ResearchBets is the **decision intelligence layer for parlays — from idea to settlement**. Its initial wedge is the **Structural Risk Terminal for parlays**, not a picks service.
 
 Canonical lifecycle:
 
@@ -52,19 +52,21 @@ Determine within 5 seconds:
 - What is ResearchBets?
 - What problem does it solve?
 - What is the primary action?
-- Is it immediately obvious that this is risk analysis / construction intelligence rather than a picks feed?
+- Is it immediately obvious that this is decision intelligence / construction intelligence rather than a picks feed?
 
 Then attempt to:
 
 1. find a game / prop idea
-2. add multiple legs
-3. understand the staged ticket
-4. use Threshold Advisor
-5. move into Ticket X-Ray
-6. understand the weakest leg / construction risk
-7. move into tracking
-8. understand the live ticket state
-9. reach post-game review / memory
+2. understand the thesis behind the candidate
+3. choose a market / threshold expression
+4. add multiple legs
+5. understand the staged ticket
+6. use Threshold Advisor
+7. move into Ticket X-Ray
+8. understand the weakest leg / construction risk
+9. move into tracking
+10. understand whether the original thesis is still healthy live
+11. reach post-game review / memory
 
 Record every hesitation, duplicate concept, dead end, unclear CTA, unexpected route change, and context loss.
 

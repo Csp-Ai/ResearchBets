@@ -1,6 +1,6 @@
 # ResearchBets
 
-ResearchBets is a Structural Risk Terminal for parlays: discover and build a ticket, X-Ray its fragility, monitor its verified live Pulse, and turn settlement into Autopsy and Memory.
+ResearchBets is the **decision intelligence layer for parlays — from idea to settlement**. Its initial wedge is a Structural Risk Terminal: research and shape a thesis, build the ticket, X-Ray its fragility, monitor its verified live Pulse, and turn settlement into Autopsy and Memory.
 
 ## Canonical entry + continuity spine
 

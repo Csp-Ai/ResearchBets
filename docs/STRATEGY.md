@@ -4,15 +4,17 @@ This document defines the company-level strategy behind the canonical product. `
 
 ## Company thesis
 
-**ResearchBets is the decision layer between a bettor and a sportsbook.**
+**ResearchBets is the decision intelligence layer for parlays — from idea to settlement.**
 
-A sportsbook answers **what can I bet?** ResearchBets should answer:
+Its company position remains the **decision layer between a bettor and a sportsbook**. A sportsbook answers **what can I bet?** ResearchBets should answer:
 
-> **What does this ticket depend on, where is it fragile, what would make it better, how is that thesis changing live, and what should I learn afterward?**
+> **What is worth investigating, how should I express the thesis, what does this ticket depend on, where is it fragile, how is the thesis changing live, and what should I learn afterward?**
 
-The initial wedge is parlay structural risk because multi-leg tickets are difficult for humans to reason about as systems. Bettors naturally evaluate legs one at a time; ResearchBets evaluates the ticket as a connected structure with threshold, price, exposure, correlation, game-script, and evidence dependencies.
+The initial wedge remains the **Structural Risk Terminal for parlays** because multi-leg tickets are difficult for humans to reason about as systems. Bettors naturally evaluate legs one at a time; ResearchBets evaluates the ticket as a connected structure with market choice, threshold, price, exposure, correlation, game-script, opportunity, and evidence dependencies.
 
-The product is not a picks service and should not compete on manufactured certainty. It should become the place a bettor checks **before** placing a ticket, **during** the event, and **after** settlement.
+Structural risk is the wedge, not the whole company definition. The broader product should carry one decision context through research, construction, pre-lock analysis, live evolution, settlement, and learning.
+
+The product is not a picks service and should not compete on manufactured certainty. It should become the place a bettor uses to **research and shape a thesis before lock, understand it during the event, and learn from it after settlement**.
 
 ## Behavior we want to own
 
@@ -28,12 +30,14 @@ The company becomes more valuable as this loop closes. A one-time analyzer is us
 
 ## Product promise
 
-ResearchBets should make a complex decision feel simple:
+ResearchBets should make a complex betting decision feel simple:
 
-1. **One primary pressure** — what can break the ticket?
-2. **Supporting evidence** — why does ResearchBets believe that?
-3. **One next action** — hold, step down, selectively escalate, remove, replace, or inspect deeper.
-4. **Progressive depth** — expose the machinery only when the bettor asks for it.
+1. **A clear thesis** — what outcome or player role is the bettor actually trying to express?
+2. **The right expression** — which market and threshold best represent that thesis without adding unnecessary failure surface?
+3. **One primary pressure** — what can break the ticket?
+4. **Supporting evidence** — why does ResearchBets believe that?
+5. **One next action** — hold, step down, selectively escalate, remove, replace, or inspect deeper.
+6. **Progressive depth** — expose the machinery only when the bettor asks for it.
 
 The intelligence should feel deeper than the interface.
 
@@ -47,7 +51,7 @@ ResearchBets should model a ticket as a **dynamic system state**, not reduce it 
 
 A useful conceptual representation is:
 
-`TicketState = [threshold pressure, dependency/correlation, game-script exposure, market truth/freshness, roster uncertainty, price structure, concentration, volatility, evidence strength]`
+`TicketState = [decision context, market expression, threshold pressure, dependency/correlation, game-script exposure, live opportunity, market truth/freshness, roster uncertainty, price structure, concentration, volatility, evidence strength]`
 
 This does not require exposing a vector or dense dashboard to the bettor. The purpose is internal discipline: the system should understand the dimensions well enough to identify the **binding constraint** and compress that complexity into one primary pressure and one useful action.
 
@@ -57,6 +61,8 @@ Key principles:
 - **Imbalance can matter more than the mean.** The shape of the ticket may be more informative than an aggregate score.
 - **The same state should evolve through the lifecycle.** X-Ray, Pulse, and Autopsy are observations of one ticket at different times, not unrelated reports: `T(before) → T(live) → T(settled)`.
 - **Interventions are measurable state changes.** A step-down, removal, replacement, or escalation should preserve the pre-action state, the exact proposed change, and the later outcome so ResearchBets can evaluate whether the intervention addressed the actual constraint.
+- **Entry context is part of the decision.** A live 150+ yard threshold selected after a player has already accumulated 89 yards is not equivalent to taking 150+ before kickoff. ResearchBets must preserve what was already true when the decision was made.
+- **A good thesis can be expressed through the wrong market.** Settlement review should distinguish player/role thesis quality from market choice, threshold choice, and ordinary variance.
 - **Measurement must remain separate from interpretation.** Observed market movement, verified availability, and settled statistics are not the same thing as inferred opportunity, expected game script, or speculative coaching intent.
 - **Personalization should become within-bettor modeling.** The long-term question is not only what usually makes parlays fragile, but what repeatedly destabilizes this bettor's tickets and which interventions have actually helped this bettor under comparable conditions.
 
@@ -82,7 +88,9 @@ Those may be adjacent markets or legacy experiments, but they are not the curren
 
 The wedge is:
 
-> **Structural decision intelligence for recreational sports betting, beginning with parlays.**
+> **Structural Risk Terminal for parlays.**
+
+That wedge gives ResearchBets a concrete first job: understand the ticket as a system and identify its binding failure mode. The company North Star is broader: **decision intelligence for parlays from idea to settlement**. Research, market expression, threshold choice, live thesis health, and post-settlement learning should strengthen the wedge rather than become disconnected product surfaces.
 
 ## Four core engines
 
@@ -177,10 +185,12 @@ Demo, synthetic, inferred-only, or otherwise ineligible records must not train r
 
 Odds, public statistics, LLM access, and UI can all be copied. The defensible loop is the longitudinal dataset created when ResearchBets connects:
 
-`ticket → evidence snapshot → recommendation → bettor decision → live evolution → outcome → counterfactual → system evaluation → learning`
+`research context → candidate thesis → market/threshold decision → ticket → evidence snapshot → recommendation → bettor decision → live evolution → outcome → counterfactual → system evaluation → learning`
 
 A particularly valuable record is not merely that a leg won or lost, but that:
 
+- the bettor considered a player or game thesis,
+- ResearchBets observed the market and threshold choices available at decision time,
 - the bettor considered a threshold,
 - ResearchBets made a recommendation from a specific evidence state,
 - the bettor accepted or rejected it,
@@ -217,6 +227,8 @@ Avoid the category's lowest-trust patterns: exaggerated confidence percentages, 
 A useful brand principle is:
 
 > **ResearchBets does not need the bettor to place the bet. It needs the bettor to understand the bet.**
+
+A winning ticket is useful evidence about what held. A losing ticket is useful evidence about what broke. Neither outcome alone proves recommendation quality; the product earns trust by preserving the decision context and explaining the result without hindsight theater.
 
 ## Business model hypothesis
 

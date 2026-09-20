@@ -1,9 +1,11 @@
 {
-  "version": 2,
-  "northStar": "Structural Risk Terminal for parlays — not picks.",
+  "version": 3,
+  "northStar": "Decision intelligence layer for parlays — from idea to settlement.",
   "companyPosition": "Decision layer between a bettor and a sportsbook.",
+  "initialWedge": "Structural Risk Terminal for parlays — not picks.",
   "currentPhase": "product_truth_to_habit",
   "habitStatement": "Before you place the parlay, X-Ray it.",
+  "lifecyclePromise": "Research a thesis, express it with the right market and threshold, X-Ray the ticket, carry the thesis live, and learn from settlement.",
   "canonicalJourney": [
     { "stage": "discover_build", "label": "Discover + Build", "route": "/" },
     { "stage": "xray", "label": "Ticket X-Ray", "route": "/stress-test" },
