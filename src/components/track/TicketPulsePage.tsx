@@ -21,6 +21,7 @@ export function TicketPulsePage() {
   const mode = nervous.mode === 'demo' || nervous.mode === 'cache' || nervous.mode === 'live'
     ? nervous.mode
     : 'live';
+  const hasTrackedTicket = ticketCount > 0;
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#03060a] text-white">
@@ -73,23 +74,34 @@ export function TicketPulsePage() {
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Next lifecycle action</div>
             <p className="mt-1 text-sm leading-6 text-slate-300">
-              When the ticket settles, compare the original X-Ray pressure with what actually broke or held.
+              {hasTrackedTicket
+                ? 'When the ticket settles, compare the original X-Ray pressure with what actually broke or held.'
+                : 'Pulse starts after you build or import a ticket and choose to track it live.'}
             </p>
           </div>
-          <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
+          {hasTrackedTicket ? (
+            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
+              <Link
+                href={nervous.toHref('/stress-test')}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 px-4 py-2.5 text-xs font-medium text-slate-300 hover:border-white/20"
+              >
+                Back to X-Ray
+              </Link>
+              <Link
+                href={nervous.toHref('/review')}
+                className="flex min-h-11 items-center justify-center rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#071015]"
+              >
+                Review outcome →
+              </Link>
+            </div>
+          ) : (
             <Link
-              href={nervous.toHref('/stress-test')}
-              className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 px-4 py-2.5 text-xs font-medium text-slate-300 hover:border-white/20"
+              href={nervous.toHref('/slip')}
+              className="flex min-h-11 w-full items-center justify-center rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#071015] sm:w-auto"
             >
-              Back to X-Ray
+              Build or import a ticket →
             </Link>
-            <Link
-              href={nervous.toHref('/review')}
-              className="flex min-h-11 items-center justify-center rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#071015]"
-            >
-              Review outcome →
-            </Link>
-          </div>
+          )}
         </section>
 
         <details className="mt-5 border-t border-white/8 pt-4 text-xs text-slate-400">
