@@ -9,6 +9,7 @@ export type CoverageReason = 'no_game_id' | 'provider_unavailable' | 'unsupporte
 export type CoverageState = 'covered' | 'missing';
 
 export type TrackedTicketEntryLegState = {
+  capturedAt: string;
   currentValue: number;
   quarter: 1 | 2 | 3 | 4;
   timeRemainingSec: number;
