@@ -55,7 +55,7 @@ export type LiveLegState = {
   reasonChips: string[];
   opportunityCount?: number;
   opportunityLabel?: LiveOpportunityLabel;
-  opportunityHealth: LiveOpportunityHealth;
+  opportunityHealth?: LiveOpportunityHealth;
   coverage: LiveLegCoverage;
   liveClock?: LiveClock;
 };
