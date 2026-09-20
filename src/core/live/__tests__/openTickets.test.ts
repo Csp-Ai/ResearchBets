@@ -19,6 +19,7 @@ const trackedTicket = (): TrackedTicket => ({
     exactDecisionTime: false,
     legs: {
       'leg-covered': {
+        capturedAt: '2026-09-13T20:05:00.000Z',
         currentValue: 35,
         elapsedGameMinutes: 12,
         quarter: 2,
