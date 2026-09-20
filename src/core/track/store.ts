@@ -1,5 +1,9 @@
 import { normalizeLineage } from '@/src/core/lineage/lineage';
-import type { TrackedTicket } from '@/src/core/track/types';
+import type {
+  TrackedTicket,
+  TrackedTicketEntryLegState,
+  TrackedTicketEntrySnapshot,
+} from '@/src/core/track/types';
 
 const STORE_KEY = 'rb:tracked-tickets:v1';
 
@@ -97,6 +101,91 @@ export function saveTrackedTicket(ticket: TrackedTicket, options?: { replaceTick
   });
   deduped.unshift(migrated);
   writeStore({ version: 1, tickets: deduped.slice(0, 20) });
+}
+
+type VerifiedEntryUpdate = {
+  currentValue?: number;
+  elapsedGameMinutes?: number;
+  quarter?: 1 | 2 | 3 | 4;
+  timeRemainingSec?: number;
+  opportunityCount?: number;
+  opportunityLabel?: 'pass attempts' | 'carries' | 'targets';
+};
+
+const completeEntryState = (update?: VerifiedEntryUpdate): TrackedTicketEntryLegState | null => {
+  if (
+    typeof update?.currentValue !== 'number' ||
+    typeof update.elapsedGameMinutes !== 'number' ||
+    typeof update.quarter !== 'number' ||
+    typeof update.timeRemainingSec !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    currentValue: update.currentValue,
+    elapsedGameMinutes: update.elapsedGameMinutes,
+    quarter: update.quarter,
+    timeRemainingSec: update.timeRemainingSec,
+    opportunityCount: update.opportunityCount,
+    opportunityLabel: update.opportunityLabel,
+  };
+};
+
+const timingFromEntryStates = (
+  states: Record<string, TrackedTicketEntryLegState>,
+): TrackedTicketEntrySnapshot['timing'] => {
+  const values = Object.values(states);
+  if (
+    values.some(
+      (state) =>
+        state.elapsedGameMinutes > 0.01 ||
+        state.quarter > 1 ||
+        state.currentValue > 0 ||
+        state.timeRemainingSec < 900,
+    )
+  ) {
+    return 'live';
+  }
+  return 'unknown';
+};
+
+export function captureFirstVerifiedEntrySnapshot(input: {
+  ticketId: string;
+  updates: Record<string, VerifiedEntryUpdate>;
+  capturedAt: string;
+}): TrackedTicket | null {
+  const store = readStore();
+  const index = store.tickets.findIndex((ticket) => ticket.ticketId === input.ticketId);
+  if (index < 0) return null;
+
+  const ticket = store.tickets[index]!;
+  if (ticket.entrySnapshot) return ticket;
+
+  const legStates = Object.fromEntries(
+    ticket.legs.flatMap((leg) => {
+      const state = completeEntryState(input.updates[leg.legId]);
+      return state ? [[leg.legId, state] as const] : [];
+    }),
+  );
+
+  if (Object.keys(legStates).length === 0) return ticket;
+
+  const entrySnapshot: TrackedTicketEntrySnapshot = {
+    capturedAt: input.capturedAt,
+    captureSource: 'first_verified_after_tracking',
+    timing: timingFromEntryStates(legStates),
+    exactDecisionTime: false,
+    note:
+      'First provider-verified snapshot after ResearchBets tracking began; not asserted as sportsbook placement-time state.',
+    legs: legStates,
+  };
+
+  const updated = { ...ticket, entrySnapshot };
+  const tickets = [...store.tickets];
+  tickets[index] = updated;
+  writeStore({ version: 1, tickets });
+  return updated;
 }
 
 export function clearTrackedTickets() {
