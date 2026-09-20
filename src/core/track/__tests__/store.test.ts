@@ -1,7 +1,12 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { clearTrackedTickets, listTrackedTickets, saveTrackedTicket } from '@/src/core/track/store';
+import {
+  captureFirstVerifiedEntrySnapshot,
+  clearTrackedTickets,
+  listTrackedTickets,
+  saveTrackedTicket,
+} from '@/src/core/track/store';
 
 describe('tracked ticket store', () => {
   beforeEach(() => {
@@ -19,6 +24,73 @@ describe('tracked ticket store', () => {
     saveTrackedTicket({ ...base, ticketId: 'ticket-1' });
     saveTrackedTicket({ ...base, ticketId: 'ticket-2' });
     expect(listTrackedTickets()).toHaveLength(1);
+  });
+
+  it('captures the first verified entry snapshot once and never overwrites it', () => {
+    saveTrackedTicket({
+      ticketId: 'ticket-live-entry',
+      createdAt: '2026-09-20T20:00:00.000Z',
+      sourceHint: 'paste',
+      rawSlipText: 'Live ticket',
+      legs: [
+        {
+          legId: 'leg-live',
+          league: 'NFL',
+          gameId: 'DAL @ SF',
+          player: 'Receiver A',
+          marketType: 'receiving_yards',
+          threshold: 150,
+          direction: 'over',
+          source: 'paste',
+          parseConfidence: 'high',
+        },
+      ],
+    });
+
+    captureFirstVerifiedEntrySnapshot({
+      ticketId: 'ticket-live-entry',
+      capturedAt: '2026-09-20T20:05:00.000Z',
+      updates: {
+        'leg-live': {
+          currentValue: 89,
+          elapsedGameMinutes: 12,
+          quarter: 2,
+          timeRemainingSec: 840,
+          opportunityCount: 6,
+          opportunityLabel: 'targets',
+        },
+      },
+    });
+
+    captureFirstVerifiedEntrySnapshot({
+      ticketId: 'ticket-live-entry',
+      capturedAt: '2026-09-20T20:20:00.000Z',
+      updates: {
+        'leg-live': {
+          currentValue: 121,
+          elapsedGameMinutes: 24,
+          quarter: 3,
+          timeRemainingSec: 900,
+          opportunityCount: 10,
+          opportunityLabel: 'targets',
+        },
+      },
+    });
+
+    const [stored] = listTrackedTickets();
+    expect(stored?.entrySnapshot).toMatchObject({
+      capturedAt: '2026-09-20T20:05:00.000Z',
+      captureSource: 'first_verified_after_tracking',
+      timing: 'live',
+      exactDecisionTime: false,
+      legs: {
+        'leg-live': {
+          currentValue: 89,
+          opportunityCount: 6,
+          opportunityLabel: 'targets',
+        },
+      },
+    });
   });
 
   it('preserves lineage fields on roundtrip', () => {
