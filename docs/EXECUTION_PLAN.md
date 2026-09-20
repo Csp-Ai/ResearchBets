@@ -14,17 +14,20 @@ When an attractive new feature conflicts with the current phase, this plan wins 
 
 Build the smallest complete ResearchBets experience that makes a new bettor understand the value within one session:
 
-> **Build a ticket → see what can break it → understand the cleanest move → carry the thesis live → learn from settlement.**
+> **Research a thesis → express it with the right market and threshold → X-Ray the ticket → carry the thesis live → learn from settlement.**
 
 The immediate 0→1 milestone is not “more features.” It is a coherent, fast, trustworthy loop that produces an obvious **aha**:
 
-> **“This is not telling me what to bet. It is showing me what can screw my ticket — and what I can do about it.”**
+> **“This is not telling me what to bet. It is helping me understand the bet, improve the decision, and see what changed.”**
+
+The Structural Risk Terminal remains the first sharp wedge. The execution plan should deepen that wedge by connecting research, market expression, live thesis health, and settlement learning rather than creating parallel products.
 
 ## Current baseline
 
 Already established:
 
 - canonical lifecycle: Discover/Build → X-Ray → Pulse → Review/Memory,
+- company North Star: decision intelligence for parlays from idea to settlement, with Structural Risk Terminal preserved as the initial wedge,
 - stable draft read/write behavior after recursion fix,
 - live/cache/demo truth boundaries,
 - Threshold Optimization v1 and build-time Threshold Advisor,
@@ -57,7 +60,7 @@ Default surface hierarchy:
 
 Avoid multiple primary CTAs, duplicated representations of the same ticket, internal pipeline language, decorative complexity, or confidence language that outruns evidence.
 
-The underlying model should preserve the ticket as a changing structural state across the lifecycle. Screens may simplify that state, but they should not independently reinvent it.
+The underlying model should preserve the bettor's decision context and ticket as a changing structural state across the lifecycle. Screens may simplify that state, but they should not independently reinvent it. Pregame and live-entry decisions must preserve what was already true when the decision was made.
 
 ## Workstream A — Complete the 1.0 lifecycle visually
 
@@ -184,9 +187,11 @@ For each actionable recommendation, capture enough structure to later answer whe
 - recommendation strength/confidence representation as actually shown or applied,
 - recommendation timestamp,
 - bettor accepted / rejected / ignored / unknown,
-- resulting submitted/tracked ticket state where known.
+- resulting submitted/tracked ticket state where known,
+- entry context: pregame vs live, event clock/period where available, and current stat state at the moment a live threshold was considered or accepted,
+- verified opportunity context at decision time where supported (for example targets, carries, or pass attempts).
 
-Do not infer acceptance when it cannot be verified. Preserve the decision-time snapshot rather than reconstructing it later from settlement-time data. Do not require a giant state vector before shipping the event contract; preserve enough structured context that future versions can evaluate the intended constraint without relying on prose alone.
+Do not infer acceptance when it cannot be verified. Preserve the decision-time snapshot rather than reconstructing it later from settlement-time data. A live 150+ threshold entered after 89 yards have already been produced must never be evaluated as though 150+ was selected pregame. Do not require a giant state vector before shipping the event contract; preserve enough structured context that future versions can evaluate the intended constraint without relying on prose alone.
 
 ### C2. Settlement + counterfactual
 
@@ -297,7 +302,7 @@ Use this protocol for ongoing implementation:
 
 Unless a build failure or production-truth issue interrupts it, execute in this order:
 
-1. **Private-user validation** across real ticket lifecycles, focused on comprehension, trust, recommendation usefulness, and voluntary repeat X-Ray usage.
+1. **Private-user validation** across real end-to-end ticket lifecycles — research → construction → X-Ray → live → review — including both winning and losing outcomes, focused on comprehension, trust, recommendation usefulness, and voluntary repeat X-Ray usage.
 2. **Habit readout** from the canonical lifecycle events: Build → X-Ray, X-Ray → Pulse, Pulse → Review, applied recommendations/guardrails, first useful answer time, and 7-day repeat X-Ray.
 3. **Measure production time-to-data** using the timing/cache headers already added; optimize only the measured cold bottleneck.
 4. **Durable lifecycle continuity** for tracked tickets, original thesis, interventions, settlement, and saved guardrails beyond one browser-local session.
@@ -310,12 +315,12 @@ ResearchBets has reached a credible 0→1 product when all of the following are 
 
 - a new user can understand the product in one session,
 - one ticket identity survives Build → X-Ray → Pulse → Review,
-- the primary structural pressure can be followed through the lifecycle where evidence supports it,
+- the original thesis, market expression, and primary structural pressure can be followed through the lifecycle where evidence supports them,
 - every stage has one obvious primary answer/action,
 - warm useful data is consistently fast,
 - live/cache/demo/stale/unknown states are truthful,
 - observed facts remain distinguishable from inference,
-- the system captures recommendation decisions, target constraints, decision-time lineage, and eligible outcomes,
+- the system captures recommendation decisions, target constraints, pregame/live entry context, decision-time lineage, and eligible outcomes,
 - reviewed outcomes can generate a next-time guardrail,
 - users voluntarily return to X-Ray another ticket,
 - and the product feels simpler as its intelligence becomes more sophisticated.
