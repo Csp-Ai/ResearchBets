@@ -324,7 +324,12 @@ export function TicketPulseHero() {
               </div>
               <div className="mt-2 text-[15px] font-semibold">{command?.strongestLeg?.player ?? 'No leader yet'}</div>
               <p className="mt-1 text-[10px] leading-5 text-slate-500">{command?.strongestLeg?.why ?? 'The ticket has not separated enough to name a strongest leg.'}</p>
-              {strongestState ? <div className="mt-2 text-[10px] text-emerald-100/55">{strongestState.currentValue}/{strongestState.threshold} · projection {strongestState.paceProjection}</div> : null}
+              {strongestState ? (
+                <div className="mt-2 text-[10px] text-emerald-100/55">
+                  {strongestState.currentValue}/{strongestState.threshold} · projection {strongestState.paceProjection}
+                  {command?.strongestLeg?.opportunityLabel ? ` · ${command.strongestLeg.opportunityLabel}` : ''}
+                </div>
+              ) : null}
             </article>
 
             <article className="rounded-2xl border border-rose-300/[0.12] bg-rose-300/[0.035] p-4">
@@ -334,7 +339,12 @@ export function TicketPulseHero() {
               </div>
               <div className="mt-2 text-[15px] font-semibold">{command?.weakestLeg?.player ?? 'No weak spot yet'}</div>
               <p className="mt-1 text-[10px] leading-5 text-slate-500">{command?.primaryFailurePoint ?? 'No failure point has separated yet.'}</p>
-              {weakestState ? <div className="mt-2 text-[10px] text-rose-100/55">Needs {weakestState.requiredRemaining} · {weakestState.currentValue}/{weakestState.threshold}</div> : null}
+              {weakestState ? (
+                <div className="mt-2 text-[10px] text-rose-100/55">
+                  Needs {weakestState.requiredRemaining} · {weakestState.currentValue}/{weakestState.threshold}
+                  {command?.weakestLeg?.opportunityLabel ? ` · ${command.weakestLeg.opportunityLabel}` : ''}
+                </div>
+              ) : null}
             </article>
           </div>
 

@@ -8,6 +8,7 @@ import {
   homeTeamFromGameId,
   isSupportedNflLiveMarket,
   nflClockFromScore,
+  playerOpportunityForMarket,
   playerStatForMarket,
   signedPlayerTeamMargin,
   type SportsDataNflBoxScore,
@@ -225,12 +226,15 @@ export async function fetchSportsDataNflLiveProgress(
         (clock.elapsedGameMinutes * NFL_TO_LEGACY_PACE_SCALE).toFixed(2),
       );
 
+      const opportunity = playerOpportunityForMarket(player, leg.marketType);
       updates[leg.legId] = {
         currentValue,
         liveMargin: signedPlayerTeamMargin(box.Score, player),
         elapsedGameMinutes: paceElapsedMinutes,
         quarter: clock.quarter,
         timeRemainingSec: clock.timeRemainingSec,
+        opportunityCount: opportunity?.count,
+        opportunityLabel: opportunity?.label,
       };
       entries[ticket.ticketId]![leg.legId] = { coverage: 'covered' };
     }

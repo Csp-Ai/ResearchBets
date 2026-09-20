@@ -70,8 +70,9 @@ export function computeLegFragility(leg: LiveLegState, ticketCoverage: TicketCov
   const remainingDistanceComponent = Math.min(30, Math.max(0, leg.requiredRemaining) * 8);
   const coveragePenalty = ticketCoverage === 'partial' || leg.coverage.coverage === 'missing' ? 12 : ticketCoverage === 'none' ? 16 : 0;
   const minutesPenalty = minutesCompressionRisk ? 14 : 0;
+  const opportunityPenalty = leg.opportunityHealth === 'thin' ? 14 : 0;
 
-  const rawScore = remainingDistanceComponent + volatilityWeight[leg.volatility] + endgameWeight[endgameSensitivity] + minutesPenalty + coveragePenalty;
+  const rawScore = remainingDistanceComponent + volatilityWeight[leg.volatility] + endgameWeight[endgameSensitivity] + minutesPenalty + coveragePenalty + opportunityPenalty;
   const fragilityScore = Math.min(100, Math.max(0, Math.round(rawScore)));
 
   return { statType, endgameSensitivity, roleHint, minutesCompressionRisk, fragilityScore };

@@ -10,6 +10,8 @@ export type LiveClock = {
 };
 export type LiveLegStatus = 'ahead' | 'on_pace' | 'behind' | 'needs_spike';
 export type LiveLegVolatility = 'stable' | 'moderate' | 'high';
+export type LiveOpportunityLabel = 'pass attempts' | 'carries' | 'targets';
+export type LiveOpportunityHealth = 'unknown' | 'active' | 'thin';
 
 export type LiveLegInput = {
   legId: string;
@@ -22,6 +24,8 @@ export type LiveLegInput = {
   liveMargin?: number;
   minutesSensitive?: boolean;
   recentMedian?: number;
+  opportunityCount?: number;
+  opportunityLabel?: LiveOpportunityLabel;
   liveClock: LiveClock;
 };
 
@@ -49,6 +53,9 @@ export type LiveLegState = {
   volatility: LiveLegVolatility;
   minutesRisk: boolean;
   reasonChips: string[];
+  opportunityCount?: number;
+  opportunityLabel?: LiveOpportunityLabel;
+  opportunityHealth?: LiveOpportunityHealth;
   coverage: LiveLegCoverage;
   liveClock?: LiveClock;
 };
@@ -81,6 +88,8 @@ export type LiveLegUpdate = {
   elapsedGameMinutes?: number;
   quarter?: 1 | 2 | 3 | 4;
   timeRemainingSec?: number;
+  opportunityCount?: number;
+  opportunityLabel?: LiveOpportunityLabel;
 };
 
 const TOTAL_GAME_MINUTES = 48;
@@ -129,8 +138,15 @@ export function evaluateLiveLeg(input: LiveLegInput): LiveLegState {
     (input.minutesSensitive ?? (input.marketType === 'assists' || input.marketType === 'threes')) &&
     input.liveClock.quarter >= 3 &&
     (input.liveMargin ?? 0) >= 18;
+  const opportunityHealth: LiveOpportunityHealth =
+    typeof input.opportunityCount !== 'number'
+      ? 'unknown'
+      : input.opportunityCount <= 1 && input.liveClock.quarter >= 2
+        ? 'thin'
+        : 'active';
   const reasonChips: string[] = [];
   if (status === 'behind' || status === 'needs_spike') reasonChips.push('Behind pace');
+  if (opportunityHealth === 'thin') reasonChips.push('Thin live usage');
   if (volatility === 'high') reasonChips.push('High-variance market');
   if (
     typeof input.recentMedian === 'number' &&
@@ -149,6 +165,9 @@ export function evaluateLiveLeg(input: LiveLegInput): LiveLegState {
     volatility,
     minutesRisk,
     reasonChips: reasonChips.slice(0, 2),
+    opportunityCount: input.opportunityCount,
+    opportunityLabel: input.opportunityLabel,
+    opportunityHealth,
     coverage: { coverage: 'covered' },
     liveClock: input.liveClock
   };
@@ -157,7 +176,8 @@ export function evaluateLiveLeg(input: LiveLegInput): LiveLegState {
 const weakestScore = (leg: LiveLegState) =>
   ({ ahead: 0, on_pace: 1, behind: 3, needs_spike: 5 })[leg.status] +
   { stable: 0, moderate: 1, high: 2 }[leg.volatility] +
-  (leg.minutesRisk ? 2 : 0);
+  (leg.minutesRisk ? 2 : 0) +
+  (leg.opportunityHealth === 'thin' ? 2 : 0);
 
 function computeClock(createdAtIso: string, nowIso: string): LiveClock {
   const elapsedMin = Math.max(0, (Date.parse(nowIso) - Date.parse(createdAtIso)) / 60000);
@@ -205,6 +225,8 @@ function toTicketFromTracking(
       threshold,
       currentValue,
       liveMargin: update?.liveMargin,
+      opportunityCount: update?.opportunityCount,
+      opportunityLabel: update?.opportunityLabel,
       liveClock: clock
     });
   });
@@ -289,6 +311,8 @@ function toTicketFromTracked(
       threshold: leg.threshold,
       currentValue,
       liveMargin: update?.liveMargin,
+      opportunityCount: update?.opportunityCount,
+      opportunityLabel: update?.opportunityLabel,
       liveClock: {
         quarter: update?.quarter ?? clock.quarter,
         timeRemainingSec: update?.timeRemainingSec ?? clock.timeRemainingSec,

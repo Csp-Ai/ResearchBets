@@ -152,6 +152,66 @@ describe('ticketLoop', () => {
     );
   });
 
+  it('explains usage pressure differently from pace pressure', () => {
+    const usageTicket: OpenTicket = {
+      ...baseTicket,
+      weakestLeg: {
+        ...baseTicket.legs[1]!,
+        player: 'Marvin Harrison Jr.',
+        marketType: 'receiving_yards',
+        currentValue: 0,
+        threshold: 30,
+        requiredRemaining: 30,
+        paceProjection: 0,
+        status: 'needs_spike',
+        opportunityCount: 0,
+        opportunityLabel: 'targets',
+        opportunityHealth: 'thin',
+        reasonChips: ['Behind pace', 'Thin live usage'],
+      },
+      legs: [
+        {
+          ...baseTicket.legs[0]!,
+          player: 'Jacoby Brissett',
+          marketType: 'passing_yards',
+          currentValue: 72,
+          threshold: 200,
+          requiredRemaining: 128,
+          paceProjection: 144,
+          status: 'needs_spike',
+          opportunityCount: 19,
+          opportunityLabel: 'pass attempts',
+          opportunityHealth: 'active',
+          reasonChips: ['Behind pace'],
+        },
+        {
+          ...baseTicket.legs[1]!,
+          player: 'Marvin Harrison Jr.',
+          marketType: 'receiving_yards',
+          currentValue: 0,
+          threshold: 30,
+          requiredRemaining: 30,
+          paceProjection: 0,
+          status: 'needs_spike',
+          opportunityCount: 0,
+          opportunityLabel: 'targets',
+          opportunityHealth: 'thin',
+          reasonChips: ['Behind pace', 'Thin live usage'],
+        },
+      ],
+    };
+
+    const surface = deriveLiveCommandSurface(usageTicket);
+    const brissett = surface?.legs.find((leg) => leg.player === 'Jacoby Brissett');
+    const harrison = surface?.legs.find((leg) => leg.player === 'Marvin Harrison Jr.');
+
+    expect(harrison?.why).toMatch(/usage is thin/i);
+    expect(harrison?.opportunityLabel).toBe('0 targets');
+    expect(brissett?.why).toMatch(/opportunity is present/i);
+    expect(brissett?.opportunityLabel).toBe('19 pass attempts');
+    expect(surface?.gameScript).toMatch(/usage pressure/i);
+  });
+
   it('derives a deterministic AFTER surface from post-settlement results', () => {
     const surface = deriveAfterCommandSurface(settledPostmortem);
 
