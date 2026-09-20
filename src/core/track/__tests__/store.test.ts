@@ -44,6 +44,17 @@ describe('tracked ticket store', () => {
           source: 'paste',
           parseConfidence: 'high',
         },
+        {
+          legId: 'leg-later',
+          league: 'NFL',
+          gameId: 'SEA @ ARI',
+          player: 'Receiver B',
+          marketType: 'receiving_yards',
+          threshold: 40,
+          direction: 'over',
+          source: 'paste',
+          parseConfidence: 'high',
+        },
       ],
     });
 
@@ -74,6 +85,14 @@ describe('tracked ticket store', () => {
           opportunityCount: 10,
           opportunityLabel: 'targets',
         },
+        'leg-later': {
+          currentValue: 20,
+          elapsedGameMinutes: 8,
+          quarter: 1,
+          timeRemainingSec: 300,
+          opportunityCount: 3,
+          opportunityLabel: 'targets',
+        },
       },
     });
 
@@ -85,8 +104,15 @@ describe('tracked ticket store', () => {
       exactDecisionTime: false,
       legs: {
         'leg-live': {
+          capturedAt: '2026-09-20T20:05:00.000Z',
           currentValue: 89,
           opportunityCount: 6,
+          opportunityLabel: 'targets',
+        },
+        'leg-later': {
+          capturedAt: '2026-09-20T20:20:00.000Z',
+          currentValue: 20,
+          opportunityCount: 3,
           opportunityLabel: 'targets',
         },
       },
