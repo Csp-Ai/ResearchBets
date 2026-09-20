@@ -94,6 +94,37 @@ describe('openTickets weakest leg reasons', () => {
     expect(receiving.volatility).toBe('moderate');
   });
 
+  it('preserves verified opportunity health separately from production pace', () => {
+    const thinUsage = evaluateLiveLeg({
+      legId: 'thin-usage',
+      gameId: 'SEA@ARI',
+      player: 'Receiver A',
+      marketType: 'receiving_yards',
+      threshold: 30,
+      currentValue: 0,
+      opportunityCount: 0,
+      opportunityLabel: 'targets',
+      liveClock: { quarter: 2, timeRemainingSec: 0, elapsedGameMinutes: 24 },
+    });
+    const activeUsage = evaluateLiveLeg({
+      legId: 'active-usage',
+      gameId: 'SEA@ARI',
+      player: 'Quarterback A',
+      marketType: 'passing_yards',
+      threshold: 200,
+      currentValue: 72,
+      opportunityCount: 19,
+      opportunityLabel: 'pass attempts',
+      liveClock: { quarter: 2, timeRemainingSec: 0, elapsedGameMinutes: 24 },
+    });
+
+    expect(thinUsage.opportunityHealth).toBe('thin');
+    expect(thinUsage.reasonChips).toContain('Thin live usage');
+    expect(activeUsage.opportunityHealth).toBe('active');
+    expect(activeUsage.opportunityCount).toBe(19);
+    expect(activeUsage.reasonChips).not.toContain('Thin live usage');
+  });
+
   it('keeps uncovered provider legs out of live progress and weakest-leg ranking', () => {
     const coverage: LiveCoverageMap = {
       'ticket-live-1': {
