@@ -5,6 +5,7 @@ import {
   homeTeamFromGameId,
   nflClockFromScore,
   normalizeNflPlayerName,
+  playerOpportunityForMarket,
   playerStatForMarket,
   signedPlayerTeamMargin,
 } from '@/src/core/live/nflLiveNormalizer';
@@ -50,6 +51,29 @@ describe('NFL live normalizer', () => {
     expect(playerStatForMarket(player, 'rushing_yards')).toBe(11);
     expect(playerStatForMarket(player, 'carries')).toBe(2);
     expect(playerStatForMarket(player, 'anytime_td')).toBe(0);
+  });
+
+  it('maps verified provider usage fields to opportunity context', () => {
+    const player = {
+      Name: 'Player A',
+      PassingAttempts: 19,
+      RushingAttempts: 9,
+      ReceivingTargets: 7,
+    };
+
+    expect(playerOpportunityForMarket(player, 'passing_yards')).toEqual({
+      count: 19,
+      label: 'pass attempts',
+    });
+    expect(playerOpportunityForMarket(player, 'rushing_yards')).toEqual({
+      count: 9,
+      label: 'carries',
+    });
+    expect(playerOpportunityForMarket(player, 'receiving_yards')).toEqual({
+      count: 7,
+      label: 'targets',
+    });
+    expect(playerOpportunityForMarket(player, 'anytime_td')).toBeUndefined();
   });
 
   it('derives quarter and true NFL elapsed time from provider score state', () => {
