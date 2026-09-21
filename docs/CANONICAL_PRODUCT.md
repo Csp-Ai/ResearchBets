@@ -58,6 +58,12 @@ The canonical product converges around four engines:
 
 These engines may have separate implementations, but the user should experience them as one continuous decision system.
 
+### Decision Copilot orchestration
+
+**ResearchBets Copilot is an orchestration surface over the four canonical engines, not a fifth engine and not a picks agent.** It may translate bettor intent into structured questions, combine verified Market Truth with Structural Risk and Decision Engine outputs, present one recommended next action, and preserve the decision trail for Bettor Memory and later calibration.
+
+Copilot must not create a parallel source of truth for markets, thresholds, ticket state, or lifecycle identity. When a canonical engine cannot support an action with the required evidence, Copilot must fail closed or say that the evidence is insufficient rather than inventing a move.
+
 ## Dynamic ticket-state model
 
 The canonical product treats the ticket as a **time-varying structural state**, not as a single opaque score.
