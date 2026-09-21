@@ -62,7 +62,7 @@ const evidenceFor = (
 
   if (marketState === 'live') {
     evidence.push(
-      `${advice.baseline.pricedLegCount}/${advice.baseline.totalLegs} legs have verified price context`,
+      `${advice.baseline.pricedLegCount}/${advice.baseline.totalLegs} legs have usable price context`,
     );
   } else {
     evidence.push('Fresh alternate-market evidence is unavailable; no threshold move will be invented.');
