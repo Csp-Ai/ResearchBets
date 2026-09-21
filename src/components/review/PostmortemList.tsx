@@ -10,6 +10,12 @@ import { CardSurface } from '@/src/components/ui/CardSurface';
 import { Button } from '@/src/components/ui/button';
 import { saveGuardrail } from '@/src/core/guardrails/localGuardrails';
 
+const formatEntryClock = (quarter: number, timeRemainingSec: number) => {
+  const minutes = Math.floor(timeRemainingSec / 60);
+  const seconds = Math.max(0, timeRemainingSec % 60);
+  return `Q${quarter} ${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
 export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [appliedByTicket, setAppliedByTicket] = useState<Record<string, boolean>>({});
@@ -72,6 +78,57 @@ export function PostmortemList({ records }: { records: PostmortemRecord[] }) {
               </button>
               {isOpen ? (
                 <div className="mt-2 space-y-2">
+                  {record.entrySnapshot ? (
+                    <div
+                      className="rounded-md border border-cyan-300/20 bg-cyan-400/[0.05] p-3"
+                      data-testid={`entry-context-${record.ticketId}`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-cyan-100">Entry context</p>
+                        <span className="text-[10px] text-slate-400">
+                          {record.entrySnapshot.exactDecisionTime
+                            ? 'Exact decision-time snapshot'
+                            : 'First verified after tracking'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                        {record.entrySnapshot.note ??
+                          'Preserved context from when ResearchBets first observed this ticket.'}
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {Object.entries(record.entrySnapshot.legs).map(([legId, state]) => {
+                          const leg = record.legs.find((candidate) => candidate.legId === legId);
+                          const remaining =
+                            leg ? Math.max(0, Number((leg.target - state.currentValue).toFixed(1))) : null;
+                          return (
+                            <div
+                              key={legId}
+                              className="rounded border border-white/10 bg-slate-950/50 p-2 text-[10px] text-slate-300"
+                            >
+                              <div className="font-semibold text-slate-100">
+                                {leg?.player ?? legId}
+                              </div>
+                              <div className="mt-1">
+                                At capture: <span className="mono-number">{state.currentValue}</span>
+                                {leg ? (
+                                  <>
+                                    /{leg.target}
+                                    {remaining !== null ? ` · ${remaining} remaining` : ''}
+                                  </>
+                                ) : null}
+                              </div>
+                              <div className="mt-1 text-slate-500">
+                                {formatEntryClock(state.quarter, state.timeRemainingSec)}
+                                {typeof state.opportunityCount === 'number' && state.opportunityLabel
+                                  ? ` · ${state.opportunityCount} ${state.opportunityLabel}`
+                                  : ''}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="overflow-hidden rounded-md border border-white/10">
                     <table className="w-full text-left text-xs text-slate-300">
                       <thead className="bg-slate-900/70 text-slate-400">

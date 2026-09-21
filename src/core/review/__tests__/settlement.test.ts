@@ -100,6 +100,38 @@ describe('settlement flow persistence', () => {
     });
   });
 
+  it('preserves live entry context through settlement without claiming exact placement time', () => {
+    const liveEntryTicket: OpenTicket = {
+      ...ticket,
+      ticketId: 'ticket-entry-context',
+      mode: 'live',
+      entrySnapshot: {
+        capturedAt: '2026-09-20T20:05:00.000Z',
+        captureSource: 'first_verified_after_tracking',
+        timing: 'live',
+        exactDecisionTime: false,
+        legs: {
+          'leg-1': {
+            capturedAt: '2026-09-20T20:05:00.000Z',
+            currentValue: 4,
+            elapsedGameMinutes: 12,
+            quarter: 2,
+            timeRemainingSec: 840,
+          },
+        },
+      },
+    };
+
+    const record = settleTicket({
+      ticket: liveEntryTicket,
+      status: 'lost',
+      finalValues: { 'leg-1': 4 },
+    });
+
+    expect(record.entrySnapshot).toEqual(liveEntryTicket.entrySnapshot);
+    expect(record.narrative.join(' ')).toMatch(/not asserted as the exact sportsbook placement time/i);
+  });
+
   it('links an explicit applied threshold intervention to verified settlement', () => {
     const verifiedTicket: OpenTicket = {
       ...ticket,

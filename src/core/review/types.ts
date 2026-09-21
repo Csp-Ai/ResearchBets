@@ -5,6 +5,7 @@ import type { Lineage } from '@/src/core/lineage/lineage';
 import type { MarketType } from '@/src/core/markets/marketType';
 import type { CoverageLevel } from '@/src/core/review/missTagger';
 import type { NextTimeRule } from '@/src/core/guardrails/localGuardrails';
+import type { TrackedTicketEntrySnapshot } from '@/src/core/track/types';
 
 export type TicketSettlementStatus = 'won' | 'lost' | 'void' | 'unknown';
 
@@ -51,4 +52,5 @@ export type PostmortemRecord = {
   lifecycle_lineage?: LifecycleDriverLineage;
   weakest_leg_identity?: WeakestLegIdentity;
   thresholdCounterfactuals?: ThresholdInterventionCounterfactual[];
+  entrySnapshot?: TrackedTicketEntrySnapshot;
 };

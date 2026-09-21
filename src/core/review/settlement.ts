@@ -82,6 +82,12 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
 
   const missed = legs.filter((leg) => !leg.hit);
   const nextTimeRule = mapMissTagsToNextTimeRule(missed.flatMap((leg) => leg.missTags));
+  const entryNarrative =
+    input.ticket.entrySnapshot?.timing === 'live'
+      ? input.ticket.entrySnapshot.exactDecisionTime
+        ? 'Live decision-time context was preserved for this ticket.'
+        : 'Verified live production was already present when ResearchBets first captured this ticket; that snapshot is not asserted as the exact sportsbook placement time.'
+      : null;
   const narrative = [
     `${input.ticket.title} settled ${input.status} with ${missed.length} missed leg(s).`,
     missed[0]
@@ -89,7 +95,8 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
       : 'All tracked legs cleared the line.',
     input.ticket.coverage.coverage === 'full'
       ? 'Coverage held across all legs.'
-      : `Coverage was ${input.ticket.coverage.coverage}; review gaps before similar builds.`
+      : `Coverage was ${input.ticket.coverage.coverage}; review gaps before similar builds.`,
+    ...(entryNarrative ? [entryNarrative] : []),
   ];
 
   const thresholdCounterfactuals = buildThresholdCounterfactuals({
@@ -122,6 +129,7 @@ export function createPostmortemRecord(input: SettleTicketInput): PostmortemReco
     coachSnapshot: getDraftPostmortem(input.ticket.ticketId),
     nextTimeRule,
     thresholdCounterfactuals: thresholdCounterfactuals.length > 0 ? thresholdCounterfactuals : undefined,
+    entrySnapshot: input.ticket.entrySnapshot,
   };
 }
 

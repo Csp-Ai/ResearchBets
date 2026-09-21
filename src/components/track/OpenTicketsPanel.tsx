@@ -19,7 +19,10 @@ import { settleTicket } from '@/src/core/review/settlement';
 import { deriveLiveCommandSurface } from '@/src/core/cockpit/ticketLoop';
 import type { TicketSettlementStatus } from '@/src/core/review/types';
 import { listRecentSlips } from '@/src/core/slips/storage';
-import { listTrackedTickets } from '@/src/core/track/store';
+import {
+  captureFirstVerifiedEntrySnapshot,
+  listTrackedTickets,
+} from '@/src/core/track/store';
 import type { TrackedTicket } from '@/src/core/track/types';
 
 const liveStatusTone: Record<string, string> = {
@@ -116,11 +119,25 @@ export function OpenTicketsPanel({ mode }: { mode: 'demo' | 'cache' | 'live' }) 
         const payload = (await response.json()) as {
           ok?: boolean;
           data?: { updates?: Record<string, LiveLegUpdate>; coverage?: LiveCoverageMap };
+          provenance?: { generatedAt?: string };
         };
         if (!response.ok || !payload.ok || !payload.data?.updates) {
           throw new Error('live_ticket_refresh_unavailable');
         }
         if (disposed) return;
+
+        const entryCapturedAt = payload.provenance?.generatedAt ?? new Date().toISOString();
+        let capturedEntrySnapshot = false;
+        for (const ticket of payloadTickets) {
+          if (ticket.entrySnapshot) continue;
+          const updated = captureFirstVerifiedEntrySnapshot({
+            ticketId: ticket.ticketId,
+            updates: payload.data.updates,
+            capturedAt: entryCapturedAt,
+          });
+          if (updated?.entrySnapshot) capturedEntrySnapshot = true;
+        }
+        if (capturedEntrySnapshot) setTrackedTickets(listTrackedTickets());
 
         setLiveUpdates(payload.data.updates);
         setCoverage(payload.data.coverage ?? {});
