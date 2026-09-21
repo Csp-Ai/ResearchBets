@@ -151,7 +151,8 @@ export function BuildDecisionCopilot({
   const applyAction = () => {
     if (!context) {
       if (read.action.kind === 'apply_threshold') {
-        onApply(read.enrichedLegs.map((leg) => applyBuildThresholdMove(leg, read.action.move)));
+        const move = read.action.move;
+        onApply(read.enrichedLegs.map((leg) => applyBuildThresholdMove(leg, move)));
       } else if (read.action.kind === 'xray') {
         onAnalyze();
       }
@@ -168,7 +169,8 @@ export function BuildDecisionCopilot({
     void emitCopilotActionApplied({ record, context });
 
     if (read.action.kind === 'apply_threshold') {
-      onApply(read.enrichedLegs.map((leg) => applyBuildThresholdMove(leg, read.action.move)));
+      const move = read.action.move;
+      onApply(read.enrichedLegs.map((leg) => applyBuildThresholdMove(leg, move)));
       setActionState('applied');
       return;
     }
