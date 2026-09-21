@@ -339,7 +339,13 @@ export default function SlipPageClient() {
 
       {hasTicket ? (
         <div className="mt-6">
-          <BuildDecisionCopilot legs={dedupedLegs} onAnalyze={onAnalyzeSlip} />
+          <BuildDecisionCopilot
+            legs={dedupedLegs}
+            onApply={setSlip}
+            onAnalyze={onAnalyzeSlip}
+            traceId={trace_id}
+            slipId={slip_id}
+          />
         </div>
       ) : null}
 
