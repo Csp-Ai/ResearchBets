@@ -31,6 +31,7 @@ Already established:
 - stable draft read/write behavior after recursion fix,
 - live/cache/demo truth boundaries,
 - Threshold Optimization v1 and build-time Threshold Advisor,
+- Build Decision Copilot v1 as an orchestration surface over existing construction/threshold engines, with auditable decision lineage and fail-closed market actions,
 - `/stress-test` First Load JS reduced from roughly 342 kB to roughly 144 kB,
 - `/slip` reference redesign around one ticket / one answer / one primary action,
 - answer-first X-Ray direction,
