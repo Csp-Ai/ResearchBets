@@ -11,8 +11,8 @@ import {
   buildBuildCopilotRead,
   type BuildCopilotIntent,
   type BuildCopilotMarketState,
-  type BuildThresholdIdea,
 } from '@/src/core/copilot/buildDecision';
+import type { BuildThresholdIdea } from '@/src/core/slips/buildThresholdAdvisor';
 import {
   fingerprintCopilotTicket,
   saveCopilotDecision,
