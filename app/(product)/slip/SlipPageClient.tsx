@@ -19,6 +19,7 @@ import { appendQuery } from '@/src/components/landing/navigation';
 import { AliveEmptyState } from '@/src/components/ui/AliveEmptyState';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/button';
+import { BuildDecisionCopilot } from '@/src/components/slips/BuildDecisionCopilot';
 import { BuildThresholdAdvisorPanel } from '@/src/components/slips/BuildThresholdAdvisorPanel';
 import { ProBuildPanel } from '@/src/components/slips/ProBuildPanel';
 import { Skeleton } from '@/src/components/ui/Skeleton';
@@ -335,6 +336,12 @@ export default function SlipPageClient() {
       </div>
 
       <SlipIntelBar legs={dedupedLegs} />
+
+      {hasTicket ? (
+        <div className="mt-6">
+          <BuildDecisionCopilot legs={dedupedLegs} onAnalyze={onAnalyzeSlip} />
+        </div>
+      ) : null}
 
       {hasTicket ? (
         <div className="mt-6 space-y-3">
