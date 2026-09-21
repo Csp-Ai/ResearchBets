@@ -64,7 +64,9 @@ export const ControlPlaneEventNameSchema = z.enum([
   'intervention_settlement_linked',
   'lifecycle_stage_viewed',
   'lifecycle_useful_answer_ready',
-  'lifecycle_guardrail_applied'
+  'lifecycle_guardrail_applied',
+  'copilot_decision_presented',
+  'copilot_action_applied'
 ]);
 
 const requiredPropertiesByEvent: Record<string, string[]> = {
@@ -85,7 +87,9 @@ const requiredPropertiesByEvent: Record<string, string[]> = {
   ],
   lifecycle_stage_viewed: ['stage', 'route', 'visit_id'],
   lifecycle_useful_answer_ready: ['stage', 'route', 'visit_id', 'answer_type', 'duration_ms'],
-  lifecycle_guardrail_applied: ['stage', 'route', 'visit_id', 'ticket_id', 'guardrail_id']
+  lifecycle_guardrail_applied: ['stage', 'route', 'visit_id', 'ticket_id', 'guardrail_id'],
+  copilot_decision_presented: ['decision_id', 'intent', 'ticket_fingerprint', 'evidence_state', 'action_kind'],
+  copilot_action_applied: ['decision_id', 'intent', 'ticket_fingerprint', 'evidence_state', 'action_kind']
 };
 
 export const ControlPlaneEventSchema = z
