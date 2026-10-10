@@ -12,7 +12,7 @@ const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: 
   { pattern: /\b(?:any\s*time|anytime)\s+(?:touchdown|td)(?:\s+scorer)?\b|\battd\b|\bto\s+score(?:\s+a)?\s+touchdown\b/i, marketType: 'anytime_td', label: 'Anytime TD' },
   { pattern: /\bmoneyline\b/i, marketType: 'moneyline', label: 'Moneyline' },
   { pattern: /\bpra\b|points\s*\+\s*rebounds\s*\+\s*assists/i, marketType: 'pra', label: 'PRA' },
-  { pattern: /\b3\s*(pt|pointer)|threes?\b/i, marketType: 'threes', label: 'Threes' },
+  { pattern: /\b(?:3[\s-]?(?:pt|pointers?)(?:\s+made)?|3pm|three[\s-]?pointers?|threes?)\b/i, marketType: 'threes', label: 'Threes' },
   { pattern: /\bassists?\b/i, marketType: 'assists', label: 'Assists' },
   { pattern: /\brebounds?\b/i, marketType: 'rebounds', label: 'Rebounds' },
   { pattern: /\bpoints?\b/i, marketType: 'points', label: 'Points' },

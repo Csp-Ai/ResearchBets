@@ -4,7 +4,15 @@ import { useState } from 'react';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { REVIEW_MARKETS, newReviewLeg, reviewLegIssues, type ReviewLeague, type ReviewLeg } from '@/src/core/track/slipReview';
 
-const niceLabel = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const MARKET_LABELS: Record<string, string> = {
+  ra: 'Rebounds + assists',
+  pra: 'Points + rebounds + assists',
+  threes: '3-pointers made',
+  anytime_td: 'Anytime touchdown',
+  passing_tds: 'Passing touchdowns',
+};
+const niceLabel = (value: string) =>
+  MARKET_LABELS[value] ?? value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 export function ParsedSlipReview({ legs, onChange }: {
   legs: ReviewLeg[];

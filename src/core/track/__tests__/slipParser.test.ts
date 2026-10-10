@@ -160,4 +160,12 @@ describe('parseSlipTextToLegs', () => {
     expect(nfl?.needsReview).toBe(false);
   });
 
+  it('recognizes common sportsbook 3-pointer market labels', () => {
+    const [one] = parseSlipTextToLegs('Jayson Tatum over 2.5 3-pointers made (-110)', 'screenshot');
+    expect(one?.player).toBe('Jayson Tatum');
+    expect(one?.marketType).toBe('threes');
+    expect(one?.threshold).toBe(2.5);
+    expect(one?.odds).toBe('-110');
+  });
+
 });

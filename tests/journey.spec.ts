@@ -39,10 +39,12 @@ test('first-time mobile bettor reviews a pasted ticket before Ticket X-Ray', asy
   await page.getByRole('button', { name: 'Review selections' }).click();
   await expect(page.getByTestId('parsed-slip-review')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm and see X-Ray' })).toBeDisabled();
-  // A normal ticket can be scanned at a glance; corrections expand only the affected leg.
+  // Bettor acknowledgment is revoked when even one field is edited.
+  await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Edit selection 1' }).click();
   await page.getByLabel('Threshold').fill('65');
   await expect(page.getByRole('checkbox')).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Confirm and see X-Ray' })).toBeDisabled();
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Confirm and see X-Ray' }).click();
 
