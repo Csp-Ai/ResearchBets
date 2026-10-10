@@ -183,8 +183,10 @@ export async function POST(request: Request) {
               }))
             );
         }
-        if (savedSlip?.id && sourceType === 'shared') {
-          const feedback = buildSharedSlipFeedback(parsedSlip.legs); // unverified feedback stays parser-derived
+        // Legacy shared-slip feedback cannot legitimately use stale OCR once
+        // a bettor has corrected/confirmed the underlying selections.
+        if (savedSlip?.id && sourceType === 'shared' && !reviewedLegs) {
+          const feedback = buildSharedSlipFeedback(parsedSlip.legs);
           await supabase
             .from('feedback_items')
             .insert({ slip_id: savedSlip.id, type: 'agent_feedback', body: feedback.body });
