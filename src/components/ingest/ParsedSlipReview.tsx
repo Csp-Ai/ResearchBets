@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { MarketType } from '@/src/core/markets/marketType';
 import { REVIEW_MARKETS, newReviewLeg, reviewLegIssues, type ReviewLeague, type ReviewLeg } from '@/src/core/track/slipReview';
 
@@ -9,8 +10,11 @@ export function ParsedSlipReview({ legs, onChange }: {
   legs: ReviewLeg[];
   onChange: (updated: ReviewLeg[]) => void;
 }) {
-  const change = (index: number, patch: Partial<ReviewLeg>) =>
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const change = (index: number, patch: Partial<ReviewLeg>) => {
+    setExpanded((previous) => ({ ...previous, [legs[index]!.legId]: true }));
     onChange(legs.map((leg, position) => position === index ? { ...leg, ...patch } : leg));
+  };
   const add = () => onChange([...legs, newReviewLeg('manual-' + Date.now() + '-' + legs.length)]);
 
   return (
@@ -24,17 +28,30 @@ export function ParsedSlipReview({ legs, onChange }: {
       </div>
       {legs.map((leg, index) => {
         const issues = reviewLegIssues(leg);
+        const isExpanded = expanded[leg.legId] ?? issues.length > 0;
         const supportedMarkets = leg.league === 'Unknown'
           ? [...REVIEW_MARKETS.NFL, ...REVIEW_MARKETS.NBA]
           : [...REVIEW_MARKETS[leg.league]];
         return (
           <article key={leg.legId} aria-label={'Selection ' + (index + 1)} className="space-y-3 rounded-xl border border-white/10 bg-slate-950/80 p-3 sm:p-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-white">Selection {index + 1}</h3>
-              <button type="button" className="min-h-11 rounded-lg px-3 text-xs text-slate-300 underline underline-offset-2" onClick={() => onChange(legs.filter((_, pos) => pos !== index))}>
-                Remove
-              </button>
+              <h3 className="text-sm font-semibold text-white">Selection {index + 1}: {leg.player || 'Unrecognized player'}</h3>
+              <div className="flex shrink-0 gap-1">
+                <button type="button" aria-expanded={isExpanded} className="min-h-11 rounded-lg px-2 text-xs text-cyan-200 underline underline-offset-2" onClick={() => setExpanded((previous) => ({ ...previous, [leg.legId]: !isExpanded }))}>
+                  {isExpanded ? 'Close' : 'Edit'} selection {index + 1}
+                </button>
+                <button type="button" className="min-h-11 rounded-lg px-2 text-xs text-slate-300 underline underline-offset-2" onClick={() => onChange(legs.filter((_, pos) => pos !== index))}>
+                  Remove
+                </button>
+              </div>
             </div>
+            <p className="text-sm leading-6 text-slate-300">
+              {leg.direction === 'under' ? 'Under' : 'Over / at least'} {leg.threshold || '?'} {leg.marketType ? niceLabel(leg.marketType) : 'market unknown'}
+              <span className="text-slate-500"> · {leg.odds || 'price unknown'} · {leg.teams || leg.gameId || 'matchup unknown'}</span>
+              {issues.length > 0 ? <span className="ml-2 text-amber-200">· Needs correction</span> : null}
+            </p>
+            {isExpanded ? (
+            <>
             {leg.rawText ? <p className="rounded-lg bg-white/[0.035] p-2 text-xs text-slate-400">Read from ticket: {leg.rawText}</p> : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-xs font-medium text-slate-300">
@@ -94,6 +111,8 @@ export function ParsedSlipReview({ legs, onChange }: {
               </div>
             ) : null}
             {!leg.teams && !leg.gameId ? <p className="text-xs text-slate-400">Matchup not provided. ResearchBets will not assume same-game correlation for this selection.</p> : null}
+            </>
+            ) : null}
           </article>
         );
       })}
