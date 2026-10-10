@@ -88,7 +88,10 @@ export default function IngestionPage() {
           raw_text: slipText,
           legs: confirmed.map((leg) => ({
             player: leg.player, marketType: leg.marketType, line: leg.line,
-            odds: leg.odds ?? null, game: leg.game ?? null, review_state: 'bettor_reviewed',
+            odds: leg.odds ?? null, game: leg.game ?? null,
+            league: parsedReview.find((item) => item.legId === leg.id)?.league ?? 'Unknown',
+            direction: parsedReview.find((item) => item.legId === leg.id)?.direction ?? 'over',
+            review_state: 'bettor_reviewed',
           })),
           spine: { sport: parsedReview[0]?.league ?? nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode },
         }),
