@@ -9,7 +9,7 @@ ResearchBets is the **decision intelligence layer for parlays — from idea to s
 - Canonical workflow routes: `/`, `/stress-test`, `/pulse`, `/review`
 - Supported alternate entries during convergence: `/today`, `/slip`, `/ingest`
 - Redirect-only compatibility routes: `/cockpit`, `/landing`, `/research`, `/live`
-- Dev/internal surfaces stay out of public navigation: `/control`, `/discover`, `/ingest`, `/dashboard`, `/tonight`, `/history`, `/community`
+- Dev/internal surfaces stay out of public navigation: `/control`, `/discover`, `/dashboard`, `/tonight`, `/community` (`/ingest` is a public ticket entry, while `/history` serves authenticated bettor memory).
 
 Truth spine query params are preserved across navigation:
 
