@@ -73,7 +73,7 @@ const toTrackedLeg = (leg: SlipBuilderLeg, index: number): TrackedTicketLeg => {
     odds: leg.odds,
     source: sourceLooksParserDerived([leg]) ? 'xray_parser' : 'xray_draft',
     parseConfidence: confidence,
-    needsReview: (sourceLooksParserDerived([leg]) && leg.reviewState !== 'reviewed') || leg.deadLegRisk === 'high',
+    needsReview: confidence === 'low' || (sourceLooksParserDerived([leg]) && leg.reviewState !== 'reviewed') || leg.deadLegRisk === 'high',
     rawText: `${leg.player} ${leg.line}${leg.odds ? ` ${leg.odds}` : ''}`,
     ladder: /\+/.test(leg.line),
   };

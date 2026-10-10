@@ -123,4 +123,17 @@ describe('draftSlipToTrackedTicket', () => {
     expect(ticket.legs[0]).toMatchObject({ source: 'xray_parser', needsReview: false });
   });
 
+  it('still labels low-confidence board legs for review without treating them as verified', () => {
+    const ticket = draftSlipToTrackedTicket({
+      draft: {
+        legs: [{
+          ...baseDraft.legs[0]!,
+          confidence: 0.2,
+        }]
+      },
+      spine
+    });
+    expect(ticket.legs[0]?.needsReview).toBe(true);
+  });
+
 });

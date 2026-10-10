@@ -60,7 +60,10 @@ export function XRayBriefing() {
 
   if (!isHydrated || slip.length === 0 || !weakest) return null;
 
-  const repair = repairForFlags(weakest.flags ?? []);
+  const hasKnownStructuralPressure = report.legs.some((leg) => (leg.flags?.length ?? 0) > 0);
+  const repair = hasKnownStructuralPressure
+    ? repairForFlags(weakest.flags ?? [])
+    : 'No major correlation or pricing structure flag was identified from the information supplied. This does not mean the ticket is safe.';
   const weakestName = weakest.player ?? weakest.notes ?? 'Weakest leg';
   const market = readable(weakest.market ?? 'market');
   const flags = (weakest.flags ?? []).slice(0, 2).map(readable);
@@ -75,7 +78,7 @@ export function XRayBriefing() {
       </div>
 
       <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-tight tracking-[-0.035em] text-slate-50 sm:text-4xl">
-        Main structural pressure: {weakestName}.
+        {hasKnownStructuralPressure ? <>Main structural pressure: {weakestName}.</> : 'No clear structural breaker identified yet.'}
       </h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
         {market}{typeof weakest.line === 'number' ? ` · ${weakest.line}` : ''}. {repair}
@@ -103,7 +106,7 @@ export function XRayBriefing() {
 
       <p className="mt-5 text-sm text-cyan-100">
         <span className="text-cyan-200/70">Next action · </span>
-        Check this leg's market and threshold against your original ticket. Injuries, recent hit rates, and live sportsbook prices are not validated by this structural score.
+        Check the ticket's fields and exposure. Injuries, recent hit rates, and live sportsbook prices are not validated by this structural score.
       </p>
     </section>
   );
