@@ -151,4 +151,13 @@ describe('parseSlipTextToLegs', () => {
     expect(leg?.league).toBe('Unknown');
     expect(leg?.needsReview).toBe(true);
   });
+  it('preserves common sportsbook American odds enclosed in parentheses', () => {
+    const [nba] = parseSlipTextToLegs('Jayson Tatum over 29.5 points (-110)', 'paste');
+    const [nfl] = parseSlipTextToLegs('Ladd McConkey 40+ receiving yards (+125)', 'screenshot');
+    expect(nba).toMatchObject({ player: 'Jayson Tatum', odds: '-110', marketType: 'points' });
+    expect(nfl).toMatchObject({ player: 'Ladd McConkey', odds: '+125', marketType: 'receiving_yards' });
+    expect(nba?.needsReview).toBe(false);
+    expect(nfl?.needsReview).toBe(false);
+  });
+
 });

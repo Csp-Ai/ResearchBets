@@ -146,8 +146,8 @@ function parseThreshold(input: string): { threshold?: number; ladder: boolean } 
 }
 
 function parseOdds(input: string): string | undefined {
-  const odds = input.match(/(^|\s)([+-]\d{2,5})(?=\s|$)/);
-  return odds?.[2];
+  const odds = input.match(/(?:^|[\s(])([+-]\d{2,5})(?=[\s)]|$)/);
+  return odds?.[1];
 }
 
 function parseTeams(input: string): { teams?: string; gameId?: string } {
@@ -168,6 +168,7 @@ function parseTeams(input: string): { teams?: string; gameId?: string } {
 
 function inferPlayer(input: string): string {
   const stripped = input
+    .replace(/\(\s*[+-]\d{2,5}\s*\)/g, ' ')
     .replace(/(^|\s)[+-]\d{2,5}\b/g, ' ')
     .replace(/\b(OVER|UNDER)\b.*$/i, '')
     .replace(/\bTO\s+(SCORE|RECORD)\b.*$/i, '')
