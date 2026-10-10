@@ -27,6 +27,8 @@ The authoritative convergence decision record is [docs/CANONICAL_PRODUCT.md](doc
 
 ResearchBets is currently moving from **Product Truth → Habit**. The immediate goal is a fast, truthful, coherent lifecycle that makes the value obvious in one session and creates the behavior: **before you place the parlay, X-Ray it.** Broad feature expansion is secondary until that loop is proven.
 
+For the private 1.0 wedge, the bettor's fastest path is **/ingest → check parsed selections → /stress-test**. Screenshot images stay local during this entry flow; extracted text is sent to the service for parsing, and a confirmed ticket is submitted for X-Ray. That structural read is not a live-odds, injury, or win-probability verdict. See [docs/FIRST_BETTOR_XRAY.md](docs/FIRST_BETTOR_XRAY.md).
+
 ## Quickstart (demo-safe local)
 
 ```bash
@@ -89,6 +91,7 @@ Core docs:
 - [docs/APIS.md](docs/APIS.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/RELEASE.md](docs/RELEASE.md)
+- [docs/FIRST_BETTOR_XRAY.md](docs/FIRST_BETTOR_XRAY.md)
 
 Audit and operations docs:
 
@@ -108,7 +111,7 @@ Audit and operations docs:
 ## Bettor memory foundation
 
 - Bettor profile persistence now extends the existing `profiles` table with timezone, preferred sportsbooks, bettor identity, advisory signals, and historical aggregate fields.
-- Screenshot uploads persist into the `bettor-artifacts` storage bucket and `bettor_artifacts` table. Parsed outputs save into `bettor_slips`, `bettor_slip_legs`, `bettor_account_activity_imports`, and `bettor_postmortems`.
+- **Explicit authenticated bettor-history uploads** persist into the `bettor-artifacts` storage bucket and `bettor_artifacts` table. The `/ingest` X-Ray entry no longer automatically uploads screenshots; local OCR sends extracted text for parsing, and submitted selections are processed by the API. Parsed outputs save into `bettor_slips`, `bettor_slip_legs`, `bettor_account_activity_imports`, and `bettor_postmortems`.
 - Bettor-memory parsing now runs through a sportsbook parser adapter registry (`FanDuel`, `DraftKings`, `PrizePicks`, plus a conservative generic fallback). Adapter provenance, parser warnings/errors, normalized candidate output, and review-needed recommendations persist alongside the raw upload without replacing bettor verification.
 - When OCR/parser certainty is unavailable, the app uses an explicit `demo-parser-v1` contract and labels outputs as `needs_review` instead of presenting them as verified truth.
 - `/profile` now acts as the bettor-facing Performance Intelligence surface, while `/history` acts as the bettor memory archive.
