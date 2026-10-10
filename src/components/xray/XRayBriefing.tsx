@@ -106,7 +106,7 @@ export function XRayBriefing() {
 
       <p className="mt-5 text-sm text-cyan-100">
         <span className="text-cyan-200/70">Next action · </span>
-        Check the ticket's fields and exposure. Injuries, recent hit rates, and live sportsbook prices are not validated by this structural score.
+        Check the ticket&apos;s fields and exposure. Injuries, recent hit rates, and live sportsbook prices are not validated by this structural score.
       </p>
     </section>
   );
