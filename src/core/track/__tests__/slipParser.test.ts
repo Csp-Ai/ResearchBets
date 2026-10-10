@@ -130,4 +130,25 @@ describe('parseSlipTextToLegs', () => {
     expect(leg?.marketLabel).toBe('Needs review');
     expect(leg?.needsReview).toBe(true);
   });
+  it('never treats playerless OCR as a verified participant', () => {
+    const [leg] = parseSlipTextToLegs('OVER 5.5 ASSISTS -110', 'screenshot');
+    expect(leg?.player).toBe('Needs review');
+    expect(leg?.parseConfidence).toBe('low');
+    expect(leg?.needsReview).toBe(true);
+    expect(leg?.threshold).toBe(5.5);
+  });
+
+  it('fails closed on unsupported moneylines and collegiate leagues', () => {
+    const [leg] = parseSlipTextToLegs('BYU NCAAF moneyline +120', 'paste');
+    expect(leg?.league).toBe('Unknown');
+    expect(leg?.needsReview).toBe(true);
+    expect(leg?.parseConfidence).toBe('low');
+  });
+
+  it('does not turn an unidentified market into verified NBA points', () => {
+    const [leg] = parseSlipTextToLegs('Jalen Hurts over 5.5 mystery stat +115', 'paste');
+    expect(leg?.marketLabel).toBe('Needs review');
+    expect(leg?.league).toBe('Unknown');
+    expect(leg?.needsReview).toBe(true);
+  });
 });

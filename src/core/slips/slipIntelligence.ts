@@ -99,7 +99,7 @@ export const inferGameKey = (
 
 export const inferPlayerKey = (leg: Pick<SlipIntelLeg, 'player' | 'selection'>): string => {
   const player = normalizeMatchupLabel(leg.player);
-  if (player) return `player:${player}`;
+  if (player && player.toLowerCase() !== 'needs review') return `player:${player}`;
 
   const selection = normalizeMatchupLabel(leg.selection);
   if (selection) return `selection:${selection}`;
@@ -107,12 +107,10 @@ export const inferPlayerKey = (leg: Pick<SlipIntelLeg, 'player' | 'selection'>):
   return 'player:unknown';
 };
 
-const lineLooksAlt = (line?: string): boolean => {
-  if (!line) return false;
-  const parsed = Number(line);
-  if (!Number.isFinite(parsed)) return false;
-  return Math.abs(parsed) >= 30 || Number.isInteger(parsed);
-};
+// A numeric line alone is not evidence of an aggressive threshold.
+// Market-, player-, and role-specific baselines are required before claiming that.
+const isKnownGameKey = (gameKey: string): boolean => gameKey !== 'game:unlabeled';
+const isKnownPlayerKey = (playerKey: string): boolean => playerKey !== 'player:unknown';
 
 const toSlipLeg = (leg: SlipIntelLeg, index: number): SlipLeg => ({
   leg_id: leg.id ?? `legacy-${index}`,
@@ -187,36 +185,38 @@ export function buildSlipStructureReport(
   const playerCounts = new Map<string, number>();
   let duplicatePlayerLegs = 0;
   let longshotLegs = 0;
-  let altLineLegs = 0;
+  let plusMoneyLegs = 0;
+  let unknownMatchups = 0;
 
   for (const leg of legs) {
     const intelLeg = toIntelLeg(leg);
     const gameKey = inferGameKey(intelLeg);
-    gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
+    if (isKnownGameKey(gameKey)) {
+      gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
+    } else {
+      unknownMatchups += 1;
+    }
 
     const playerKey = inferPlayerKey(intelLeg);
-    const nextPlayerCount = (playerCounts.get(playerKey) ?? 0) + 1;
-    playerCounts.set(playerKey, nextPlayerCount);
-    if (nextPlayerCount > 1) duplicatePlayerLegs += 1;
+    if (isKnownPlayerKey(playerKey)) {
+      const nextPlayerCount = (playerCounts.get(playerKey) ?? 0) + 1;
+      playerCounts.set(playerKey, nextPlayerCount);
+      if (nextPlayerCount > 1) duplicatePlayerLegs += 1;
+    }
 
     const odds = parseAmericanOdds(typeof leg.odds === 'number' ? `${leg.odds}` : leg.odds);
     if (odds !== null && odds >= 150) longshotLegs += 1;
-    if (
-      lineLooksAlt(typeof leg.line === 'number' ? `${leg.line}` : undefined) ||
-      (odds !== null && odds >= 120)
-    )
-      altLineLegs += 1;
+    if (odds !== null && odds >= 120) plusMoneyLegs += 1;
   }
 
-  const topGameCount = Math.max(...gameCounts.values());
+  const topGameCount = Math.max(0, ...gameCounts.values());
   const sameGameStack = topGameCount >= 4;
 
   const legRanked = legs
     .map((leg) => {
       const odds = parseAmericanOdds(typeof leg.odds === 'number' ? `${leg.odds}` : leg.odds);
-      const isAggressiveLine = lineLooksAlt(
-        typeof leg.line === 'number' ? `${leg.line}` : undefined
-      );
+      const gameKey = inferGameKey(toIntelLeg(leg));
+      const playerKey = inferPlayerKey(toIntelLeg(leg));
       const flags: string[] = [];
       let localFragility = 20;
 
@@ -228,17 +228,16 @@ export function buildSlipStructureReport(
         flags.push('plus_money');
         localFragility += 10;
       }
-      if (isAggressiveLine) {
-        flags.push('aggressive_line');
-        localFragility += 16;
-      }
-      if ((playerCounts.get(inferPlayerKey(toIntelLeg(leg))) ?? 0) > 1) {
+      if (isKnownPlayerKey(playerKey) && (playerCounts.get(playerKey) ?? 0) > 1) {
         flags.push('same_player_dependency');
         localFragility += 18;
       }
-      if ((gameCounts.get(inferGameKey(toIntelLeg(leg))) ?? 0) > 1) {
+      if (isKnownGameKey(gameKey) && (gameCounts.get(gameKey) ?? 0) > 1) {
         flags.push('same_game_script');
         localFragility += 12;
+        // Four or more VERIFIED same-game legs increase concentration risk;
+        // an unknown matchup never earns this penalty.
+        if ((gameCounts.get(gameKey) ?? 0) >= 4) localFragility += 10;
       }
 
       return {
@@ -260,7 +259,11 @@ export function buildSlipStructureReport(
     for (let j = i + 1; j < legs.length; j += 1) {
       const a = legs[i]!;
       const b = legs[j]!;
-      if (inferPlayerKey(toIntelLeg(a)) === inferPlayerKey(toIntelLeg(b))) {
+      const playerA = inferPlayerKey(toIntelLeg(a));
+      const playerB = inferPlayerKey(toIntelLeg(b));
+      const gameA = inferGameKey(toIntelLeg(a));
+      const gameB = inferGameKey(toIntelLeg(b));
+      if (isKnownPlayerKey(playerA) && playerA === playerB) {
         correlation_edges.push({
           a_leg_id: a.leg_id,
           b_leg_id: b.leg_id,
@@ -276,7 +279,7 @@ export function buildSlipStructureReport(
           severity: 'med',
           reason: 'Multiple legs are tied to the same team result.'
         });
-      } else if (inferGameKey(toIntelLeg(a)) === inferGameKey(toIntelLeg(b))) {
+      } else if (isKnownGameKey(gameA) && gameA === gameB) {
         correlation_edges.push({
           a_leg_id: a.leg_id,
           b_leg_id: b.leg_id,
@@ -304,10 +307,10 @@ export function buildSlipStructureReport(
     reasons.push(
       `${longshotLegs} longshot leg${longshotLegs === 1 ? '' : 's'} increase tail risk.`
     );
-  if (altLineLegs > 0)
-    reasons.push(
-      `${altLineLegs} leg${altLineLegs === 1 ? '' : 's'} use aggressive/alt-style lines.`
-    );
+  if (plusMoneyLegs > 0)
+    reasons.push(`${plusMoneyLegs} leg${plusMoneyLegs === 1 ? '' : 's'} carry plus-money price risk (not a threshold judgment).`);
+  if (unknownMatchups > 0)
+    reasons.push(`Matchup unknown for ${unknownMatchups} leg${unknownMatchups === 1 ? '' : 's'}; same-game correlation cannot be assessed for these legs.`);
   if (reasons.length === 0)
     reasons.push('No major concentration flags detected; risk is spread across legs.');
 
@@ -365,8 +368,8 @@ export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence 
 
   const gameCounts = new Map<string, number>();
   report.legs.forEach((leg) => {
-    const gameKey = leg.game_id ?? 'Unlabeled game';
-    gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
+    const gameKey = leg.game_id ?? 'game:unlabeled';
+    if (isKnownGameKey(gameKey)) gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
   });
 
   const topGames = [...gameCounts.entries()]
