@@ -203,7 +203,7 @@ export default function IngestionPage() {
       <header className="space-y-2">
         <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/60">Screenshot → structure → X-Ray</div>
         <h1 className="text-3xl font-semibold">Scan my bet slip</h1>
-        <p className="text-sm text-slate-300">Upload a sportsbook screenshot or paste selections. Check the names, lines, and markets before opening a structural X-Ray. We don't guess when information is missing.</p>
+        <p className="text-sm text-slate-300">Upload a sportsbook screenshot or paste selections. Check the names, lines, and markets before opening a structural X-Ray. We don&apos;t guess when information is missing.</p>
       </header>
 
       <div className="flex flex-wrap gap-2 text-xs">
