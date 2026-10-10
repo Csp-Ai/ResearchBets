@@ -109,4 +109,18 @@ describe('draftSlipToTrackedTicket', () => {
     expect(ticket.legs[0]?.threshold).toBe(1);
     expect(ticket.ticketId).toMatch(/^ticket_draft_/);
   });
+  it('preserves bettor-reviewed screenshot provenance without claiming provider verification', () => {
+    const ticket = draftSlipToTrackedTicket({
+      draft: {
+        ...baseDraft,
+        legs: [{ ...baseDraft.legs[0]!, importSource: 'screenshot', reviewState: 'reviewed' }],
+      },
+      spine,
+      now: '2026-09-13T22:30:00.000Z',
+    });
+    expect(ticket.sourceHint).toBe('screenshot');
+    expect(ticket.provenance).toMatchObject({ source_type: 'parser_derived', review_state: 'reviewed' });
+    expect(ticket.legs[0]).toMatchObject({ source: 'xray_parser', needsReview: false });
+  });
+
 });

@@ -49,8 +49,9 @@ describe('smoke: ingest to research workflow', () => {
     ), { status: 200 })));
     renderWithProviders(<IngestionPage />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Unreadable screenshot text' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze ticket' }));
-    expect(await screen.findByText(/Some legs could not be read reliably/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review selections' }));
+    expect(await screen.findByText(/Enter the full player name/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Confirm and see X-Ray' }) as HTMLButtonElement).disabled).toBe(true);
     expect(push).not.toHaveBeenCalled();
     expect(DraftSlipStore.getState().legs).toEqual([]);
   });
@@ -110,8 +111,10 @@ describe('smoke: ingest to research workflow', () => {
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target: { value: 'Jayson Tatum over 29.5 points (-110)' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze ticket' }));
-
+    fireEvent.click(screen.getByRole('button', { name: 'Review selections' }));
+    await screen.findByTestId('parsed-slip-review');
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm and see X-Ray' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringContaining('/stress-test')));
     expect(push).toHaveBeenCalledWith(expect.stringContaining('trace_id=trace-smoke-ivan'));
     const draft = DraftSlipStore.getState();
@@ -119,5 +122,7 @@ describe('smoke: ingest to research workflow', () => {
     const tracked = draftSlipToTrackedTicket({ draft, spine: { sport: 'NBA', date: '2026-09-16', tz: 'UTC', mode: 'live' } });
     expect(tracked.slip_id).toBe(draft.slip_id);
     expect(tracked.trace_id).toBe(draft.trace_id);
+    expect(tracked.provenance).toMatchObject({ source_type: 'parser_derived', review_state: 'reviewed' });
+    expect(tracked.provenance?.review_state).not.toBe('verified');
   });
 });
