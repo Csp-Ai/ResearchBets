@@ -145,8 +145,12 @@ export default function IngestionPage() {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
       setOcrError('Please upload a PNG or JPG screenshot.');
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setOcrError('This screenshot is too large. Use a file smaller than 12 MB.');
       return;
     }
 
