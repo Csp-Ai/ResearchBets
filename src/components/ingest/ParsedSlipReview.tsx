@@ -54,7 +54,7 @@ export function ParsedSlipReview({ legs, onChange }: {
               </div>
             </div>
             <p className="text-sm leading-6 text-slate-300">
-              {leg.direction === 'under' ? 'Under' : 'Over / at least'} {leg.threshold || '?'} {leg.marketType ? niceLabel(leg.marketType) : 'market unknown'}
+              {leg.league === 'Unknown' ? 'Sport unknown' : leg.league} · {leg.direction === 'under' ? 'Under' : 'Over / at least'} {leg.threshold || '?'} {leg.marketType ? niceLabel(leg.marketType) : 'market unknown'}
               <span className="text-slate-500"> · {leg.odds || 'price unknown'} · {leg.teams || leg.gameId || 'matchup unknown'}</span>
               {issues.length > 0 ? <span className="ml-2 text-amber-200">· Needs correction</span> : null}
             </p>
