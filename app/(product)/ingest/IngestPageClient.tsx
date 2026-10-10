@@ -248,7 +248,7 @@ export default function IngestionPage() {
         )}
         {status ? <p role="status" className="text-sm text-slate-300">{status}</p> : null}
         {artifactStatus ? <p className="text-xs text-slate-400">{artifactStatus}</p> : null}
-      </Surface>rface>
+      </Surface>
 
       <section className="rounded-xl border border-white/15 bg-white/5 p-3">
         <p className="text-xs text-slate-300">Other paths</p>
