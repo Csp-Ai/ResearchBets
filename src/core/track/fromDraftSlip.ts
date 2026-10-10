@@ -35,6 +35,7 @@ const confidenceFor = (leg: SlipBuilderLeg): ParseConfidence => {
 
 const sourceLooksParserDerived = (legs: SlipBuilderLeg[]) =>
   legs.some((leg) =>
+    Boolean(leg.importSource) ||
     (leg.deadLegReasons ?? []).some((reason) => /parser|review before trust|ocr/i.test(reason)),
   );
 
@@ -72,7 +73,7 @@ const toTrackedLeg = (leg: SlipBuilderLeg, index: number): TrackedTicketLeg => {
     odds: leg.odds,
     source: sourceLooksParserDerived([leg]) ? 'xray_parser' : 'xray_draft',
     parseConfidence: confidence,
-    needsReview: confidence === 'low',
+    needsReview: (sourceLooksParserDerived([leg]) && leg.reviewState !== 'reviewed') || leg.deadLegRisk === 'high',
     rawText: `${leg.player} ${leg.line}${leg.odds ? ` ${leg.odds}` : ''}`,
     ladder: /\+/.test(leg.line),
   };
@@ -86,7 +87,14 @@ export function draftSlipToTrackedTicket(input: {
   const { draft, spine } = input;
   const createdAt = input.now ?? new Date().toISOString();
   const parserDerived = sourceLooksParserDerived(draft.legs);
-  const hasReviewFlags = draft.legs.some((leg) => leg.deadLegRisk === 'high');
+  const hasReviewFlags = draft.legs.some((leg) =>
+    leg.deadLegRisk === 'high' || (sourceLooksParserDerived([leg]) && leg.reviewState !== 'reviewed'),
+  );
+  const sourceHint = draft.legs.some((leg) => leg.importSource === 'screenshot')
+    ? 'screenshot'
+    : draft.legs.some((leg) => leg.importSource === 'paste')
+      ? 'paste'
+      : parserDerived ? 'screenshot' : 'xray';
   const ticketId = draft.slip_id
     ? `ticket_${draft.slip_id}`
     : draft.trace_id
@@ -96,7 +104,7 @@ export function draftSlipToTrackedTicket(input: {
   return {
     ticketId,
     createdAt,
-    sourceHint: parserDerived ? 'screenshot' : 'xray',
+    sourceHint,
     rawSlipText: draft.legs
       .map((leg) => `${leg.player} ${leg.line}${leg.odds ? ` (${leg.odds})` : ''}`)
       .join('\n'),
