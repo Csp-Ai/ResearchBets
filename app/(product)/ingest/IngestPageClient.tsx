@@ -72,7 +72,7 @@ export default function IngestionPage() {
     if (!parsedReview || !reviewAcknowledged) return;
     const issues = reviewTicketIssues(parsedReview);
     if (issues.length) {
-      setStatus(issues[0]);
+      setStatus(issues[0] ?? 'Please correct the highlighted selections before continuing.');
       return;
     }
     setLoading(true);
