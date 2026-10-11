@@ -106,7 +106,7 @@ describe('buildSlipStructureReport', () => {
   it('never labels a structurally correlated ticket as inflated thresholds without player-level evidence', () => {
     const report = buildSlipStructureReport([
       { player: 'Player One', game: 'PHI @ JAX', market: 'rushing_yards', line: '60', odds: '-110' },
-      { player: 'Player Two', game: 'PHI @ JAX', market: 'rushing_yards', line: '20', odds: '-110' },
+      { player: 'Player One', game: 'PHI @ JAX', market: 'receiving_yards', line: '20', odds: '-110' },
       { player: 'Player Three', game: 'PHI @ JAX', market: 'receiving_yards', line: '20', odds: '-110' },
       { player: 'Player Four', game: 'PHI @ JAX', market: 'passing_yards', line: '175', odds: '-110' },
     ]);
