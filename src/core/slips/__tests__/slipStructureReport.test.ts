@@ -103,6 +103,19 @@ describe('buildSlipStructureReport', () => {
     expect(report.reasons.some((reason) => reason.includes('Matchup unknown'))).toBe(true);
   });
 
+  it('never labels a structurally correlated ticket as inflated thresholds without player-level evidence', () => {
+    const report = buildSlipStructureReport([
+      { player: 'Player One', game: 'PHI @ JAX', market: 'rushing_yards', line: '60', odds: '-110' },
+      { player: 'Player Two', game: 'PHI @ JAX', market: 'rushing_yards', line: '20', odds: '-110' },
+      { player: 'Player Three', game: 'PHI @ JAX', market: 'receiving_yards', line: '20', odds: '-110' },
+      { player: 'Player Four', game: 'PHI @ JAX', market: 'passing_yards', line: '175', odds: '-110' },
+    ]);
+    expect(report.correlation_edges.length).toBeGreaterThan(0);
+    expect(report.weakest_leg_identity?.supporting_drivers).toContain('correlated_stack_pressure');
+    expect(report.weakest_leg_identity?.supporting_drivers).not.toContain('inflated_thresholds');
+    expect(report.lifecycle_driver_lineage?.pregame?.supporting_drivers).not.toContain('inflated_thresholds');
+  });
+
   it('does not infer aggressive thresholds from integer or large-number syntax', () => {
     const report = buildSlipStructureReport([
       { player: 'Justin Jefferson', game: 'MIN @ GB', market: 'receptions', line: '4', odds: '-150' },
