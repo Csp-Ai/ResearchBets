@@ -22,6 +22,14 @@ The immediate 0→1 milestone is not “more features.” It is a coherent, fast
 
 The Structural Risk Terminal remains the first sharp wedge. The execution plan should deepen that wedge by connecting research, market expression, live thesis health, and settlement learning rather than creating parallel products.
 
+## Immediate implementation slice — private 1.0 beta
+
+**This slice takes precedence over UI expansion until validated with real external bettors.** The everyday bettor already holding a screenshot should complete **Upload or paste → Check each selection → Understand one structural pressure**, preferably on a 390px phone.
+
+Hard rules: never silently normalize unsupported markets to points; never treat incomplete OCR as a real player; never infer same-game correlation from absent game identity; never grade an integer threshold as aggressive without market-relative evidence; never call a bettor's confirmation a sportsbook verification.
+
+Defer advanced Pulse, Copilot actions, and causal Review when they compete with this wedge. Keep existing systems, avoid rewrite. Require a supported patched framework, restored running CI, a production-like smoke test, ownership/privacy checks, and real screenshot fixtures before wider release. Details and tester script: docs/FIRST_BETTOR_XRAY.md.
+
 ## Current baseline
 
 Already established:

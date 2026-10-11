@@ -87,4 +87,80 @@ describe('/api/slips/submit POST', () => {
       },
     });
   });
+  it('persists bettor-reviewed normalized values rather than silently reverting to OCR text', async () => {
+    const createSlipSubmission = vi.fn(async () => undefined);
+    const saveEvent = vi.fn(async () => undefined);
+    vi.doMock('@/src/core/persistence/runtimeStoreProvider', () => ({
+      getRuntimeStore: () => ({ createSlipSubmission, saveEvent })
+    }));
+    const { POST } = await import('../route');
+    const res = await POST(new Request('http://localhost:3000/api/slips/submit?sport=NFL&mode=demo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'upload',
+        raw_text: 'OVER 60 RECEIVING YARDS',
+        legs: [{
+          player: 'Justin Jefferson', league: 'NFL', marketType: 'receiving_yards',
+          line: '60+', odds: '-300', game: 'MIN @ GB', direction: 'over',
+          review_state: 'bettor_reviewed'
+        }]
+      })
+    }));
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.data.parse.legs_count).toBe(1);
+    expect(payload.data.parse.needs_review).toBe(false);
+    expect(createSlipSubmission).toHaveBeenCalledWith(expect.objectContaining({
+      extractedLegs: [expect.objectContaining({
+        player: 'Justin Jefferson',
+        review_state: 'bettor_reviewed'
+      })]
+    }));
+  });
+
+  it('rejects a forged reviewed state on unsupported sports and markets', async () => {
+    const { POST } = await import('../route');
+    const res = await POST(new Request('http://localhost:3000/api/slips/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        raw_text: 'BYU moneyline +120',
+        legs: [{ player: 'BYU Cougars', league: 'NFL', marketType: 'moneyline',
+          line: '1+', direction: 'over', review_state: 'bettor_reviewed' }]
+      })
+    }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, error: { code: 'invalid_reviewed_legs' } });
+  });
+ 
+  it('accepts a bettor-corrected shared slip without resurrecting unreviewed OCR fields', async () => {
+    const createSlipSubmission = vi.fn(async () => undefined);
+    const saveEvent = vi.fn(async () => undefined);
+    vi.doMock('@/src/core/persistence/runtimeStoreProvider', () => ({
+      getRuntimeStore: () => ({ createSlipSubmission, saveEvent })
+    }));
+    const { POST } = await import('../route');
+    const res = await POST(new Request('http://localhost:3000/api/slips/submit?sport=NFL&mode=demo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source_type: 'shared',
+        source: 'paste',
+        raw_text: 'OVER 60 RECEIVING YARDS',
+        legs: [{
+          player: 'Justin Jefferson', league: 'NFL', marketType: 'receiving_yards',
+          line: '65+', odds: '-130', game: 'MIN @ GB', direction: 'over',
+          review_state: 'bettor_reviewed'
+        }]
+      })
+    }));
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.data.parse.needs_review).toBe(false);
+    expect(createSlipSubmission).toHaveBeenCalledWith(expect.objectContaining({
+      extractedLegs: [expect.objectContaining({ line: '65+', odds: '-130' })]
+    }));
+  });
+
 });

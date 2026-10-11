@@ -12,7 +12,7 @@ const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: 
   { pattern: /\b(?:any\s*time|anytime)\s+(?:touchdown|td)(?:\s+scorer)?\b|\battd\b|\bto\s+score(?:\s+a)?\s+touchdown\b/i, marketType: 'anytime_td', label: 'Anytime TD' },
   { pattern: /\bmoneyline\b/i, marketType: 'moneyline', label: 'Moneyline' },
   { pattern: /\bpra\b|points\s*\+\s*rebounds\s*\+\s*assists/i, marketType: 'pra', label: 'PRA' },
-  { pattern: /\b3\s*(pt|pointer)|threes?\b/i, marketType: 'threes', label: 'Threes' },
+  { pattern: /\b(?:3[\s-]?(?:pt|pointers?)(?:\s+made)?|3pm|three[\s-]?pointers?|threes?)\b/i, marketType: 'threes', label: 'Threes' },
   { pattern: /\bassists?\b/i, marketType: 'assists', label: 'Assists' },
   { pattern: /\brebounds?\b/i, marketType: 'rebounds', label: 'Rebounds' },
   { pattern: /\bpoints?\b/i, marketType: 'points', label: 'Points' },
@@ -146,8 +146,8 @@ function parseThreshold(input: string): { threshold?: number; ladder: boolean } 
 }
 
 function parseOdds(input: string): string | undefined {
-  const odds = input.match(/(^|\s)([+-]\d{2,5})(?=\s|$)/);
-  return odds?.[2];
+  const odds = input.match(/(?:^|[\s(])([+-]\d{2,5})(?=[\s)]|$)/);
+  return odds?.[1];
 }
 
 function parseTeams(input: string): { teams?: string; gameId?: string } {
@@ -168,6 +168,7 @@ function parseTeams(input: string): { teams?: string; gameId?: string } {
 
 function inferPlayer(input: string): string {
   const stripped = input
+    .replace(/\(\s*[+-]\d{2,5}\s*\)/g, ' ')
     .replace(/(^|\s)[+-]\d{2,5}\b/g, ' ')
     .replace(/\b(OVER|UNDER)\b.*$/i, '')
     .replace(/\bTO\s+(SCORE|RECORD)\b.*$/i, '')
@@ -178,10 +179,10 @@ function inferPlayer(input: string): string {
     .trim();
 
   const cleaned = normalizePlayerName(stripped);
-  if (cleaned.length > 1) return cleaned;
-
-  const prefix = input.split(/\s+(OVER|UNDER|TO)\b/i)[0] ?? '';
-  return normalizePlayerName(prefix) || 'Needs review';
+  // Never promote "OVER 5.5 ASSISTS" or a scoreboard row into a player's name.
+  // A single-name candidate stays review-required until a bettor supplies the identity.
+  if (/^[A-Za-z][A-Za-z'.-]*(?:\s+[A-Za-z][A-Za-z'.-]*)+$/.test(cleaned)) return cleaned;
+  return 'Needs review';
 }
 
 function confidenceFor(input: { player: string; inferredMarket: boolean; threshold?: number; unresolved: boolean }): ParseConfidence {
@@ -239,14 +240,21 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
     const odds = parseOdds(line);
     const player = inferPlayer(line);
     const teamDetails = parseTeams(line);
-    const unresolved = parsedThreshold.threshold == null || marketLabel === 'Needs review';
+    // This beta only understands NFL/NBA player props. A moneyline, unsupported
+    // competition, or unknown market must be corrected rather than defaulting to NBA.
+    const unsupportedLeague = /\b(?:NCAAF|NCAAB|NCAA|MLB|NHL|WNBA|MLS|UFC)\b/i.test(line);
+    const unsupportedMarket = marketType === 'moneyline' || marketType === 'spread' || marketType === 'total';
+    const league = unsupportedLeague || unsupportedMarket || inferred
+      ? 'Unknown'
+      : NFL_MARKETS.has(marketType) || /\bNFL\b/i.test(line) ? 'NFL' : 'NBA';
+    const unresolved = parsedThreshold.threshold == null || marketLabel === 'Needs review'
+      || player === 'Needs review' || league === 'Unknown';
     const parseConfidence = confidenceFor({
       player,
       inferredMarket: inferred,
       threshold: parsedThreshold.threshold,
       unresolved,
     });
-    const league = NFL_MARKETS.has(marketType) || /\bNFL\b/i.test(line) ? 'NFL' : 'NBA';
 
     return {
       legId: `leg-${index + 1}`,

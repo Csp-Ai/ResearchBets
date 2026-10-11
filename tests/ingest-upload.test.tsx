@@ -39,7 +39,9 @@ describe('ingest upload screenshot flow', () => {
     expect(screen.getByRole('button', { name: 'Upload screenshot' })).toBeTruthy();
   });
 
-  it('populates slip text from OCR and keeps save flow available', async () => {
+  it('reads screenshot locally and keeps the review action available', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
     renderWithProviders(<IngestionPage />);
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -47,6 +49,8 @@ describe('ingest upload screenshot flow', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(screen.getByDisplayValue(/Leg A over 22.5 points/)).toBeTruthy());
-    await waitFor(() => expect((screen.getAllByRole('button', { name: 'Analyze ticket' })[0] as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Review selections' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

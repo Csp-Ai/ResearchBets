@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { REVIEW_MARKETS } from '@/src/core/track/slipReview';
 
 import { coerceContextSpine, type ContextSpine } from '@/src/core/contracts/contextSpine';
 import { SlipSubmitRequestSchema, SlipSubmitResultSchema } from '@/src/core/contracts/envelopes';
@@ -12,6 +14,32 @@ import { getTraceContext } from '@/src/core/trace/getTraceContext.server';
 import { buildSharedSlipFeedback } from '@/src/agents/sharedSlipFeedback';
 import { parseSlipText } from '@/src/core/slips/freeTextParser';
 import { getSupabaseServerClient } from '@/src/core/supabase/server';
+
+// Reviewed selections are user claims, not verified sportsbook records.
+const reviewedLegSchema = z.object({
+  player: z.string().trim().min(3).max(120),
+  league: z.enum(['NFL', 'NBA']),
+  marketType: z.string().min(1),
+  line: z.string().min(1),
+  odds: z.string().nullable().optional(),
+  game: z.string().nullable().optional(),
+  direction: z.enum(['over', 'under']),
+  review_state: z.literal('bettor_reviewed')
+}).superRefine((leg, ctx) => {
+  if (!(REVIEW_MARKETS[leg.league] as readonly string[]).includes(leg.marketType)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Unsupported player market.' });
+  }
+  const threshold = Number(leg.line.match(/\d+(?:\.\d+)?/)?.[0]);
+  if (!Number.isFinite(threshold) || threshold <= 0 || threshold > 1000) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid threshold.' });
+  }
+  if (leg.marketType === 'anytime_td' && (threshold !== 1 || leg.direction !== 'over')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid anytime touchdown threshold.' });
+  }
+  if (leg.odds && !/^[+-]\d{2,4}$/.test(leg.odds)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid American odds.' });
+  }
+});
 
 export async function POST(request: Request) {
   const limited = applyRateLimit(request, { route: 'slips:submit', limit: 10 });
@@ -34,6 +62,17 @@ export async function POST(request: Request) {
   try {
     const body = parsed.data;
     let store: ReturnType<typeof getRuntimeStore> | null = null;
+    const isBettorReviewed = (body.legs ?? []).some((leg) => leg.review_state === 'bettor_reviewed');
+    const reviewed = isBettorReviewed
+      ? z.array(reviewedLegSchema).min(1).max(16).safeParse(body.legs)
+      : null;
+    if (reviewed && !reviewed.success) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'invalid_reviewed_legs', message: 'Check the reviewed player, market, threshold, league, and price.' }, trace_id: traceContext.trace_id },
+        { status: 400 }
+      );
+    }
+    const reviewedLegs = reviewed?.success ? reviewed.data : null;
 
     const anonSessionId =
       body.anon_session_id || body.anon_id || body.spine?.anon_id || randomUUID();
@@ -95,6 +134,18 @@ export async function POST(request: Request) {
 
     const parsedSlip = parseSlipText(rawText);
     const sourceType = body.source_type ?? 'self';
+    const extractedLegs = reviewedLegs
+      ? reviewedLegs.map((leg) => ({
+          sport: leg.league === 'NFL' ? 'Football' : 'Basketball',
+          league: leg.league,
+          eventDate: null,
+          teamOrPlayer: leg.player,
+          marketType: leg.marketType,
+          line: Number(leg.line.match(/\d+(?:\.\d+)?/)?.[0]),
+          odds: leg.odds ? Number(leg.odds) : null,
+          book: null
+        }))
+      : parsedSlip.legs;
 
     try {
       const supabase = await getSupabaseServerClient();
@@ -107,15 +158,19 @@ export async function POST(request: Request) {
             user_id: authUserId,
             source_type: sourceType,
             raw_text: rawText,
-            raw_json: { confidence: parsedSlip.confidence }
+            raw_json: {
+              parser_confidence: parsedSlip.confidence,
+              review_state: reviewedLegs ? 'bettor_reviewed' : 'unreviewed',
+              submitted_selection_count: extractedLegs.length
+            }
           })
           .select('id')
           .single();
-        if (savedSlip?.id && parsedSlip.legs.length > 0) {
+        if (savedSlip?.id && extractedLegs.length > 0) {
           await supabase
             .from('legs')
             .insert(
-              parsedSlip.legs.map((leg) => ({
+              extractedLegs.map((leg) => ({
                 slip_id: savedSlip.id,
                 sport: leg.sport,
                 league: leg.league,
@@ -128,7 +183,9 @@ export async function POST(request: Request) {
               }))
             );
         }
-        if (savedSlip?.id && sourceType === 'shared') {
+        // Legacy shared-slip feedback cannot legitimately use stale OCR once
+        // a bettor has corrected/confirmed the underlying selections.
+        if (savedSlip?.id && sourceType === 'shared' && !reviewedLegs) {
           const feedback = buildSharedSlipFeedback(parsedSlip.legs);
           await supabase
             .from('feedback_items')
@@ -159,9 +216,10 @@ export async function POST(request: Request) {
           tz: baseSpine.tz,
           date: baseSpine.date,
           anon_session_id: baseSpine.anon_session_id,
-          legs_count: parsedSlip.legs.length,
+          legs_count: extractedLegs.length,
           parse_confidence: parsedSlip.confidence,
-          needs_review: parsedSlip.legs.length === 0,
+          review_state: reviewedLegs ? 'bettor_reviewed' : 'unreviewed',
+          needs_review: !reviewedLegs && parsedSlip.legs.length === 0,
           source_type: sourceType
         }
         },
@@ -178,8 +236,8 @@ export async function POST(request: Request) {
       trace,
       parse: {
         confidence: parsedSlip.confidence,
-        legs_count: parsedSlip.legs.length,
-        needs_review: parsedSlip.legs.length === 0
+        legs_count: extractedLegs.length,
+        needs_review: !reviewedLegs && parsedSlip.legs.length === 0
       }
     });
     return NextResponse.json({

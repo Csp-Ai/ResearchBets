@@ -29,6 +29,21 @@ Structural risk is the core pre-lock job and the identity of Ticket X-Ray, but i
 
 The desired bettor habit is simple: **before you place the parlay, X-Ray it.** The lifecycle exists to make that habit more useful over time by preserving the same ticket thesis through live tracking and settlement.
 
+## Private 1.0 structural X-Ray wedge
+
+The first beta optimizes for the everyday bettor who already has a ticket, not an operator inspecting a research dashboard:
+
+1. Open /ingest, paste selections or use device-local OCR on a screenshot.
+2. Review a structured list of all legs, correct missing/incorrect fields, and add legs OCR skipped.
+3. Explicitly confirm the entire ticket; save bettor-reviewed selections before /stress-test.
+4. Receive one prominent structural pressure and one honest next step, with unverified evidence clearly disclosed.
+
+Initial parsed-ticket review only supports **NFL and NBA player props**. Unknown sports/markets and playerless OCR must be corrected or stopped, not converted into plausible but false selections. Odds and matchups may be unknown; no bookmaker odds or same-game relationship is invented.
+
+The **bettor-reviewed** state means only that a person confirmed the entered selection, **not** that the sportsbook, its price, player eligibility, or market availability was independently verified. Local screenshot OCR keeps image bytes on the device in this entry path; extracted text is sent to the parse API, and ticket text plus corrected fields may be retained when submitted. Separate authenticated history-upload workflows are not automatically invoked.
+
+Pulse, detailed research, and causal Review remain the company's larger lifecycle, but require their own evidence/identity/privacy acceptance gates before being advertised as complete parts of this narrow beta. See docs/FIRST_BETTOR_XRAY.md for the detailed checklist.
+
 ## Canonical experience rule
 
 Every canonical working screen should present information in this order:

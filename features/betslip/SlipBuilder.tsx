@@ -11,6 +11,9 @@ export type SlipBuilderLeg = {
   marketType: MarketType;
   line: string;
   odds?: string;
+  importSource?: 'screenshot' | 'paste';
+  /** Bettor checked fields; NOT sportsbook/provider verification. */
+  reviewState?: 'reviewed' | 'unreviewed';
   volatility?: 'low' | 'medium' | 'high';
   confidence?: number;
   game?: string;

@@ -2,6 +2,25 @@
 
 This checklist keeps canonical landing routing, neutral degradation messaging, and release gates aligned.
 
+## Private 1.0 bettor X-Ray release gate (new)
+
+This is a **no-go** until the checks below have **actually run**, not merely appeared in a repository test file.
+
+- [ ] GitHub Actions runners execute jobs, and npm run check passes on the exact release SHA.
+- [ ] Framework upgraded from the unsupported Next.js 14 line; a fresh production dependency/security scan has no unaddressed critical/high findings.
+- [ ] At 390px viewport, a real screenshot is read locally without automatic image upload, and parsed selections can be corrected or added before submission.
+- [ ] The user must explicitly confirm all player, league, market, line, direction, and available price/matchup fields. Unsupported or playerless OCR cannot proceed silently.
+- [ ] A screenshot reviewed by a bettor remains parser-derived / reviewed, **not** provider-verified. Missing market context is labeled unknown.
+- [ ] Regular integer lines get no arbitrary aggressive-threshold flag; unlabeled games produce no fictional same-game risk.
+- [ ] The X-Ray is described as a **structural risk analysis**, not verified sportsbook odds, injury intelligence, or a win prediction.
+- [ ] Two separate user sessions and authenticated storage permissions do not disclose one another's private uploads or event traces.
+- [ ] Verify manual text and screenshot paths with at least 5 invited testers before enabling broader access.
+- [ ] Verify the release candidate in its intended deployment with a real provider/degradation check; the production URL and configured mode are known.
+
+**Out of scope for this gate:** live Pulse and postgame causal Review; they have their own blockers. See [FIRST_BETTOR_XRAY.md](FIRST_BETTOR_XRAY.md) and the October 2026 audit.
+
+
+
 ## 1) Local quality gates
 
 ```bash

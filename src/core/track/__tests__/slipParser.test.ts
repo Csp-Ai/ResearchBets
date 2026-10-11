@@ -130,4 +130,42 @@ describe('parseSlipTextToLegs', () => {
     expect(leg?.marketLabel).toBe('Needs review');
     expect(leg?.needsReview).toBe(true);
   });
+  it('never treats playerless OCR as a verified participant', () => {
+    const [leg] = parseSlipTextToLegs('OVER 5.5 ASSISTS -110', 'screenshot');
+    expect(leg?.player).toBe('Needs review');
+    expect(leg?.parseConfidence).toBe('low');
+    expect(leg?.needsReview).toBe(true);
+    expect(leg?.threshold).toBe(5.5);
+  });
+
+  it('fails closed on unsupported moneylines and collegiate leagues', () => {
+    const [leg] = parseSlipTextToLegs('BYU NCAAF moneyline +120', 'paste');
+    expect(leg?.league).toBe('Unknown');
+    expect(leg?.needsReview).toBe(true);
+    expect(leg?.parseConfidence).toBe('low');
+  });
+
+  it('does not turn an unidentified market into verified NBA points', () => {
+    const [leg] = parseSlipTextToLegs('Jalen Hurts over 5.5 mystery stat +115', 'paste');
+    expect(leg?.marketLabel).toBe('Needs review');
+    expect(leg?.league).toBe('Unknown');
+    expect(leg?.needsReview).toBe(true);
+  });
+  it('preserves common sportsbook American odds enclosed in parentheses', () => {
+    const [nba] = parseSlipTextToLegs('Jayson Tatum over 29.5 points (-110)', 'paste');
+    const [nfl] = parseSlipTextToLegs('Ladd McConkey 40+ receiving yards (+125)', 'screenshot');
+    expect(nba).toMatchObject({ player: 'Jayson Tatum', odds: '-110', marketType: 'points' });
+    expect(nfl).toMatchObject({ player: 'Ladd McConkey', odds: '+125', marketType: 'receiving_yards' });
+    expect(nba?.needsReview).toBe(false);
+    expect(nfl?.needsReview).toBe(false);
+  });
+
+  it('recognizes common sportsbook 3-pointer market labels', () => {
+    const [one] = parseSlipTextToLegs('Jayson Tatum over 2.5 3-pointers made (-110)', 'screenshot');
+    expect(one?.player).toBe('Jayson Tatum');
+    expect(one?.marketType).toBe('threes');
+    expect(one?.threshold).toBe(2.5);
+    expect(one?.odds).toBe('-110');
+  });
+
 });
