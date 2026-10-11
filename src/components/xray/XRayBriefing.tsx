@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { useDraftSlip } from '@/src/hooks/useDraftSlip';
+import { reviewTicketAssumptions } from '@/src/core/slips/ticketAssumptions';
 import {
   buildSlipStructureReport,
   computeSlipIntelligence,
@@ -56,6 +57,7 @@ export function XRayBriefing() {
     [normalized, nervous.mode],
   );
   const intelligence = useMemo(() => computeSlipIntelligence(normalized), [normalized]);
+  const assumptions = useMemo(() => reviewTicketAssumptions(normalized), [normalized]);
   const weakest = report.legs.find((leg) => leg.leg_id === report.weakest_leg_id) ?? report.legs[0];
 
   if (!isHydrated || slip.length === 0 || !weakest) return null;
@@ -83,6 +85,26 @@ export function XRayBriefing() {
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
         {market}{typeof weakest.line === 'number' ? ` · ${weakest.line}` : ''}. {repair}
       </p>
+
+      {assumptions.primary ? (
+        <aside className="mt-5 rounded-xl border border-amber-300/25 bg-amber-200/[0.045] p-4" data-testid="xray-assumption-review">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-200/90">
+            Ticket assumption check · {assumptions.primary.evidence === 'confirmed_structure' ? 'Ticket-confirmed structure' : 'More evidence required'}
+          </p>
+          <h2 className="mt-2 text-base font-semibold text-slate-50">{assumptions.primary.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-200">{assumptions.primary.why}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300"><strong>Countercase:</strong> {assumptions.primary.countercase}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300"><strong>Verify:</strong> {assumptions.primary.toVerify}</p>
+          <p className="mt-2 text-sm leading-6 text-amber-100"><strong>Next:</strong> {assumptions.primary.action}</p>
+          {assumptions.findings.length > 1 ? (
+            <p className="mt-2 text-xs text-slate-400">{assumptions.findings.length - 1} additional ticket assumption{assumptions.findings.length === 2 ? '' : 's'} also need review.</p>
+          ) : null}
+        </aside>
+      ) : (
+        <p className="mt-5 text-xs leading-5 text-slate-400" data-testid="xray-assumption-review">
+          No ticket-level contradiction or shared rushing assumption was identified from the supplied fields. This is not proof that the legs are independent or likely to win.
+        </p>
+      )}
 
       <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-3">
         <div className="bg-slate-950/95 px-4 py-4">
