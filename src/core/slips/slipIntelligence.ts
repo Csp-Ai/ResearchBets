@@ -337,7 +337,6 @@ export function buildSlipStructureReport(
       source_stage: 'slip',
       supporting_drivers: [
         ...(correlation_edges.length > 0 ? ['correlated_stack_pressure' as const] : []),
-        ...(weakest && weakest.fragility_score >= 55 ? ['inflated_thresholds' as const] : [])
       ]
     }),
     lifecycle_driver_lineage: {
@@ -347,7 +346,6 @@ export function buildSlipStructureReport(
         source_stage: 'slip',
         supporting_drivers: [
           ...(correlation_edges.length > 0 ? ['correlated_stack_pressure' as const] : []),
-          ...(weakest && weakest.fragility_score >= 55 ? ['inflated_thresholds' as const] : [])
         ]
       })
     },
