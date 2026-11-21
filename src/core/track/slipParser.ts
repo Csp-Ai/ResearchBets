@@ -226,6 +226,7 @@ function nonEmptyLines(rawText: string): string[] {
 }
 
 function looksLikeCandidateLeg(line: string): boolean {
+  if (/^\d{1,2}\s+leg\s+same game parlay\+|\bmarkets?\s+combo\b|^combo\s*[·•]|^\+\d+\s+more markets?\b/i.test(line)) return false;
   if (!canonicalMarket(line).inferred) return true;
   if (/\b(over|under)\s+\d+(?:\.\d+)?\b/i.test(line)) return true;
   if (/\b\d+(?:\.\d+)?\+\s+(?:yards?|receptions?|carries|passing\s+touchdowns?)\b/i.test(line)) return true;
@@ -334,9 +335,32 @@ function parsePrizePicksCandidates(rawLines: string[], sourceHint: string): Trac
     if (/^(?:CFB|NCAAF)$/i.test(raw)) { league = 'NCAAF'; continue; }
     const direct = raw.match(/^(.+?)\s+(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
     const candidatePlayer = isStandalonePlayer(raw) ? raw : null;
-    const next = candidatePlayer && index + 1 < rawLines.length
-      ? rawLines[index + 1]!.replace(/\s+/g, ' ').trim() : '';
-    const split = next.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+    let next = '';
+    let split: RegExpMatchArray | null = null;
+    let consumed = 0;
+    if (candidatePlayer) {
+      for (let offset = 1; offset <= 3 && index + offset < rawLines.length; offset += 1) {
+        const row = rawLines[index + offset]!.replace(/\s+/g, ' ').trim();
+        if (/^(?:↑|⬆|more|over)\s*\d+(?:\.\d+)?\s+.+/i.test(row)) {
+          next = row;
+          split = row.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+          consumed = offset;
+          break;
+        }
+        const standaloneNumber = row.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)$/i);
+        if (standaloneNumber && index + offset + 1 < rawLines.length) {
+          const nextMarket = rawLines[index + offset + 1]!.trim();
+          if (/^(?:fantasy score|reb(?:ounds?)?\s*\+\s*ast(?:s|sists?)?|pra|points?|threes?|assists?)$/i.test(nextMarket)) {
+            next = row + ' ' + nextMarket;
+            split = next.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+            consumed = offset + 1;
+            break;
+          }
+        }
+        if (/^(?:NBA|CFB|NCAAF|NFL|NHL)$/i.test(row)) break;
+        if (!/^[A-Z0-9#.\s-]{1,28}$/i.test(row)) break;
+      }
+    }
     const player = direct?.[1] ?? (split ? candidatePlayer : null);
     const line = direct?.[2] ?? split?.[1];
     const marketRaw = direct?.[3] ?? split?.[2];
@@ -352,7 +376,7 @@ function parsePrizePicksCandidates(rawLines: string[], sourceHint: string): Trac
       source: sourceHint, parseConfidence: unsupported ? 'low' : 'medium',
       needsReview: true, rawText: direct ? raw : raw + ' ' + next
     });
-    if (split) index += 1;
+    if (split) index += consumed;
   }
   return candidates;
 }
