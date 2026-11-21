@@ -362,9 +362,8 @@ export default function IngestionPage() {
     setConfirmedIds((current) => current.filter((candidate) => candidate !== id));
   };
 
-  const identifiedLegCount = reviewedLegs.filter((leg) =>
-    leg.player.trim() && leg.player !== 'Needs review'
-  ).length;
+  const recognizedLegs = reviewedLegs.filter((leg) => leg.player.trim() && leg.player !== 'Needs review');
+  const identifiedLegCount = recognizedLegs.length;
   const completeness = ticketMetadata ? screenshotCoverage(ticketMetadata, identifiedLegCount) : null;
   const unresolvedScreenshots = failedScreenshots.length > 0 && !failedScreenshotsReviewed;
   const isPartial = Boolean(completeness?.incomplete || unresolvedScreenshots || confirmedIds.length !== reviewedLegs.length);
@@ -439,7 +438,6 @@ export default function IngestionPage() {
 
   const editedParts = textByImage.flatMap((text, index) => text.trim() ? [{ text, imageIndex: index + 1 }] : []);
   const textToReview = textByImage.length ? editedParts.map((part) => part.text).join('\n') : slipText;
-  const recognizedLegs = reviewedLegs.filter((leg) => leg.player.trim() && leg.player !== 'Needs review');
   const preflight = ticketMetadata ? summarizeScreenshotPreflight(ticketMetadata, recognizedLegs) : null;
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-3 py-4 pb-24 sm:px-5 md:py-8">
@@ -624,12 +622,12 @@ export default function IngestionPage() {
                       {LEAGUES.map((league) => <option key={league} value={league}>{league}</option>)}
                     </select>
                   </label>
-                  {leg.unsupportedMarket ? (
+                  {leg.unsupportedMarket && leg.marketLabel !== 'Needs review' ? (
                     <div className="text-xs text-slate-300">Contract market<p className="mt-1 break-words text-sm text-slate-100">{leg.marketLabel}</p></div>
                   ) : <label className="block text-xs">Market
                     <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       value={leg.marketLabel === 'Needs review' ? '' : leg.marketType}
-                      onChange={(event) => updateLeg(leg.legId, { marketType: event.target.value as MarketType, marketLabel: event.target.value.replace(/_/g, ' ') })}>
+                      onChange={(event) => updateLeg(leg.legId, { marketType: event.target.value as MarketType, marketLabel: event.target.value.replace(/_/g, ' '), unsupportedMarket: undefined })}>
                       <option value="" disabled>Choose a market</option>
                       {SUPPORTED_MARKET_TYPES.map((market) => <option key={market} value={market}>{market.replace(/_/g, ' ')}</option>)}
                     </select>
