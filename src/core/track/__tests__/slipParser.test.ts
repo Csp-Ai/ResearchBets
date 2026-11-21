@@ -159,6 +159,78 @@ describe('parseSlipTextToLegs', () => {
     expect(legs[0]?.needsReview).toBe(true);
   });
 
+  it('parses visible Kalshi contract quotes without inventing American odds', () => {
+    const legs = parseSlipTextToLegs([
+      '10 MARKET COMBO', 'Kalshi', 'COST $9.73', 'MAX PAYOUT $9,090.90',
+      'NCAA Football',
+      'The Citadel at Western Carolina', 'Western Carolina to win 83%',
+      'Cal Poly at UC Davis', 'UC Davis to win 81%',
+      'East Carolina at Army', 'Army to win 68%',
+      'Memphis at Navy', 'Memphis to win 57%'
+    ].join('\n'),'screenshot');
+    expect(legs).toHaveLength(4);
+    expect(legs.map(l => [l.player, l.quotedContractPercent, l.odds])).toEqual([
+      ['Western Carolina', 83, undefined], ['UC Davis', 81, undefined],
+      ['Army', 68, undefined], ['Memphis', 57, undefined]
+    ]);
+    expect(legs.every(l => l.marketType === 'moneyline' && l.needsReview && l.league === 'NCAAF')).toBe(true);
+  });
+
+  it('preserves Kalshi NO contract direction without converting it to an Under bet', () => {
+    const legs = parseSlipTextToLegs([
+      '4 MARKET COMBO', 'Kalshi', 'POSITION CLOSED',
+      'ATL Hawks to win', 'ORL Magic to win',
+      'No · DEN Nuggets win by over 9.5 points'
+    ].join('\n'),'screenshot');
+    expect(legs).toHaveLength(3);
+    expect(legs[2]).toMatchObject({
+      player:'DEN Nuggets', marketType:'spread', contractSide:'no',
+      threshold:9.5, directionObserved:false, unsupportedMarket:true, needsReview:true
+    });
+    expect(legs.every(l => l.odds === undefined)).toBe(true);
+  });
+
+  it('recovers PrizePicks prop rows with positions and preserves unsupported fantasy score', () => {
+    const legs = parseSlipTextToLegs([
+      'PrizePicks lineup',
+      'Nate Sheppard', 'DUKE - RB - #20', '↑ 25.5', 'Fantasy Score',
+      'Franz Wagner', 'ORL - F - #22', '↑ 14.5 Reb+Asts',
+      'Daniss Jenkins', 'DET - G - #24', '↑ 26.5 PRA',
+      'Quentin Grimes', 'LAL - G - #5', '↑ 25.5 PRA'
+    ].join('\n'),'screenshot');
+    expect(legs).toHaveLength(4);
+    expect(legs[0]).toMatchObject({player:'Nate Sheppard',threshold:25.5,unsupportedMarket:true,needsReview:true});
+    expect(legs.map(l => l.marketType)).toEqual(['points','ra','pra','pra']);
+    expect(legs.every(l => l.odds === undefined)).toBe(true);
+  });
+
+  it('does not parse an SGP+ aggregate price as an individual prop', () => {
+    const legs = parseSlipTextToLegs([
+      '11 Leg Same Game Parlay+ +11089',
+      'Same Game Parlay',
+      'Atlanta Hawks @ Oklahoma City Thunder',
+      'Oklahoma City Thunder',
+      'MONEYLINE',
+      'Shai Gilgeous-Alexander',
+      '40+ PTS + REB + AST',
+      'Isaiah Hartenstein',
+      '15+ REB + AST',
+      'Same Game Parlay',
+      'Detroit Pistons @ New Orleans Pelicans',
+      'Detroit Pistons',
+      'MONEYLINE',
+      'Cade Cunningham',
+      '35+ PTS + REB + AST'
+    ].join('\n'),'screenshot');
+    expect(legs).toHaveLength(5);
+    expect(legs.map(l=>l.player)).toEqual([
+      'Oklahoma City Thunder','Shai Gilgeous-Alexander','Isaiah Hartenstein',
+      'Detroit Pistons','Cade Cunningham'
+    ]);
+    expect(legs.map(l=>l.marketType)).toEqual(['moneyline','pra','ra','moneyline','pra']);
+    expect(legs.every(l => l.odds == null)).toBe(true);
+  });
+
   it('does not label an ambiguous player prop as NBA by default', () => {
     const [leg] = parseSlipTextToLegs('Unrecognized Name over 12.5 points +115', 'screenshot');
     expect(leg?.league).toBe('Unknown');
