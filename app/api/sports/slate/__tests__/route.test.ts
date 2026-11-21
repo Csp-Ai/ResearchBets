@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchEvents = vi.fn();
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-21T20:00:00Z'));
   vi.resetModules();
   vi.clearAllMocks();
   vi.doMock('@/src/core/env/read.server', () => ({ resolveWithAliases: () => 'test-key' }));
@@ -12,6 +14,8 @@ beforeEach(() => {
     }),
   }));
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe('provider-backed schedule-only sports API', () => {
   it('uses viewer-local dates and never invents missing games', async () => {
