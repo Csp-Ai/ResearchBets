@@ -176,6 +176,16 @@ describe('parseSlipTextToLegs', () => {
     expect(legs.every(l => l.marketType === 'moneyline' && l.needsReview && l.league === 'NCAAF')).toBe(true);
   });
 
+  it('reads cropped unbranded quoted win contracts as review-only prediction selections', () => {
+    const legs = parseSlipTextToLegs([
+      'CHA Hornets vs ATL Hawks', 'Hawks to win 70%',
+      'ORL Magic vs BKN Nets', 'Magic to win 69%'
+    ].join('\n'), 'screenshot');
+    expect(legs).toHaveLength(2);
+    expect(legs.map(l => l.quotedContractPercent)).toEqual([70,69]);
+    expect(legs.every(l => l.contractSide === 'yes' && l.odds === undefined)).toBe(true);
+  });
+
   it('preserves Kalshi NO contract direction without converting it to an Under bet', () => {
     const legs = parseSlipTextToLegs([
       '4 MARKET COMBO', 'Kalshi', 'POSITION CLOSED',
