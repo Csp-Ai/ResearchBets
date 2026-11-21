@@ -94,7 +94,8 @@ export const inferGameKey = (
   const derivedMatchup = buildDerivedMatchupKey(leg);
   if (derivedMatchup) return derivedMatchup;
 
-  return 'game:unlabeled';
+  // An absent event ID is not evidence that two legs share a game.
+  return '';
 };
 
 export const inferPlayerKey = (leg: Pick<SlipIntelLeg, 'player' | 'selection'>): string => {
@@ -116,7 +117,7 @@ const lineLooksAlt = (line?: string): boolean => {
 
 const toSlipLeg = (leg: SlipIntelLeg, index: number): SlipLeg => ({
   leg_id: leg.id ?? `legacy-${index}`,
-  game_id: inferGameKey(leg),
+  game_id: inferGameKey(leg) || undefined,
   team: leg.team,
   player: leg.player,
   market: leg.market ?? leg.marketType ?? 'market',
@@ -192,7 +193,7 @@ export function buildSlipStructureReport(
   for (const leg of legs) {
     const intelLeg = toIntelLeg(leg);
     const gameKey = inferGameKey(intelLeg);
-    gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
+    if (gameKey) gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
 
     const playerKey = inferPlayerKey(intelLeg);
     const nextPlayerCount = (playerCounts.get(playerKey) ?? 0) + 1;
@@ -208,7 +209,7 @@ export function buildSlipStructureReport(
       altLineLegs += 1;
   }
 
-  const topGameCount = Math.max(...gameCounts.values());
+  const topGameCount = Math.max(0, ...gameCounts.values());
   const sameGameStack = topGameCount >= 4;
 
   const legRanked = legs
@@ -236,7 +237,8 @@ export function buildSlipStructureReport(
         flags.push('same_player_dependency');
         localFragility += 18;
       }
-      if ((gameCounts.get(inferGameKey(toIntelLeg(leg))) ?? 0) > 1) {
+      const knownGameKey = inferGameKey(toIntelLeg(leg));
+      if (knownGameKey && (gameCounts.get(knownGameKey) ?? 0) > 1) {
         flags.push('same_game_script');
         localFragility += 12;
       }
@@ -276,7 +278,7 @@ export function buildSlipStructureReport(
           severity: 'med',
           reason: 'Multiple legs are tied to the same team result.'
         });
-      } else if (inferGameKey(toIntelLeg(a)) === inferGameKey(toIntelLeg(b))) {
+      } else if (inferGameKey(toIntelLeg(a)) && inferGameKey(toIntelLeg(a)) === inferGameKey(toIntelLeg(b))) {
         correlation_edges.push({
           a_leg_id: a.leg_id,
           b_leg_id: b.leg_id,
@@ -365,8 +367,8 @@ export function computeSlipIntelligence(legs: SlipIntelLeg[]): SlipIntelligence 
 
   const gameCounts = new Map<string, number>();
   report.legs.forEach((leg) => {
-    const gameKey = leg.game_id ?? 'Unlabeled game';
-    gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
+    const gameKey = inferGameKey(toIntelLeg(leg));
+    if (gameKey) gameCounts.set(gameKey, (gameCounts.get(gameKey) ?? 0) + 1);
   });
 
   const topGames = [...gameCounts.entries()]
