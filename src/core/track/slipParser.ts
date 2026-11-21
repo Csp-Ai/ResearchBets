@@ -13,7 +13,7 @@ const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: 
   { pattern: /\b(?:any\s*time|anytime)\s+(?:touchdown|td)(?:\s+scorer)?\b|\battd\b|\bto\s+score(?:\s+a)?\s+touchdown\b/i, marketType: 'anytime_td', label: 'Anytime TD' },
   { pattern: /\bmoneyline\b/i, marketType: 'moneyline', label: 'Moneyline' },
   { pattern: /\bpra\b|points\s*\+\s*rebounds\s*\+\s*assists|pts?\s*\+\s*reb\s*\+\s*ast/i, marketType: 'pra', label: 'PRA' },
-  { pattern: /\breb(?:ounds?)?\s*\+\s*ast(?:s|sists?)?\b|\b(?:reb|rebs)\+\s*(?:ast|asts)\b/i, marketType: 'ra', label: 'Rebounds + assists' },
+  { pattern: /\b(?:rebs?|rebounds?)\s*\+\s*(?:asts?|assists?)\b/i, marketType: 'ra', label: 'Rebounds + assists' },
   { pattern: /\b3\s*(pt|pointer)|threes?\b/i, marketType: 'threes', label: 'Threes' },
   { pattern: /\bassists?\b/i, marketType: 'assists', label: 'Assists' },
   { pattern: /\brebounds?\b/i, marketType: 'rebounds', label: 'Rebounds' },
@@ -226,7 +226,10 @@ function nonEmptyLines(rawText: string): string[] {
   return rawText.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
+const PARLAY_HEADING = /^(?:\d{1,2}(?:\s+|-)legs?\s+)?(?:same game parlay|sgp|parlay)(?=\s|\+|$)/i;
+
 function looksLikeCandidateLeg(line: string): boolean {
+  if (PARLAY_HEADING.test(line)) return false;
   if (/^\d{1,2}\s+leg\s+same game parlay\+|\bmarkets?\s+combo\b|^combo\s*[·•]|^\+\d+\s+more markets?\b/i.test(line)) return false;
   if (!canonicalMarket(line).inferred) return true;
   if (/\b(over|under)\s+\d+(?:\.\d+)?\b/i.test(line)) return true;
@@ -276,8 +279,11 @@ function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedT
       matchup = row;
       continue;
     }
-    const contractNo = row.match(/^(?:no\s*[·:–-]\s*)?(.+?)\s+(win by over)\s+(\d+(?:\.\d+)?)\s+points(?:\s+(\d{1,3})\s*%)?$/i);
-    if (contractNo && /^no\b/i.test(row)) {
+    const sidePrefix = row.match(/^(yes|no)\s*[·:–-]\s*/i);
+    const contractSide = sidePrefix?.[1]?.toLowerCase() === 'no' ? 'no' : 'yes';
+    const selection = sidePrefix ? row.slice(sidePrefix[0].length) : row;
+    const contractNo = selection.match(/^(.+?)\s+(win by over)\s+(\d+(?:\.\d+)?)\s+points(?:\s+(\d{1,3})\s*%)?$/i);
+    if (contractNo && contractSide === 'no') {
       candidates.push({
         legId: 'leg-' + (candidates.length + 1), league, player: contractNo[1]!,
         rawPlayer: contractNo[1]!, marketType: 'spread',
@@ -291,35 +297,36 @@ function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedT
       });
       continue;
     }
-    const win = row.match(/^(.+?)\s+to\s+win(?:\s+(\d{1,3})\s*%)?$/i);
+    const win = selection.match(/^(.+?)\s+to\s+win(?:\s+(\d{1,3})\s*%)?$/i);
     if (win && !/^(?:cost|max payout|cash|open|position)/i.test(win[1]!)) {
       candidates.push({
         legId: 'leg-' + (candidates.length + 1), league,
         player: win[1]!, rawPlayer: win[1]!,
-        marketType: 'moneyline', marketLabel: 'Moneyline (contract: YES)',
+        marketType: 'moneyline', marketLabel: 'Moneyline (contract: ' + contractSide.toUpperCase() + ')',
         threshold: 0, thresholdObserved: true, direction: 'over',
-        directionObserved: true, contractSide: 'yes',
+        directionObserved: contractSide === 'yes', contractSide, unsupportedMarket: contractSide === 'no',
         quotedContractPercent: win[2] ? Number(win[2]) : undefined,
         source: sourceHint, parseConfidence: 'medium', needsReview: true,
         rawText: row, teams: matchup
       });
       continue;
     }
-    const prop = row.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*\+\s+(threes?|pts?|points?|assists?|rebounds?|pra|touchdowns?|reb\s*\+\s*asts?)(?:\s+(\d{1,3})\s*%)?$/i);
+    const prop = selection.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*\+\s+(threes?|pts?|points?|assists?|rebounds?|pra|touchdowns?|(?:rebs?|rebounds?)\s*\+\s*(?:asts?|assists?))(?:\s+(\d{1,3})\s*%)?$/i);
     if (prop) {
       const touchdownContract = /^touchdowns?$/i.test(prop[3]!);
       const market = touchdownContract
         ? { marketType: 'anytime_td' as MarketType, marketLabel: 'Touchdowns: ' + prop[2] + '+ (special contract)', inferred: false }
         : canonicalMarket(prop[3]!);
+      const unsupported = touchdownContract || contractSide === 'no';
       candidates.push({
         legId: 'leg-' + (candidates.length + 1), league,
         player: prop[1]!, rawPlayer: prop[1]!,
         marketType: market.marketType, marketLabel: market.marketLabel,
-        unsupportedMarket: touchdownContract,
+        unsupportedMarket: unsupported,
         threshold: Number(prop[2]), thresholdObserved: true,
-        direction: 'over', directionObserved: true, contractSide: 'yes',
+        direction: 'over', directionObserved: contractSide === 'yes', contractSide,
         quotedContractPercent: prop[4] ? Number(prop[4]) : undefined,
-        source: sourceHint, parseConfidence: touchdownContract ? 'low' : 'medium', needsReview: true,
+        source: sourceHint, parseConfidence: unsupported ? 'low' : 'medium', needsReview: true,
         rawText: row, teams: matchup
       });
     }
@@ -338,46 +345,49 @@ function parsePrizePicksCandidates(rawLines: string[], sourceHint: string): Trac
     const raw = rawLines[index]!.replace(/\s+/g, ' ').trim();
     if (/^NBA$/i.test(raw)) { league = 'NBA'; continue; }
     if (/^(?:CFB|NCAAF)$/i.test(raw)) { league = 'NCAAF'; continue; }
-    const direct = raw.match(/^(.+?)\s+(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+    const direct = raw.match(/^(.+?)\s*[:–-]?\s+(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
     const candidatePlayer = isStandalonePlayer(raw) ? raw : null;
     let next = '';
     let split: RegExpMatchArray | null = null;
     let consumed = 0;
-    if (candidatePlayer) {
+    if (candidatePlayer && !direct) {
       for (let offset = 1; offset <= 3 && index + offset < rawLines.length; offset += 1) {
         const row = rawLines[index + offset]!.replace(/\s+/g, ' ').trim();
-        if (/^(?:↑|⬆|more|over)\s*\d+(?:\.\d+)?\s+.+/i.test(row)) {
+        if (/^(↑|⬆|↓|⬇|more|over|less|under)\s*\d+(?:\.\d+)?\s+.+/i.test(row)) {
           next = row;
-          split = row.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+          split = row.match(/^(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
           consumed = offset;
           break;
         }
-        const standaloneNumber = row.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)$/i);
+        const standaloneNumber = row.match(/^(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)$/i);
         if (standaloneNumber && index + offset + 1 < rawLines.length) {
           const nextMarket = rawLines[index + offset + 1]!.trim();
-          if (/^(?:fantasy score|reb(?:ounds?)?\s*\+\s*ast(?:s|sists?)?|pra|points?|threes?|assists?)$/i.test(nextMarket)) {
+          if (/^(?:fantasy score|(?:rebs?|rebounds?)\s*\+\s*(?:asts?|assists?)|pra|points?|threes?|assists?)$/i.test(nextMarket)) {
             next = row + ' ' + nextMarket;
-            split = next.match(/^(?:↑|⬆|more|over)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+            split = next.match(/^(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
             consumed = offset + 1;
             break;
           }
         }
         if (/^(?:NBA|CFB|NCAAF|NFL|NHL)$/i.test(row)) break;
+        if (isStandalonePlayer(row)) break;
         if (!/^[A-Z0-9#.\s-]{1,28}$/i.test(row)) break;
       }
     }
     const player = direct?.[1] ?? (split ? candidatePlayer : null);
-    const line = direct?.[2] ?? split?.[1];
-    const marketRaw = direct?.[3] ?? split?.[2];
-    if (!player || !line || !marketRaw) continue;
+    const side = direct?.[2] ?? split?.[1];
+    const line = direct?.[3] ?? split?.[2];
+    const marketRaw = direct?.[4] ?? split?.[3];
+    if (!player || !side || !line || !marketRaw) continue;
     const market = canonicalMarket(marketRaw);
-    const unsupported = /fantasy\s*score/i.test(marketRaw) || market.inferred;
+    const unsupported = /fantasy\s*score|demon|goblin|special/i.test(marketRaw) || market.inferred;
+    const normalizedPlayer = normalizePlayerName(player);
     candidates.push({
-      legId: 'leg-' + (candidates.length + 1), league, player, rawPlayer: player,
+      legId: 'leg-' + (candidates.length + 1), league, player: normalizedPlayer, rawPlayer: player,
       marketType: market.marketType,
       marketLabel: unsupported ? 'Unsupported pick’em market: ' + marketRaw : market.marketLabel,
       unsupportedMarket: unsupported, threshold: Number(line),
-      thresholdObserved: true, direction: 'over', directionObserved: true,
+      thresholdObserved: true, direction: /^(?:↓|⬇|less|under)$/i.test(side) ? 'under' : 'over', directionObserved: true,
       source: sourceHint, parseConfidence: unsupported ? 'low' : 'medium',
       needsReview: true, rawText: direct ? raw : raw + ' ' + next
     });
@@ -404,26 +414,30 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       .map((row) => row.trim().toUpperCase())
   );
   const uniqueHeaderLeague = leagueHeaders.size === 1 ? [...leagueHeaders][0] : undefined;
-  const rows = coalesceSportsbookFragments(rawLines);
-  let sgpEvent: string | undefined;
-  const candidates: Array<{ line: string; event?: string }> = [];
-  for (const row of rows) {
-    // Retain the actual visible SGP+ matchup, not an inferred event identity.
-    // This context is screenshot-derived and still requires confirmation.
-    if (ticketFormat === 'draftkings_sgp_plus' &&
-      /^.{3,70}\s+@\s+.{3,70}$/.test(row) && !looksLikeCandidateLeg(row)) {
-      sgpEvent = row;
+  const isSgp = ticketFormat === 'same_game_parlay' || ticketFormat === 'draftkings_sgp_plus';
+  let matchup: string | undefined;
+  const candidates = coalesceSportsbookFragments(rawLines).flatMap((line) => {
+    const isCandidate = looksLikeCandidateLeg(line);
+    if (isSgp) {
+      // Keep the visible matchup as reviewable source context.
+      if (!isCandidate && /^.{3,70}\s+@\s+.{3,70}$/.test(line)) {
+        matchup = line;
+        return [];
+      }
+      if (PARLAY_HEADING.test(line) || /^(?:includes:|other selections|(?:single|straight) bets?)\b/i.test(line)) {
+        matchup = undefined;
+      }
     }
-    if (looksLikeCandidateLeg(row)) {
-      candidates.push({ line: row, event: sgpEvent });
-    }
-  }
+    return isCandidate ? [{ line, matchup }] : [];
+  });
   if (candidates.length === 0) return unresolvedFallback(rawText, sourceHint);
 
-  return candidates.map(({ line, event }, index) => {
+  return candidates.map(({ line, matchup }, index) => {
     const { marketType, marketLabel, inferred } = canonicalMarket(line);
     const direction = parseDirection(line);
-    const parsedThreshold = marketType === 'anytime_td'
+    const parsedThreshold = marketType === 'moneyline'
+      ? { threshold: 0, ladder: false }
+      : marketType === 'anytime_td'
       ? { threshold: 1, ladder: false }
       : parseThreshold(line);
     const odds = parseOdds(line);
@@ -438,7 +452,7 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
     });
     const league = /\bNFL\b/i.test(line) ? 'NFL' : /\bNBA\b/i.test(line) ? 'NBA'
       : NFL_MARKETS.has(marketType) ? 'NFL' : uniqueHeaderLeague ?? 'Unknown';
-    const directionObserved = marketType === 'anytime_td' ||
+    const directionObserved = marketType === 'anytime_td' || marketType === 'moneyline' ||
       /\b(?:over|under)\b|\d+(?:\.\d+)?\s*\+/i.test(line);
     const thresholdObserved = parsedThreshold.threshold != null;
     const requiresReview = league === 'Unknown' || parseConfidence === 'low' ||
@@ -459,10 +473,11 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       source: sourceHint,
       parseConfidence,
       needsReview: requiresReview,
+      unsupportedMarket: inferred || undefined,
       rawText: line,
       ladder: parsedThreshold.ladder,
-      teams: teamDetails.teams ?? event,
-      gameId: teamDetails.gameId ?? (event ? 'screenshot:' + event.toLowerCase().replace(/\s+/g, ' ').trim() : undefined),
+      teams: teamDetails.teams ?? matchup,
+      gameId: teamDetails.gameId ?? (matchup ? 'screenshot:' + matchup.toLowerCase().replace(/\s+/g, ' ').trim() : undefined),
     };
   });
 }

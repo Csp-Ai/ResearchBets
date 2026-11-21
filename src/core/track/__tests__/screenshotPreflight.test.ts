@@ -14,7 +14,7 @@ describe('conservative screenshot preflight', () => {
     const meta = inspectScreenshotTicket('Kalshi\n10 MARKET COMBO\nCOST $12.40\nMAX PAYOUT $1,234.56');
     const brief = summarizeScreenshotPreflight(meta, Array.from({length:4}, (_,i)=>exampleLeg(i)));
     expect(brief.title).toBe('4 of 10 visible selections');
-    expect(brief.primaryPressure).toMatch(/only 4 of 10 declared selections/i);
+    expect(brief.primaryPressure).toMatch(/4 of 10 selections recognized/i);
     expect(brief.readyForCanonicalXRay).toBe(false);
   });
   it('never recommends converting Kalshi contract percentages to conventional parlay odds', () => {

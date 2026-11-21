@@ -231,6 +231,20 @@ describe('parseSlipTextToLegs', () => {
     expect(legs.every(l => l.odds === undefined)).toBe(true);
   });
 
+  it('parses colon-delimited More and Less projections without changing special contracts', () => {
+    const legs = parseSlipTextToLegs([
+      'PrizePicks lineup',
+      'Nate Sheppard: More 25.5 Fantasy Score',
+      'Franz Wagner: More 14.5 Rebounds + Assists',
+      'Daniss Jenkins: More 26.5 PRA',
+      'Quentin Grimes: Less 25.5 PRA'
+    ].join('\n'), 'screenshot');
+    expect(legs).toHaveLength(4);
+    expect(legs[0]).toMatchObject({ player: 'Nate Sheppard', unsupportedMarket: true });
+    expect(legs[1]).toMatchObject({ player: 'Franz Wagner', marketType: 'ra', direction: 'over' });
+    expect(legs[3]).toMatchObject({ player: 'Quentin Grimes', marketType: 'pra', direction: 'under' });
+  });
+
   it('does not parse an SGP+ aggregate price as an individual prop', () => {
     const legs = parseSlipTextToLegs([
       '11 Leg Same Game Parlay+ +11089',
@@ -255,6 +269,13 @@ describe('parseSlipTextToLegs', () => {
       'Detroit Pistons','Cade Cunningham'
     ]);
     expect(legs.map(l=>l.marketType)).toEqual(['moneyline','pra','ra','moneyline','pra']);
+    expect(legs.map((leg) => leg.teams)).toEqual([
+      'Atlanta Hawks @ Oklahoma City Thunder',
+      'Atlanta Hawks @ Oklahoma City Thunder',
+      'Atlanta Hawks @ Oklahoma City Thunder',
+      'Detroit Pistons @ New Orleans Pelicans',
+      'Detroit Pistons @ New Orleans Pelicans'
+    ]);
     expect(legs.every(l => l.odds == null)).toBe(true);
     expect(legs.slice(0,3).every(l => l.teams === 'Atlanta Hawks @ Oklahoma City Thunder')).toBe(true);
     expect(legs.slice(3).every(l => l.teams === 'Detroit Pistons @ New Orleans Pelicans')).toBe(true);

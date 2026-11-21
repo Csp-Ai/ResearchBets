@@ -69,10 +69,10 @@ describe('screenshot-first ResearchBets ingestion', () => {
     });
     fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
     await waitFor(() => expect(screen.getByText(/Your Ticket · 4 legs/)).toBeTruthy());
-    expect(screen.getByText(/Only 4 of 10 declared selections/)).toBeTruthy();
+    expect(screen.getByText(/4 of 10 selections recognized/)).toBeTruthy();
     expect(screen.getByText(/Screenshot contract quote: 60%/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
-    expect(screen.getAllByText(/Only 4 of 10 declared selections/).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/4 of 10 selections recognized/).length).toBeGreaterThan(1);
     expect(push).not.toHaveBeenCalled();
   });
 

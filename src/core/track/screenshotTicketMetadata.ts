@@ -11,6 +11,7 @@ export type ScreenshotTicketFormat =
   | 'kalshi_combo'
   | 'prizepicks_lineup'
   | 'draftkings_sgp_plus'
+  | 'same_game_parlay'
   | 'sportsbook_ticket'
   | 'unknown';
 
@@ -30,6 +31,8 @@ export type ScreenshotTicketMetadata = {
   cost: number | null;
   statedMaxPayout: number | null;
   statedMultiplier: number | null;
+  displayedPotentialReturn?: number | null;
+  closedPositionObservations?: Array<{ declaredLegCount: number; displayedAmount: number | null }>;
   officialCombinedAmericanOdds: string | null;
   hasHiddenLegs: boolean;
   warnings: string[];
@@ -53,7 +56,8 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const brands = [
     /\bkalshi\b/i.test(text) ? 'kalshi' : null,
     /\bprize\s*picks\b/i.test(text) ? 'prizepicks' : null,
-    /\bdraft\s*kings\b/i.test(text) ? 'draftkings' : null
+    /\bdraft\s*kings\b/i.test(text) ? 'draftkings' : null,
+    /\bfan\s*duel\b/i.test(text) ? 'fanduel' : null
   ].filter(Boolean);
   const brandConflict = brands.length > 1;
   const quotedWinContracts = (text.match(/\bto\s+win\s+\d{1,3}\s*%(?!\w)/gi) ?? []).length;
@@ -66,59 +70,75 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const layoutSuggestsPickem = /(?:↑|⬆)\s*\d+(?:\.\d+)?\s*(?:fantasy\s*score|reb\s*\+\s*asts?|pra)\b/i.test(text);
   const isPrizePicks = !brandConflict &&
     (brands[0] === 'prizepicks' || (brands.length === 0 && layoutSuggestsPickem));
-  const isSgpPlus = /\bsame game parlay\s*\+|\bsgp\s*\+|\bsgp\+/i.test(text);
+  const isSgpPlus = /\bsame game parlay\s*\+|\bsgp\s*\+/i.test(text);
+  const isSgp = isSgpPlus || /^(?:\d{1,2}(?:\s+|-)legs?\s+)?(?:same game parlay|sgp)(?=\s|$)/im.test(text);
 
   const format: ScreenshotTicketFormat = brandConflict ? 'unknown'
     : isKalshi ? 'kalshi_combo'
     : isPrizePicks ? 'prizepicks_lineup'
     : isSgpPlus ? 'draftkings_sgp_plus'
+    : isSgp ? 'same_game_parlay'
     : 'sportsbook_ticket';
 
   const pricingKind: ScreenshotPricingKind =
     isKalshi && !brandConflict ? 'prediction_contract_percent'
       : isPrizePicks && !brandConflict ? 'pickem_multiplier'
-        : isSgpPlus && !brandConflict ? 'official_sgp_price'
+        : isSgp && !brandConflict ? 'official_sgp_price'
           : format === 'sportsbook_ticket' ? 'american_odds'
             : 'unavailable';
 
-  const counts: number[] = [];
-  for (const sourceLine of text.split('\n')) {
-    const row = sourceLine.trim();
-    const heading = row.match(/^(\d{1,2})\s+markets?\s+combo\b/i)
-      ?? row.match(/^(\d{1,2})\s+leg(?:s)?\s+same game parlay\+/i);
-    const reverseHeading = row.match(/^combo\s*[·•]\s*(\d{1,2})\s+markets?\b/i);
-    const raw = heading?.[1] ?? reverseHeading?.[1];
-    const n = raw ? Number(raw) : 0;
-    if (n > 0 && n <= 30) counts.push(n);
-  }
-  const uniqueCounts = Array.from(new Set(counts));
-  const declaredLegCount = uniqueCounts.length === 1 ? uniqueCounts[0]! : null;
-  const declaredCountConflict = uniqueCounts.length > 1;
-
-  const openLabel = /\bopen position\b/i.test(text);
-  const closedLabel = /\bposition closed\b/i.test(text);
+  const rows = text.split('\n').map((row) => row.trim());
+  const headings = rows.flatMap((row, index) => {
+    const match = row.match(/^(\d{1,2})\s+markets?\s+combo\b/i)
+      ?? row.match(/^combo\s*[·•]\s*(\d{1,2})\s+markets?\b/i)
+      ?? row.match(/^(\d{1,2})(?:\s+|-)legs?\s+(?:same game parlay|sgp|parlay)(?=\s|\+|$)/i);
+    const count = Number(match?.[1]);
+    return count > 0 && count <= 30 ? [{ count, index, text: row }] : [];
+  });
+  const openLabel = /\bopen positions?\b/i.test(text);
+  const closedLabel = /\b(?:positions? closed|closed positions?)\b|^closed$/im.test(text);
   const screenshotState: ScreenshotTicketMetadata['screenshotState'] =
     openLabel && !closedLabel ? 'open_position'
       : closedLabel && !openLabel ? 'closed_position'
         : 'unknown';
 
-  const cost = isKalshi ? labeledMoney(text, /\b(?:cost)\s*[:\n ]*\$([\d,]+(?:\.\d{1,2})?)/i) : null;
-  const statedMaxPayout = isKalshi
-    ? labeledMoney(text, /\b(?:max payout)\s*[:\n ]*\$([\d,]+(?:\.\d{1,2})?)/i)
+  const closedPositionObservations = isKalshi && screenshotState === 'closed_position'
+    ? headings.map(({ count, index, text: heading }, positionIndex) => {
+      const following = rows.slice(index + 1, headings[positionIndex + 1]?.index).join('\n');
+      const amount = heading.match(/\$([\d,]+(?:\.\d{1,2})?)\s*$/)?.[1]
+        ?? following.match(/^\$([\d,]+(?:\.\d{1,2})?)\s*$/m)?.[1];
+      return { declaredLegCount: count, displayedAmount: dollars(amount) };
+    })
+    : [];
+  const declaredCountConflict = brandConflict || new Set(headings.map(({ count }) => count)).size > 1 ||
+    closedPositionObservations.length > 1;
+  const declaredLegCount = declaredCountConflict ? null : headings[0]?.count ?? null;
+
+  const cost = isKalshi && !declaredCountConflict
+    ? labeledMoney(text, /\bcost\s*[:\n ]*\$([\d,]+(?:\.\d{1,2})?)/i)
     : null;
-  const mult = text.match(/\bto\s+win\s+(\d+(?:\.\d+)?)\s*x\b/i);
-  const statedMultiplier = mult?.[1] && isKalshi ? Number(mult[1]) : null;
-  const sgpOdds = isSgpPlus && !brandConflict
-    ? text.match(/\b(?:\d+\s*leg\s*)?same game parlay\+[^\n]*?\s([+-]\d{3,5})\b/i)
+  const statedMaxPayout = isKalshi && !declaredCountConflict
+    ? labeledMoney(text, /\bmax(?:imum)? payout\s*[:\n ]*\$([\d,]+(?:\.\d{1,2})?)/i)
     : null;
-  const officialCombinedAmericanOdds = sgpOdds?.[1] ?? null;
+  const mult = text.match(/\b(?:to\s+win|(?:displayed\s+)?multiplier)\s*:?\s*(\d+(?:\.\d+)?)\s*(?:x\b|×)/i);
+  const statedMultiplier = mult?.[1] && isKalshi && !declaredCountConflict ? Number(mult[1]) : null;
+  const displayedPotentialReturn = isKalshi && screenshotState !== 'closed_position' && !declaredCountConflict
+    ? labeledMoney(text, /\b(?:to\s+win|potential\s+return)\s*:?\s*(?:\d+(?:\.\d+)?\s*(?:x\b|×)\s*)?\$([\d,]+(?:\.\d{1,2})?)/i)
+      ?? (statedMultiplier == null ? null : labeledMoney(text, /^\s*(?:displayed amount)\s*:?\s*\$([\d,]+(?:\.\d{1,2})?)/im))
+    : null;
+  const headline = rows.find((row) => /^(?:\d{1,2}(?:\s+|-)legs?\s+)?(?:same game parlay|sgp)\s*\+?\s+[+-]\d{3,5}\s*$/i.test(row));
+  const officialCombinedAmericanOdds = isSgp && !declaredCountConflict
+    ? headline?.match(/([+-]\d{3,5})\s*$/)?.[1]
+      ?? text.match(/^\s*(?:official\s+)?combined odds\s*:?\s*([+-]\d{3,5})\s*$/im)?.[1]
+      ?? null
+    : null;
   const hasHiddenLegs = /\+\s*\d+\s+more markets?\b/i.test(text);
 
   const warnings: string[] = [];
   if (brandConflict) warnings.push('Multiple sportsbook brands appear in the capture. Separate the tickets before analysis.');
   if (isPrizePicks && brands.length === 0) warnings.push('Layout resembles a pick’em slip, but the provider brand is not visible or verified.');
   if (isKalshi && brands.length === 0) warnings.push('Layout resembles a Kalshi-style prediction combo; the provider brand is not independently verified.');
-  if (declaredCountConflict) warnings.push('Different ticket sizes appear in one capture. Separate them before analysis.');
+  if (declaredCountConflict && !brandConflict) warnings.push('Multiple ticket headings appear in one capture. Separate the tickets before analysis.');
   if (hasHiddenLegs) warnings.push('Some selections are hidden behind an expanded-card summary.');
   if (pricingKind === 'prediction_contract_percent') {
     warnings.push('Kalshi contract percentages are displayed prices, not calibrated win probabilities or American odds.');
@@ -134,7 +154,7 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   }
   return {
     format, pricingKind, declaredLegCount, declaredCountConflict, screenshotState,
-    cost, statedMaxPayout, statedMultiplier, officialCombinedAmericanOdds,
+    cost, statedMaxPayout, statedMultiplier, displayedPotentialReturn, closedPositionObservations, officialCombinedAmericanOdds,
     hasHiddenLegs, warnings
   };
 }
@@ -145,7 +165,7 @@ export function screenshotCoverage(metadata: ScreenshotTicketMetadata, candidate
   note: string | null;
 } {
   if (metadata.declaredCountConflict) {
-    return { missingCount: 0, incomplete: true, note: 'Conflicting ticket-size headings. Upload a single ticket.' };
+    return { missingCount: 0, incomplete: true, note: 'Multiple tickets may be present. Upload one ticket at a time.' };
   }
   if (metadata.declaredLegCount == null) {
     return {
@@ -161,7 +181,7 @@ export function screenshotCoverage(metadata: ScreenshotTicketMetadata, candidate
     // Hidden summary rows can be reconciled by another image or manually added legs.
     incomplete: missingCount > 0 || excessCount,
     note: missingCount > 0
-      ? 'Only ' + candidateLegCount + ' of ' + metadata.declaredLegCount + ' declared selections are represented. Add the missing legs.'
+      ? candidateLegCount + ' of ' + metadata.declaredLegCount + ' selections recognized. ' + missingCount + (missingCount === 1 ? ' selection still needs review.' : ' selections still need review.')
       : excessCount
         ? 'More selections were recognized than the ticket declares. Check for a second ticket or spurious OCR rows.'
         : null
