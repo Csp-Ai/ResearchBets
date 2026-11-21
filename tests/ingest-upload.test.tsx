@@ -48,6 +48,49 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(screen.getByRole('button', { name: 'Review extracted ticket' })).toBeTruthy();
   });
 
+  it('warns about repeated OCR candidates without silently deleting either leg', async () => {
+    const leg = {
+      legId: 'leg-1', league: 'NBA', player: 'Jayson Tatum',
+      marketType: 'points', marketLabel: 'Points', threshold: 29.5,
+      direction: 'over', directionObserved: true, thresholdObserved: true,
+      odds: '-110', source: 'screenshot', parseConfidence: 'high',
+      teams: 'BOS @ NYK', rawText: 'Jayson Tatum over 29.5 points -110'
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      ok: true, data: { ticketId: 'dupe-screenshot', legs: [leg, {...leg, legId:'leg-2'}] }
+    }), { status: 200 })));
+    renderWithProviders(<IngestionPage />);
+    fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
+      target: { value: 'Jayson Tatum over 29.5 points -110\nJayson Tatum over 29.5 points -110' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Review extracted ticket' }));
+    await waitFor(() => expect(screen.getByText(/Your Ticket · 2 legs/)).toBeTruthy());
+    expect(screen.getByText(/Possible duplicate of leg 1/)).toBeTruthy();
+    expect(screen.getAllByRole('button',{name:'Remove spurious row'})).toHaveLength(2);
+    expect(screen.getAllByRole('checkbox',{name:/Confirm leg/})).toHaveLength(2);
+  });
+
+  it('requires explicit direction and threshold corrections when OCR did not observe them', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      ok: true, data: { ticketId:'missing-direction', legs: [{
+        legId:'leg-1', league:'NBA', player:'Jayson Tatum', marketType:'points',
+        marketLabel:'Points', threshold:0, thresholdObserved:false,
+        direction:'over', directionObserved:false, source:'screenshot', parseConfidence:'low'
+      }] }
+    }), {status:200})));
+    renderWithProviders(<IngestionPage />);
+    fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {target: {value:'Jayson Tatum points'}});
+    fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
+    await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
+    expect(screen.getByText(/Direction was not visible/)).toBeTruthy();
+    expect(screen.getByRole('checkbox',{name:/Confirm leg 1/})).toHaveProperty('disabled',true);
+    const leg = screen.getByRole('region',{name:'Leg 1'});
+    const direction = leg.querySelector('select:nth-of-type(1)');
+    // Direction and threshold are visibly unresolved rather than guessed.
+    expect(leg.querySelector('input[type="number"]')?.getAttribute('value')).toBe('');
+    expect((direction as HTMLSelectElement | null)?.value === '' || direction == null).toBe(true);
+  });
+
   it('extracts locally without uploading the original unless opted in', async () => {
     renderWithProviders(<IngestionPage />);
     const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
