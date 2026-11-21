@@ -404,10 +404,23 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       .map((row) => row.trim().toUpperCase())
   );
   const uniqueHeaderLeague = leagueHeaders.size === 1 ? [...leagueHeaders][0] : undefined;
-  const lines = coalesceSportsbookFragments(rawLines).filter(looksLikeCandidateLeg);
-  if (lines.length === 0) return unresolvedFallback(rawText, sourceHint);
+  const rows = coalesceSportsbookFragments(rawLines);
+  let sgpEvent: string | undefined;
+  const candidates: Array<{ line: string; event?: string }> = [];
+  for (const row of rows) {
+    // Retain the actual visible SGP+ matchup, not an inferred event identity.
+    // This context is screenshot-derived and still requires confirmation.
+    if (ticketFormat === 'draftkings_sgp_plus' &&
+      /^.{3,70}\s+@\s+.{3,70}$/.test(row) && !looksLikeCandidateLeg(row)) {
+      sgpEvent = row;
+    }
+    if (looksLikeCandidateLeg(row)) {
+      candidates.push({ line: row, event: sgpEvent });
+    }
+  }
+  if (candidates.length === 0) return unresolvedFallback(rawText, sourceHint);
 
-  return lines.map((line, index) => {
+  return candidates.map(({ line, event }, index) => {
     const { marketType, marketLabel, inferred } = canonicalMarket(line);
     const direction = parseDirection(line);
     const parsedThreshold = marketType === 'anytime_td'
@@ -448,8 +461,8 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       needsReview: requiresReview,
       rawText: line,
       ladder: parsedThreshold.ladder,
-      teams: teamDetails.teams,
-      gameId: teamDetails.gameId,
+      teams: teamDetails.teams ?? event,
+      gameId: teamDetails.gameId ?? (event ? 'screenshot:' + event.toLowerCase().replace(/\s+/g, ' ').trim() : undefined),
     };
   });
 }
