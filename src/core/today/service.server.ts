@@ -77,8 +77,17 @@ const toSportKey = (sport: BoardSport) => {
   return 'mma_mixed_martial_arts';
 };
 
-const startOfDay = (date: string) => new Date(`${date}T00:00:00.000Z`).getTime();
-const endOfDay = (date: string) => new Date(`${date}T23:59:59.999Z`).getTime();
+// Provider kickoff times are UTC. Determine the sports day in the viewer's
+// timezone, not midnight UTC; late US games otherwise disappear from the slate.
+const eventDateInZone = (timestamp: string, timeZone: string): string | null => {
+  const instant = new Date(timestamp);
+  if (!Number.isFinite(instant.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(instant);
+  const fields = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${fields.year}-${fields.month}-${fields.day}`;
+};
 
 const providerHealth = (
   fatalErrors: string[] = [],
@@ -335,11 +344,10 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
     return getDemoFallback('provider_unavailable', sport, { providerWarnings, debug: createDebug('events_fetch', wrapped, 'provider_unavailable') });
   }
 
-  const active = events.filter((event) => {
-    if (!event.commence_time) return false;
-    const stamp = new Date(event.commence_time).getTime();
-    return stamp >= startOfDay(date) && stamp <= endOfDay(date);
-  });
+  const active = events.filter((event) =>
+    Boolean(event.commence_time) &&
+    eventDateInZone(event.commence_time!, tz) === date
+  );
 
   const nextWindow = events
     .filter((event) => event.commence_time)
