@@ -59,7 +59,9 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const isKalshi = !brandConflict &&
     (brands[0] === 'kalshi' ||
       (brands.length === 0 && /\b\d{1,2}\s+markets?\s+combo\b|\bcombo\s*[·•]\s*\d{1,2}\s+markets?\b/i.test(text)));
-  const isPrizePicks = brands.length === 1 && brands[0] === 'prizepicks';
+  const layoutSuggestsPickem = /(?:↑|⬆)\s*\d+(?:\.\d+)?\s*(?:fantasy\s*score|reb\s*\+\s*asts?|pra)\b/i.test(text);
+  const isPrizePicks = !brandConflict &&
+    (brands[0] === 'prizepicks' || (brands.length === 0 && layoutSuggestsPickem));
   const isDraftKings = brands.length === 1 && brands[0] === 'draftkings';
   const isSgpPlus = /\bsame game parlay\s*\+|\bsgp\s*\+|\bsgp\+/i.test(text);
 
@@ -111,6 +113,7 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
 
   const warnings: string[] = [];
   if (brandConflict) warnings.push('Multiple sportsbook brands appear in the capture. Separate the tickets before analysis.');
+  if (isPrizePicks && brands.length === 0) warnings.push('Layout resembles a pick’em slip, but the provider brand is not visible or verified.');
   if (declaredCountConflict) warnings.push('Different ticket sizes appear in one capture. Separate them before analysis.');
   if (hasHiddenLegs) warnings.push('Some selections are hidden behind an expanded-card summary.');
   if (pricingKind === 'prediction_contract_percent') {
