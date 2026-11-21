@@ -30,17 +30,22 @@ function keyForLeg(leg: TrackedTicketLeg): string {
 }
 
 function cleanParsedLegs(legs: TrackedTicketLeg[]): TrackedTicketLeg[] {
-  const seen = new Set<string>();
-  return legs.filter((leg) => {
-    // Deduplicate a repeated OCR row, never different thresholds for one player.
-    if (leg.player === 'Needs review' || !(leg.gameId || leg.teams)) return true;
-    const key = keyForLeg(leg);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).map((leg, index) => ({
-    ...leg, legId: 'leg-' + (index + 1), needsReview: Boolean(leg.needsReview)
+  // Preserve every OCR candidate. Identical selections on two screenshots may
+  // be duplicate captures, but may also represent two intentionally distinct
+  // wagers. Only the user can remove or confirm a row.
+  return legs.map((leg, index) => ({
+    ...leg,
+    legId: 'leg-' + (index + 1),
+    needsReview: Boolean(leg.needsReview)
   }));
+}
+
+function duplicateOf(leg: TrackedTicketLeg, index: number, legs: TrackedTicketLeg[]): number {
+  if (!leg.player.trim() || leg.player === 'Needs review') return -1;
+  const key = keyForLeg(leg);
+  return legs.findIndex((item, earlier) =>
+    earlier < index && item.player !== 'Needs review' && keyForLeg(item) === key
+  );
 }
 
 function reviewProblem(leg: TrackedTicketLeg): string | null {
@@ -48,6 +53,8 @@ function reviewProblem(leg: TrackedTicketLeg): string | null {
   if (!leg.league || leg.league === 'Unknown') return 'Sport/league needs review';
   if (!SUPPORTED_MARKET_TYPES.includes(leg.marketType)) return 'Market is unsupported';
   if (leg.marketLabel === 'Needs review') return 'Market needs review';
+  if (leg.directionObserved === false) return 'Direction was not visible. Choose Over or Under to confirm.';
+  if (leg.thresholdObserved === false) return 'Threshold was not visible. Enter the exact line to confirm.';
   if (!Number.isFinite(leg.threshold) || leg.threshold < 0) return 'Threshold is missing';
   if (leg.odds && !/^[+-](?:[1-9]\d{2,4})$/.test(leg.odds)) return 'Odds are invalid. Clear them if unreadable';
   return null;
@@ -114,7 +121,9 @@ export default function IngestionPage() {
       setConfirmedIds([]);
       setHasParsed(true);
       setOrigin(source);
-      if (!candidate.length || candidate.every((leg) => leg.player === 'Needs review')) {
+      if (candidate.some((leg, i) => duplicateOf(leg, i, candidate) >= 0)) {
+        setNotice('Possible repeated rows detected. Compare each screenshot and remove duplicates yourself; no leg was deleted.');
+      } else if (!candidate.length || candidate.every((leg) => leg.player === 'Needs review')) {
         setNotice('No reliable selections found. Compare the screenshot, correct the text, or add each missing leg below.');
       } else {
         setNotice('Compare every leg with your original screenshot. Nothing is verified until you review it.');
@@ -222,7 +231,7 @@ export default function IngestionPage() {
     const id = 'manual-' + crypto.randomUUID();
     setReviewedLegs((current) => [...current, {
       legId: id, league: 'Unknown', player: '', marketType: 'points',
-      marketLabel: 'Needs review', threshold: -1, direction: 'over',
+      marketLabel: 'Needs review', threshold: -1, thresholdObserved: false, direction: 'over', directionObserved: false,
       source: 'manual_review', parseConfidence: 'low', needsReview: true
     }]);
     setHasParsed(true);
@@ -350,6 +359,7 @@ export default function IngestionPage() {
           </select>
           {reviewedLegs.map((leg, index) => {
             const problem = reviewProblem(leg);
+            const duplicateIndex = duplicateOf(leg, index, reviewedLegs);
             const checked = confirmedIds.includes(leg.legId);
             return (
               <section key={leg.legId} className="min-w-0 space-y-3 rounded-xl border border-white/15 bg-white/[0.035] p-3" aria-label={'Leg ' + (index + 1)}>
@@ -360,6 +370,7 @@ export default function IngestionPage() {
                     setConfirmedIds((current) => current.filter((id) => id !== leg.legId));
                   }}>Remove spurious row</button>
                 </div>
+                {duplicateIndex >= 0 ? <p role="status" className="rounded-lg border border-amber-300/40 p-2 text-xs text-amber-200">Possible duplicate of leg {duplicateIndex + 1}. Compare the screenshot before keeping both.</p> : null}
                 {leg.rawText ? <p className="break-words rounded bg-slate-900 p-2 text-xs text-slate-400">OCR: {leg.rawText}</p> : <p className="text-xs text-slate-400">Manually added leg</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-xs">Player / team
@@ -385,15 +396,16 @@ export default function IngestionPage() {
                       onChange={(event) => updateLeg(leg.legId, { teams: event.target.value, gameId: undefined })} placeholder="Unknown" />
                   </label>
                   <label className="block text-xs">Direction
-                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-sm" value={leg.direction}
-                      onChange={(event) => updateLeg(leg.legId, { direction: event.target.value as 'over' | 'under' })}>
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-sm" value={leg.directionObserved === false ? '' : leg.direction}
+                      onChange={(event) => updateLeg(leg.legId, { direction: event.target.value as 'over' | 'under', directionObserved: true })}>
+                      <option value="" disabled>Choose direction</option>
                       <option value="over">Over / at least</option><option value="under">Under</option>
                     </select>
                   </label>
                   <label className="block text-xs">Threshold
                     <input type="number" min="0" step="any" className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
                       value={leg.threshold < 0 ? '' : leg.threshold}
-                      onChange={(event) => updateLeg(leg.legId, { threshold: event.target.value === '' ? -1 : Number(event.target.value) })} />
+                      onChange={(event) => updateLeg(leg.legId, { threshold: event.target.value === '' ? -1 : Number(event.target.value), thresholdObserved: event.target.value !== '' })} />
                   </label>
                   <label className="block text-xs">American odds (optional / unknown)
                     <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
