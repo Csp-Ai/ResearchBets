@@ -205,6 +205,7 @@ function inferPlayer(input: string): string {
     .replace(/\b(POINTS?|PTS?|ASSISTS?|ASTS?|REBOUNDS?|REBS?|PRA|THREES?|MONEYLINE|PASS(?:ING)?\s+(?:YARDS?|YDS?|TDS?|TOUCHDOWNS?)|RUSH(?:ING)?\s+(?:YARDS?|YDS?|ATTEMPTS?)|RECEIV(?:ING)?\s+(?:YARDS?|YDS?)|REC\s+(?:YARDS?|YDS?)|RECEPTIONS?|CATCHES|CARRIES|ANYTIME\s+(?:TD|TOUCHDOWN))\b/gi, '')
     .replace(/\bALT\b/gi, '')
     .replace(/\b([A-Z]{2,4})\s*@\s*([A-Z]{2,4})\b/g, '')
+    .replace(/\s*\+\s*/g, ' ')
     .trim();
 
   const cleaned = normalizePlayerName(stripped);
