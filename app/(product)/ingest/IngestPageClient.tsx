@@ -519,6 +519,18 @@ export default function IngestionPage() {
               {ticketMetadata.statedMaxPayout != null ? <p className="text-xs text-slate-300">Screenshot stated maximum payout: ${ticketMetadata.statedMaxPayout.toFixed(2)} (not independently verified)</p> : null}
               {ticketMetadata.officialCombinedAmericanOdds ? <p className="text-xs text-slate-300">Screenshot SGP+ combined price: {ticketMetadata.officialCombinedAmericanOdds} (not a per-leg price)</p> : null}
               {ticketMetadata.statedMultiplier != null ? <p className="text-xs text-slate-300">Screenshot displayed multiplier: {ticketMetadata.statedMultiplier}× (terms unverified)</p> : null}
+              {ticketMetadata.displayedPotentialReturn != null ? (
+                <p className="text-xs text-slate-300">Displayed potential return {'$' + ticketMetadata.displayedPotentialReturn.toFixed(2)}. Final result unavailable.</p>
+              ) : null}
+              {ticketMetadata.closedPositionObservations?.length ? (
+                <ul className="space-y-1 text-xs text-slate-300" aria-label="Displayed closed positions">
+                  {ticketMetadata.closedPositionObservations.map((position, index) => (
+                    <li key={index}>
+                      {position.declaredLegCount}-market closed position · {position.displayedAmount == null ? 'Amount unavailable' : '$' + position.displayedAmount.toFixed(2)} · Settlement unverified
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {ticketMetadata.warnings.map((warning, index) => (
                 <p key={index} className="text-xs text-amber-100">{warning}</p>
               ))}
