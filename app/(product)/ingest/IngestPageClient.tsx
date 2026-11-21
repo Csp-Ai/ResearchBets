@@ -404,7 +404,7 @@ export default function IngestionPage() {
                   </label>
                   <label className="block text-xs">Threshold
                     <input type="number" min="0" step="any" className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
-                      value={leg.threshold < 0 ? '' : leg.threshold}
+                      value={leg.thresholdObserved === false || leg.threshold < 0 ? '' : leg.threshold}
                       onChange={(event) => updateLeg(leg.legId, { threshold: event.target.value === '' ? -1 : Number(event.target.value), thresholdObserved: event.target.value !== '' })} />
                   </label>
                   <label className="block text-xs">American odds (optional / unknown)
