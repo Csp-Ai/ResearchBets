@@ -1,19 +1,12 @@
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 
-const run = (cmd, opts = {}) => execSync(cmd, { stdio: 'inherit', ...opts });
+const run = (program, args) => spawnSync(program, args, { stdio: 'inherit' });
+const staticAudit = run('node', ['scripts/audit-cta-graph.mjs']);
+if (staticAudit.status !== 0) process.exit(staticAudit.status ?? 1);
 
-run('node scripts/audit-cta-graph.mjs');
-
-let playwrightOk = true;
-try {
-  run('playwright test tests/journey.spec.ts --reporter=json > docs/JOURNEY_REPORT.json');
-} catch (error) {
-  playwrightOk = false;
-  console.warn('[audit:journey] Playwright runtime unavailable; continuing with static CTA audit only.');
-}
-
-run('node scripts/render-journey-report.mjs');
-
-if (!playwrightOk) {
-  process.exitCode = 0;
-}
+rmSync('docs/JOURNEY_REPORT.json', { force: true });
+const journey = run('playwright', ['test', 'tests/journey.spec.ts']);
+if (journey.error) console.error(journey.error.message);
+const report = run('node', ['scripts/render-journey-report.mjs']);
+process.exitCode = (journey.status ?? 1) || (report.status ?? 1);
