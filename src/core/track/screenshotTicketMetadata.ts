@@ -56,9 +56,13 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
     /\bdraft\s*kings\b/i.test(text) ? 'draftkings' : null
   ].filter(Boolean);
   const brandConflict = brands.length > 1;
+  const quotedWinContracts = (text.match(/\bto\s+win\s+\d{1,3}\s*%\b/gi) ?? []).length;
   const isKalshi = !brandConflict &&
     (brands[0] === 'kalshi' ||
-      (brands.length === 0 && /\b\d{1,2}\s+markets?\s+combo\b|\bcombo\s*[·•]\s*\d{1,2}\s+markets?\b/i.test(text)));
+      (brands.length === 0 && (
+        /\b\d{1,2}\s+markets?\s+combo\b|\bcombo\s*[·•]\s*\d{1,2}\s+markets?\b/i.test(text) ||
+        quotedWinContracts >= 2
+      )));
   const layoutSuggestsPickem = /(?:↑|⬆)\s*\d+(?:\.\d+)?\s*(?:fantasy\s*score|reb\s*\+\s*asts?|pra)\b/i.test(text);
   const isPrizePicks = !brandConflict &&
     (brands[0] === 'prizepicks' || (brands.length === 0 && layoutSuggestsPickem));
@@ -114,6 +118,7 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const warnings: string[] = [];
   if (brandConflict) warnings.push('Multiple sportsbook brands appear in the capture. Separate the tickets before analysis.');
   if (isPrizePicks && brands.length === 0) warnings.push('Layout resembles a pick’em slip, but the provider brand is not visible or verified.');
+  if (isKalshi && brands.length === 0) warnings.push('Layout resembles a Kalshi-style prediction combo; the provider brand is not independently verified.');
   if (declaredCountConflict) warnings.push('Different ticket sizes appear in one capture. Separate them before analysis.');
   if (hasHiddenLegs) warnings.push('Some selections are hidden behind an expanded-card summary.');
   if (pricingKind === 'prediction_contract_percent') {
