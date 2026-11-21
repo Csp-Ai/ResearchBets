@@ -377,7 +377,7 @@ export default function IngestionPage() {
                   }}>Remove spurious row</button>
                 </div>
                 {duplicateIndex >= 0 ? <p role="status" className="rounded-lg border border-amber-300/40 p-2 text-xs text-amber-200">Possible duplicate of leg {duplicateIndex + 1}. Compare the screenshot before keeping both.</p> : null}
-                {leg.sourceScreenshotIndex ? <p className="text-xs text-slate-300">Source: screenshot {leg.sourceScreenshotIndex} of {previewUrls.length}</p> : null}
+                {leg.sourceScreenshotIndex ? <p className="text-xs text-slate-300">Source: screenshot {leg.sourceScreenshotIndex}</p> : null}
                 {leg.rawText ? <p className="break-words rounded bg-slate-900 p-2 text-xs text-slate-400">OCR: {leg.rawText}</p> : <p className="text-xs text-slate-400">Manually added leg</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-xs">Player / team
