@@ -77,7 +77,7 @@ export function TodayGamesExplorer() {
       fetch(`/api/sports/slate?${params}`, { cache: 'no-store', signal: controller.signal })
         .then(async (response) => {
           if (!response.ok && response.status !== 503) throw new Error('Schedule feed unavailable');
-          const body = await response.json() as { ok?: boolean; data?: TodayPayload };
+          const body = await response.json() as { ok?: boolean; data?: TodayPayload; reason?: string };
           if (!body.ok || !body.data) throw new Error(body.reason === 'schedule_provider_not_configured' ? 'Schedule provider not configured' : 'Schedule feed unavailable');
           setStates((old) => ({ ...old, [sport]: { pending: false, payload: body.data } }));
         })
