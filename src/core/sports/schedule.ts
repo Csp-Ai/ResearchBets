@@ -12,7 +12,7 @@ export function eventDay(timestamp: string, timeZone: string): string | null {
   return `${fields.year}-${fields.month}-${fields.day}`;
 }
 
-function localDay(timeZone: string): string {
+export function localDay(timeZone: string): string {
   return eventDay(new Date().toISOString(), timeZone)!;
 }
 
