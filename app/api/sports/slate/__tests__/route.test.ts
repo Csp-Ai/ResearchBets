@@ -19,7 +19,7 @@ afterEach(() => vi.useRealTimers());
 
 describe('provider-backed schedule-only sports API', () => {
   it('uses viewer-local dates and never invents missing games', async () => {
-    const { verifiedScheduleEvents } = await import('../route');
+    const { verifiedScheduleEvents } = await import('@/src/core/sports/schedule');
     const events = [
       { id: 'g1', commence_time: '2026-11-22T03:00:00Z', home_team: 'B', away_team: 'A' },
       { id: 'g2', commence_time: '2026-11-22T13:00:00Z', home_team: 'D', away_team: 'C' },
