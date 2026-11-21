@@ -179,6 +179,23 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(calls.some((path) => path.includes('/api/bettor-memory/upload'))).toBe(false);
   });
 
+  it('keeps parsed selections linked to their images after text correction', async () => {
+    renderWithProviders(<IngestionPage />);
+    fireEvent.change(screen.getByLabelText('Select screenshots'), { target: { files: [
+      new File(['first'], 'one.png', { type: 'image/png' }),
+      new File(['second'], 'two.png', { type: 'image/png' })
+    ] } });
+    await screen.findByText(/Your Ticket · 2 legs/);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit extracted text' }));
+    fireEvent.change(screen.getByLabelText('Text from screenshot 2'), { target: { value: 'Corrected leg over 5.5 assists' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Review extracted ticket' }));
+    await screen.findByText(/Your Ticket · 2 legs/);
+    expect(screen.getByText('Source: screenshot 1')).toBeTruthy();
+    expect(screen.getByText('Source: screenshot 2')).toBeTruthy();
+    const call = vi.mocked(fetch).mock.calls.at(-1);
+    expect(JSON.parse(String(call?.[1]?.body)).text).toBe('Corrected leg over 5.5 assists');
+  });
+
   it('replaces an unreadable screenshot with its crop and preserves the other image index', async () => {
     const originalUrl = globalThis.URL;
     class PreviewURL extends originalUrl {

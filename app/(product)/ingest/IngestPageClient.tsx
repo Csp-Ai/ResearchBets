@@ -83,6 +83,7 @@ export default function IngestionPage() {
   const prefill = useMemo(() => searchParams.get('prefill') ?? '', [searchParams]);
   const [slipText, setSlipText] = useState(prefill);
   const [showText, setShowText] = useState(Boolean(prefill));
+  const [textByImage, setTextByImage] = useState<string[]>([]);
   const [rawExtractedText, setRawExtractedText] = useState('');
   const [origin, setOrigin] = useState<'screenshot' | 'paste'>('paste');
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('proposed');
@@ -230,7 +231,7 @@ export default function IngestionPage() {
     const controller = new AbortController();
     ocrControllerRef.current = controller;
     setError(null); setNotice(null); setSavingNotice(null); setIsOcrRunning(true); setCanRetry(false);
-    setSlipText(''); setRawExtractedText(''); setShowText(false);
+    setSlipText(''); setRawExtractedText(''); setTextByImage([]); setShowText(false);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
     setTicketStatus('proposed'); setTicketMetadata(null); setSourceArtifactId(undefined); setSourceArtifactIds([]);
     setFailedScreenshots([]); setFailedScreenshotsReviewed(false);
@@ -282,7 +283,7 @@ export default function IngestionPage() {
       }
       const allText = parts.map((part) => part.text).join('\n');
       setRawExtractedText(allText);
-      setSlipText(allText);
+      setTextByImage(files.map((file) => extractedByFile.current.get(file) ?? ''));
       await parseForReview(allText, 'screenshot', parts, controller.signal);
     } catch (caught) {
       if (!controller.signal.aborted) {
@@ -396,6 +397,8 @@ export default function IngestionPage() {
     router.push(nervous.toHref('/stress-test', { sport, slip_id: slipId, trace_id: traceId }));
   };
 
+  const editedParts = textByImage.flatMap((text, index) => text.trim() ? [{ text, imageIndex: index + 1 }] : []);
+  const textToReview = textByImage.length ? editedParts.map((part) => part.text).join('\n') : slipText;
   const recognizedLegs = reviewedLegs.filter((leg) => leg.player.trim() && leg.player !== 'Needs review');
   const preflight = ticketMetadata ? summarizeScreenshotPreflight(ticketMetadata, recognizedLegs) : null;
   return (
@@ -417,7 +420,7 @@ export default function IngestionPage() {
             Take a picture
           </Button>
           <Button className="min-h-11" intent="secondary" aria-expanded={showText} onClick={() => setShowText(!showText)} disabled={isOcrRunning || isReading}>
-            {slipText && origin === 'screenshot' ? 'Edit extracted text' : 'Paste ticket'}
+            {textByImage.length ? 'Edit extracted text' : 'Paste ticket'}
           </Button>
           <Link className="inline-flex min-h-11 items-center justify-center rounded border border-white/20 px-3 py-2 text-sm" href={nervous.toHref('/slip')}>
             Build manually
@@ -461,26 +464,25 @@ export default function IngestionPage() {
         ) : null}
         {showText ? (
           <div className="space-y-2">
-            <label htmlFor="rb-ocr-text" className="block text-sm font-semibold">{origin === 'screenshot' ? 'Extracted ticket text' : 'Paste ticket text'}</label>
-            <textarea
-              id="rb-ocr-text" rows={4} maxLength={20_000}
-              className="w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base text-slate-100"
-              placeholder="Paste each leg on a new line"
-              value={slipText}
-              onChange={(event) => {
-                setSlipText(event.target.value);
-                setHasParsed(false); setConfirmedIds([]); setReviewedLegs([]);
-                setOrigin(rawExtractedText ? 'screenshot' : 'paste');
-              }}
-            />
-            <Button intent="secondary" disabled={isOcrRunning || isReading || !slipText.trim()} onClick={() => {
-              const parts = filesRef.current.flatMap((file, index) => {
-                const text = extractedByFile.current.get(file);
-                return text ? [{ text, imageIndex: index + 1 }] : [];
-              });
-              const sourceParts = slipText === rawExtractedText ? parts
-                : parts.length === 1 ? [{ text: slipText, imageIndex: parts[0]!.imageIndex }] : undefined;
-              void parseForReview(slipText, origin, sourceParts);
+            {(textByImage.length ? textByImage : [slipText]).map((value, index) => (
+              <label key={index} className="block text-sm font-semibold">
+                {textByImage.length ? 'Text from screenshot ' + (index + 1) : 'Paste ticket text'}
+                <textarea
+                  rows={4} maxLength={20_000}
+                  className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base text-slate-100"
+                  placeholder="Paste each leg on a new line"
+                  value={value}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    if (textByImage.length) setTextByImage((current) => current.map((entry, i) => i === index ? text : entry));
+                    else setSlipText(text);
+                    setHasParsed(false); setConfirmedIds([]); setReviewedLegs([]);
+                  }}
+                />
+              </label>
+            ))}
+            <Button intent="secondary" disabled={isOcrRunning || isReading || !textToReview.trim()} onClick={() => {
+              void parseForReview(textToReview, textByImage.length ? 'screenshot' : 'paste', editedParts);
             }}>{isReading ? 'Reading ticket…' : 'Review extracted ticket'}</Button>
           </div>
         ) : null}
