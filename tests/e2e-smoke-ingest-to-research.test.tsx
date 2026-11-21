@@ -66,11 +66,13 @@ describe('smoke: screenshot/paste review to X-Ray', () => {
     }), { status: 200 })));
     renderWithProviders(<IngestionPage />);
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
-      target: { value: validLeg.rawText }
+      target: { value: 'FanDuel Sportsbook\n' + validLeg.rawText }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review extracted ticket' }));
     await waitFor(() => expect(screen.getByRole('checkbox', { name: /Confirm leg 1/ })).toBeTruthy());
     expect(push).not.toHaveBeenCalled();
+    expect((screen.getByLabelText(/Sportsbook \(OCR suggestion: FanDuel/) as HTMLSelectElement).value).toBe('FanDuel');
+    fireEvent.change(screen.getByLabelText(/Sportsbook \(OCR suggestion: FanDuel/), {target: {value:'DraftKings'}});
     fireEvent.click(screen.getByRole('checkbox', { name: /Confirm leg 1/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Analyze My Ticket' }));
 
@@ -79,6 +81,8 @@ describe('smoke: screenshot/paste review to X-Ray', () => {
     expect(draft.slip_id).toBeTruthy();
     expect(draft.trace_id).toBeTruthy();
     expect(draft.ingestion?.userTicketStatus).toBe('proposed');
+    expect(draft.ingestion?.observedSportsbook).toBe('FanDuel');
+    expect(draft.ingestion?.userSelectedSportsbook).toBe('DraftKings');
     expect(draft.ingestion?.origin).toBe('paste');
     expect(draft.ingestion?.parsedCandidate).toHaveLength(1);
     expect(draft.legs[0]?.player).toBe('Jayson Tatum');
