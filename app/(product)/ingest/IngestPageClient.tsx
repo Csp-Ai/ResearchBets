@@ -258,6 +258,11 @@ export default function IngestionPage() {
           league: leg.league, marketType: leg.marketType,
           threshold: leg.threshold, odds: leg.odds
         })),
+        confirmedLegs: reviewedLegs.map((leg) => ({
+          legId: leg.legId, league: leg.league, player: leg.player,
+          marketType: leg.marketType, threshold: leg.threshold,
+          direction: leg.direction, odds: leg.odds, teams: leg.teams
+        })),
         confirmedAt: timestamp, sourceArtifactId
       }
     });
