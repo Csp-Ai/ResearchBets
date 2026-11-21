@@ -92,10 +92,31 @@ function descriptorMarket(line: string): { player: string; market: string } | nu
   return { player: normalizePlayerName(match[1]), market };
 }
 
+// Merge only adjacent recognizable split-row OCR fragments.
+function isStandalonePlayer(row: string): boolean {
+  if (!/^[A-Z][A-Za-z'.-]+(?:\s+(?:[A-Z][A-Za-z'.-]+|II|III|IV)){1,3}$/.test(row)) return false;
+  if (/\b(?:sportsbook|parlay|draftkings|fanduel|prizepicks|my bets|open|settled|cash out|payout|game total|same game|total wager|total return|your bets|bet slip)\b/i.test(row)) return false;
+  return true;
+}
+function isDirectionalMarketRow(row: string): boolean {
+  return /^(?:over|under)\s+\d+(?:\.\d+)?\s+/i.test(row) && !canonicalMarket(row).inferred;
+}
+function isIsolatedOdds(row: string): boolean {
+  return /^[+-]\d{3,5}$/.test(row);
+}
+
 function coalesceSportsbookFragments(lines: string[]): string[] {
   const output: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const current = sanitizeSportsbookLine(lines[index]!);
+    const following = index + 1 < lines.length ? sanitizeSportsbookLine(lines[index + 1]!) : '';
+    if (isStandalonePlayer(current) && isDirectionalMarketRow(following)) {
+      const third = index + 2 < lines.length ? sanitizeSportsbookLine(lines[index + 2]!) : '';
+      const standaloneOdds = isIsolatedOdds(third) ? ' ' + third : '';
+      output.push(current + ' ' + following + standaloneOdds);
+      index += standaloneOdds ? 2 : 1;
+      continue;
+    }
     const main = current.match(GENERIC_PLUS_PROP);
     let descriptor: ReturnType<typeof descriptorMarket> = null;
     let descriptorEnd = index;
@@ -227,6 +248,11 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
   const rawLines = nonEmptyLines(rawText);
   if (rawLines.length === 0) return unresolvedFallback(rawText, sourceHint);
 
+  const leagueHeaders = new Set(
+    rawLines.filter((row) => /^(?:NFL|NBA)$/i.test(row.trim()))
+      .map((row) => row.trim().toUpperCase())
+  );
+  const uniqueHeaderLeague = leagueHeaders.size === 1 ? [...leagueHeaders][0] : undefined;
   const lines = coalesceSportsbookFragments(rawLines).filter(looksLikeCandidateLeg);
   if (lines.length === 0) return unresolvedFallback(rawText, sourceHint);
 
@@ -246,8 +272,13 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       threshold: parsedThreshold.threshold,
       unresolved,
     });
-    const league = /\bNFL\b/i.test(line) ? 'NFL' : /\bNBA\b/i.test(line) ? 'NBA' : NFL_MARKETS.has(marketType) ? 'NFL' : 'Unknown';
-    const requiresReview = league === 'Unknown' || parseConfidence === 'low';
+    const league = /\bNFL\b/i.test(line) ? 'NFL' : /\bNBA\b/i.test(line) ? 'NBA'
+      : NFL_MARKETS.has(marketType) ? 'NFL' : uniqueHeaderLeague ?? 'Unknown';
+    const directionObserved = marketType === 'anytime_td' ||
+      /\b(?:over|under)\b|\d+(?:\.\d+)?\s*\+/i.test(line);
+    const thresholdObserved = parsedThreshold.threshold != null;
+    const requiresReview = league === 'Unknown' || parseConfidence === 'low' ||
+      !directionObserved || !thresholdObserved;
 
     return {
       legId: `leg-${index + 1}`,
@@ -258,6 +289,8 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       marketLabel,
       threshold: parsedThreshold.threshold ?? 0,
       direction,
+      directionObserved,
+      thresholdObserved,
       odds,
       source: sourceHint,
       parseConfidence,
