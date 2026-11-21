@@ -21,6 +21,16 @@ const MAX_SCREENSHOTS = 4;
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_IMAGES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const LEAGUES = ['Unknown', 'NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'Soccer', 'Other'] as const;
+const SPORTSBOOKS = ['Unknown', 'FanDuel', 'DraftKings', 'PrizePicks', 'Other'] as const;
+
+function detectSportsbook(rawText: string): string {
+  const found = [
+    /\bfan\s*duel\b/i.test(rawText) ? 'FanDuel' : null,
+    /\bdraft\s*kings\b/i.test(rawText) ? 'DraftKings' : null,
+    /\bprize\s*picks\b/i.test(rawText) ? 'PrizePicks' : null
+  ].filter(Boolean);
+  return found.length === 1 ? found[0]! : 'Unknown';
+}
 
 function keyForLeg(leg: TrackedTicketLeg): string {
   return [
@@ -71,6 +81,8 @@ export default function IngestionPage() {
   const [rawExtractedText, setRawExtractedText] = useState('');
   const [origin, setOrigin] = useState<'screenshot' | 'paste'>('paste');
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('proposed');
+  const [observedSportsbook, setObservedSportsbook] = useState('Unknown');
+  const [selectedSportsbook, setSelectedSportsbook] = useState('Unknown');
   const [parsedCandidate, setParsedCandidate] = useState<TrackedTicketLeg[]>([]);
   const [reviewedLegs, setReviewedLegs] = useState<TrackedTicketLeg[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<string[]>([]);
@@ -123,6 +135,9 @@ export default function IngestionPage() {
       }));
       const candidate = cleanParsedLegs(responses.flat());
       setParsedCandidate(candidate.map((leg) => ({ ...leg })));
+      const observed = detectSportsbook(text);
+      setObservedSportsbook(observed);
+      setSelectedSportsbook(observed);
       setReviewedLegs(candidate);
       setConfirmedIds([]);
       setHasParsed(true);
@@ -180,6 +195,7 @@ export default function IngestionPage() {
     setError(null); setNotice(null); setIsOcrRunning(true);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
     setTicketStatus('proposed'); setSourceArtifactId(undefined); setSourceArtifactIds([]);
+    setObservedSportsbook('Unknown'); setSelectedSportsbook('Unknown');
     setOrigin('screenshot');
     urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
     const urls = files.map((file) => typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '');
@@ -270,6 +286,7 @@ export default function IngestionPage() {
       })),
       ingestion: {
         origin, userTicketStatus: ticketStatus,
+        observedSportsbook, userSelectedSportsbook: selectedSportsbook,
         rawExtractedText: origin === 'screenshot' ? rawExtractedText : slipText,
         parsedCandidate: parsedCandidate.map((leg) => ({
           legId: leg.legId, rawText: leg.rawText, sourceScreenshotIndex: leg.sourceScreenshotIndex, player: leg.player,
@@ -352,6 +369,13 @@ export default function IngestionPage() {
             <h2 className="mt-2 text-xl font-semibold">Your Ticket · {reviewedLegs.length} legs</h2>
             <p className="mt-1 text-xs text-slate-300">Parser-derived candidates are not provider-verified facts. Correct and confirm each row before analyzing.</p>
           </div>
+          <label htmlFor="rb-sportsbook" className="block text-sm">
+            Sportsbook (OCR suggestion: {observedSportsbook}, not verified)
+          </label>
+          <select id="rb-sportsbook" className="w-full rounded-lg border border-white/20 bg-slate-900 p-3 text-sm"
+            value={selectedSportsbook} onChange={(event) => setSelectedSportsbook(event.target.value)}>
+            {SPORTSBOOKS.map((book) => <option key={book} value={book}>{book}</option>)}
+          </select>
           <label htmlFor="rb-ticket-status" className="block text-sm">
             What is the ticket status? (your confirmation)
           </label>
