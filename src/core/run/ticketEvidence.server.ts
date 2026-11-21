@@ -60,7 +60,7 @@ async function evidenceForLeague(league: League, legs: Leg[]) {
   const { oddsProvider } = getProviderRegistry();
   const [eventResult, injuries, history] = await Promise.all([
     oddsProvider.id === 'the-odds-api' && legs.some((leg) => leg.matchup)
-      ? oddsProvider.fetchEvents({ sport: league }).catch(() => null)
+      ? oddsProvider.fetchEvents({ sport: league, fresh: true }).catch(() => null)
       : null,
     players.length ? fetchLiveInjuries({ sport: league, teamIds: [], playerIds: players, requireUpdateTime: true }) : null,
     historyPlayers.length ? fetchNbaResearchHistory(historyPlayers).catch(() => new Map<string, ResearchGameHistory>()) : null
@@ -80,9 +80,9 @@ async function evidenceForLeague(league: League, legs: Leg[]) {
         eventDate: event.commence_time,
         source: 'The Odds API',
         retrievedAt,
-        freshness: 'live'
+        freshness: 'current provider listing'
       } : undefined,
-      injuries: injury && injuries && Number.isFinite(updated) ? {
+      injuries: injury && injuries && Number.isFinite(updated) && updated <= Date.now() ? {
         report: injury.headline,
         source: 'SportsDataIO',
         retrievedAt: injuries.asOf,

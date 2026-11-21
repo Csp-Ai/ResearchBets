@@ -20,7 +20,7 @@ export type TicketEvidence = {
     eventDate: string;
     source: 'The Odds API';
     retrievedAt: string;
-    freshness: 'live';
+    freshness: 'current provider listing';
   };
   injuries?: {
     report: string;

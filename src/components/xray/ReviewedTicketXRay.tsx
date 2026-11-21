@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { XRayBriefing } from '@/src/components/xray/XRayBriefing';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { SUPPORTED_MARKET_TYPES, type MarketType } from '@/src/core/markets/marketType';
 import type { TicketEvidence, TicketEvidenceRequest, TicketEvidenceResponse } from '@/src/core/run/ticketEvidence';
@@ -94,25 +95,35 @@ export function ReviewedTicketXRay({ ingestion }: { ingestion: DraftSlipIngestio
     }
     setPending(true);
     setEvidence(undefined);
+    const deadline = setTimeout(() => {
+      abort.abort();
+      setPending(false);
+    }, 10_000);
     void fetch('/api/run/ticket-evidence', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: abort.signal,
       body: JSON.stringify({ legs: eligible } satisfies TicketEvidenceRequest)
     }).then(async (response) => {
-      if (response.ok && !abort.signal.aborted) setEvidence(await response.json() as TicketEvidenceResponse);
+      if (!response.ok) return;
+      const result = await response.json() as TicketEvidenceResponse;
+      if (!abort.signal.aborted) setEvidence(result);
     }).catch(() => {
       // Unavailable evidence remains explicit for each selection.
     }).finally(() => {
+      clearTimeout(deadline);
       if (!abort.signal.aborted) setPending(false);
     });
-    return () => abort.abort();
+    return () => {
+      clearTimeout(deadline);
+      abort.abort();
+    };
   }, [legs]);
 
-  const structure = buildSlipStructureReport(legs.map((leg) => ({
+  const structure = useMemo(() => buildSlipStructureReport(legs.map((leg) => ({
     id: leg.legId, player: leg.player, market: leg.unsupportedMarket ? 'unsupported' : leg.marketType,
     game: leg.teams?.trim().toLowerCase()
-  })));
+  }))), [legs]);
   const shared = structure.correlation_edges.find((edge) => edge.kind === 'same_player') ?? structure.correlation_edges[0];
   const hasEvidence = Object.values(evidence?.byLegId ?? {}).some((item) => item.event || item.history || item.injuries);
   const pressure = mode === 'incomplete'
@@ -173,6 +184,12 @@ export function ReviewedTicketXRay({ ingestion }: { ingestion: DraftSlipIngestio
           );
         })}
       </section>
+      {mode === 'full' ? (
+        <details className="border-t border-white/10 pt-2">
+          <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-slate-100">Open structural model</summary>
+          <XRayBriefing reviewed />
+        </details>
+      ) : null}
     </article>
   );
 }
