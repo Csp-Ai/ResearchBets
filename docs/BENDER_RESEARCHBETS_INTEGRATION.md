@@ -80,3 +80,35 @@ independent review. Text parsing is bounded and rate limited.
 - End-to-end Bender BTC/SPY regression and approval before production release.
 
 Go/no-go: **NO-GO** until all release evidence is obtained.
+
+## 2026-11-21 screenshot integrity hardening
+
+- The canonical text parser now joins adjacent player-name / directional-market /
+  American-odds rows, preserving both signed odds and explicit direction.
+  Ticket-level NBA/NFL labels are only inherited when unambiguous; unobserved
+  direction and thresholds require human selection.
+- Multiple screenshots are OCR-read and parsed separately, with a source-image
+  index retained for every candidate and tracked leg. Repeated candidate rows
+  are flagged for manual reconciliation, not silently dropped.
+- If a screenshot cannot be read, successful image text remains available but
+  analysis requires the user to explicitly acknowledge and correct the
+  incomplete capture.
+- Sportsbook branding is an unverified OCR suggestion, preserved separately
+  from the user's editable sportsbook selection.
+
+### Independent synthetic-image OCR smoke evidence (not sportsbook accuracy)
+
+Two **synthetic** 390 × 844 high-contrast mobile ticket images were generated
+with known text (one FanDuel-style NBA ticket and one DraftKings-style NFL
+ticket). Native Tesseract CLI 5.5 recovered **all 10 text rows in each**
+(20/20 line-level rows). Heavy Gaussian blur (radius 3.8 px) produced no
+usable text for either image. The app's browser Tesseract pipeline may differ
+from the native CLI, so these results verify only an independent OCR baseline
+and leg-layout feasibility. They do not establish production screenshot
+accuracy or any predictive sports-model accuracy. No real sportsbook images
+were used and no precise recall metric for real-world screenshots is claimed.
+
+The automated UI and parser tests use controlled OCR responses and cover
+split rows, multi-image provenance, repeated OCR rows and partial OCR failures.
+Real anonymized sportsbook images and mobile-device testing remain release
+gates.
