@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
+  // The Today route now uses the live-key eligibility module directly; mock
+  // that canonical owner instead of relying only on the retired health probe.
+  vi.doMock('@/src/core/live/modeResolver.server', () => ({
+    getLiveKeyStatus: () => ({
+      requiredKeysPresent: true,
+      liveModeEnabled: true,
+      isProduction: false,
+    }),
+  }));
   vi.doMock('@/src/core/health/providerHealth.server', () => ({
     computeProviderHealth: vi.fn(async () => ({
       ok: true,
