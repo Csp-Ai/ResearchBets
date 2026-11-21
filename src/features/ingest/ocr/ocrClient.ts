@@ -27,60 +27,62 @@ const abortError = () => new DOMException('OCR canceled by user.', 'AbortError')
 
 export async function runOcr(file: File, onProgress?: (p: string) => void, options: RunOcrOptions = {}): Promise<string> {
   const { signal, onWorkerChange } = options;
+  const timeoutMs = 45_000;
   let worker: OcrWorker | null = null;
   let imageUrl: string | null = null;
+  let finished = false;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let rejectStopped: (error: Error) => void = () => undefined;
+  const abort = () => rejectStopped(abortError());
 
-  if (signal?.aborted) {
-    throw abortError();
-  }
+  if (signal?.aborted) throw abortError();
 
-  try {
+  const stopped = new Promise<never>((_, reject) => {
+    rejectStopped = reject;
+    timeoutId = setTimeout(() => reject(new Error('Screenshot OCR timed out.')), timeoutMs);
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+
+  const recognize = async () => {
     const { createWorker } = await import('tesseract.js');
-    worker = await createWorker('eng', 1, {
+    if (finished) return '';
+    const activeWorker = await createWorker('eng', 1, {
       logger: (message: { status?: string; progress?: number }) => {
-        if (message.status === 'recognizing text' && typeof message.progress === 'number') {
+        if (!finished && message.status === 'recognizing text' && typeof message.progress === 'number') {
           onProgress?.(`Reading text… ${Math.round(message.progress * 100)}%`);
         }
       }
     });
 
-    const activeWorker = worker;
-    if (!activeWorker) {
-      throw new Error('Could not initialize OCR worker.');
+    if (finished) {
+      void activeWorker.terminate().catch(() => undefined);
+      return '';
     }
+
+    worker = activeWorker;
     onWorkerChange?.(activeWorker);
-
-    if (signal?.aborted) {
-      throw abortError();
-    }
-
-    const abortHandler = () => {
-      void activeWorker.terminate();
-    };
-
-    signal?.addEventListener('abort', abortHandler, { once: true });
-
     imageUrl = typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
     const result = await activeWorker.recognize(imageUrl ?? file);
-    const normalized = normalizeOcrText(result.data.text ?? '');
+    return normalizeOcrText(result.data.text ?? '');
+  };
 
+  try {
+    const normalized = await Promise.race([recognize(), stopped]);
     if (!normalized) {
-      throw new Error('Could not read enough text from the screenshot. Try another image or edit the text manually.');
+      throw new Error('Could not read enough text from the screenshot.');
     }
-
     return normalized;
   } catch (error) {
-    if (isAbortError(error)) {
-      throw error;
-    }
+    if (isAbortError(error)) throw error;
     throw new Error('Could not read the screenshot. Try another image or paste your slip manually.');
   } finally {
-    if (imageUrl && typeof URL.revokeObjectURL === 'function') {
-      URL.revokeObjectURL(imageUrl);
-    }
-    if (worker) {
-      await worker.terminate().catch(() => undefined);
-    }
+    finished = true;
+    clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', abort);
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    // Terminating a worker may leave its recognition promise pending.
+    const activeWorker = worker as OcrWorker | null;
+    void activeWorker?.terminate().catch(() => undefined);
     onWorkerChange?.(null);
   }
 }
