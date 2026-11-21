@@ -111,7 +111,7 @@ function coalesceSportsbookFragments(lines: string[]): string[] {
     const current = sanitizeSportsbookLine(lines[index]!);
     const following = index + 1 < lines.length ? sanitizeSportsbookLine(lines[index + 1]!) : '';
     if (isStandalonePlayer(current) && isDirectionalMarketRow(following)) {
-      const third = index + 2 < lines.length ? sanitizeSportsbookLine(lines[index + 2]!) : '';
+      const third = index + 2 < lines.length ? lines[index + 2]!.trim() : '';
       const standaloneOdds = isIsolatedOdds(third) ? ' ' + third : '';
       output.push(current + ' ' + following + standaloneOdds);
       index += standaloneOdds ? 2 : 1;
