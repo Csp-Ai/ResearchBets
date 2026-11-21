@@ -85,10 +85,10 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(screen.getByText(/Direction was not visible/)).toBeTruthy();
     expect(screen.getByRole('checkbox',{name:/Confirm leg 1/})).toHaveProperty('disabled',true);
     const leg = screen.getByRole('region',{name:'Leg 1'});
-    const direction = leg.querySelector('select:nth-of-type(1)');
+    const direction = leg.querySelectorAll('select')[2];
     // Direction and threshold are visibly unresolved rather than guessed.
-    expect(leg.querySelector('input[type="number"]')?.getAttribute('value')).toBe('');
-    expect((direction as HTMLSelectElement | null)?.value === '' || direction == null).toBe(true);
+    expect((leg.querySelector('input[type="number"]') as HTMLInputElement).value).toBe('');
+    expect(direction?.value).toBe('');
   });
 
   it('extracts locally without uploading the original unless opted in', async () => {
