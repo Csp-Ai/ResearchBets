@@ -1,4 +1,5 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import type { TrackedTicketLeg } from '@/src/core/track/types';
 import type { ScreenshotTicketMetadata } from '@/src/core/track/screenshotTicketMetadata';
 
 export const DRAFT_SLIP_STORAGE_KEY = 'rb:draft-slip:v1';
@@ -9,6 +10,25 @@ export type DraftSlipIdentity = {
   trace_id?: string;
 };
 
+export type TicketAnalysisMode = 'full' | 'research_only' | 'incomplete';
+
+export type ConfirmedIngestionLeg = {
+  legId: string;
+  sourceScreenshotIndex?: number;
+  league: string;
+  player: string;
+  marketType: string;
+  threshold: number;
+  direction: 'over' | 'under';
+  odds?: string;
+  teams?: string;
+  marketLabel?: string;
+  unsupportedMarket?: boolean;
+  contractSide?: 'yes' | 'no';
+  quotedContractPercent?: number;
+  ladder?: boolean;
+};
+
 export type DraftSlipIngestion = {
   origin: 'screenshot' | 'paste';
   userTicketStatus: 'proposed' | 'placed' | 'live' | 'settled' | 'unknown';
@@ -16,8 +36,13 @@ export type DraftSlipIngestion = {
   userSelectedSportsbook?: string;
   rawExtractedText: string;
   ticketMetadata?: ScreenshotTicketMetadata;
+  analysisMode?: TicketAnalysisMode;
+  recognizedLegCount?: number;
+  coverageNote?: string;
+  reviewedLegs?: Omit<TrackedTicketLeg, 'rawText'>[];
+  unreadableScreenshots?: number[];
   parsedCandidate: Array<{ legId: string; rawText?: string; sourceScreenshotIndex?: number; player: string; league: string; marketType: string; threshold: number; odds?: string }>;
-  confirmedLegs: Array<{ legId: string; sourceScreenshotIndex?: number; league: string; player: string; marketType: string; threshold: number; direction: 'over' | 'under'; odds?: string; teams?: string }>;
+  confirmedLegs: ConfirmedIngestionLeg[];
   confirmedAt: string;
   sourceArtifactId?: string;
   sourceArtifactIds?: string[];

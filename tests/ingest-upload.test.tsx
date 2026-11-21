@@ -5,6 +5,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { createWorker } from 'tesseract.js';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import IngestionPage from '@/app/(product)/ingest/page';
+import { DraftSlipStore } from '@/src/core/slips/draftSlipStore';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
 
 const push = vi.fn();
@@ -26,6 +27,7 @@ vi.mock('tesseract.js', () => ({
 describe('screenshot-first ResearchBets ingestion', () => {
   beforeEach(() => {
     push.mockReset();
+    window.sessionStorage.clear();
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       ok: true,
       data: {
@@ -52,7 +54,7 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(screen.getByRole('button', { name: 'Review extracted ticket' })).toBeTruthy();
   });
 
-  it('blocks incomplete 10-market Kalshi screenshots instead of analyzing four visible legs as ten', async () => {
+  it('opens Partial Research with confirmed Kalshi selections while preserving the declared count', async () => {
     const players = ['Test Team Alpha', 'Test Team Bravo', 'Test Team Charlie', 'Test Team Delta'];
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       ok: true,
@@ -73,14 +75,22 @@ describe('screenshot-first ResearchBets ingestion', () => {
     });
     fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
     await waitFor(() => expect(screen.getByText(/Your Ticket · 4 legs/)).toBeTruthy());
-    expect(screen.getByText(/4 of 10 selections recognized/)).toBeTruthy();
+    expect(screen.getByText(/4 of 10 (?:declared )?selections/)).toBeTruthy();
     expect(screen.getByText(/Screenshot contract quote: 60%/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
-    expect(screen.getAllByText(/4 of 10 selections recognized/).length).toBeGreaterThan(1);
-    expect(push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Confirm leg 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Partial Research' }));
+    expect(push).toHaveBeenCalledWith(expect.stringContaining('/stress-test'));
+    const draft = DraftSlipStore.getState();
+    expect(draft.legs).toHaveLength(1);
+    expect(draft.legs[0]?.odds).toBeUndefined();
+    expect(draft.ingestion).toMatchObject({
+      analysisMode: 'incomplete', recognizedLegCount: 4,
+      ticketMetadata: { declaredLegCount: 10, cost: 12.4, statedMaxPayout: 1234.56 },
+      confirmedLegs: [{ player: players[0], quotedContractPercent: 60, contractSide: 'yes' }]
+    });
   });
 
-  it('withholds conventional X-Ray on a complete prediction-contract screenshot', async () => {
+  it('opens Research-Only X-Ray for a complete prediction-contract screenshot', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       ok: true, data: { ticketId: 'complete-kalshi', legs: [{
         legId:'leg-1', league:'NBA',player:'Test Team',
@@ -96,10 +106,11 @@ describe('screenshot-first ResearchBets ingestion', () => {
     });
     fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
     await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
-    expect(screen.getByText(/Review-only mode: specialized ticket pricing/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
-    expect(screen.getByText(/canonical X-Ray analysis is paused/)).toBeTruthy();
-    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByText(/Research-Only X-Ray: specialized ticket pricing/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Confirm leg 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze My Ticket' }));
+    expect(push).toHaveBeenCalledWith(expect.stringContaining('/stress-test'));
+    expect(DraftSlipStore.getState().ingestion?.analysisMode).toBe('research_only');
   });
 
   it('warns about repeated OCR candidates without silently deleting either leg', async () => {

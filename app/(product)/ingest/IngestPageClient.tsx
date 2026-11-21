@@ -11,6 +11,7 @@ import { Surface } from '@/src/components/ui/surface';
 import { SUPPORTED_MARKET_TYPES, type MarketType } from '@/src/core/markets/marketType';
 import type { TrackedTicket, TrackedTicketLeg } from '@/src/core/track/types';
 import { inspectScreenshotTicket, screenshotCoverage, type ScreenshotTicketMetadata } from '@/src/core/track/screenshotTicketMetadata';
+import { DraftSlipStore, type TicketAnalysisMode } from '@/src/core/slips/draftSlipStore';
 import { summarizeScreenshotPreflight } from '@/src/core/track/screenshotPreflight';
 
 type ParseTextResponse = {
@@ -63,13 +64,16 @@ function duplicateOf(leg: TrackedTicketLeg, index: number, legs: TrackedTicketLe
 
 function reviewProblem(leg: TrackedTicketLeg): string | null {
   if (!leg.player.trim() || leg.player === 'Needs review') return 'Player or team is missing';
+  if (leg.unsupportedMarket && leg.marketLabel && leg.marketLabel !== 'Needs review') {
+    // Users can confirm exact wording even when the contract has no market adapter.
+    return null;
+  }
   if (!leg.league || leg.league === 'Unknown') return 'Sport/league needs review';
   if (!SUPPORTED_MARKET_TYPES.includes(leg.marketType)) return 'Market is unsupported';
   if (leg.marketLabel === 'Needs review') return 'Market needs review';
-  if (leg.unsupportedMarket) return 'This contract requires a dedicated market adapter; a generic prop interpretation is unsafe.';
-  if (leg.directionObserved === false) return 'Direction was not visible. Choose Over or Under to confirm.';
-  if (leg.thresholdObserved === false) return 'Threshold was not visible. Enter the exact line to confirm.';
-  if (!Number.isFinite(leg.threshold) || leg.threshold < 0) return 'Threshold is missing';
+  if (leg.marketType !== 'moneyline' && leg.directionObserved === false) return 'Direction was not visible. Choose Over or Under to confirm.';
+  if (leg.marketType !== 'moneyline' && leg.thresholdObserved === false) return 'Threshold was not visible. Enter the exact line to confirm.';
+  if (leg.marketType !== 'moneyline' && (!Number.isFinite(leg.threshold) || leg.threshold < 0)) return 'Threshold is missing';
   if (leg.odds && !/^[+-](?:[1-9]\d{2,4})$/.test(leg.odds)) return 'Odds are invalid. Clear them if unreadable';
   return null;
 }
@@ -118,6 +122,27 @@ export default function IngestionPage() {
   const ocrControllerRef = useRef<AbortController | null>(null);
   const urlsRef = useRef<string[]>([]);
   const identityRef = useRef<{ slipId?: string; traceId?: string }>({});
+
+  const shouldResume = searchParams.get('resume') === '1';
+  useEffect(() => {
+    if (!shouldResume) return;
+    const stored = DraftSlipStore.getState();
+    const reviewed = stored.ingestion;
+    if (!reviewed?.reviewedLegs?.length || !stored.slip_id) return;
+    identityRef.current = { slipId: stored.slip_id, traceId: stored.trace_id };
+    setReviewedLegs(reviewed.reviewedLegs);
+    setParsedCandidate(reviewed.reviewedLegs);
+    setConfirmedIds(reviewed.confirmedLegs.map((leg) => leg.legId));
+    setTicketMetadata(reviewed.ticketMetadata ?? null);
+    setTicketStatus(reviewed.userTicketStatus);
+    setObservedSportsbook(reviewed.observedSportsbook ?? 'Unknown');
+    setSelectedSportsbook(reviewed.userSelectedSportsbook ?? 'Unknown');
+    setOrigin(reviewed.origin);
+    setFailedScreenshots(reviewed.unreadableScreenshots ?? []);
+    setSourceArtifactId(reviewed.sourceArtifactId);
+    setSourceArtifactIds(reviewed.sourceArtifactIds ?? []);
+    setHasParsed(true);
+  }, [shouldResume]);
 
   useEffect(() => () => {
     ocrControllerRef.current?.abort();
@@ -337,30 +362,38 @@ export default function IngestionPage() {
     setConfirmedIds((current) => current.filter((candidate) => candidate !== id));
   };
 
+  const identifiedLegCount = reviewedLegs.filter((leg) =>
+    leg.player.trim() && leg.player !== 'Needs review'
+  ).length;
+  const completeness = ticketMetadata ? screenshotCoverage(ticketMetadata, identifiedLegCount) : null;
+  const unresolvedScreenshots = failedScreenshots.length > 0 && !failedScreenshotsReviewed;
+  const isPartial = Boolean(completeness?.incomplete || unresolvedScreenshots || confirmedIds.length !== reviewedLegs.length);
+
   const onAnalyze = () => {
     setError(null);
     if (!reviewedLegs.length) {
       setError('No ticket legs to analyze. Add or review a selection.'); return;
     }
-    const completeness = ticketMetadata ? screenshotCoverage(ticketMetadata, reviewedLegs.length) : null;
-    if (completeness?.incomplete) {
-      setError(completeness.note ?? 'The screenshot ticket is incomplete. Review its declared count and missing selections.');
+    const confirmed = reviewedLegs.filter((leg) => confirmedIds.includes(leg.legId) && !reviewProblem(leg));
+    if (confirmed.length === 0) {
+      setError(completeness?.note ?? (unresolvedScreenshots
+        ? 'Some screenshots could not be read. Compare them and confirm the visible selections for partial research.'
+        : 'Review every leg before analysis or confirm at least one selection for Partial Research.'));
       return;
     }
-    if (ticketMetadata && (ticketMetadata.pricingKind !== 'american_odds' ||
-        ticketMetadata.declaredCountConflict || ticketMetadata.format === 'unknown')) {
-      setError('This ticket uses specialized contract or combination pricing. You can review its extracted selections, but canonical X-Ray analysis is paused until the appropriate pricing adapter is validated. No conventional parlay odds will be fabricated.');
-      return;
-    }
-    if (failedScreenshots.length && !failedScreenshotsReviewed) {
-      setError('Some screenshots could not be read. Compare them and confirm any missing selections were added.'); return;
-    }
-    const unconfirmed = reviewedLegs.filter((leg) => !confirmedIds.includes(leg.legId));
-    const invalid = reviewedLegs.map((leg) => reviewProblem(leg)).filter(Boolean);
-    if (invalid.length || unconfirmed.length) {
-      setError('Review every leg before analysis. ' + (invalid[0] ?? 'Confirm all selections against the screenshot.'));
-      return;
-    }
+    const analysisMode: TicketAnalysisMode = isPartial
+      ? 'incomplete'
+      : !ticketMetadata || ticketMetadata.pricingKind !== 'american_odds' ||
+        ticketMetadata.screenshotState === 'closed_position' ||
+        selectedSportsbook === 'Kalshi' || selectedSportsbook === 'PrizePicks' ||
+        confirmed.some((leg) => leg.unsupportedMarket || !leg.odds)
+        ? 'research_only'
+        : 'full';
+    const coverageNote = completeness?.note ?? (unresolvedScreenshots
+      ? 'Some screenshots could not be read. Compare the originals for missing selections.'
+      : confirmed.length !== reviewedLegs.length
+        ? 'Some recognized selections still need confirmation.'
+        : undefined);
     const slipId = identityRef.current.slipId ?? crypto.randomUUID();
     const traceId = identityRef.current.traceId ?? nervous.trace_id ?? crypto.randomUUID();
     identityRef.current = { slipId, traceId };
@@ -368,32 +401,39 @@ export default function IngestionPage() {
     replaceState({
       slip_id: slipId,
       trace_id: traceId,
-      legs: reviewedLegs.map((leg) => ({
+      legs: confirmed.map((leg) => ({
         id: leg.legId, player: leg.player, marketType: leg.marketType,
-        line: leg.ladder ? String(leg.threshold) + '+' :
-          (leg.direction === 'under' ? 'Under ' : 'Over ') + leg.threshold,
-        odds: leg.odds || undefined, game: leg.teams ?? leg.gameId
+        line: leg.unsupportedMarket ? leg.marketLabel ?? 'Review exact contract'
+          : leg.marketType === 'moneyline' ? leg.contractSide?.toUpperCase() ?? 'To win'
+          : leg.ladder ? String(leg.threshold) + '+'
+          : (leg.direction === 'under' ? 'Under ' : 'Over ') + leg.threshold,
+        odds: analysisMode === 'full' ? leg.odds : undefined, game: leg.teams ?? leg.gameId
       })),
       ingestion: {
         origin, userTicketStatus: ticketStatus,
         observedSportsbook, userSelectedSportsbook: selectedSportsbook,
-        rawExtractedText: origin === 'screenshot' ? rawExtractedText : slipText,
+        ticketMetadata: ticketMetadata ?? undefined, analysisMode, coverageNote, recognizedLegCount: identifiedLegCount,
+        reviewedLegs: reviewedLegs.map(({ rawText: _rawText, ...safeLeg }) => safeLeg),
+        unreadableScreenshots: unresolvedScreenshots ? failedScreenshots : undefined,
+        rawExtractedText: origin === 'screenshot' ? '' : slipText,
         parsedCandidate: parsedCandidate.map((leg) => ({
-          legId: leg.legId, rawText: leg.rawText, sourceScreenshotIndex: leg.sourceScreenshotIndex, player: leg.player,
+          legId: leg.legId, sourceScreenshotIndex: leg.sourceScreenshotIndex, player: leg.player,
           league: leg.league, marketType: leg.marketType,
           threshold: leg.threshold, odds: leg.odds
         })),
-        confirmedLegs: reviewedLegs.map((leg) => ({
+        confirmedLegs: confirmed.map((leg) => ({
           legId: leg.legId, sourceScreenshotIndex: leg.sourceScreenshotIndex, league: leg.league, player: leg.player,
           marketType: leg.marketType, threshold: leg.threshold,
-          direction: leg.direction, odds: leg.odds, teams: leg.teams
+          direction: leg.direction, odds: leg.odds, teams: leg.teams ?? leg.gameId,
+          marketLabel: leg.marketLabel, unsupportedMarket: leg.unsupportedMarket, ladder: leg.ladder,
+          quotedContractPercent: leg.quotedContractPercent, contractSide: leg.contractSide
         })),
         confirmedAt: timestamp, sourceArtifactId, sourceArtifactIds
       }
     });
     // Only a reviewed draft is created. No bet placement, settlement or historical performance record.
-    const leagues = new Set(reviewedLegs.map((leg) => leg.league));
-    const sport = leagues.size === 1 ? reviewedLegs[0]?.league : nervous.sport;
+    const leagues = new Set(confirmed.map((leg) => leg.league));
+    const sport = leagues.size === 1 ? confirmed[0]?.league : nervous.sport;
     router.push(nervous.toHref('/stress-test', { sport, slip_id: slipId, trace_id: traceId }));
   };
 
@@ -535,7 +575,7 @@ export default function IngestionPage() {
                 <p key={index} className="text-xs text-amber-100">{warning}</p>
               ))}
               {ticketMetadata.pricingKind !== 'american_odds' || ticketMetadata.format === 'unknown' ? (
-                <p className="text-xs text-amber-200">Review-only mode: specialized ticket pricing and conventional X-Ray calculations are not enabled for this format.</p>
+                <p className="text-xs text-amber-200">Research-Only X-Ray: specialized ticket pricing and conventional X-Ray calculations are not enabled for this format.</p>
               ) : null}
             </div>
           ) : null}
@@ -584,18 +624,21 @@ export default function IngestionPage() {
                       {LEAGUES.map((league) => <option key={league} value={league}>{league}</option>)}
                     </select>
                   </label>
-                  <label className="block text-xs">Market
+                  {leg.unsupportedMarket ? (
+                    <div className="text-xs text-slate-300">Contract market<p className="mt-1 break-words text-sm text-slate-100">{leg.marketLabel}</p></div>
+                  ) : <label className="block text-xs">Market
                     <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       value={leg.marketLabel === 'Needs review' ? '' : leg.marketType}
                       onChange={(event) => updateLeg(leg.legId, { marketType: event.target.value as MarketType, marketLabel: event.target.value.replace(/_/g, ' ') })}>
                       <option value="" disabled>Choose a market</option>
                       {SUPPORTED_MARKET_TYPES.map((market) => <option key={market} value={market}>{market.replace(/_/g, ' ')}</option>)}
                     </select>
-                  </label>
+                  </label>}
                   <label className="block text-xs">Event / matchup (if known)
                     <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={leg.teams ?? ''}
                       onChange={(event) => updateLeg(leg.legId, { teams: event.target.value, gameId: undefined })} placeholder="Unknown" />
                   </label>
+                  {!leg.unsupportedMarket && leg.marketType !== 'moneyline' ? <>
                   <label className="block text-xs">Direction
                     <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={leg.directionObserved === false ? '' : leg.direction}
                       onChange={(event) => updateLeg(leg.legId, { direction: event.target.value as 'over' | 'under', directionObserved: true })}>
@@ -608,11 +651,12 @@ export default function IngestionPage() {
                       value={leg.thresholdObserved === false || leg.threshold < 0 ? '' : leg.threshold}
                       onChange={(event) => updateLeg(leg.legId, { threshold: event.target.value === '' ? -1 : Number(event.target.value), thresholdObserved: event.target.value !== '' })} />
                   </label>
-                  <label className="block text-xs">American odds (optional / unknown)
+                  </> : null}
+                  {!leg.unsupportedMarket && (!ticketMetadata || ticketMetadata.pricingKind === 'american_odds') ? <label className="block text-xs">American odds (optional / unknown)
                     <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       placeholder="Unknown" inputMode="numeric" value={leg.odds ?? ''}
                       onChange={(event) => updateLeg(leg.legId, { odds: event.target.value })} />
-                  </label>
+                  </label> : null}
                 </div>
                 {leg.quotedContractPercent != null ? (
                   <p className="text-xs text-amber-100">Screenshot contract quote: {leg.quotedContractPercent}% · not American odds or a calibrated win probability</p>
@@ -620,6 +664,7 @@ export default function IngestionPage() {
                 {leg.contractSide ? <p className="text-xs text-slate-300">Contract side: {leg.contractSide.toUpperCase()}</p> : null}
                 <p className="text-xs text-slate-400">Source: {leg.source} · Parser confidence: {leg.parseConfidence}. Odds are from the screenshot, not current verified prices.</p>
                 {problem ? <p className="text-xs text-amber-200" role="status">{problem}</p> : null}
+                {leg.unsupportedMarket && !problem ? <p className="text-xs text-amber-200">Confirm the displayed contract wording. Research will flag the unsupported terms.</p> : null}
                 <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
                   <input type="checkbox" checked={checked} disabled={Boolean(problem)} onChange={(event) => setConfirmedIds((current) => event.target.checked
                     ? [...current.filter((id) => id !== leg.legId), leg.legId]
@@ -645,7 +690,7 @@ export default function IngestionPage() {
           ) : null}
           <p className="text-xs text-slate-400">{confirmedIds.length} of {reviewedLegs.length} legs confirmed. Missing prices remain unknown; no payout is inferred.</p>
           {error ? <p className="rounded-lg border border-rose-400/40 bg-rose-950/20 p-3 text-sm text-rose-200" role="alert">{error}</p> : null}
-          <Button intent="primary" onClick={onAnalyze} disabled={isReading || isOcrRunning}>Analyze My Ticket</Button>
+          <Button intent="primary" onClick={onAnalyze} disabled={isReading || isOcrRunning}>{confirmedIds.length > 0 && isPartial ? 'Open Partial Research' : 'Analyze My Ticket'}</Button>
           <p className="text-xs text-slate-400">Creates a reviewed research draft, not a wager or verified betting-history record. Ticket X-Ray remains the canonical engine.</p>
         </Surface>
       ) : null}

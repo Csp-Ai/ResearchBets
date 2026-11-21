@@ -4,6 +4,7 @@ import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
 
 import { fetchJsonWithCache } from '../sources/fetchJsonWithCache';
+import { normalizePlayerKey } from '../ideas/playerAvailability';
 import { buildProvenance, type DataProvenance, type SourceReference } from '../sources/provenance';
 
 export interface GameLog {
@@ -56,7 +57,7 @@ const normalizeLog = (row: Record<string, unknown>, playerIdHint?: string): Game
   if (!playerId || !gameDate) return null;
 
   const stats: GameLog['stats'] = {};
-  const points = toNumber(row.Points ?? row.points ?? row.PTS ?? row.FantasyPointsDraftKings);
+  const points = toNumber(row.Points ?? row.points ?? row.PTS);
   const rebounds = toNumber(row.Rebounds ?? row.rebounds ?? row.REB);
   const assists = toNumber(row.Assists ?? row.assists ?? row.AST);
   const threes = toNumber(row.ThreePointersMade ?? row.threes ?? row['3PM']);
@@ -123,10 +124,11 @@ export const createSportsDataIoProvider = (options: SportsDataIoOptions = {}) =>
   const fetchPlayerLogs = async (
     sport: string,
     playerId: string,
-    ttlMs: number
-  ): Promise<{ logs: GameLog[]; source?: SourceReference }> => {
+    ttlMs: number,
+    season = '2024'
+  ): Promise<{ logs: GameLog[]; source?: SourceReference; cacheHit: boolean }> => {
     const normalizedSport = normalizeSport(sport);
-    const url = `${baseUrl}/${normalizedSport}/stats/json/PlayerGameStatsByPlayer/2024/${encodeURIComponent(playerId)}`;
+    const url = `${baseUrl}/${normalizedSport}/stats/json/PlayerGameStatsByPlayer/${encodeURIComponent(season)}/${encodeURIComponent(playerId)}`;
     const response = await fetchJsonWithCache<Record<string, unknown>[]>(url, {
       source: SOURCE,
       ttlMs,
@@ -137,6 +139,7 @@ export const createSportsDataIoProvider = (options: SportsDataIoOptions = {}) =>
     const rows = Array.isArray(response.data) ? response.data : [];
     return {
       logs: rows.map((row) => normalizeLog(row, playerId)).filter((row): row is GameLog => Boolean(row)),
+      cacheHit: response.cacheHit,
       source: { provider: SOURCE, url: response.url, retrievedAt: response.retrievedAt }
     };
   };
@@ -149,6 +152,40 @@ export const createSportsDataIoProvider = (options: SportsDataIoOptions = {}) =>
 
   return {
     id: SOURCE,
+    async fetchNbaResearchHistory(players: string[]): Promise<Map<string, ResearchGameHistory>> {
+      const history = new Map<string, ResearchGameHistory>();
+      if (!apiKey || players.length === 0) return history;
+      const directory = await fetchJsonWithCache<Record<string, unknown>[]>(`${baseUrl}/nba/scores/json/Players`, {
+        source: 'sportsdataio:nba-player-directory',
+        ttlMs: SEASON_TTL_MS,
+        headers: { 'Ocp-Apim-Subscription-Key': apiKey },
+        rateLimit: { capacity: 2, refillPerSecond: 0.5 }
+      });
+      if (!Array.isArray(directory.data)) return history;
+
+      const today = new Date();
+      const season = process.env.SPORTSDATAIO_NBA_SEASON?.trim()
+        || String(today.getUTCFullYear() + (today.getUTCMonth() >= 9 ? 1 : 0));
+      await Promise.all(players.map(async (player) => {
+        const name = normalizePlayerKey(player);
+        const matches = directory.data.filter((row) =>
+          typeof row.Name === 'string' && normalizePlayerKey(row.Name) === name);
+        const ids = [...new Set(matches.map((row) => String(row.PlayerID ?? '')).filter((id) => /^\d+$/.test(id)))];
+        if (ids.length !== 1) return;
+        try {
+          const result = await fetchPlayerLogs('NBA', ids[0]!, LOGS_TTL_MS, season);
+          const logs = dedupeAndSortLogs(result.logs.filter((log) =>
+            log.playerId === ids[0] && Number.isFinite(Date.parse(log.gameDate)) &&
+            Date.parse(log.gameDate) < today.getTime()), 10);
+          if (result.source && logs.length) {
+            history.set(name, { logs, retrievedAt: result.source.retrievedAt, cacheHit: result.cacheHit });
+          }
+        } catch {
+          // A missing player or unlicensed feed should leave the other selections usable.
+        }
+      }));
+      return history;
+    },
     async fetchRecentPlayerGameLogs(input: {
       sport: string;
       playerIds: string[];
@@ -253,3 +290,12 @@ export const createSportsDataIoProvider = (options: SportsDataIoOptions = {}) =>
 };
 
 export type SportsDataIoProvider = ReturnType<typeof createSportsDataIoProvider>;
+
+export type ResearchGameHistory = {
+  logs: GameLog[];
+  retrievedAt: string;
+  cacheHit: boolean;
+};
+
+export const fetchNbaResearchHistory = (players: string[]) =>
+  createSportsDataIoProvider().fetchNbaResearchHistory(players);
