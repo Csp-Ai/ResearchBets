@@ -4,7 +4,7 @@ import { ALIAS_KEYS, CANONICAL_KEYS } from '@/src/core/env/keys';
 import { resolveWithAliases } from '@/src/core/env/read.server';
 import { getProviderRegistry } from '@/src/core/providers/registry.server';
 import type { TodayPayload, TodayLeague } from '@/src/core/today/types';
-import { eventDay, verifiedScheduleEvents } from '@/src/core/sports/schedule';
+import { localDay, verifiedScheduleEvents } from '@/src/core/sports/schedule';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
