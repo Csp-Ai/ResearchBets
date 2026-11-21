@@ -56,7 +56,9 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
     /\bdraft\s*kings\b/i.test(text) ? 'draftkings' : null
   ].filter(Boolean);
   const brandConflict = brands.length > 1;
-  const isKalshi = brands.length === 1 && brands[0] === 'kalshi';
+  const isKalshi = !brandConflict &&
+    (brands[0] === 'kalshi' ||
+      (brands.length === 0 && /\b\d{1,2}\s+markets?\s+combo\b|\bcombo\s*[·•]\s*\d{1,2}\s+markets?\b/i.test(text)));
   const isPrizePicks = brands.length === 1 && brands[0] === 'prizepicks';
   const isDraftKings = brands.length === 1 && brands[0] === 'draftkings';
   const isSgpPlus = /\bsame game parlay\s*\+|\bsgp\s*\+|\bsgp\+/i.test(text);
@@ -64,13 +66,13 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const format: ScreenshotTicketFormat = brandConflict ? 'unknown'
     : isKalshi ? 'kalshi_combo'
     : isPrizePicks ? 'prizepicks_lineup'
-    : isDraftKings && isSgpPlus ? 'draftkings_sgp_plus'
+    : isSgpPlus ? 'draftkings_sgp_plus'
     : 'sportsbook_ticket';
 
   const pricingKind: ScreenshotPricingKind =
     isKalshi && !brandConflict ? 'prediction_contract_percent'
       : isPrizePicks && !brandConflict ? 'pickem_multiplier'
-        : isDraftKings && isSgpPlus ? 'official_sgp_price'
+        : isSgpPlus && !brandConflict ? 'official_sgp_price'
           : format === 'sportsbook_ticket' ? 'american_odds'
             : 'unavailable';
 
@@ -105,7 +107,9 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
     : null;
   const mult = text.match(/\bto\s+win\s+(\d+(?:\.\d+)?)\s*x\b/i);
   const statedMultiplier = mult?.[1] && isKalshi ? Number(mult[1]) : null;
-  const sgpOdds = isDraftKings && isSgpPlus ? text.match(/\b(?:\d+\s*leg\s*)?same game parlay\+[^\n]*?\s([+-]\d{3,5})\b/i) : null;
+  const sgpOdds = isSgpPlus && !brandConflict
+    ? text.match(/\b(?:\d+\s*leg\s*)?same game parlay\+[^\n]*?\s([+-]\d{3,5})\b/i)
+    : null;
   const officialCombinedAmericanOdds = sgpOdds?.[1] ?? null;
   const hasHiddenLegs = /\+\s*\d+\s+more markets?\b/i.test(text);
 
