@@ -89,6 +89,8 @@ export default function IngestionPage() {
   const [hasParsed, setHasParsed] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [failedScreenshots, setFailedScreenshots] = useState<number[]>([]);
+  const [failedScreenshotsReviewed, setFailedScreenshotsReviewed] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -109,19 +111,20 @@ export default function IngestionPage() {
     urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
   }, []);
 
-  const parseForReview = async (text: string, source: 'screenshot' | 'paste', screenshotParts?: string[]) => {
+  const parseForReview = async (text: string, source: 'screenshot' | 'paste', screenshotParts?: Array<{ text: string; imageIndex: number }>) => {
     if (!text.trim()) { setError('Add a screenshot or paste ticket text first.'); return; }
     setIsReading(true);
     setError(null);
     try {
       if (!identityRef.current.slipId) identityRef.current.slipId = crypto.randomUUID();
       if (!identityRef.current.traceId) identityRef.current.traceId = nervous.trace_id ?? crypto.randomUUID();
-      const segments = source === 'screenshot' && screenshotParts?.length ? screenshotParts : [text];
-      const responses = await Promise.all(segments.map(async (segment, imageIndex) => {
+      const segments = source === 'screenshot' && screenshotParts?.length
+        ? screenshotParts : [{ text, imageIndex: 0 }];
+      const responses = await Promise.all(segments.map(async (segment) => {
         const response = await fetch('/api/slips/parseText', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: segment, sourceHint: source, slip_id: identityRef.current.slipId,
+            text: segment.text, sourceHint: source, slip_id: identityRef.current.slipId,
             trace_id: identityRef.current.traceId
           })
         });
@@ -130,7 +133,7 @@ export default function IngestionPage() {
           throw new Error(payload.error?.message ?? 'Could not recognize the complete ticket.');
         }
         return payload.data.legs.map((leg) => ({
-          ...leg, sourceScreenshotIndex: source === 'screenshot' && screenshotParts ? imageIndex + 1 : undefined
+          ...leg, sourceScreenshotIndex: source === 'screenshot' && screenshotParts ? segment.imageIndex : undefined
         }));
       }));
       const candidate = cleanParsedLegs(responses.flat());
@@ -195,6 +198,7 @@ export default function IngestionPage() {
     setError(null); setNotice(null); setIsOcrRunning(true);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
     setTicketStatus('proposed'); setSourceArtifactId(undefined); setSourceArtifactIds([]);
+    setFailedScreenshots([]); setFailedScreenshotsReviewed(false);
     setObservedSportsbook('Unknown'); setSelectedSportsbook('Unknown');
     setOrigin('screenshot');
     urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
@@ -204,23 +208,36 @@ export default function IngestionPage() {
 
     try {
       const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
-      const parts: string[] = [];
+      const parts: Array<{text: string; imageIndex: number}> = [];
       const savedIds: string[] = [];
+      const failedIndexes: number[] = [];
       for (const [index, file] of files.entries()) {
         if (controller.signal.aborted) return;
         setOcrProgress('Screenshot ' + (index + 1) + ' of ' + files.length);
-        const extracted = await runOcr(file, (progress) => setOcrProgress(
-          'Screenshot ' + (index + 1) + '/' + files.length + ': ' + progress
-        ), {
-          signal: controller.signal, onWorkerChange: (worker) => { ocrWorkerRef.current = worker; }
-        });
-        parts.push(extracted);
+        try {
+          const extracted = await runOcr(file, (progress) => setOcrProgress(
+            'Screenshot ' + (index + 1) + '/' + files.length + ': ' + progress
+          ), {
+            signal: controller.signal, onWorkerChange: (worker) => { ocrWorkerRef.current = worker; }
+          });
+          parts.push({ text: extracted, imageIndex: index + 1 });
+        } catch {
+          if (controller.signal.aborted) return;
+          failedIndexes.push(index + 1);
+        }
+        if (controller.signal.aborted) return;
         const artifactId = await persistOriginal(file);
         if (artifactId) { savedIds.push(artifactId); setSourceArtifactId(artifactId); }
       }
       if (controller.signal.aborted) return;
+      setFailedScreenshots(failedIndexes);
+      setFailedScreenshotsReviewed(false);
       setSourceArtifactIds(savedIds);
-      const allText = parts.join('\n');
+      if (parts.length === 0) {
+        setError('None of the screenshots could be read. Paste ticket text or try a clearer image.');
+        return;
+      }
+      const allText = parts.map((part) => part.text).join('\n');
       setRawExtractedText(allText);
       setSlipText(allText);
       await parseForReview(allText, 'screenshot', parts);
@@ -264,6 +281,9 @@ export default function IngestionPage() {
     setError(null);
     if (!reviewedLegs.length) {
       setError('No ticket legs to analyze. Add or review a selection.'); return;
+    }
+    if (failedScreenshots.length && !failedScreenshotsReviewed) {
+      setError('Some screenshots could not be read. Compare them and confirm any missing selections were added.'); return;
     }
     const unconfirmed = reviewedLegs.filter((leg) => !confirmedIds.includes(leg.legId));
     const invalid = reviewedLegs.map((leg) => reviewProblem(leg)).filter(Boolean);
@@ -456,6 +476,19 @@ export default function IngestionPage() {
             );
           })}
           <Button intent="secondary" onClick={addMissingLeg}>+ Add missing leg</Button>
+          {failedScreenshots.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-amber-400/40 bg-amber-950/20 p-3">
+              <p className="text-sm text-amber-100" role="alert">
+                OCR failed for screenshot {failedScreenshots.join(', ')}. The ticket may be incomplete.
+                Compare the originals and add or correct any missing selections.
+              </p>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input type="checkbox" checked={failedScreenshotsReviewed}
+                  onChange={(event) => setFailedScreenshotsReviewed(event.target.checked)} />
+                I reviewed the unreadable screenshot(s) and added any missing legs.
+              </label>
+            </div>
+          ) : null}
           <p className="text-xs text-slate-400">{confirmedIds.length} of {reviewedLegs.length} legs confirmed. Missing prices remain unknown; no payout is inferred.</p>
           <Button intent="primary" onClick={onAnalyze} disabled={isReading || isOcrRunning}>Analyze My Ticket</Button>
           <p className="text-xs text-slate-400">Creates a reviewed research draft, not a wager or verified betting-history record. Ticket X-Ray remains the canonical engine.</p>
