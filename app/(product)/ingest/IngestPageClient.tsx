@@ -33,7 +33,7 @@ function cleanParsedLegs(legs: TrackedTicketLeg[]): TrackedTicketLeg[] {
   const seen = new Set<string>();
   return legs.filter((leg) => {
     // Deduplicate a repeated OCR row, never different thresholds for one player.
-    if (leg.player === 'Needs review') return true;
+    if (leg.player === 'Needs review' || !(leg.gameId || leg.teams)) return true;
     const key = keyForLeg(leg);
     if (seen.has(key)) return false;
     seen.add(key);
