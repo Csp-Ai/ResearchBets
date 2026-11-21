@@ -124,6 +124,41 @@ describe('parseSlipTextToLegs', () => {
     expect(legs.every((leg) => leg.needsReview === false)).toBe(true);
   });
 
+  it('recovers contiguous player, market and odds rows without manufacturing another leg', () => {
+    const legs = parseSlipTextToLegs([
+      'FanDuel Sportsbook',
+      'NBA',
+      'Same Game Parlay',
+      'Jayson Tatum',
+      'Over 29.5 Points',
+      '-110',
+      'Jaylen Brown',
+      'Under 7.5 Rebounds',
+      '+115',
+      'Potential Payout $39.70',
+    ].join('\n'), 'screenshot');
+    expect(legs).toHaveLength(2);
+    expect(legs.map(({player, marketType, threshold, direction, odds}) =>
+      [player, marketType, threshold, direction, odds])).toEqual([
+      ['Jayson Tatum', 'points', 29.5, 'over', '-110'],
+      ['Jaylen Brown', 'rebounds', 7.5, 'under', '+115']
+    ]);
+    expect(legs.every((leg) => leg.league === 'NBA' && leg.directionObserved === true)).toBe(true);
+  });
+
+  it('keeps direction explicitly unresolved when an OCR line omits over/under', () => {
+    const [leg] = parseSlipTextToLegs('Jayson Tatum 29.5 points -110', 'screenshot');
+    expect(leg?.directionObserved).toBe(false);
+    expect(leg?.needsReview).toBe(true);
+  });
+
+  it('never lets mixed sport headers force one sport for all legs', () => {
+    const legs = parseSlipTextToLegs(['NBA','NFL','Jayson Tatum over 20.5 points -110'].join('\n'),'screenshot');
+    expect(legs).toHaveLength(1);
+    expect(legs[0]?.league).toBe('Unknown');
+    expect(legs[0]?.needsReview).toBe(true);
+  });
+
   it('does not label an ambiguous player prop as NBA by default', () => {
     const [leg] = parseSlipTextToLegs('Unrecognized Name over 12.5 points +115', 'screenshot');
     expect(leg?.league).toBe('Unknown');
