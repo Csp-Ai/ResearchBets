@@ -13,7 +13,8 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('tesseract.js', () => ({
   createWorker: vi.fn(async (_lang: string, _oem: number, options: { logger?: (input: { status: string; progress: number }) => void }) => ({
-    recognize: vi.fn(async () => {
+    recognize: vi.fn(async (image: string | File) => {
+      if (image instanceof File && image.name === 'blurred.png') throw new Error('unreadable image');
       options.logger?.({ status: 'recognizing text', progress: 0.42 });
       return { data: { text: 'Leg A over 22.5 points\nLeg B over 5.5 assists' } };
     }),
@@ -89,6 +90,22 @@ describe('screenshot-first ResearchBets ingestion', () => {
     // Direction and threshold are visibly unresolved rather than guessed.
     expect((leg.querySelector('input[type="number"]') as HTMLInputElement).value).toBe('');
     expect(direction?.value).toBe('');
+  });
+
+  it('keeps partial OCR visible and requires acknowledgment of missing screenshot evidence', async () => {
+    renderWithProviders(<IngestionPage />);
+    const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [
+      new File(['first'], 'one.png', { type:'image/png' }),
+      new File(['unreadable'], 'blurred.png', { type:'image/png' })
+    ] } });
+    await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
+    expect(screen.getByText(/OCR failed for screenshot 2/)).toBeTruthy();
+    expect(screen.getByRole('checkbox', {name:/I reviewed the unreadable screenshot/})).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
+    expect(screen.getByText(/Some screenshots could not be read. Compare them/)).toBeTruthy();
+    const calls = vi.mocked(fetch).mock.calls.map(([input]) => String(input));
+    expect(calls.filter((path) => path.includes('/api/slips/parseText'))).toHaveLength(1);
   });
 
   it('keeps both screenshots and tracks which one produced each leg', async () => {
