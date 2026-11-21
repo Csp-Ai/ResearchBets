@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 import { NextGameBriefing } from '@/src/components/home/NextGameBriefing';
+import { TodayGamesExplorer } from '@/src/components/home/TodayGamesExplorer';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
 import { fetchTodayIdeasShared } from '@/src/core/ideas/todayIdeasClient';
 import type { MarketType } from '@/src/core/markets/marketType';
@@ -309,27 +310,29 @@ export function ResearchBetsHome() {
           </div>
         </header>
 
-        <section className="relative mt-5 overflow-hidden rounded-[32px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(12,18,29,.9),rgba(5,8,13,.94))] px-5 py-7 shadow-[0_35px_120px_rgba(0,0,0,.45)] sm:px-8 sm:py-10">
+        <TodayGamesExplorer />
+
+        <section id="research-ideas" className="relative mt-5 overflow-hidden rounded-[32px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(12,18,29,.9),rgba(5,8,13,.94))] px-5 py-7 shadow-[0_35px_120px_rgba(0,0,0,.45)] sm:px-8 sm:py-10">
           <SacredGeometry />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/[0.28] to-transparent" />
 
           <div className="relative max-w-4xl">
             <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-100/65">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,.75)]" />
-              Live slate intelligence
+              NFL / verified-market idea generator
             </div>
 
             <h1 className="mt-4 max-w-3xl text-[42px] font-semibold leading-[0.94] tracking-[-0.062em] sm:text-[64px] lg:text-[76px]">
               {loading ? 'Scanning the NFL board.' : games === 0 ? 'No live NFL slate yet.' : `I scanned ${games} games.`}
               <span className="block bg-gradient-to-r from-white via-cyan-100 to-slate-400 bg-clip-text text-transparent">
-                {games === 0 && !loading ? 'Your sportsbook ticket still works.' : 'Here are the plays worth your attention.'}
+                {games === 0 && !loading ? 'Your sportsbook ticket still works.' : 'Explore NFL markets backed by available data.'}
               </span>
             </h1>
 
             <p className="mt-5 max-w-2xl text-[15px] leading-7 text-slate-400 sm:text-[16px]">
               {games === 0 && !loading
                 ? 'Paste or scan any sportsbook ticket. ResearchBets will identify the legs, map the dependencies, and show what to repair before you lock it.'
-                : 'Live markets in. Junk lines out. ResearchBets finds useful thresholds, shows what supports them, then stress-tests the ticket before you lock it.'}
+                : 'NFL ideas use the existing market-data provider and the canonical DraftSlipStore. Quotes and injury context must be verified before acting.'}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2 text-[10px] text-slate-500">

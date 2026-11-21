@@ -21,8 +21,8 @@ describe('ProBuildPanel', () => {
     const onApply = vi.fn();
     render(<ProBuildPanel legs={legs} onApply={onApply} />);
     expect(screen.getByTestId('pro-build-panel')).toBeTruthy();
-    expect(screen.getByText(/Hit est:/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Apply 2-leg Pro'));
+    expect(screen.getAllByText(/Proxy/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText('Apply 2-leg'));
     expect(onApply).toHaveBeenCalledTimes(1);
     const picked = onApply.mock.calls[0]?.[0] as typeof legs;
     expect(picked).toHaveLength(2);
@@ -41,7 +41,7 @@ describe('ProBuildPanel', () => {
     ];
 
     render(<ProBuildPanel legs={assistHeavyLegs} onApply={onApply} />);
-    fireEvent.click(screen.getAllByText('Apply 3-leg Pro').at(-1)!);
+    fireEvent.click(screen.getAllByText('Apply 3-leg').at(-1)!);
 
     const picked = onApply.mock.calls[0]?.[0] as typeof assistHeavyLegs;
     const assistCount = picked.filter((leg) => leg.marketType === 'assists').length;
@@ -53,6 +53,6 @@ describe('ProBuildPanel', () => {
       { key: 'overleveraged', title: 'Reduce total leg count', body: 'Keep slips compact.', createdAt: '2026-01-01T00:00:00.000Z' }
     ]));
     render(<ProBuildPanel legs={legs} onApply={() => undefined} />);
-    expect(screen.getByText(/Active guardrail: Reduce total leg count/i)).toBeTruthy();
+    expect(screen.getByText(/Guardrail: Reduce total leg count/i)).toBeTruthy();
   });
 });

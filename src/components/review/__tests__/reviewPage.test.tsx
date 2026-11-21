@@ -41,9 +41,9 @@ describe('/review page', () => {
         <ReviewPage />
       </NervousSystemProvider>
     );
-    expect(screen.getByText('No settled ticket to dissect yet.')).toBeTruthy();
+    expect(screen.getByText('Settle a tracked ticket to close the loop.')).toBeTruthy();
     expect(screen.queryByText('Latest autopsy')).toBeNull();
-    const pulse = screen.getByText('Open Ticket Pulse →').getAttribute('href');
+    const pulse = screen.getByText('Open Ticket Pulse').getAttribute('href');
     expect(new URL(pulse!, 'https://example.test').searchParams.get('ticketId')).toBe('missing-ticket');
   });
 });
