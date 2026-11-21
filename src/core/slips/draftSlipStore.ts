@@ -16,6 +16,7 @@ export type DraftSlipIngestion = {
   confirmedLegs: Array<{ legId: string; league: string; player: string; marketType: string; threshold: number; direction: 'over' | 'under'; odds?: string; teams?: string }>;
   confirmedAt: string;
   sourceArtifactId?: string;
+  sourceArtifactIds?: string[];
 };
 
 export type DraftSlipState = DraftSlipIdentity & {
