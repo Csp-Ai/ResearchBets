@@ -73,6 +73,18 @@ describe('real-layout screenshot contracts (synthetic, privacy-safe text fixture
       statedMaxPayout: null, pricingKind: 'prediction_contract_percent'
     });
   });
+  it('recognizes a cropped unbranded quoted-contract list without asserting Kalshi identity', () => {
+    const meta = inspectScreenshotTicket([
+      'CHA Hornets vs ATL Hawks', 'Hawks to win 70%',
+      'ORL Magic vs BKN Nets', 'Magic to win 69%',
+      'PHX Suns vs UTA Jazz', 'Suns to win 63%'
+    ].join('\n'));
+    expect(meta.pricingKind).toBe('prediction_contract_percent');
+    expect(meta.format).toBe('kalshi_combo');
+    expect(meta.declaredLegCount).toBeNull();
+    expect(meta.warnings.join(' ')).toMatch(/brand is not independently verified/);
+  });
+
   it('separates mixed provider captures rather than inventing a unified ticket', () => {
     const meta = inspectScreenshotTicket('Kalshi 5 MARKET COMBO\nPrizePicks lineup');
     expect(meta.format).toBe('unknown');
