@@ -300,18 +300,22 @@ function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedT
         threshold: 0, thresholdObserved: true, direction: 'over',
         directionObserved: true, contractSide: 'yes',
         quotedContractPercent: win[2] ? Number(win[2]) : undefined,
-        source: sourceHint, parseConfidence: 'medium', needsReview: true,
+        source: sourceHint, parseConfidence: touchdownContract ? 'low' : 'medium', needsReview: true,
         rawText: row, teams: matchup
       });
       continue;
     }
-    const prop = row.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*\+\s+(threes?|pts?|points?|assists?|rebounds?|pra|reb\s*\+\s*asts?)(?:\s+(\d{1,3})\s*%)?$/i);
+    const prop = row.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*\+\s+(threes?|pts?|points?|assists?|rebounds?|pra|touchdowns?|reb\s*\+\s*asts?)(?:\s+(\d{1,3})\s*%)?$/i);
     if (prop) {
-      const market = canonicalMarket(prop[3]!);
+      const touchdownContract = /^touchdowns?$/i.test(prop[3]!);
+      const market = touchdownContract
+        ? { marketType: 'anytime_td' as MarketType, marketLabel: 'Touchdowns: ' + prop[2] + '+ (special contract)', inferred: false }
+        : canonicalMarket(prop[3]!);
       candidates.push({
         legId: 'leg-' + (candidates.length + 1), league,
         player: prop[1]!, rawPlayer: prop[1]!,
         marketType: market.marketType, marketLabel: market.marketLabel,
+        unsupportedMarket: touchdownContract,
         threshold: Number(prop[2]), thresholdObserved: true,
         direction: 'over', directionObserved: true, contractSide: 'yes',
         quotedContractPercent: prop[4] ? Number(prop[4]) : undefined,
