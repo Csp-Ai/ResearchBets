@@ -47,6 +47,10 @@ export async function runOcr(file: File, onProgress?: (p: string) => void, optio
     const { createWorker } = await import('tesseract.js');
     if (finished) return '';
     const activeWorker = await createWorker('eng', 1, {
+      workerPath: '/ocr-assets/worker.min.js',
+      corePath: '/ocr-assets',
+      langPath: '/ocr-assets',
+      workerBlobURL: false,
       logger: (message: { status?: string; progress?: number }) => {
         if (!finished && message.status === 'recognizing text' && typeof message.progress === 'number') {
           onProgress?.(`Reading text… ${Math.round(message.progress * 100)}%`);
