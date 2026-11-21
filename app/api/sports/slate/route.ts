@@ -45,7 +45,7 @@ async function loadSchedule(sport: keyof typeof SPORTS, timeZone: string, date: 
       const now = Date.now();
       const generatedAt = new Date(now).toISOString();
       const games = verifiedScheduleEvents(
-        (result.events ?? []) as OddsEvent[], sport as TodayLeague, timeZone, date, now,
+        (result.events ?? []) as Parameters<typeof verifiedScheduleEvents>[0], sport as TodayLeague, timeZone, date, now,
       );
       const data: TodayPayload = {
         mode: 'live',
