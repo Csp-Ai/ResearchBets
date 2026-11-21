@@ -108,6 +108,8 @@ export type TodayGame = {
   league: TodayLeague;
   status: 'live' | 'upcoming';
   startTime: string;
+  /** Provider event kickoff timestamp (UTC ISO); startTime remains local display text. */
+  startTimeISO?: string;
   matchup: string;
   teams: string[];
   bookContext: string;
