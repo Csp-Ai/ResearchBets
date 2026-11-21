@@ -91,6 +91,22 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(direction?.value).toBe('');
   });
 
+  it('keeps both screenshots and tracks which one produced each leg', async () => {
+    renderWithProviders(<IngestionPage />);
+    const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [
+      new File(['screen-one'], 'one.png', { type: 'image/png' }),
+      new File(['screen-two'], 'two.png', { type: 'image/png' })
+    ] } });
+    await waitFor(() => expect(screen.getByText(/Your Ticket · 2 legs/)).toBeTruthy());
+    expect(screen.getByText('Source: screenshot 1')).toBeTruthy();
+    expect(screen.getByText('Source: screenshot 2')).toBeTruthy();
+    expect(screen.getByText(/Possible duplicate of leg 1/)).toBeTruthy();
+    const calls = vi.mocked(fetch).mock.calls.map(([input]) => String(input));
+    expect(calls.filter((path) => path.includes('/api/slips/parseText'))).toHaveLength(2);
+    expect(calls.some((path) => path.includes('/api/bettor-memory/upload'))).toBe(false);
+  });
+
   it('extracts locally without uploading the original unless opted in', async () => {
     renderWithProviders(<IngestionPage />);
     const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
