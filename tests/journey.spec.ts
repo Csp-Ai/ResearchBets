@@ -78,7 +78,7 @@ test('special pricing keeps reviewed selections available at a narrow viewport',
   await expect(page.getByRole('heading', { name: 'Inspect Each Leg' })).toBeVisible();
   const leg = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Franz Wagner' }) });
   await leg.locator('summary').click();
-  await expect(leg.getByText('Franz Wagner', { exact: true })).toBeVisible();
+  await expect(leg.getByText(/confirmed during ticket review/i)).toBeVisible();
   await expect(page.getByText(/combined probability, payout estimates and expected value are unavailable/i)).toBeVisible();
 });
 
