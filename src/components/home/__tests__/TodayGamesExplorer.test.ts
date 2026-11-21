@@ -5,7 +5,7 @@ import type { TodayPayload } from '@/src/core/today/types';
 
 const now = new Date();
 const formatted = localCalendarDate('America/Phoenix', now);
-const kickoff = new Date(now.getTime() + 60_000).toISOString();
+const kickoff = new Date(`${formatted}T20:00:00Z`).toISOString();
 const anotherDay = new Date(now.getTime() + 2 * 86_400_000).toISOString();
 function payload(mode: TodayPayload['mode'] = 'live'): TodayPayload {
   return {
