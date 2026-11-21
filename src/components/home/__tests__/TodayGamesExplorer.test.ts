@@ -11,12 +11,14 @@ function payload(mode: TodayPayload['mode'] = 'live'): TodayPayload {
   return {
     mode,
     generatedAt: now.toISOString(),
+    reason: 'schedule_only',
+    provenance: { mode, reason: 'schedule_only', generatedAt: now.toISOString() },
     intent: { mode, date: formatted, tz: 'America/Phoenix', sport: 'NBA' },
     leagues: ['NBA'],
     games: [
       { id: 'verified', league: 'NBA', status: 'upcoming', startTime: 'Today 7:00 PM',
         startTimeISO: kickoff, matchup: 'Away @ Home', teams: ['Away','Home'],
-        bookContext: '', propsPreview: [], provenance: 'provider', lastUpdated: now.toISOString() },
+        bookContext: '', propsPreview: [], provenance: 'the-odds-api', lastUpdated: now.toISOString() },
       { id: 'tomorrow', league: 'NBA', status: 'upcoming', startTime: 'Tomorrow',
         startTimeISO: anotherDay, matchup: 'Next @ Later', teams: ['Next','Later'],
         bookContext: '', propsPreview: [], provenance: 'provider', lastUpdated: now.toISOString() }
