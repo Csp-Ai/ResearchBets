@@ -92,7 +92,7 @@ async function loadSchedule(sport: keyof typeof SPORTS, timeZone: string, date: 
       );
       if (!apiKey) throw new Error('provider_not_configured');
       const provider = getProviderRegistry().oddsProvider;
-      const result = await provider.fetchEvents({ sport: SPORTS[sport] });
+      const result = await provider.fetchEvents({ sport: SPORTS[sport]! });
       if (result.fallbackReason || provider.id !== 'the-odds-api') {
         throw new Error('provider_degraded');
       }
