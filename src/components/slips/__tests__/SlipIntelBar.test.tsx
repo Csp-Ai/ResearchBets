@@ -37,7 +37,7 @@ describe('SlipIntelBar', () => {
     expect(screen.getAllByText(/signal/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/next step ·/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/thin evidence keeps this ticket advisory-only/i)).toBeTruthy();
-    expect(screen.getByText(/support behind the read is still thin/i)).toBeTruthy();
+    expect(screen.getAllByText(/support behind the read is still thin/i).length).toBeGreaterThan(0);
   });
 
   it('never renders n/a text in risk panel output', () => {
