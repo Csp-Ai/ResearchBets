@@ -297,7 +297,7 @@ function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedT
       });
       continue;
     }
-    const win = selection.match(/^(.+?)\s+to\s+win(?:\s+(\d{1,3})\s*%)?$/i);
+    const win = selection.match(/^(.+?)\s+to\s+win(?:\s*:?\s*(\d{1,3})\s*%)?$/i);
     if (win && !/^(?:cost|max payout|cash|open|position)/i.test(win[1]!)) {
       candidates.push({
         legId: 'leg-' + (candidates.length + 1), league,

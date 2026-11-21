@@ -7,7 +7,7 @@ import { inspectScreenshotTicket, screenshotCoverage } from '../screenshotTicket
 describe('screenshot contracts (sanitized transcriptions and synthetic text variants)', () => {
   it('keeps Kalshi 10-market cost, max payout and contract percentage separate from sports odds', () => {
     const meta = inspectScreenshotTicket([
-      '10 MARKET COMBO', 'Kalshi', 'COST $9.73', 'MAXIMUM PAYOUT $9,090.90',
+      '10-market combo', 'Kalshi', 'COST $9.73', 'MAXIMUM PAYOUT $9,090.90',
       'OPEN POSITION', 'NCAA Football', 'Western Carolina to win 83%',
       'UC Davis to win 81%', 'Army to win 68%', 'Memphis to win 57%'
     ].join('\n'));

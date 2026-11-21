@@ -163,8 +163,8 @@ describe('parseSlipTextToLegs', () => {
     const legs = parseSlipTextToLegs([
       '10 MARKET COMBO', 'Kalshi', 'COST $12.40', 'MAX PAYOUT $1,234.56',
       'NCAA Football',
-      'The Citadel at Western Carolina', 'Western Carolina to win 83%',
-      'Cal Poly at UC Davis', 'UC Davis to win 81%',
+      'The Citadel at Western Carolina', 'Western Carolina to win: 83%',
+      'Cal Poly at UC Davis', 'UC Davis to win: 81%',
       'East Carolina at Army', 'Army to win 68%',
       'Memphis at Navy', 'Memphis to win 57%'
     ].join('\n'),'screenshot');

@@ -60,11 +60,11 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
     /\bfan\s*duel\b/i.test(text) ? 'fanduel' : null
   ].filter(Boolean);
   const brandConflict = brands.length > 1;
-  const quotedWinContracts = (text.match(/\bto\s+win\s+\d{1,3}\s*%(?!\w)/gi) ?? []).length;
+  const quotedWinContracts = (text.match(/\bto\s+win\s*:?\s*\d{1,3}\s*%(?!\w)/gi) ?? []).length;
   const isKalshi = !brandConflict &&
     (brands[0] === 'kalshi' ||
       (brands.length === 0 && (
-        /\b\d{1,2}\s+markets?\s+combo\b|\bcombo\s*[·•]\s*\d{1,2}\s+markets?\b/i.test(text) ||
+        /\b\d{1,2}(?:\s+|-)markets?\s+combo\b|\bcombo\s*[·•]\s*\d{1,2}(?:\s+|-)markets?\b/i.test(text) ||
         quotedWinContracts >= 2
       )));
   const layoutSuggestsPickem = /(?:↑|⬆)\s*\d+(?:\.\d+)?\s*(?:fantasy\s*score|reb\s*\+\s*asts?|pra)\b/i.test(text);
@@ -89,8 +89,8 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
 
   const rows = text.split('\n').map((row) => row.trim());
   const headings = rows.flatMap((row, index) => {
-    const match = row.match(/^(\d{1,2})\s+markets?\s+combo\b/i)
-      ?? row.match(/^combo\s*[·•]\s*(\d{1,2})\s+markets?\b/i)
+    const match = row.match(/^(\d{1,2})(?:\s+|-)markets?\s+combo\b/i)
+      ?? row.match(/^combo\s*[·•]\s*(\d{1,2})(?:\s+|-)markets?\b/i)
       ?? row.match(/^(\d{1,2})(?:\s+|-)legs?\s+(?:same game parlay|sgp|parlay)(?=\s|\+|$)/i);
     const count = Number(match?.[1]);
     return count > 0 && count <= 30 ? [{ count, index, text: row }] : [];
