@@ -44,6 +44,7 @@ describe('smoke: screenshot/paste review to X-Ray', () => {
       }
     }), { status: 200 })));
     renderWithProviders(<IngestionPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target: { value: 'Unreadable screenshot text' }
     });
@@ -65,6 +66,7 @@ describe('smoke: screenshot/paste review to X-Ray', () => {
       }
     }), { status: 200 })));
     renderWithProviders(<IngestionPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target: { value: 'FanDuel Sportsbook\n' + validLeg.rawText }
     });
