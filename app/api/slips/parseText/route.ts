@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { applyRateLimit } from '@/src/core/http/rateLimit';
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -10,7 +11,7 @@ import type { TrackedTicket } from '@/src/core/track/types';
 import { spineFromRequest } from '@/src/core/contracts/contextSpine';
 
 const schema = z.object({
-  text: z.string().trim().min(1),
+  text: z.string().trim().min(1).max(20_000),
   sourceHint: z.string().trim().min(1).optional(),
   trace_id: z.string().trim().min(1).optional(),
   anon_session_id: z.string().trim().min(1).optional(),
@@ -26,6 +27,8 @@ function buildTicketId(raw: string, createdAt: string) {
 }
 
 export async function POST(request: Request) {
+  const limited = applyRateLimit(request, { route: 'slips:parseText', limit: 20 });
+  if (limited) return limited;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
