@@ -8,8 +8,18 @@ export type DraftSlipIdentity = {
   trace_id?: string;
 };
 
+export type DraftSlipIngestion = {
+  origin: 'screenshot' | 'paste';
+  userTicketStatus: 'proposed' | 'placed' | 'live' | 'settled' | 'unknown';
+  rawExtractedText: string;
+  parsedCandidate: Array<{ legId: string; rawText?: string; player: string; league: string; marketType: string; threshold: number; odds?: string }>;
+  confirmedAt: string;
+  sourceArtifactId?: string;
+};
+
 export type DraftSlipState = DraftSlipIdentity & {
   legs: SlipBuilderLeg[];
+  ingestion?: DraftSlipIngestion;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -42,6 +52,7 @@ const issueIdentity = (state: DraftSlipState): DraftSlipState => {
   const now = state.updatedAt ?? new Date().toISOString();
   return {
     legs: dedupe(state.legs),
+    ingestion: state.ingestion,
     slip_id: state.slip_id ?? crypto.randomUUID(),
     trace_id: state.trace_id ?? crypto.randomUUID(),
     createdAt: state.createdAt ?? now,
@@ -61,6 +72,10 @@ const normalizeState = (input: unknown): DraftSlipState => {
 
   return {
     legs,
+    ingestion: record.ingestion && typeof record.ingestion === 'object' &&
+      (record.ingestion.origin === 'screenshot' || record.ingestion.origin === 'paste')
+      ? record.ingestion as DraftSlipIngestion
+      : undefined,
     slip_id: asValidId(record.slip_id),
     trace_id: asValidId(record.trace_id),
     createdAt: asValidId(record.createdAt),
