@@ -76,8 +76,10 @@ test('special pricing keeps reviewed selections available at a narrow viewport',
   await page.getByRole('button', { name: 'Analyze My Ticket' }).click();
   await expect(page.getByRole('heading', { name: 'Research-Only X-Ray' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Inspect Each Leg' })).toBeVisible();
-  await expect(page.getByText(/Franz Wagner/i).last()).toBeVisible();
-  await expect(page.getByText(/combined payout/i)).toHaveCount(0);
+  const leg = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Franz Wagner' }) });
+  await leg.locator('summary').click();
+  await expect(leg.getByText('Franz Wagner', { exact: true })).toBeVisible();
+  await expect(page.getByText(/combined probability, payout estimates and expected value are unavailable/i)).toBeVisible();
 });
 
 test('a Kalshi capture with missing selections opens Partial Research', async ({ page }: { page: any }) => {
@@ -92,7 +94,9 @@ test('a Kalshi capture with missing selections opens Partial Research', async ({
   await confirmations.first().check();
   await page.getByRole('button', { name: 'Open Partial Research' }).click();
   await expect(page.getByRole('heading', { name: 'Incomplete Ticket Review' })).toBeVisible();
-  await expect(page.getByText(/2 of 10 selections recognized/i)).toBeVisible();
+  await expect(page.getByText('2 of 10 selections recognized. 1 confirmed.', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 of 10 selections recognized. 8 selections still need review.', { exact: true })).toBeVisible();
   await expect(page.getByText(/Partial Research · confirmed selections only/i)).toBeVisible();
-  await expect(page.getByText(/Western Carolina/i).last()).toBeVisible();
+  await expect(page.locator('summary').filter({ hasText: 'Western Carolina' })).toBeVisible();
+  await expect(page.locator('summary').filter({ hasText: 'UC Davis' })).toHaveCount(0);
 });
