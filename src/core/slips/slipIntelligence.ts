@@ -86,7 +86,7 @@ export const inferGameKey = (
   leg: Pick<SlipIntelLeg, 'game' | 'game_id' | 'event_id' | 'matchup' | 'home' | 'away'>
 ): string => {
   const explicitGameId = normalizeMatchupLabel(leg.game_id ?? leg.game);
-  if (explicitGameId) return explicitGameId;
+  if (explicitGameId && !/^(?:unknown|n\/?a|unlabeled game|game:unlabeled|null|undefined)$/i.test(explicitGameId)) return explicitGameId;
 
   const eventId = normalizeMatchupLabel(leg.event_id);
   if (eventId) return `event:${eventId}`;
@@ -100,12 +100,12 @@ export const inferGameKey = (
 
 export const inferPlayerKey = (leg: Pick<SlipIntelLeg, 'player' | 'selection'>): string => {
   const player = normalizeMatchupLabel(leg.player);
-  if (player) return `player:${player}`;
+  if (player && !/^(?:unknown|needs review|player|n\/?a)$/i.test(player)) return `player:${player}`;
 
   const selection = normalizeMatchupLabel(leg.selection);
   if (selection) return `selection:${selection}`;
 
-  return 'player:unknown';
+  return '';
 };
 
 const lineLooksAlt = (line?: string): boolean => {
@@ -197,8 +197,8 @@ export function buildSlipStructureReport(
 
     const playerKey = inferPlayerKey(intelLeg);
     const nextPlayerCount = (playerCounts.get(playerKey) ?? 0) + 1;
-    playerCounts.set(playerKey, nextPlayerCount);
-    if (nextPlayerCount > 1) duplicatePlayerLegs += 1;
+    if (playerKey) playerCounts.set(playerKey, nextPlayerCount);
+    if (playerKey && nextPlayerCount > 1) duplicatePlayerLegs += 1;
 
     const odds = parseAmericanOdds(typeof leg.odds === 'number' ? `${leg.odds}` : leg.odds);
     if (odds !== null && odds >= 150) longshotLegs += 1;
@@ -233,7 +233,8 @@ export function buildSlipStructureReport(
         flags.push('aggressive_line');
         localFragility += 16;
       }
-      if ((playerCounts.get(inferPlayerKey(toIntelLeg(leg))) ?? 0) > 1) {
+      const knownPlayerKey = inferPlayerKey(toIntelLeg(leg));
+      if (knownPlayerKey && (playerCounts.get(knownPlayerKey) ?? 0) > 1) {
         flags.push('same_player_dependency');
         localFragility += 18;
       }
@@ -262,7 +263,7 @@ export function buildSlipStructureReport(
     for (let j = i + 1; j < legs.length; j += 1) {
       const a = legs[i]!;
       const b = legs[j]!;
-      if (inferPlayerKey(toIntelLeg(a)) === inferPlayerKey(toIntelLeg(b))) {
+      if (inferPlayerKey(toIntelLeg(a)) && inferPlayerKey(toIntelLeg(a)) === inferPlayerKey(toIntelLeg(b))) {
         correlation_edges.push({
           a_leg_id: a.leg_id,
           b_leg_id: b.leg_id,
