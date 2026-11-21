@@ -431,11 +431,6 @@ export default function IngestionPage() {
               {ticketMetadata.statedMaxPayout != null ? <p className="text-xs text-slate-300">Screenshot stated maximum payout: ${ticketMetadata.statedMaxPayout.toFixed(2)} (not independently verified)</p> : null}
               {ticketMetadata.officialCombinedAmericanOdds ? <p className="text-xs text-slate-300">Screenshot SGP+ combined price: {ticketMetadata.officialCombinedAmericanOdds} (not a per-leg price)</p> : null}
               {ticketMetadata.statedMultiplier != null ? <p className="text-xs text-slate-300">Screenshot displayed multiplier: {ticketMetadata.statedMultiplier}× (terms unverified)</p> : null}
-              {screenshotCoverage(ticketMetadata, reviewedLegs.length).note ? (
-                <p role="alert" className="text-xs font-medium text-amber-200">
-                  {screenshotCoverage(ticketMetadata, reviewedLegs.length).note}
-                </p>
-              ) : null}
               {ticketMetadata.warnings.map((warning, index) => (
                 <p key={index} className="text-xs text-amber-100">{warning}</p>
               ))}
