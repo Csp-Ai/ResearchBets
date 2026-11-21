@@ -4,23 +4,23 @@ import { inspectScreenshotTicket, screenshotCoverage } from '../screenshotTicket
 // Public selection descriptions transcribed from privately supplied screenshots.
 // No phone UI, contacts, personal messages, account identifiers, links or raw
 // screenshot bytes are stored in this public repository.
-describe('real-layout screenshot contracts (redacted OCR fixtures)', () => {
+describe('real-layout screenshot contracts (synthetic, privacy-safe text fixtures)', () => {
   it('keeps Kalshi 10-market cost, max payout and contract percentage separate from sports odds', () => {
     const meta = inspectScreenshotTicket([
-      '10 MARKET COMBO', 'Kalshi', 'COST $9.73', 'MAX PAYOUT $9,090.90',
+      '10 MARKET COMBO', 'Kalshi', 'COST $12.40', 'MAX PAYOUT $1,234.56',
       'OPEN POSITION', 'NCAA Football', 'Western Carolina to win 83%',
       'UC Davis to win 81%', 'Army to win 68%', 'Memphis to win 57%'
     ].join('\n'));
     expect(meta).toMatchObject({
       format: 'kalshi_combo', pricingKind: 'prediction_contract_percent',
-      declaredLegCount: 10, cost: 9.73, statedMaxPayout: 9090.90,
+      declaredLegCount: 10, cost: 12.40, statedMaxPayout: 1234.56,
       screenshotState: 'open_position'
     });
     expect(screenshotCoverage(meta, 4)).toMatchObject({ missingCount: 6, incomplete: true });
   });
   it('detects incomplete 12-market combo and does not manufacture its hidden selections', () => {
     const meta = inspectScreenshotTicket([
-      '12 MARKET COMBO', 'Kalshi', 'COST $9.95', 'MAX PAYOUT $1,162.79',
+      '12 MARKET COMBO', 'Kalshi', 'COST $18.25', 'MAX PAYOUT $2,145.75',
       'OPEN POSITION', 'Tyrese Proctor: 2+ threes 62%',
       'CLE Cavaliers to win 68%', '+10 more markets'
     ].join('\n'));
@@ -63,13 +63,13 @@ describe('real-layout screenshot contracts (redacted OCR fixtures)', () => {
   });
   it('does not confuse live contract cost, potential return, and stated multiplier', () => {
     const meta = inspectScreenshotTicket([
-      'Combo · 5 Markets', 'Kalshi', 'Cost $10.16',
-      'To win 26.78X', '$272.03', 'Suns to win 90%',
+      'Combo · 5 Markets', 'Kalshi', 'Cost $12.50',
+      'To win 26.78X', '$334.75', 'Suns to win 90%',
       'Ravens to win 30%'
     ].join('\n'));
     expect(meta).toMatchObject({
       format: 'kalshi_combo', declaredLegCount: 5,
-      cost: 10.16, statedMultiplier: 26.78,
+      cost: 12.50, statedMultiplier: 26.78,
       statedMaxPayout: null, pricingKind: 'prediction_contract_percent'
     });
   });
