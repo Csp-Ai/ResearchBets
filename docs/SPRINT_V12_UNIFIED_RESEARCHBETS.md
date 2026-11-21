@@ -24,3 +24,14 @@ The ResearchBets preview branch sets `basePath: '/research-bets'` only on its ex
 6. Production needs a stable paired Next.js deployment, full regression evidence and explicit release authorization. **NO-GO** on production while these items remain open.
 
 The two integration branches intentionally target their respective already-open screenshot integrity branches as dependent review slices, rather than rewriting the main branch or merging unreviewed work.
+
+
+## Independently verified at the latest code (2026-11-21)
+
+- ResearchBets isolated Vercel sandbox: `npm ci`; **`npm run check` exit 0**, including lint, font/toHref/UI/convergence guards, `tsc --noEmit`, **773/773 Vitest tests (243 test files)**, and optimized Next.js production build. Existing stale review/build/Today tests were corrected against current product behavior; the 12 previously failing assertions were reproduced unchanged on the parent branch before corrections.
+- Integration-zone build: `VERCEL_GIT_COMMIT_REF=feat/v12-unified-sports-entry-20261121 npm run build` exit 0; `.next/routes-manifest.json` reports **`basePath=/research-bets`**.
+- Integration-zone runtime (with explicit `RESEARCHBETS_BENDER_MOUNT=1` at startup): `/` returned 404, `/research-bets` returned 200, `/research-bets/ingest` returned 200, `/research-bets/api/health` returned 200. `/research-bets/api/sports/slate?sport=NFL` returned 503 **as expected** because the isolated sandbox has no provider keys; no fabricated fixtures.
+- Vercel project now has branch-scoped preview env `RESEARCHBETS_BENDER_MOUNT=1`. This setting must be present at both build and runtime. It does **not** change the standalone ResearchBets production project.
+- Paired Bender isolated sandbox: **77/77 JavaScript tests**, **30/30 Python tests** (after declared dependencies installed), **5/5 headless Chromium viewport scenarios** and **7/7 browser fault scenarios**. These exercise existing Bender functionality with mock feeds, not deployed cross-zone auth/proxy operation.
+
+**Release remains NO-GO:** official Vercel deployment/build API quota HTTP 402; protected branch-preview upstream cannot serve public Bender reverse-proxy traffic without a stable publicly accessible integration-zone deployment. Real screenshots, same-origin browser navigation/API POST/cookie preservation and physical iPhone QA still need release-candidate testing. Do not merge simply because sandbox tests passed.
