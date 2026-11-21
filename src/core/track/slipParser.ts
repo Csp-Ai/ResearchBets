@@ -300,7 +300,7 @@ function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedT
         threshold: 0, thresholdObserved: true, direction: 'over',
         directionObserved: true, contractSide: 'yes',
         quotedContractPercent: win[2] ? Number(win[2]) : undefined,
-        source: sourceHint, parseConfidence: touchdownContract ? 'low' : 'medium', needsReview: true,
+        source: sourceHint, parseConfidence: 'medium', needsReview: true,
         rawText: row, teams: matchup
       });
       continue;
@@ -319,7 +319,7 @@ function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedT
         threshold: Number(prop[2]), thresholdObserved: true,
         direction: 'over', directionObserved: true, contractSide: 'yes',
         quotedContractPercent: prop[4] ? Number(prop[4]) : undefined,
-        source: sourceHint, parseConfidence: 'medium', needsReview: true,
+        source: sourceHint, parseConfidence: touchdownContract ? 'low' : 'medium', needsReview: true,
         rawText: row, teams: matchup
       });
     }
