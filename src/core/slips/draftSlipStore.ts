@@ -11,6 +11,8 @@ export type DraftSlipIdentity = {
 export type DraftSlipIngestion = {
   origin: 'screenshot' | 'paste';
   userTicketStatus: 'proposed' | 'placed' | 'live' | 'settled' | 'unknown';
+  observedSportsbook?: string;
+  userSelectedSportsbook?: string;
   rawExtractedText: string;
   parsedCandidate: Array<{ legId: string; rawText?: string; sourceScreenshotIndex?: number; player: string; league: string; marketType: string; threshold: number; odds?: string }>;
   confirmedLegs: Array<{ legId: string; sourceScreenshotIndex?: number; league: string; player: string; marketType: string; threshold: number; direction: 'over' | 'under'; odds?: string; teams?: string }>;
