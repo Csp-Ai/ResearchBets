@@ -148,8 +148,10 @@ function parseOdds(lines: ParserSourceTextLine[]): ParserFieldValue<number | nul
 
 function deriveStatus(lines: ParserSourceTextLine[]): ParserFieldValue<SlipStatus> {
   const joined = lines.map((line) => line.normalized).join(' ');
-  if (/settled|won|you won/.test(joined)) return parserField('won', 0.65, null, 'inferred');
-  if (/lost|you lost/.test(joined)) return parserField('lost', 0.65, null, 'inferred');
+  if (/\b(?:you won|won)\b/.test(joined)) return parserField('won', 0.65, null, 'inferred');
+  if (/\b(?:you lost|lost)\b/.test(joined)) return parserField('lost', 0.65, null, 'inferred');
+  // "Settled" states lifecycle, not outcome. Leave the result unknown for review.
+  if (/\bsettled\b/.test(joined)) return parserField('unknown', null, null, 'inferred');
   if (/open|live/.test(joined)) return parserField('open', 0.55, null, 'inferred');
   return parserField('unknown', 0.3, null, 'inferred');
 }
