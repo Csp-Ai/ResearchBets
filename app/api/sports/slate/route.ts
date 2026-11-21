@@ -128,7 +128,7 @@ async function loadSchedule(sport: keyof typeof SPORTS, timeZone: string, date: 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const sport = (params.get('sport') ?? '').toUpperCase();
-  if (!Object.hasOwn(SPORTS, sport)) {
+  if (!Object.prototype.hasOwnProperty.call(SPORTS, sport)) {
     return NextResponse.json({ ok: false, reason: 'unsupported_sport' }, { status: 400 });
   }
   const timeZone = params.get('tz') || 'America/Phoenix';
