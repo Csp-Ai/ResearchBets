@@ -11,6 +11,7 @@ import { Surface } from '@/src/components/ui/surface';
 import { SUPPORTED_MARKET_TYPES, type MarketType } from '@/src/core/markets/marketType';
 import type { TrackedTicket, TrackedTicketLeg } from '@/src/core/track/types';
 import { inspectScreenshotTicket, screenshotCoverage, type ScreenshotTicketMetadata } from '@/src/core/track/screenshotTicketMetadata';
+import { summarizeScreenshotPreflight } from '@/src/core/track/screenshotPreflight';
 
 type ParseTextResponse = {
   ok: boolean;
@@ -342,6 +343,7 @@ export default function IngestionPage() {
     router.push(nervous.toHref('/stress-test', { sport, slip_id: slipId, trace_id: traceId }));
   };
 
+  const preflight = ticketMetadata ? summarizeScreenshotPreflight(ticketMetadata, reviewedLegs) : null;
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-3 py-4 pb-24 sm:px-5 md:py-8">
       <header className="space-y-2">
@@ -406,6 +408,16 @@ export default function IngestionPage() {
           </div>
           {ticketMetadata ? (
             <div className="space-y-2 rounded-lg border border-white/20 bg-white/[0.04] p-3">
+              {preflight ? (
+                <div className="space-y-1 border-b border-white/10 pb-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-200">ResearchBets Read · Preliminary</p>
+                  <h3 className="text-sm font-semibold">{preflight.title}</h3>
+                  <p className="text-xs text-slate-300">{preflight.read}</p>
+                  <p className="text-xs text-amber-100"><strong>Primary pressure:</strong> {preflight.primaryPressure}</p>
+                  <p className="text-xs text-slate-200"><strong>Suggested next action:</strong> {preflight.nextAction}</p>
+                  <p className="text-[11px] text-slate-400">This is a screenshot-integrity preflight, not verified market research, a wager recommendation or a calibrated probability.</p>
+                </div>
+              ) : null}
               <h3 className="text-sm font-semibold">Ticket structure</h3>
               <p className="text-xs text-slate-300">
                 Detected format: {ticketMetadata.format.replace(/_/g, ' ')} ·
