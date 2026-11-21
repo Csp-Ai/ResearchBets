@@ -186,6 +186,23 @@ describe('parseSlipTextToLegs', () => {
     expect(legs.every(l => l.contractSide === 'yes' && l.odds === undefined)).toBe(true);
   });
 
+  it('keeps multi-touchdown contracts and 100% quote labels without marking outcomes won', () => {
+    const legs = parseSlipTextToLegs([
+      'Combo · 5 Markets', 'Kalshi',
+      'LA Chargers vs BAL Ravens',
+      'Derrick Henry 2+ touchdowns 100%',
+      'BAL Ravens to win 30%'
+    ].join('\n'), 'screenshot');
+    expect(legs).toHaveLength(2);
+    expect(legs[0]).toMatchObject({
+      player:'Derrick Henry',marketType:'anytime_td',threshold:2,
+      quotedContractPercent:100,unsupportedMarket:true,needsReview:true
+    });
+    expect(legs[0]?.marketLabel).toMatch(/special contract/);
+    expect(legs[0]?.odds).toBeUndefined();
+    expect(legs[1]?.quotedContractPercent).toBe(30);
+  });
+
   it('preserves Kalshi NO contract direction without converting it to an Under bet', () => {
     const legs = parseSlipTextToLegs([
       '4 MARKET COMBO', 'Kalshi', 'POSITION CLOSED',
