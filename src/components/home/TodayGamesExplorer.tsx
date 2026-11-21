@@ -109,7 +109,7 @@ export function TodayGamesExplorer() {
         <a href="#todays-games"
           className="rounded-2xl border border-white/15 bg-white/[.045] p-5 transition hover:border-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           <span className="text-[10px] font-semibold uppercase tracking-[.16em] text-slate-400">02 / VERIFIED SLATE</span>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Explore Today's Games</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Explore Today’s Games</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">See supported sports scheduled today, without entering a game or a market manually.</p>
         </a>
       </div>
@@ -117,7 +117,7 @@ export function TodayGamesExplorer() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-cyan-200/70">Date-aware sports research</div>
-            <h2 className="mt-1 text-xl font-semibold text-white">Today's verified games</h2>
+            <h2 className="mt-1 text-xl font-semibold text-white">Today’s verified games</h2>
             <p className="mt-1 text-xs text-slate-400">{date || 'Checking date'} · {timeZone} · {allLoaded ? `${totalVerified} verified across supported feeds` : 'Checking provider coverage'}</p>
           </div>
           <button type="button" onClick={() => { setDate(localCalendarDate(timeZone)); setRevision((value) => value + 1); }}
