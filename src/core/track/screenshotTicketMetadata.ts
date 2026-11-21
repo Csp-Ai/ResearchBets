@@ -77,17 +77,13 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
             : 'unavailable';
 
   const counts: number[] = [];
-  for (const m of text.matchAll(/\b(?:combo\s*[·•]\s*|(?:(?:\d+)\s*)?)(\d{1,2})\s*(?:markets?\s*combo|leg(?:s)?\s+same game parlay\+|markets?)\b/gi)) {
-    const n = Number(m[1]);
-    if (n > 0 && n <= 30) counts.push(n);
-  }
-  // Explicit alternative heading: "10 MARKET COMBO"
-  for (const m of text.matchAll(/\b(\d{1,2})\s+markets?\s+combo\b/gi)) {
-    const n = Number(m[1]);
-    if (n > 0 && n <= 30) counts.push(n);
-  }
-  for (const m of text.matchAll(/\bcombo\s*[·•]\s*(\d{1,2})\s+markets?\b/gi)) {
-    const n = Number(m[1]);
+  for (const sourceLine of text.split('\n')) {
+    const row = sourceLine.trim();
+    const heading = row.match(/^(\d{1,2})\s+markets?\s+combo\b/i)
+      ?? row.match(/^(\d{1,2})\s+leg(?:s)?\s+same game parlay\+/i);
+    const reverseHeading = row.match(/^combo\s*[·•]\s*(\d{1,2})\s+markets?\b/i);
+    const raw = heading?.[1] ?? reverseHeading?.[1];
+    const n = raw ? Number(raw) : 0;
     if (n > 0 && n <= 30) counts.push(n);
   }
   const uniqueCounts = Array.from(new Set(counts));
