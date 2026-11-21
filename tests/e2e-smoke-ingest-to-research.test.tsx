@@ -87,6 +87,11 @@ describe('smoke: screenshot/paste review to X-Ray', () => {
     });
     expect(tracked.slip_id).toBe(draft.slip_id);
     expect(tracked.trace_id).toBe(draft.trace_id);
+    expect(tracked.sourceHint).toBe('paste');
+    expect(tracked.provenance?.source_type).toBe('parser_derived');
+    expect(tracked.provenance?.review_state).toBe('reviewed');
+    expect(tracked.legs[0]?.source).toBe('paste_reviewed');
+    expect(tracked.legs[0]?.league).toBe('NBA');
     expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/api/slips/submit'))).toBe(false);
   });
 });
