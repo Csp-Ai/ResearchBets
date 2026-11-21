@@ -82,6 +82,7 @@ export default function IngestionPage() {
   const fromBender = searchParams.get('entry') === 'bender';
   const prefill = useMemo(() => searchParams.get('prefill') ?? '', [searchParams]);
   const [slipText, setSlipText] = useState(prefill);
+  const [showText, setShowText] = useState(Boolean(prefill));
   const [rawExtractedText, setRawExtractedText] = useState('');
   const [origin, setOrigin] = useState<'screenshot' | 'paste'>('paste');
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('proposed');
@@ -99,11 +100,18 @@ export default function IngestionPage() {
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [savingNotice, setSavingNotice] = useState<string | null>(null);
   const [saveOriginal, setSaveOriginal] = useState(false);
   const [sourceArtifactId, setSourceArtifactId] = useState<string | undefined>();
   const [sourceArtifactIds, setSourceArtifactIds] = useState<string[]>([]);
+  const [canRetry, setCanRetry] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const uploadInput = useRef<HTMLInputElement | null>(null);
+  const replacementInput = useRef<HTMLInputElement | null>(null);
+  const replacementIndex = useRef(0);
+  const filesRef = useRef<File[]>([]);
+  const extractedByFile = useRef(new Map<File, string>());
+  const savedByFile = useRef(new Map<File, string>());
   const cameraInput = useRef<HTMLInputElement | null>(null);
   const ocrWorkerRef = useRef<{ terminate: () => Promise<unknown> } | null>(null);
   const ocrControllerRef = useRef<AbortController | null>(null);
@@ -116,7 +124,7 @@ export default function IngestionPage() {
     urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
   }, []);
 
-  const parseForReview = async (text: string, source: 'screenshot' | 'paste', screenshotParts?: Array<{ text: string; imageIndex: number }>) => {
+  const parseForReview = async (text: string, source: 'screenshot' | 'paste', screenshotParts?: Array<{ text: string; imageIndex: number }>, signal?: AbortSignal) => {
     if (!text.trim()) { setError('Add a screenshot or paste ticket text first.'); return; }
     setIsReading(true);
     setError(null);
@@ -125,9 +133,9 @@ export default function IngestionPage() {
       if (!identityRef.current.traceId) identityRef.current.traceId = nervous.trace_id ?? crypto.randomUUID();
       const segments = source === 'screenshot' && screenshotParts?.length
         ? screenshotParts : [{ text, imageIndex: 0 }];
-      const responses = await Promise.all(segments.map(async (segment) => {
+      const responses = await Promise.allSettled(segments.map(async (segment) => {
         const response = await fetch('/api/slips/parseText', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
           body: JSON.stringify({
             text: segment.text, sourceHint: source, slip_id: identityRef.current.slipId,
             trace_id: identityRef.current.traceId
@@ -141,7 +149,21 @@ export default function IngestionPage() {
           ...leg, sourceScreenshotIndex: source === 'screenshot' && screenshotParts ? segment.imageIndex : undefined
         }));
       }));
-      const candidate = cleanParsedLegs(responses.flat());
+      if (signal?.aborted) return;
+      const successful = responses.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+      const failed = responses.flatMap((result, index) =>
+        result.status === 'rejected' && segments[index]?.imageIndex ? [segments[index].imageIndex] : []
+      );
+      if (responses.every((result) => result.status === 'rejected')) {
+        setCanRetry(source === 'screenshot' && filesRef.current.length > 0);
+        throw new Error('Could not read the ticket selections. Edit the text or retry.');
+      }
+      if (failed.length) {
+        setFailedScreenshots((current) => [...new Set([...current, ...failed])].sort((a, b) => a - b));
+        setFailedScreenshotsReviewed(false);
+        setCanRetry(true);
+      }
+      const candidate = cleanParsedLegs(successful);
       setTicketMetadata(inspectScreenshotTicket(text));
       setParsedCandidate(candidate.map((leg) => ({ ...leg })));
       const observed = detectSportsbook(text);
@@ -156,13 +178,14 @@ export default function IngestionPage() {
       } else if (!candidate.length || candidate.every((leg) => leg.player === 'Needs review')) {
         setNotice('No reliable selections found. Compare the screenshot, correct the text, or add each missing leg below.');
       } else {
-        setNotice('Compare every leg with your original screenshot. Nothing is verified until you review it.');
+        setNotice(null);
       }
     } catch (caught) {
+      if (signal?.aborted) return;
       setHasParsed(false);
       setError(caught instanceof Error ? caught.message : 'Ticket extraction failed. Paste or edit the text manually.');
     } finally {
-      setIsReading(false);
+      if (!signal?.aborted) setIsReading(false);
     }
   };
 
@@ -181,14 +204,12 @@ export default function IngestionPage() {
       );
       return typeof payload.artifact?.artifact_id === 'string' ? payload.artifact.artifact_id : undefined;
     } catch (caught) {
-      setNotice(caught instanceof Error ? caught.message : 'Image saving unavailable. Continuing locally.');
+      setSavingNotice(caught instanceof Error ? caught.message : 'Image saving unavailable. Continuing locally.');
       return undefined;
     }
   };
 
-  const onFilesChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = '';
+  const readScreenshots = async (files: File[]) => {
     if (!files.length) return;
     if (files.length > MAX_SCREENSHOTS) {
       setError('Choose up to four screenshots for one ticket.');
@@ -199,9 +220,17 @@ export default function IngestionPage() {
       return;
     }
     ocrControllerRef.current?.abort();
+    filesRef.current = files;
+    for (const cachedFile of extractedByFile.current.keys()) {
+      if (!files.includes(cachedFile)) extractedByFile.current.delete(cachedFile);
+    }
+    for (const savedFile of savedByFile.current.keys()) {
+      if (!files.includes(savedFile)) savedByFile.current.delete(savedFile);
+    }
     const controller = new AbortController();
     ocrControllerRef.current = controller;
-    setError(null); setNotice(null); setIsOcrRunning(true);
+    setError(null); setNotice(null); setSavingNotice(null); setIsOcrRunning(true); setCanRetry(false);
+    setSlipText(''); setRawExtractedText(''); setShowText(false);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
     setTicketStatus('proposed'); setTicketMetadata(null); setSourceArtifactId(undefined); setSourceArtifactIds([]);
     setFailedScreenshots([]); setFailedScreenshotsReviewed(false);
@@ -221,22 +250,30 @@ export default function IngestionPage() {
         if (controller.signal.aborted) return;
         setOcrProgress('Screenshot ' + (index + 1) + ' of ' + files.length);
         try {
-          const extracted = await runOcr(file, (progress) => setOcrProgress(
-            'Screenshot ' + (index + 1) + '/' + files.length + ': ' + progress
-          ), {
-            signal: controller.signal, onWorkerChange: (worker) => { ocrWorkerRef.current = worker; }
+          const extracted = extractedByFile.current.get(file) ?? await runOcr(file, (progress) => {
+            if (!controller.signal.aborted) setOcrProgress('Screenshot ' + (index + 1) + '/' + files.length + ': ' + progress);
+          }, {
+            signal: controller.signal,
+            onWorkerChange: (worker) => {
+              if (ocrControllerRef.current === controller) ocrWorkerRef.current = worker;
+            }
           });
+          if (controller.signal.aborted) return;
+          extractedByFile.current.set(file, extracted);
           parts.push({ text: extracted, imageIndex: index + 1 });
         } catch {
           if (controller.signal.aborted) return;
           failedIndexes.push(index + 1);
         }
         if (controller.signal.aborted) return;
-        const artifactId = await persistOriginal(file);
+        const artifactId = savedByFile.current.get(file) ?? await persistOriginal(file);
+        if (artifactId && filesRef.current.includes(file)) savedByFile.current.set(file, artifactId);
+        if (controller.signal.aborted) return;
         if (artifactId) { savedIds.push(artifactId); setSourceArtifactId(artifactId); }
       }
       if (controller.signal.aborted) return;
       setFailedScreenshots(failedIndexes);
+      setCanRetry(failedIndexes.length > 0);
       setFailedScreenshotsReviewed(false);
       setSourceArtifactIds(savedIds);
       if (parts.length === 0) {
@@ -246,21 +283,37 @@ export default function IngestionPage() {
       const allText = parts.map((part) => part.text).join('\n');
       setRawExtractedText(allText);
       setSlipText(allText);
-      await parseForReview(allText, 'screenshot', parts);
+      await parseForReview(allText, 'screenshot', parts, controller.signal);
     } catch (caught) {
       if (!controller.signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Could not read the screenshot. Edit or paste the ticket text.');
       }
     } finally {
-      if (ocrControllerRef.current === controller) ocrControllerRef.current = null;
-      setIsOcrRunning(false); setOcrProgress(null); ocrWorkerRef.current = null;
+      if (ocrControllerRef.current === controller) {
+        ocrControllerRef.current = null;
+        setIsOcrRunning(false); setOcrProgress(null); ocrWorkerRef.current = null;
+      }
     }
+  };
+
+  const onFilesChange = (event: ChangeEvent<HTMLInputElement>, replaceIndex?: number) => {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!selected.length) return;
+    const files = replaceIndex === undefined
+      ? selected
+      : filesRef.current.map((file, index) => index === replaceIndex ? selected[0]! : file);
+    void readScreenshots(files);
   };
 
   const onCancelOcr = () => {
     ocrControllerRef.current?.abort();
     void ocrWorkerRef.current?.terminate().catch(() => undefined);
+    ocrControllerRef.current = null;
+    ocrWorkerRef.current = null;
     setIsOcrRunning(false);
+    setIsReading(false);
+    setCanRetry(true);
     setOcrProgress(null);
     setError('OCR canceled. Your screenshots remain available for reference; paste the ticket text or try again.');
   };
@@ -343,79 +396,112 @@ export default function IngestionPage() {
     router.push(nervous.toHref('/stress-test', { sport, slip_id: slipId, trace_id: traceId }));
   };
 
-  const preflight = ticketMetadata ? summarizeScreenshotPreflight(ticketMetadata, reviewedLegs) : null;
+  const recognizedLegs = reviewedLegs.filter((leg) => leg.player.trim() && leg.player !== 'Needs review');
+  const preflight = ticketMetadata ? summarizeScreenshotPreflight(ticketMetadata, recognizedLegs) : null;
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-3 py-4 pb-24 sm:px-5 md:py-8">
       <header className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/60">
-          {fromBender ? 'Bender / ResearchBets' : 'ResearchBets'} · Screenshot → Review → X-Ray
+        <p className="text-xs font-semibold text-cyan-100/70">
+          {fromBender ? 'Bender / ResearchBets' : 'ResearchBets'}
         </p>
         <h1 className="text-3xl font-semibold">Upload Your Parlay</h1>
-        <p className="text-sm text-slate-300">Upload a potential ticket, verify what OCR recognized, and understand its weakest structure. A screenshot does not prove a bet was placed.</p>
+        <p className="text-sm text-slate-300">Add screenshots of one ticket. Crop out chats or account details before uploading.</p>
       </header>
 
       <Surface className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button intent="primary" onClick={() => uploadInput.current?.click()} disabled={isOcrRunning || isReading}>
-            Upload Your Parlay
-          </Button>
-          <Button intent="secondary" onClick={() => cameraInput.current?.click()} disabled={isOcrRunning || isReading}>
+        <Button className="min-h-12 w-full" intent="primary" onClick={() => uploadInput.current?.click()} disabled={isOcrRunning || isReading}>
+          Upload Your Parlay
+        </Button>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Button className="min-h-11" intent="secondary" onClick={() => cameraInput.current?.click()} disabled={isOcrRunning || isReading}>
             Take a picture
           </Button>
+          <Button className="min-h-11" intent="secondary" aria-expanded={showText} onClick={() => setShowText(!showText)} disabled={isOcrRunning || isReading}>
+            {slipText && origin === 'screenshot' ? 'Edit extracted text' : 'Paste ticket'}
+          </Button>
+          <Link className="inline-flex min-h-11 items-center justify-center rounded border border-white/20 px-3 py-2 text-sm" href={nervous.toHref('/slip')}>
+            Build manually
+          </Link>
         </div>
-        <input ref={uploadInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => { void onFilesChange(event); }} />
-        <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(event) => { void onFilesChange(event); }} />
-        <p className="text-xs text-slate-400">PNG, JPEG or WebP · up to four screenshots · max 8 MB each. HEIC needs conversion. Camera availability depends on your browser.</p>
-        <label className="flex items-start gap-2 text-xs text-slate-300">
-          <input type="checkbox" className="mt-1" checked={saveOriginal} onChange={(event) => setSaveOriginal(event.target.checked)} />
-          <span>Save original screenshots to my signed-in history (optional). Otherwise OCR runs locally and original images are not uploaded.</span>
-        </label>
+        <input ref={uploadInput} aria-label="Select screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => onFilesChange(event)} />
+        <input ref={cameraInput} aria-label="Take a ticket photo" type="file" accept="image/*" capture="environment" hidden onChange={(event) => onFilesChange(event)} />
+        <input ref={replacementInput} aria-label="Select cropped screenshot" type="file" accept="image/png,image/jpeg,image/webp" hidden
+          onChange={(event) => onFilesChange(event, replacementIndex.current)} />
+        <p className="text-xs text-slate-400">Choose up to four PNG, JPEG or WebP images, up to 8 MB each.</p>
+        <details className="text-xs text-slate-300">
+          <summary className="min-h-11 cursor-pointer py-3">Screenshot privacy and saving</summary>
+          <p className="my-2">Images stay on your device by default. Extracted text is sent to ResearchBets to find the selections.</p>
+          <label className="flex min-h-11 items-center gap-2">
+            <input type="checkbox" checked={saveOriginal} onChange={(event) => setSaveOriginal(event.target.checked)} disabled={isOcrRunning || isReading} />
+            Save screenshots to my signed-in history
+          </label>
+        </details>
         {previewUrls.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {previewUrls.map((url, index) => (
-              <img key={url} src={url} alt={'Original screenshot ' + (index + 1)} className="max-h-56 w-full rounded-lg border border-white/15 object-contain" />
-            ))}
-          </div>
+          <details className="text-sm">
+            <summary className="min-h-11 cursor-pointer py-3">View or replace screenshots ({previewUrls.length})</summary>
+            <p className="mb-2 text-xs text-slate-300">In Photos, crop to the ticket to remove chats and other surrounding content. Then replace that screenshot here.</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {previewUrls.map((url, index) => (
+                <figure key={url} className="min-w-0 space-y-2">
+                  <img src={url} alt={'Screenshot ' + (index + 1)} className="max-h-56 w-full rounded-lg border border-white/15 object-contain" />
+                  <Button intent="secondary" className="min-h-11 w-full px-2" disabled={isOcrRunning || isReading} onClick={() => {
+                    replacementIndex.current = index;
+                    replacementInput.current?.click();
+                  }}>Replace image {index + 1}</Button>
+                </figure>
+              ))}
+            </div>
+          </details>
         ) : null}
+        {savingNotice ? <p className="text-sm text-amber-100" role="status">{savingNotice}</p> : null}
         {ocrProgress ? <p className="text-sm text-slate-300" role="status">{ocrProgress}</p> : null}
         {isOcrRunning ? <Button intent="secondary" onClick={onCancelOcr}>Cancel OCR</Button> : null}
-        <div className="space-y-2">
-          <label htmlFor="rb-ocr-text" className="block text-sm font-semibold">Extracted text or pasted ticket</label>
-          <textarea
-            id="rb-ocr-text" rows={6} maxLength={20_000}
-            className="w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm text-slate-100"
-            placeholder="Upload screenshots, or paste each leg on a new line"
-            value={slipText}
-            onChange={(event) => {
-              setSlipText(event.target.value);
-              setHasParsed(false); setConfirmedIds([]); setReviewedLegs([]);
-              setOrigin(previewUrls.length ? 'screenshot' : 'paste');
-            }}
-          />
-          <p className="text-xs text-slate-400">OCR may miss rows or confuse player names, odds and alternate lines. Compare against the image and add missing legs yourself.</p>
-          <Button intent="secondary" disabled={isOcrRunning || isReading || !slipText.trim()} onClick={() => {
-            void parseForReview(slipText, origin);
-          }}>{isReading ? 'Reading ticket…' : 'Review extracted ticket'}</Button>
-        </div>
+        {canRetry && !isOcrRunning ? (
+          <Button intent="secondary" disabled={isReading} onClick={() => { void readScreenshots(filesRef.current); }}>Retry OCR</Button>
+        ) : null}
+        {showText ? (
+          <div className="space-y-2">
+            <label htmlFor="rb-ocr-text" className="block text-sm font-semibold">{origin === 'screenshot' ? 'Extracted ticket text' : 'Paste ticket text'}</label>
+            <textarea
+              id="rb-ocr-text" rows={4} maxLength={20_000}
+              className="w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base text-slate-100"
+              placeholder="Paste each leg on a new line"
+              value={slipText}
+              onChange={(event) => {
+                setSlipText(event.target.value);
+                setHasParsed(false); setConfirmedIds([]); setReviewedLegs([]);
+                setOrigin(rawExtractedText ? 'screenshot' : 'paste');
+              }}
+            />
+            <Button intent="secondary" disabled={isOcrRunning || isReading || !slipText.trim()} onClick={() => {
+              const parts = filesRef.current.flatMap((file, index) => {
+                const text = extractedByFile.current.get(file);
+                return text ? [{ text, imageIndex: index + 1 }] : [];
+              });
+              const sourceParts = slipText === rawExtractedText ? parts
+                : parts.length === 1 ? [{ text: slipText, imageIndex: parts[0]!.imageIndex }] : undefined;
+              void parseForReview(slipText, origin, sourceParts);
+            }}>{isReading ? 'Reading ticket…' : 'Review extracted ticket'}</Button>
+          </div>
+        ) : null}
+        {error && !hasParsed ? <p className="rounded-lg border border-rose-400/40 bg-rose-950/20 p-3 text-sm text-rose-200" role="alert">{error}</p> : null}
       </Surface>
 
       {hasParsed ? (
         <Surface className="space-y-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-100/60">02 / CONFIRM THE TICKET</p>
-            <h2 className="mt-2 text-xl font-semibold">Your Ticket · {reviewedLegs.length} legs</h2>
-            <p className="mt-1 text-xs text-slate-300">Parser-derived candidates are not provider-verified facts. Correct and confirm each row before analyzing.</p>
+            <h2 className="text-xl font-semibold">Your Ticket · {reviewedLegs.length} legs</h2>
+            <p className="mt-1 text-sm text-slate-300">Check the selections against your original and correct any missing fields.</p>
+            {notice ? <p className="mt-2 text-sm text-slate-300" role="status">{notice}</p> : null}
           </div>
           {ticketMetadata ? (
             <div className="space-y-2 rounded-lg border border-white/20 bg-white/[0.04] p-3">
               {preflight ? (
                 <div className="space-y-1 border-b border-white/10 pb-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-200">ResearchBets Read · Preliminary</p>
                   <h3 className="text-sm font-semibold">{preflight.title}</h3>
                   <p className="text-xs text-slate-300">{preflight.read}</p>
                   <p className="text-xs text-amber-100"><strong>Primary pressure:</strong> {preflight.primaryPressure}</p>
                   <p className="text-xs text-slate-200"><strong>Suggested next action:</strong> {preflight.nextAction}</p>
-                  <p className="text-[11px] text-slate-400">This is a screenshot-integrity preflight, not verified market research, a wager recommendation or a calibrated probability.</p>
                 </div>
               ) : null}
               <h3 className="text-sm font-semibold">Ticket structure</h3>
@@ -425,7 +511,7 @@ export default function IngestionPage() {
               </p>
               <p className="text-xs text-slate-300">
                 Declared selections: {ticketMetadata.declaredLegCount ?? 'Unknown'} ·
-                Extracted candidates: {reviewedLegs.length}
+                Recognized selections: {recognizedLegs.length}
               </p>
               {ticketMetadata.cost != null ? <p className="text-xs text-slate-300">Screenshot cost: ${ticketMetadata.cost.toFixed(2)} (historical observation)</p> : null}
               {ticketMetadata.statedMaxPayout != null ? <p className="text-xs text-slate-300">Screenshot stated maximum payout: ${ticketMetadata.statedMaxPayout.toFixed(2)} (not independently verified)</p> : null}
@@ -464,28 +550,28 @@ export default function IngestionPage() {
             return (
               <section key={leg.legId} className="min-w-0 space-y-3 rounded-xl border border-white/15 bg-white/[0.035] p-3" aria-label={'Leg ' + (index + 1)}>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold">Leg {index + 1}</h3>
+                  <h3 className="min-w-0 break-words text-sm font-semibold">Leg {index + 1}{leg.player && leg.player !== 'Needs review' ? ' · ' + leg.player : ''}</h3>
                   <button type="button" className="min-h-11 px-2 text-xs text-rose-200" onClick={() => {
                     setReviewedLegs((current) => current.filter((item) => item.legId !== leg.legId));
                     setConfirmedIds((current) => current.filter((id) => id !== leg.legId));
-                  }}>Remove spurious row</button>
+                  }}>Remove row</button>
                 </div>
                 {duplicateIndex >= 0 ? <p role="status" className="rounded-lg border border-amber-300/40 p-2 text-xs text-amber-200">Possible duplicate of leg {duplicateIndex + 1}. Compare the screenshot before keeping both.</p> : null}
                 {leg.sourceScreenshotIndex ? <p className="text-xs text-slate-300">Source: screenshot {leg.sourceScreenshotIndex}</p> : null}
-                {leg.rawText ? <p className="break-words rounded bg-slate-900 p-2 text-xs text-slate-400">OCR: {leg.rawText}</p> : <p className="text-xs text-slate-400">Manually added leg</p>}
+                {leg.rawText ? <p className="break-words rounded bg-slate-900 p-2 text-xs text-slate-400">Source text: {leg.rawText}</p> : <p className="text-xs text-slate-400">Manually added leg</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-xs">Player / team
-                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
+                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       value={leg.player} onChange={(event) => updateLeg(leg.legId, { player: event.target.value })} />
                   </label>
                   <label className="block text-xs">League
-                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-sm" value={LEAGUES.includes(leg.league as typeof LEAGUES[number]) ? leg.league : 'Unknown'}
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={LEAGUES.includes(leg.league as typeof LEAGUES[number]) ? leg.league : 'Unknown'}
                       onChange={(event) => updateLeg(leg.legId, { league: event.target.value })}>
                       {LEAGUES.map((league) => <option key={league} value={league}>{league}</option>)}
                     </select>
                   </label>
                   <label className="block text-xs">Market
-                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       value={leg.marketLabel === 'Needs review' ? '' : leg.marketType}
                       onChange={(event) => updateLeg(leg.legId, { marketType: event.target.value as MarketType, marketLabel: event.target.value.replace(/_/g, ' ') })}>
                       <option value="" disabled>Choose a market</option>
@@ -493,23 +579,23 @@ export default function IngestionPage() {
                     </select>
                   </label>
                   <label className="block text-xs">Event / matchup (if known)
-                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm" value={leg.teams ?? ''}
+                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={leg.teams ?? ''}
                       onChange={(event) => updateLeg(leg.legId, { teams: event.target.value, gameId: undefined })} placeholder="Unknown" />
                   </label>
                   <label className="block text-xs">Direction
-                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-sm" value={leg.directionObserved === false ? '' : leg.direction}
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={leg.directionObserved === false ? '' : leg.direction}
                       onChange={(event) => updateLeg(leg.legId, { direction: event.target.value as 'over' | 'under', directionObserved: true })}>
                       <option value="" disabled>Choose direction</option>
                       <option value="over">Over / at least</option><option value="under">Under</option>
                     </select>
                   </label>
                   <label className="block text-xs">Threshold
-                    <input type="number" min="0" step="any" className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
+                    <input type="number" min="0" step="any" className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       value={leg.thresholdObserved === false || leg.threshold < 0 ? '' : leg.threshold}
                       onChange={(event) => updateLeg(leg.legId, { threshold: event.target.value === '' ? -1 : Number(event.target.value), thresholdObserved: event.target.value !== '' })} />
                   </label>
                   <label className="block text-xs">American odds (optional / unknown)
-                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
+                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
                       placeholder="Unknown" inputMode="numeric" value={leg.odds ?? ''}
                       onChange={(event) => updateLeg(leg.legId, { odds: event.target.value })} />
                   </label>
@@ -533,7 +619,7 @@ export default function IngestionPage() {
           {failedScreenshots.length > 0 ? (
             <div className="space-y-2 rounded-lg border border-amber-400/40 bg-amber-950/20 p-3">
               <p className="text-sm text-amber-100" role="alert">
-                OCR failed for screenshot {failedScreenshots.join(', ')}. The ticket may be incomplete.
+                Could not read screenshot {failedScreenshots.join(', ')}. The ticket may be incomplete.
                 Compare the originals and add or correct any missing selections.
               </p>
               <label className="flex min-h-11 items-center gap-2 text-sm">
@@ -544,18 +630,15 @@ export default function IngestionPage() {
             </div>
           ) : null}
           <p className="text-xs text-slate-400">{confirmedIds.length} of {reviewedLegs.length} legs confirmed. Missing prices remain unknown; no payout is inferred.</p>
+          {error ? <p className="rounded-lg border border-rose-400/40 bg-rose-950/20 p-3 text-sm text-rose-200" role="alert">{error}</p> : null}
           <Button intent="primary" onClick={onAnalyze} disabled={isReading || isOcrRunning}>Analyze My Ticket</Button>
           <p className="text-xs text-slate-400">Creates a reviewed research draft, not a wager or verified betting-history record. Ticket X-Ray remains the canonical engine.</p>
         </Surface>
       ) : null}
 
-      {notice ? <p className="rounded-lg border border-white/15 bg-white/5 p-3 text-sm text-slate-300" role="status">{notice}</p> : null}
-      {error ? <p className="rounded-lg border border-rose-400/40 bg-rose-950/20 p-3 text-sm text-rose-200" role="alert">{error}</p> : null}
-
       <section className="rounded-xl border border-white/15 bg-white/5 p-3">
         <p className="text-xs text-slate-300">Other ways to research</p>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          <Link className="inline-flex min-h-11 items-center rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/slip'), {})}>Build manually</Link>
           <Link className="inline-flex min-h-11 items-center rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/today'), { tab: 'board' })}>Discover + Build</Link>
           <Link className="inline-flex min-h-11 items-center rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/history'), {})}>Reviewed history</Link>
         </div>

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { createWorker } from 'tesseract.js';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import IngestionPage from '@/app/(product)/ingest/page';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
@@ -14,7 +15,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('tesseract.js', () => ({
   createWorker: vi.fn(async (_lang: string, _oem: number, options: { logger?: (input: { status: string; progress: number }) => void }) => ({
     recognize: vi.fn(async (image: string | File) => {
-      if (image instanceof File && image.name === 'blurred.png') throw new Error('unreadable image');
+      if (image instanceof File ? image.name === 'blurred.png' : image === 'blob:blurred.png') throw new Error('unreadable image');
       options.logger?.({ status: 'recognizing text', progress: 0.42 });
       return { data: { text: 'Leg A over 22.5 points\nLeg B over 5.5 assists' } };
     }),
@@ -46,6 +47,8 @@ describe('screenshot-first ResearchBets ingestion', () => {
     renderWithProviders(<IngestionPage />);
     expect(screen.getByRole('button', { name: 'Upload Your Parlay' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Take a picture' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Build manually' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     expect(screen.getByRole('button', { name: 'Review extracted ticket' })).toBeTruthy();
   });
 
@@ -62,6 +65,7 @@ describe('screenshot-first ResearchBets ingestion', () => {
       })) }
     }), {status: 200})));
     renderWithProviders(<IngestionPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target: { value: ['Kalshi','10 MARKET COMBO','COST $12.40','MAX PAYOUT $1,234.56',
         'Test Team Alpha to win 60%','Test Team Bravo to win 64%',
@@ -86,6 +90,7 @@ describe('screenshot-first ResearchBets ingestion', () => {
       }] }
     }),{status:200})));
     renderWithProviders(<IngestionPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target:{value:'Kalshi\n1 MARKET COMBO\nTest Team to win 75%'}
     });
@@ -109,13 +114,14 @@ describe('screenshot-first ResearchBets ingestion', () => {
       ok: true, data: { ticketId: 'dupe-screenshot', legs: [leg, {...leg, legId:'leg-2'}] }
     }), { status: 200 })));
     renderWithProviders(<IngestionPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
       target: { value: 'Jayson Tatum over 29.5 points -110\nJayson Tatum over 29.5 points -110' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review extracted ticket' }));
     await waitFor(() => expect(screen.getByText(/Your Ticket · 2 legs/)).toBeTruthy());
     expect(screen.getByText(/Possible duplicate of leg 1/)).toBeTruthy();
-    expect(screen.getAllByRole('button',{name:'Remove spurious row'})).toHaveLength(2);
+    expect(screen.getAllByRole('button',{name:'Remove row'})).toHaveLength(2);
     expect(screen.getAllByRole('checkbox',{name:/Confirm leg/})).toHaveLength(2);
   });
 
@@ -128,6 +134,7 @@ describe('screenshot-first ResearchBets ingestion', () => {
       }] }
     }), {status:200})));
     renderWithProviders(<IngestionPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Paste ticket' }));
     fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {target: {value:'Jayson Tatum points'}});
     fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
     await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
@@ -148,7 +155,7 @@ describe('screenshot-first ResearchBets ingestion', () => {
       new File(['unreadable'], 'blurred.png', { type:'image/png' })
     ] } });
     await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
-    expect(screen.getByText(/OCR failed for screenshot 2/)).toBeTruthy();
+    expect(screen.getByText(/Could not read screenshot 2/)).toBeTruthy();
     expect(screen.getByRole('checkbox', {name:/I reviewed the unreadable screenshot/})).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
     expect(screen.getByText(/Some screenshots could not be read. Compare them/)).toBeTruthy();
@@ -172,12 +179,41 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(calls.some((path) => path.includes('/api/bettor-memory/upload'))).toBe(false);
   });
 
+  it('replaces an unreadable screenshot with its crop and preserves the other image index', async () => {
+    const originalUrl = globalThis.URL;
+    class PreviewURL extends originalUrl {
+      static createObjectURL(file: Blob) { return 'blob:' + (file as File).name; }
+      static revokeObjectURL() {}
+    }
+    vi.stubGlobal('URL', PreviewURL);
+    vi.mocked(createWorker).mockClear();
+    renderWithProviders(<IngestionPage />);
+    fireEvent.change(screen.getByLabelText('Select screenshots'), { target: { files: [
+      new File(['first'], 'one.png', { type: 'image/png' }),
+      new File(['unreadable'], 'blurred.png', { type: 'image/png' })
+    ] } });
+    // The OCR mock recognizes the name through the object URL.
+    await screen.findByText(/Could not read screenshot 2/);
+    expect(screen.getByRole('button', { name: 'Retry OCR' })).toBeTruthy();
+    fireEvent.click(screen.getByText('View or replace screenshots (2)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace image 2' }));
+    fireEvent.change(screen.getByLabelText('Select cropped screenshot'), { target: { files: [
+      new File(['cropped'], 'crop.png', { type: 'image/png' })
+    ] } });
+    await screen.findByText(/Your Ticket · 2 legs/);
+    expect(screen.getByText('Source: screenshot 1')).toBeTruthy();
+    expect(screen.getByText('Source: screenshot 2')).toBeTruthy();
+    expect(vi.mocked(createWorker)).toHaveBeenCalledTimes(3);
+  });
+
   it('extracts locally without uploading the original unless opted in', async () => {
     renderWithProviders(<IngestionPage />);
     const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
     const file = new File(['dummy'], 'slip.png', { type: 'image/png' });
     fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByDisplayValue(/Leg A over 22.5 points/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit extracted text' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Edit extracted text' }));
+    expect(screen.getByDisplayValue(/Leg A over 22.5 points/)).toBeTruthy();
     await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
     expect(screen.getByRole('checkbox', { name: /Confirm leg 1/ })).toHaveProperty('disabled', true);
     const calls = vi.mocked(fetch).mock.calls.map(([input]) => String(input));
