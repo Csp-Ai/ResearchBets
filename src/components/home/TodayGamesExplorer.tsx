@@ -32,8 +32,8 @@ export function verifiedGames(payload: TodayPayload | undefined, date: string): 
   return payload.games.filter((game) =>
     (game.status === 'upcoming' || game.status === 'live') &&
     Number.isFinite(Date.parse(game.lastUpdated)) &&
-    Number.isFinite(Date.parse(game.startTime)) &&
-    localCalendarDate(payload.intent?.tz || 'America/Phoenix', new Date(game.startTime)) === date
+    Boolean(game.startTimeISO) && Number.isFinite(Date.parse(game.startTimeISO || '')) &&
+    localCalendarDate(payload.intent?.tz || 'America/Phoenix', new Date(game.startTimeISO!)) === date
   );
 }
 
@@ -140,7 +140,7 @@ export function TodayGamesExplorer() {
               <article key={game.id} className="rounded-xl border border-white/10 bg-white/[.035] p-3">
                 <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
                   <span>{active} · {game.status === 'live' ? 'Provider reports live' : 'Upcoming'}</span>
-                  <span>{timeLabel(game.startTime, timeZone)}</span>
+                  <span>{timeLabel(game.startTimeISO || '', timeZone)}</span>
                 </div>
                 <h3 className="mt-2 text-sm font-semibold text-slate-100">{game.matchup}</h3>
                 <p className="mt-1 text-[10px] text-slate-400">
