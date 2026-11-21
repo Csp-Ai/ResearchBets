@@ -70,9 +70,9 @@ export function TodayGamesExplorer() {
     // scraper, invented scores, or a local probability engine.
     for (const sport of SPORTS) {
       const params = new URLSearchParams({
-        sport, date, tz: timeZone, mode: 'live', strict_live: '1'
+        sport, date, tz: timeZone
       });
-      fetch(`/api/today?${params}`, { cache: 'no-store', signal: controller.signal })
+      fetch(`/api/sports/slate?${params}`, { cache: 'no-store', signal: controller.signal })
         .then(async (response) => {
           if (!response.ok) throw new Error('Provider unavailable');
           const body = await response.json() as { ok?: boolean; data?: TodayPayload };
@@ -139,12 +139,12 @@ export function TodayGamesExplorer() {
             {games.slice(0, 12).map((game) => (
               <article key={game.id} className="rounded-xl border border-white/10 bg-white/[.035] p-3">
                 <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400">
-                  <span>{active} · {game.status === 'live' ? 'Provider reports live' : 'Upcoming'}</span>
+                  <span>{active} · {game.status === 'live' ? 'Started · game status unverified' : 'Upcoming'}</span>
                   <span>{timeLabel(game.startTimeISO || '', timeZone)}</span>
                 </div>
                 <h3 className="mt-2 text-sm font-semibold text-slate-100">{game.matchup}</h3>
                 <p className="mt-1 text-[10px] text-slate-400">
-                  Source: {game.provenance || 'Provider'} · updated {timeLabel(game.lastUpdated, timeZone)}
+                  Schedule: {game.provenance || 'Provider'} · checked {timeLabel(game.lastUpdated, timeZone)}
                 </p>
                 <Link href={nervous.toHref('/today', { sport: active, date, tz: timeZone, mode: 'live' })}
                   className="mt-3 inline-flex rounded-lg border border-cyan-400/20 px-3 py-1.5 text-xs text-cyan-200">
@@ -171,7 +171,7 @@ export function TodayGamesExplorer() {
             <span className="text-slate-500">Automatic priced ticket ideas are currently NFL-only.</span>
           )}
         </div>
-        <p className="mt-3 text-[10px] leading-5 text-slate-500">Schedule status comes from ResearchBets’ existing provider registry. Only live-mode, same-day observations are counted; a research board may have narrower coverage than a league schedule. Quotes and model probabilities require separate verification.</p>
+        <p className="mt-3 text-[10px] leading-5 text-slate-500">Events come from ResearchBets’ existing odds-provider schedule. Kickoff alone cannot confirm a game is still in progress or provide a score. Demo, stale and other-day observations are excluded. Odds, injury news and model probabilities require separate verification.</p>
       </div>
     </section>
   );
