@@ -48,6 +48,12 @@
 15. Suggested fixes are generated only after a deterministic warning match. Each fix is a compact contract (`fix_type`, `title`, `explanation`, `affected_legs`, bettor-facing `suggested_action`, `confidence_level`) ranked by expected risk reduction, simplicity, and pattern alignment. The module proposes structural changes only — lower a threshold, break a same-script dependency, shift away from scoring ladders in blowout spots, or trim the weakest-confidence leg — and never auto-edits the slip or invents sportsbook-specific replacement lines.
 16. The shared ticket-thesis layer (`src/core/slips/ticketThesis.ts`) composes the already-canonical lifecycle risk, action guidance, evidence, and supported continuity metadata into one deterministic narrative object (`headline`, `current_thesis`, `primary_pressure`, `recommended_next_step`, `why_now`, continuity read, constrained thesis status). BEFORE, DURING, and AFTER surfaces consume that object instead of improvising separate advisory copy, so the bettor sees one narrative spine across submit, live tracking, and review.
 
+### C) Screenshot intake → reviewed Ticket X-Ray
+
+`/ingest` runs the same-origin OCR worker in the browser, sends text to `/api/slips/parseText` per image and keeps each selection linked to its source image in the session draft. The reviewed draft carries declared and recognized counts, confirmed selections and observed ticket terms to `/stress-test`. Incomplete tickets and unsupported prices use the reviewed-leg research view. The conventional structural model is available for complete tickets with supported prices.
+
+`/api/run/ticket-evidence` accepts reviewed selection fields and returns per-leg evidence from authorized providers with retrieval times and freshness. Coverage is limited to provider data that can be matched to a selection. Original images and account history are outside this evidence request.
+
 ## Provenance model
 
 Across routes and envelopes, provenance is exposed as mode/source-style fields:

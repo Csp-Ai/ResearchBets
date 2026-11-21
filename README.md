@@ -41,6 +41,10 @@ This path is deterministic and safe without provider credentials. The UI still f
 
 For full live/provider setup, see [docs/SETUP.md](docs/SETUP.md).
 
+## Review a screenshot
+
+Open `/ingest` and select up to four PNG, JPEG or WebP images of one ticket. OCR runs in the browser and sends extracted text for parsing. Saving an original is optional and requires sign-in. Confirm the visible selections in review, then open Ticket X-Ray. When selections or pricing are missing, the reviewed legs are still available for research.
+
 ## Runtime modes (truthful UI contract)
 
 ResearchBets supports three runtime modes:
