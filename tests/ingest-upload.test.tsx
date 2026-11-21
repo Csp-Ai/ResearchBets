@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import IngestionPage from '@/app/(product)/ingest/page';
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders';
@@ -39,7 +39,7 @@ describe('screenshot-first ResearchBets ingestion', () => {
       }
     }), { status: 200 })));
   });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it('presents screenshot-first upload and manual-paste alternatives', () => {
     renderWithProviders(<IngestionPage />);
