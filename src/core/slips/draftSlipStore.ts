@@ -1,4 +1,5 @@
 import type { SlipBuilderLeg } from '@/features/betslip/SlipBuilder';
+import type { ScreenshotTicketMetadata } from '@/src/core/track/screenshotTicketMetadata';
 
 export const DRAFT_SLIP_STORAGE_KEY = 'rb:draft-slip:v1';
 export const DRAFT_SLIP_UPDATED_EVENT = 'rb:draft-slip-updated';
@@ -14,6 +15,7 @@ export type DraftSlipIngestion = {
   observedSportsbook?: string;
   userSelectedSportsbook?: string;
   rawExtractedText: string;
+  ticketMetadata?: ScreenshotTicketMetadata;
   parsedCandidate: Array<{ legId: string; rawText?: string; sourceScreenshotIndex?: number; player: string; league: string; marketType: string; threshold: number; odds?: string }>;
   confirmedLegs: Array<{ legId: string; sourceScreenshotIndex?: number; league: string; player: string; marketType: string; threshold: number; direction: 'over' | 'under'; odds?: string; teams?: string }>;
   confirmedAt: string;
