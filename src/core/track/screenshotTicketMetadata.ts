@@ -70,7 +70,7 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const pricingKind: ScreenshotPricingKind =
     isKalshi && !brandConflict ? 'prediction_contract_percent'
       : isPrizePicks && !brandConflict ? 'pickem_multiplier'
-        : isSgpPlus ? 'official_sgp_price'
+        : isDraftKings && isSgpPlus ? 'official_sgp_price'
           : format === 'sportsbook_ticket' ? 'american_odds'
             : 'unavailable';
 
@@ -105,7 +105,7 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
     : null;
   const mult = text.match(/\bto\s+win\s+(\d+(?:\.\d+)?)\s*x\b/i);
   const statedMultiplier = mult?.[1] && isKalshi ? Number(mult[1]) : null;
-  const sgpOdds = isSgpPlus ? text.match(/\b(?:same game parlay\+)[^\n]*?\s([+-]\d{3,5})\b/i) : null;
+  const sgpOdds = isDraftKings && isSgpPlus ? text.match(/\b(?:\d+\s*leg\s*)?same game parlay\+[^\n]*?\s([+-]\d{3,5})\b/i) : null;
   const officialCombinedAmericanOdds = sgpOdds?.[1] ?? null;
   const hasHiddenLegs = /\+\s*\d+\s+more markets?\b/i.test(text);
 
@@ -151,13 +151,12 @@ export function screenshotCoverage(metadata: ScreenshotTicketMetadata, candidate
   const excessCount = candidateLegCount > metadata.declaredLegCount;
   return {
     missingCount,
-    incomplete: missingCount > 0 || excessCount || metadata.hasHiddenLegs,
+    // Hidden summary rows can be reconciled by another image or manually added legs.
+    incomplete: missingCount > 0 || excessCount,
     note: missingCount > 0
       ? 'Only ' + candidateLegCount + ' of ' + metadata.declaredLegCount + ' declared selections are represented. Add the missing legs.'
       : excessCount
         ? 'More selections were recognized than the ticket declares. Check for a second ticket or spurious OCR rows.'
-        : metadata.hasHiddenLegs
-          ? 'Hidden selections may remain; check that the expanded ticket is fully captured.'
-          : null
+        : null
   };
 }
