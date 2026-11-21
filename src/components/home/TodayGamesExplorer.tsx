@@ -171,7 +171,7 @@ export function TodayGamesExplorer() {
             <span className="text-slate-500">Automatic priced ticket ideas are currently NFL-only.</span>
           )}
         </div>
-        <p className="mt-3 text-[10px] leading-5 text-slate-500">Schedule status comes from ResearchBets' existing provider registry. Only live-mode, same-day observations are counted; a research board may have narrower coverage than a league schedule. Quotes and model probabilities require separate verification.</p>
+        <p className="mt-3 text-[10px] leading-5 text-slate-500">Schedule status comes from ResearchBets’ existing provider registry. Only live-mode, same-day observations are counted; a research board may have narrower coverage than a league schedule. Quotes and model probabilities require separate verification.</p>
       </div>
     </section>
   );
