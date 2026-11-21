@@ -112,3 +112,47 @@ The automated UI and parser tests use controlled OCR responses and cover
 split rows, multi-image provenance, repeated OCR rows and partial OCR failures.
 Real anonymized sportsbook images and mobile-device testing remain release
 gates.
+
+## Additional user-provided screenshot layout audit (November 21, 2026)
+
+The user supplied nine image examples representing different sports-research
+ticket layouts. The underlying full-screen images contain private chat/app UI;
+**none of the original images, chat participant names, phone indicators,
+account IDs, exact wager amounts or personal messages are committed to GitHub**.
+The code fixtures are newly authored synthetic text/layout variants.
+
+| Layout family | Visible structural challenge | Required behavior |
+| --- | --- | --- |
+| Kalshi 10-market combination | Cropped list shows fewer selections than declared | Preserve 10 as stated count, warn about hidden legs |
+| Kalshi closed positions list | Two adjacent tickets have different declared counts | Reject coalescing unrelated instruments |
+| PrizePicks four-projection lineup | Fantasy score, rebounds+assists, PRA and special projections | Preserve named markets; unknown types remain review-only |
+| Kalshi 12-market card/link preview | Short preview hides ten selections | Do not invent missing rows or a complete risk grade |
+| Unbranded quote list | Several sports and per-contract percentages without platform name | Label quotes as contract values, provider unverified |
+| Long prediction combo | Multi-sport outcomes and repeated teams | Don't infer unsupported identity or game correlation |
+| Closed sports position | Green/red visual marks with separate outcome status | Closed is not proof of won, payout or reviewed result |
+| 11-leg SGP+ | Two same-game groups and other selections, combined +price | Keep group and official price, never multiply subleg quotes |
+| Live five-market combo | Current 90–100% quotes, open markets and stated return | Quote != settled outcome or calibrated win probability |
+
+### Evidence, accuracy, and privacy
+
+- The known fixtures originate from **manual visual inspection** of the
+  screenshots. Automated regression fixtures intentionally substitute synthetic
+  monetary values and omit group-chat / account data.
+- These fixtures test typed extraction, candidate counts, source confidence,
+  special market abstention and signed-odds separation. They **do not prove
+  full-image OCR accuracy**; automated browser tests still stub Tesseract.
+- Do not build bettor-history or account balances from these reference images.
+  They were shared for product development, not as a verified wager ledger.
+- Benchmark on private, user-approved, cropped and anonymized ticket images
+  with independently reviewed leg-field expectations before production.
+- The screenshot preflight can explain unknown selections and pricing, but
+  must not be mislabeled as the canonical evidence-backed Ticket X-Ray.
+- All new provider-specific extraction should remain behind a reviewed adapter
+  and may be disabled without affecting BTC or SPY.
+
+### Next engineering increment
+
+Complete privately scoped fixture storage and a real browser/phone OCR
+walkthrough. Add explicit contract types, quote provenance and verified odds
+provider coverage before enabling prediction-contract and SGP+ tickets for
+canonical X-Ray. No production deployment until the release checklist passes.
