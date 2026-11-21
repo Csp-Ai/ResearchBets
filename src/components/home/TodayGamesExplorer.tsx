@@ -26,10 +26,14 @@ export function verifiedGames(payload: TodayPayload | undefined, date: string): 
   // Never expose ResearchBets demo/synthetic games as today's real fixtures.
   // The provider must explicitly identify the response as live and current-day.
   if (!payload || payload.mode !== 'live' || payload.intent?.date !== date) return [];
-  if (!Number.isFinite(Date.parse(payload.generatedAt))) return [];
+  const receivedAt = Date.parse(payload.generatedAt);
+  if (!Number.isFinite(receivedAt) || receivedAt > Date.now() + 60_000 ||
+      Date.now() - receivedAt > 15 * 60_000) return [];
   return payload.games.filter((game) =>
     (game.status === 'upcoming' || game.status === 'live') &&
-    Number.isFinite(Date.parse(game.lastUpdated))
+    Number.isFinite(Date.parse(game.lastUpdated)) &&
+    Number.isFinite(Date.parse(game.startTime)) &&
+    localCalendarDate(payload.intent?.tz || 'America/Phoenix', new Date(game.startTime)) === date
   );
 }
 
