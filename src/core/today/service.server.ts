@@ -361,6 +361,7 @@ async function fetchLiveToday(options: { sport: BoardSport; tz: string; date: st
       league: sport,
       status: new Date(startTimeUTC).getTime() <= now ? 'live' as const : 'upcoming' as const,
       startTime: toLocal(startTimeUTC, tz),
+      startTimeISO: startTimeUTC,
       matchup: `${away} @ ${home}`,
       teams: [away, home],
       bookContext: 'Provider market board',
