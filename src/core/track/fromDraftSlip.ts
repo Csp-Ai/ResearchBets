@@ -78,6 +78,7 @@ const toTrackedLeg = (
     parseConfidence: confidence,
     needsReview: confidence === 'low',
     rawText: `${leg.player} ${leg.line}${leg.odds ? ` ${leg.odds}` : ''}`,
+    sourceScreenshotIndex: ingestion?.parsedCandidate?.find((item) => item.legId === leg.id)?.sourceScreenshotIndex,
     ladder: /\+/.test(leg.line),
   };
 };
