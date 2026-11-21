@@ -25,12 +25,14 @@ export function localCalendarDate(timeZone: string, now = new Date()): string {
 export function verifiedGames(payload: TodayPayload | undefined, date: string): TodayGame[] {
   // Never expose ResearchBets demo/synthetic games as today's real fixtures.
   // The provider must explicitly identify the response as live and current-day.
-  if (!payload || payload.mode !== 'live' || payload.intent?.date !== date) return [];
+  if (!payload || payload.mode !== 'live' || payload.reason !== 'schedule_only' ||
+      payload.provenance?.mode !== 'live' || payload.intent?.date !== date) return [];
   const receivedAt = Date.parse(payload.generatedAt);
   if (!Number.isFinite(receivedAt) || receivedAt > Date.now() + 60_000 ||
       Date.now() - receivedAt > 15 * 60_000) return [];
   return payload.games.filter((game) =>
     (game.status === 'upcoming' || game.status === 'live') &&
+    game.provenance === 'the-odds-api' &&
     Number.isFinite(Date.parse(game.lastUpdated)) &&
     Boolean(game.startTimeISO) && Number.isFinite(Date.parse(game.startTimeISO || '')) &&
     localCalendarDate(payload.intent?.tz || 'America/Phoenix', new Date(game.startTimeISO!)) === date
@@ -74,9 +76,9 @@ export function TodayGamesExplorer() {
       });
       fetch(`/api/sports/slate?${params}`, { cache: 'no-store', signal: controller.signal })
         .then(async (response) => {
-          if (!response.ok) throw new Error('Provider unavailable');
+          if (!response.ok && response.status !== 503) throw new Error('Schedule feed unavailable');
           const body = await response.json() as { ok?: boolean; data?: TodayPayload };
-          if (!body.ok || !body.data) throw new Error('No verified provider response');
+          if (!body.ok || !body.data) throw new Error(body.reason === 'schedule_provider_not_configured' ? 'Schedule provider not configured' : 'Schedule feed unavailable');
           setStates((old) => ({ ...old, [sport]: { pending: false, payload: body.data } }));
         })
         .catch((error: unknown) => {
@@ -158,7 +160,7 @@ export function TodayGamesExplorer() {
             <p className="text-sm text-slate-200">
               {current.payload?.mode === 'demo'
                 ? 'Only demo fixtures are available. They are hidden from the real-game slate.'
-                : current.error ? 'Live schedule provider unavailable.'
+                : current.error ? current.error :
                   : 'No current verified games are available for this sport.'}
             </p>
             <p className="mt-1 text-xs text-slate-400">No game, odds, or score will be fabricated. Upload a screenshot instead, or check coverage again.</p>
