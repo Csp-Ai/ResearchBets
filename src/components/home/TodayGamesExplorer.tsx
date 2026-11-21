@@ -160,8 +160,7 @@ export function TodayGamesExplorer() {
             <p className="text-sm text-slate-200">
               {current.payload?.mode === 'demo'
                 ? 'Only demo fixtures are available. They are hidden from the real-game slate.'
-                : current.error ? current.error :
-                  : 'No current verified games are available for this sport.'}
+                : current.error || 'No current verified games are available for this sport.'}
             </p>
             <p className="mt-1 text-xs text-slate-400">No game, odds, or score will be fabricated. Upload a screenshot instead, or check coverage again.</p>
           </div>
