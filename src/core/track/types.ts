@@ -38,6 +38,10 @@ export type TrackedTicketLeg = {
   marketLabel?: string;
   threshold: number;
   direction: 'over' | 'under';
+  /** False when a direction was not actually present in extracted text. */
+  directionObserved?: boolean;
+  /** False when threshold was missing, not a factual zero. */
+  thresholdObserved?: boolean;
   odds?: string;
   source: string;
   parseConfidence: ParseConfidence;
