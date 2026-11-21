@@ -246,7 +246,8 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       threshold: parsedThreshold.threshold,
       unresolved,
     });
-    const league = NFL_MARKETS.has(marketType) || /\bNFL\b/i.test(line) ? 'NFL' : 'NBA';
+    const league = /\bNFL\b/i.test(line) ? 'NFL' : /\bNBA\b/i.test(line) ? 'NBA' : NFL_MARKETS.has(marketType) ? 'NFL' : 'Unknown';
+    const requiresReview = league === 'Unknown' || parseConfidence === 'low';
 
     return {
       legId: `leg-${index + 1}`,
@@ -260,7 +261,7 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       odds,
       source: sourceHint,
       parseConfidence,
-      needsReview: parseConfidence === 'low',
+      needsReview: requiresReview,
       rawText: line,
       ladder: parsedThreshold.ladder,
       teams: teamDetails.teams,
