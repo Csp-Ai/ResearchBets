@@ -97,25 +97,31 @@ export default function IngestionPage() {
     urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
   }, []);
 
-  const parseForReview = async (text: string, source: 'screenshot' | 'paste') => {
+  const parseForReview = async (text: string, source: 'screenshot' | 'paste', screenshotParts?: string[]) => {
     if (!text.trim()) { setError('Add a screenshot or paste ticket text first.'); return; }
     setIsReading(true);
     setError(null);
     try {
       if (!identityRef.current.slipId) identityRef.current.slipId = crypto.randomUUID();
       if (!identityRef.current.traceId) identityRef.current.traceId = nervous.trace_id ?? crypto.randomUUID();
-      const response = await fetch('/api/slips/parseText', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text, sourceHint: source, slip_id: identityRef.current.slipId,
-          trace_id: identityRef.current.traceId
-        })
-      });
-      const payload = await response.json().catch(() => ({})) as ParseTextResponse;
-      if (!response.ok || !payload.ok || !payload.data) {
-        throw new Error(payload.error?.message ?? 'Could not recognize the ticket.');
-      }
-      const candidate = cleanParsedLegs(payload.data.legs);
+      const segments = source === 'screenshot' && screenshotParts?.length ? screenshotParts : [text];
+      const responses = await Promise.all(segments.map(async (segment, imageIndex) => {
+        const response = await fetch('/api/slips/parseText', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: segment, sourceHint: source, slip_id: identityRef.current.slipId,
+            trace_id: identityRef.current.traceId
+          })
+        });
+        const payload = await response.json().catch(() => ({})) as ParseTextResponse;
+        if (!response.ok || !payload.ok || !payload.data) {
+          throw new Error(payload.error?.message ?? 'Could not recognize the complete ticket.');
+        }
+        return payload.data.legs.map((leg) => ({
+          ...leg, sourceScreenshotIndex: source === 'screenshot' && screenshotParts ? imageIndex + 1 : undefined
+        }));
+      }));
+      const candidate = cleanParsedLegs(responses.flat());
       setParsedCandidate(candidate.map((leg) => ({ ...leg })));
       setReviewedLegs(candidate);
       setConfirmedIds([]);
@@ -201,7 +207,7 @@ export default function IngestionPage() {
       const allText = parts.join('\n');
       setRawExtractedText(allText);
       setSlipText(allText);
-      await parseForReview(allText, 'screenshot');
+      await parseForReview(allText, 'screenshot', parts);
     } catch (caught) {
       if (!controller.signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Could not read the screenshot. Edit or paste the ticket text.');
@@ -266,12 +272,12 @@ export default function IngestionPage() {
         origin, userTicketStatus: ticketStatus,
         rawExtractedText: origin === 'screenshot' ? rawExtractedText : slipText,
         parsedCandidate: parsedCandidate.map((leg) => ({
-          legId: leg.legId, rawText: leg.rawText, player: leg.player,
+          legId: leg.legId, rawText: leg.rawText, sourceScreenshotIndex: leg.sourceScreenshotIndex, player: leg.player,
           league: leg.league, marketType: leg.marketType,
           threshold: leg.threshold, odds: leg.odds
         })),
         confirmedLegs: reviewedLegs.map((leg) => ({
-          legId: leg.legId, league: leg.league, player: leg.player,
+          legId: leg.legId, sourceScreenshotIndex: leg.sourceScreenshotIndex, league: leg.league, player: leg.player,
           marketType: leg.marketType, threshold: leg.threshold,
           direction: leg.direction, odds: leg.odds, teams: leg.teams
         })),
@@ -371,6 +377,7 @@ export default function IngestionPage() {
                   }}>Remove spurious row</button>
                 </div>
                 {duplicateIndex >= 0 ? <p role="status" className="rounded-lg border border-amber-300/40 p-2 text-xs text-amber-200">Possible duplicate of leg {duplicateIndex + 1}. Compare the screenshot before keeping both.</p> : null}
+                {leg.sourceScreenshotIndex ? <p className="text-xs text-slate-300">Source: screenshot {leg.sourceScreenshotIndex} of {previewUrls.length}</p> : null}
                 {leg.rawText ? <p className="break-words rounded bg-slate-900 p-2 text-xs text-slate-400">OCR: {leg.rawText}</p> : <p className="text-xs text-slate-400">Manually added leg</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-xs">Player / team
