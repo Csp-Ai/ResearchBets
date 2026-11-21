@@ -49,6 +49,54 @@ describe('screenshot-first ResearchBets ingestion', () => {
     expect(screen.getByRole('button', { name: 'Review extracted ticket' })).toBeTruthy();
   });
 
+  it('blocks incomplete 10-market Kalshi screenshots instead of analyzing four visible legs as ten', async () => {
+    const players = ['Test Team Alpha', 'Test Team Bravo', 'Test Team Charlie', 'Test Team Delta'];
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      data: { ticketId: 'candidate-kalshi', legs: players.map((player, index) => ({
+        legId: 'leg-' + index, league: 'NCAAF', player,
+        marketType: 'moneyline', marketLabel: 'Moneyline (contract: YES)',
+        threshold: 0, direction: 'over', directionObserved: true,
+        quotedContractPercent: 60 + index * 4, contractSide: 'yes',
+        source:'screenshot',parseConfidence:'medium',needsReview:true
+      })) }
+    }), {status: 200})));
+    renderWithProviders(<IngestionPage />);
+    fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
+      target: { value: ['Kalshi','10 MARKET COMBO','COST $12.40','MAX PAYOUT $1,234.56',
+        'Test Team Alpha to win 60%','Test Team Bravo to win 64%',
+        'Test Team Charlie to win 68%','Test Team Delta to win 72%'].join('\n') }
+    });
+    fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
+    await waitFor(() => expect(screen.getByText(/Your Ticket · 4 legs/)).toBeTruthy());
+    expect(screen.getByText(/Only 4 of 10 declared selections/)).toBeTruthy();
+    expect(screen.getByText(/Screenshot contract quote: 60%/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
+    expect(screen.getAllByText(/Only 4 of 10 declared selections/).length).toBeGreaterThan(1);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('withholds conventional X-Ray on a complete prediction-contract screenshot', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      ok: true, data: { ticketId: 'complete-kalshi', legs: [{
+        legId:'leg-1', league:'NBA',player:'Test Team',
+        marketType:'moneyline',marketLabel:'Moneyline (contract: YES)',
+        threshold:0,direction:'over',directionObserved:true,
+        source:'screenshot', parseConfidence:'medium',needsReview:true
+      }] }
+    }),{status:200})));
+    renderWithProviders(<IngestionPage />);
+    fireEvent.change(screen.getByPlaceholderText(/paste each leg on a new line/i), {
+      target:{value:'Kalshi\n1 MARKET COMBO\nTest Team to win 75%'}
+    });
+    fireEvent.click(screen.getByRole('button',{name:'Review extracted ticket'}));
+    await waitFor(() => expect(screen.getByText(/Your Ticket · 1 legs/)).toBeTruthy());
+    expect(screen.getByText(/Review-only mode: specialized ticket pricing/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Analyze My Ticket'}));
+    expect(screen.getByText(/canonical X-Ray analysis is paused/)).toBeTruthy();
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('warns about repeated OCR candidates without silently deleting either leg', async () => {
     const leg = {
       legId: 'leg-1', league: 'NBA', player: 'Jayson Tatum',
