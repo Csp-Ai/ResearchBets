@@ -256,6 +256,9 @@ describe('parseSlipTextToLegs', () => {
     ]);
     expect(legs.map(l=>l.marketType)).toEqual(['moneyline','pra','ra','moneyline','pra']);
     expect(legs.every(l => l.odds == null)).toBe(true);
+    expect(legs.slice(0,3).every(l => l.teams === 'Atlanta Hawks @ Oklahoma City Thunder')).toBe(true);
+    expect(legs.slice(3).every(l => l.teams === 'Detroit Pistons @ New Orleans Pelicans')).toBe(true);
+    expect(legs[0]?.gameId).not.toBe(legs[3]?.gameId);
   });
 
   it('does not label an ambiguous player prop as NBA by default', () => {
