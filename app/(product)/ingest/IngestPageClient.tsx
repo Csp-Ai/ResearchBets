@@ -75,6 +75,7 @@ export default function IngestionPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saveOriginal, setSaveOriginal] = useState(false);
   const [sourceArtifactId, setSourceArtifactId] = useState<string | undefined>();
+  const [sourceArtifactIds, setSourceArtifactIds] = useState<string[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const uploadInput = useRef<HTMLInputElement | null>(null);
   const cameraInput = useRef<HTMLInputElement | null>(null);
@@ -163,7 +164,7 @@ export default function IngestionPage() {
     ocrControllerRef.current = controller;
     setError(null); setNotice(null); setIsOcrRunning(true);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
-    setTicketStatus('proposed'); setSourceArtifactId(undefined);
+    setTicketStatus('proposed'); setSourceArtifactId(undefined); setSourceArtifactIds([]);
     setOrigin('screenshot');
     urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
     const urls = files.map((file) => typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '');
@@ -173,6 +174,7 @@ export default function IngestionPage() {
     try {
       const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
       const parts: string[] = [];
+      const savedIds: string[] = [];
       for (const [index, file] of files.entries()) {
         if (controller.signal.aborted) return;
         setOcrProgress('Screenshot ' + (index + 1) + ' of ' + files.length);
@@ -183,9 +185,10 @@ export default function IngestionPage() {
         });
         parts.push(extracted);
         const artifactId = await persistOriginal(file);
-        if (artifactId) setSourceArtifactId(artifactId);
+        if (artifactId) { savedIds.push(artifactId); setSourceArtifactId(artifactId); }
       }
       if (controller.signal.aborted) return;
+      setSourceArtifactIds(savedIds);
       const allText = parts.join('\n');
       setRawExtractedText(allText);
       setSlipText(allText);
@@ -263,7 +266,7 @@ export default function IngestionPage() {
           marketType: leg.marketType, threshold: leg.threshold,
           direction: leg.direction, odds: leg.odds, teams: leg.teams
         })),
-        confirmedAt: timestamp, sourceArtifactId
+        confirmedAt: timestamp, sourceArtifactId, sourceArtifactIds
       }
     });
     // Only a reviewed draft is created. No bet placement, settlement or historical performance record.
@@ -371,8 +374,9 @@ export default function IngestionPage() {
                   </label>
                   <label className="block text-xs">Market
                     <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-sm"
-                      value={leg.marketType}
+                      value={leg.marketLabel === 'Needs review' ? '' : leg.marketType}
                       onChange={(event) => updateLeg(leg.legId, { marketType: event.target.value as MarketType, marketLabel: event.target.value.replace(/_/g, ' ') })}>
+                      <option value="" disabled>Choose a market</option>
                       {SUPPORTED_MARKET_TYPES.map((market) => <option key={market} value={market}>{market.replace(/_/g, ' ')}</option>)}
                     </select>
                   </label>
