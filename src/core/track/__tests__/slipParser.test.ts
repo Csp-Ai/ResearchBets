@@ -161,7 +161,7 @@ describe('parseSlipTextToLegs', () => {
 
   it('parses visible Kalshi contract quotes without inventing American odds', () => {
     const legs = parseSlipTextToLegs([
-      '10 MARKET COMBO', 'Kalshi', 'COST $9.73', 'MAX PAYOUT $9,090.90',
+      '10 MARKET COMBO', 'Kalshi', 'COST $12.40', 'MAX PAYOUT $1,234.56',
       'NCAA Football',
       'The Citadel at Western Carolina', 'Western Carolina to win 83%',
       'Cal Poly at UC Davis', 'UC Davis to win 81%',
