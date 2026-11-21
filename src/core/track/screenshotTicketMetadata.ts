@@ -66,7 +66,6 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
   const layoutSuggestsPickem = /(?:↑|⬆)\s*\d+(?:\.\d+)?\s*(?:fantasy\s*score|reb\s*\+\s*asts?|pra)\b/i.test(text);
   const isPrizePicks = !brandConflict &&
     (brands[0] === 'prizepicks' || (brands.length === 0 && layoutSuggestsPickem));
-  const isDraftKings = brands.length === 1 && brands[0] === 'draftkings';
   const isSgpPlus = /\bsame game parlay\s*\+|\bsgp\s*\+|\bsgp\+/i.test(text);
 
   const format: ScreenshotTicketFormat = brandConflict ? 'unknown'
