@@ -47,6 +47,8 @@ export type TrackedTicketLeg = {
   parseConfidence: ParseConfidence;
   needsReview?: boolean;
   rawText?: string;
+  /** One-based screenshot index for OCR provenance; absent for pasted text. */
+  sourceScreenshotIndex?: number;
   ladder?: boolean;
 };
 
