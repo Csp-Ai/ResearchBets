@@ -124,6 +124,12 @@ describe('parseSlipTextToLegs', () => {
     expect(legs.every((leg) => leg.needsReview === false)).toBe(true);
   });
 
+  it('does not label an ambiguous player prop as NBA by default', () => {
+    const [leg] = parseSlipTextToLegs('Unrecognized Name over 12.5 points +115', 'screenshot');
+    expect(leg?.league).toBe('Unknown');
+    expect(leg?.needsReview).toBe(true);
+  });
+
   it('keeps unknown markets in review rather than pretending they are verified', () => {
     const [leg] = parseSlipTextToLegs('Mystery Player 12.5 mystery stat +100', 'paste');
 
