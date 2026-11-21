@@ -38,6 +38,19 @@ describe('computeSlipIntelligence', () => {
     expect(intel.exposureSummary.topGames[0]!.count).toBe(1);
   });
 
+  it('does not create same-game correlation from missing event identity', () => {
+    const legs = [
+      { id: 'one', player: 'One Player', marketType: 'points', line: '17.5', odds: '-110' },
+      { id: 'two', player: 'Two Player', marketType: 'assists', line: '5.5', odds: '-115' },
+      { id: 'three', player: 'Three Player', marketType: 'rebounds', line: '6.5', odds: '-120' },
+      { id: 'four', player: 'Four Player', marketType: 'points', line: '19.5', odds: '-105' }
+    ];
+    const intel = computeSlipIntelligence(legs);
+    expect(intel.sameGameStack).toBe(false);
+    expect(intel.exposureSummary.topGames).toEqual([]);
+    expect(intel.correlationSeverity).toBe('none');
+  });
+
   it('returns empty-state hints for empty slips', () => {
     const intel = computeSlipIntelligence([]);
 
