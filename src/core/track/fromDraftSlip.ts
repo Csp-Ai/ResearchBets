@@ -55,14 +55,18 @@ const fallbackTicketId = (legs: SlipBuilderLeg[]) =>
       .join('||'),
   )}`;
 
-const toTrackedLeg = (leg: SlipBuilderLeg, index: number): TrackedTicketLeg => {
+const toTrackedLeg = (
+  leg: SlipBuilderLeg, index: number,
+  ingestion?: DraftSlipState['ingestion']
+): TrackedTicketLeg => {
   const confidence = confidenceFor(leg);
   const nfl = NFL_MARKETS.has(leg.marketType);
+  const confirmed = ingestion?.confirmedLegs?.find((item) => item.legId === leg.id);
   return {
     legId: leg.id || `draft-leg-${index + 1}`,
-    league: nfl ? 'NFL' : 'NBA',
+    league: confirmed?.league ?? (nfl ? 'NFL' : 'NBA'),
     gameId: leg.game,
-    teams: leg.game,
+    teams: confirmed?.teams ?? leg.game,
     player: leg.player,
     rawPlayer: leg.player,
     marketType: leg.marketType,
@@ -70,10 +74,11 @@ const toTrackedLeg = (leg: SlipBuilderLeg, index: number): TrackedTicketLeg => {
     threshold: leg.marketType === 'anytime_td' ? 1 : parseThreshold(leg.line),
     direction: parseDirection(leg.line),
     odds: leg.odds,
-    source: sourceLooksParserDerived([leg]) ? 'xray_parser' : 'xray_draft',
+    source: ingestion ? (ingestion.origin === 'screenshot' ? 'screenshot_reviewed' : 'paste_reviewed') : sourceLooksParserDerived([leg]) ? 'xray_parser' : 'xray_draft',
     parseConfidence: confidence,
     needsReview: confidence === 'low',
     rawText: `${leg.player} ${leg.line}${leg.odds ? ` ${leg.odds}` : ''}`,
+    sourceScreenshotIndex: ingestion?.parsedCandidate?.find((item) => item.legId === leg.id)?.sourceScreenshotIndex,
     ladder: /\+/.test(leg.line),
   };
 };
@@ -85,7 +90,7 @@ export function draftSlipToTrackedTicket(input: {
 }): TrackedTicket {
   const { draft, spine } = input;
   const createdAt = input.now ?? new Date().toISOString();
-  const parserDerived = sourceLooksParserDerived(draft.legs);
+  const parserDerived = Boolean(draft.ingestion) || sourceLooksParserDerived(draft.legs);
   const hasReviewFlags = draft.legs.some((leg) => leg.deadLegRisk === 'high');
   const ticketId = draft.slip_id
     ? `ticket_${draft.slip_id}`
@@ -96,11 +101,11 @@ export function draftSlipToTrackedTicket(input: {
   return {
     ticketId,
     createdAt,
-    sourceHint: parserDerived ? 'screenshot' : 'xray',
-    rawSlipText: draft.legs
+    sourceHint: draft.ingestion?.origin ?? (parserDerived ? 'screenshot' : 'xray'),
+    rawSlipText: draft.ingestion?.rawExtractedText || draft.legs
       .map((leg) => `${leg.player} ${leg.line}${leg.odds ? ` (${leg.odds})` : ''}`)
       .join('\n'),
-    legs: draft.legs.map(toTrackedLeg),
+    legs: draft.legs.map((leg, index) => toTrackedLeg(leg, index, draft.ingestion)),
     trace_id: draft.trace_id ?? spine.trace_id,
     slip_id: draft.slip_id ?? spine.slip_id,
     sport: spine.sport,
@@ -110,7 +115,7 @@ export function draftSlipToTrackedTicket(input: {
     provenance: buildLoopProvenance({
       mode: spine.mode,
       sourceType: parserDerived ? 'parser_derived' : 'board_staged',
-      reviewState: hasReviewFlags ? 'unreviewed' : 'reviewed',
+      reviewState: draft.ingestion ? 'reviewed' : hasReviewFlags ? 'unreviewed' : 'reviewed',
     }),
   };
 }

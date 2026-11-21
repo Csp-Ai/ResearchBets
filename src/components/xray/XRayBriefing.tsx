@@ -31,7 +31,7 @@ const repairForFlags = (flags: string[]) => {
   return 'This is the ticket’s weakest structural point. Trimming it is the cleanest repair.';
 };
 
-export function XRayBriefing() {
+export function XRayBriefing({ reviewed = false }: { reviewed?: boolean } = {}) {
   const nervous = useNervousSystem();
   const { slip, isHydrated } = useDraftSlip();
 
@@ -66,20 +66,26 @@ export function XRayBriefing() {
   const flags = (weakest.flags ?? []).slice(0, 2).map(readable);
 
   return (
-    <section className="border-y border-white/10 py-6" data-testid="xray-briefing">
+    <section className="border-y border-white/10 py-6" data-testid={reviewed ? 'xray-structural-model' : 'xray-briefing'}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200/80">
-          ResearchBets X-Ray
+          {reviewed ? 'Model estimates from the reviewed lines and prices' : 'ResearchBets X-Ray'}
         </p>
         <p className="m-0 text-xs text-slate-500">Structural risk, not a win-probability claim</p>
       </div>
 
-      <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-tight tracking-[-0.035em] text-slate-50 sm:text-4xl">
-        {weakestName} is the first place this ticket can break.
-      </h1>
-      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-        {market}{typeof weakest.line === 'number' ? ` · ${weakest.line}` : ''}. {repair}
-      </p>
+      {reviewed ? (
+        <h2 className="mt-3 text-lg font-semibold text-slate-50">Structural score estimates</h2>
+      ) : (
+        <>
+          <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-tight tracking-[-0.035em] text-slate-50 sm:text-4xl">
+            {weakestName} is the first place this ticket can break.
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+            {market}{typeof weakest.line === 'number' ? ` · ${weakest.line}` : ''}. {repair}
+          </p>
+        </>
+      )}
 
       <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-3">
         <div className="bg-slate-950/95 px-4 py-4">
@@ -91,7 +97,7 @@ export function XRayBriefing() {
           <p className="mt-1 font-mono text-xl font-semibold text-slate-100">{intelligence.correlationScore}</p>
         </div>
         <div className="bg-slate-950/95 px-4 py-4">
-          <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Weakest leg score</p>
+          <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{reviewed ? 'Highest modeled leg risk' : 'Weakest leg score'}</p>
           <p className="mt-1 font-mono text-xl font-semibold text-amber-100">{weakest.fragility_score ?? 0}</p>
         </div>
       </div>
@@ -101,10 +107,14 @@ export function XRayBriefing() {
         <span>{report.correlation_edges.length} dependency link{report.correlation_edges.length === 1 ? '' : 's'} detected</span>
       </div>
 
-      <p className="mt-5 text-sm text-cyan-100">
-        <span className="text-cyan-200/70">Next action · </span>
-        Repair this leg or accept the risk, then carry the same ticket into live tracking.
-      </p>
+      {reviewed ? (
+        <p className="mt-5 text-sm text-slate-400">The model uses repeated players, shared games, thresholds and observed prices. Provider coverage and event status are listed under each selection.</p>
+      ) : (
+        <p className="mt-5 text-sm text-cyan-100">
+          <span className="text-cyan-200/70">Next action · </span>
+          Repair this leg or accept the risk, then carry the same ticket into live tracking.
+        </p>
+      )}
     </section>
   );
 }

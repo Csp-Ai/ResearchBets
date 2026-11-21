@@ -301,7 +301,7 @@ export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
 
   return {
     id: SOURCE,
-    async fetchEvents(input: { sport: string }): Promise<{ events: OddsEvent[]; provenance: DataProvenance; fallbackReason?: string }> {
+    async fetchEvents(input: { sport: string; fresh?: boolean }): Promise<{ events: OddsEvent[]; provenance: DataProvenance; fallbackReason?: string }> {
       if (!apiKey) {
         return { events: [], provenance: buildProvenance([]), fallbackReason: 'odds_api_key_missing' };
       }
@@ -309,7 +309,9 @@ export const createTheOddsApiProvider = (options: TheOddsApiOptions = {}) => {
       const sportKey = sportToKey(input.sport);
       const url = new URL(`${baseUrl}/sports/${sportKey}/events`);
       url.searchParams.set('apiKey', apiKey);
-      const events = await fetchJsonOrThrow<OddsEvent[]>(url.toString());
+      const events = await fetchJsonOrThrow<OddsEvent[]>(url.toString(), input.fresh
+        ? { cache: 'no-store', signal: AbortSignal.timeout(5_000) }
+        : undefined);
       return {
         events: Array.isArray(events) ? events : [],
         provenance: buildProvenance([{ provider: SOURCE, url: url.toString(), retrievedAt: new Date().toISOString() }])

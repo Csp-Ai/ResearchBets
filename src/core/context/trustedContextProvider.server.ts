@@ -40,13 +40,14 @@ const normalizeIdentity = (value: string): string =>
     .trim()
     .toLowerCase();
 
-const toTrustedItem = (row: InjuryRow, sport: FetchInput['sport']): TrustedContextItem | null => {
+const toTrustedItem = (row: InjuryRow, sport: FetchInput['sport'], requireUpdateTime?: boolean): TrustedContextItem | null => {
   const player = asString(row.Name ?? row.PlayerName ?? row.player);
   const team = asString(row.Team ?? row.team);
   const status = asString(row.InjuryStatus ?? row.Status ?? row.status) ?? 'Status unavailable';
   const note = asString(row.InjuryNotes ?? row.News ?? row.note) ?? '';
-  const updated = asString(row.Updated ?? row.UpdatedAt ?? row.LastUpdated) ?? new Date().toISOString();
-  if (!player || !team) return null;
+  const sourceUpdate = asString(row.Updated ?? row.UpdatedAt ?? row.LastUpdated);
+  if (!player || !team || (requireUpdateTime && !sourceUpdate)) return null;
+  const updated = sourceUpdate ?? new Date().toISOString();
 
   return {
     kind: 'injury',
@@ -65,7 +66,7 @@ const toTrustedItem = (row: InjuryRow, sport: FetchInput['sport']): TrustedConte
   };
 };
 
-async function fetchLiveInjuries(input: { sport: string; teamIds: string[]; playerIds: string[] }) {
+async function fetchLiveInjuries(input: { sport: string; teamIds: string[]; playerIds: string[]; requireUpdateTime?: boolean }) {
   const apiKey = resolveSportsDataKey();
   if (!apiKey) {
     return {
@@ -90,7 +91,7 @@ async function fetchLiveInjuries(input: { sport: string; teamIds: string[]; play
     const rows = Array.isArray(response.data) ? response.data : [];
     const maxItems = Math.max(10, filterTeams.size + filterPlayers.size);
     const items = rows
-      .map((row) => toTrustedItem(row, normalizeSport(input.sport)))
+      .map((row) => toTrustedItem(row, normalizeSport(input.sport), input.requireUpdateTime))
       .filter((item): item is TrustedContextItem => Boolean(item))
       .filter((item) => {
         if (filterTeams.size === 0 && filterPlayers.size === 0) return true;

@@ -1,303 +1,703 @@
 'use client';
 
-import React, { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import React, { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNervousSystem } from '@/src/components/nervous/NervousSystemContext';
-
+import { useDraftSlip } from '@/src/hooks/useDraftSlip';
 import { appendQuery } from '@/src/components/landing/navigation';
-import { parseSlipSubmitEnvelope } from '@/src/core/slips/apiAdapters';
-import type { TrackedTicket } from '@/src/core/track/types';
-import { withTraceId } from '@/src/core/trace/queryTrace';
 import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
-import { useDraftSlip } from '@/src/hooks/useDraftSlip';
-
-const DEFAULT_SLIP = '';
+import { SUPPORTED_MARKET_TYPES, type MarketType } from '@/src/core/markets/marketType';
+import type { TrackedTicket, TrackedTicketLeg } from '@/src/core/track/types';
+import { inspectScreenshotTicket, screenshotCoverage, type ScreenshotTicketMetadata } from '@/src/core/track/screenshotTicketMetadata';
+import { DraftSlipStore, type TicketAnalysisMode } from '@/src/core/slips/draftSlipStore';
+import { summarizeScreenshotPreflight } from '@/src/core/track/screenshotPreflight';
 
 type ParseTextResponse = {
   ok: boolean;
   data?: TrackedTicket;
   error?: { message?: string };
 };
+type TicketStatus = 'proposed' | 'placed' | 'live' | 'settled' | 'unknown';
+const MAX_SCREENSHOTS = 4;
+const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
+const ACCEPTED_IMAGES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const LEAGUES = ['Unknown', 'NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'Soccer', 'Other'] as const;
+const SPORTSBOOKS = ['Unknown', 'FanDuel', 'DraftKings', 'PrizePicks', 'Kalshi', 'Other'] as const;
+
+function detectSportsbook(rawText: string): string {
+  const found = [
+    /\bfan\s*duel\b/i.test(rawText) ? 'FanDuel' : null,
+    /\bdraft\s*kings\b/i.test(rawText) ? 'DraftKings' : null,
+    /\bprize\s*picks\b/i.test(rawText) ? 'PrizePicks' : null,
+    /\bkalshi\b/i.test(rawText) ? 'Kalshi' : null
+  ].filter(Boolean);
+  return found.length === 1 ? found[0]! : 'Unknown';
+}
+
+function keyForLeg(leg: TrackedTicketLeg): string {
+  return [
+    leg.player.trim().toLowerCase(), leg.marketType, leg.threshold,
+    leg.direction, (leg.teams ?? leg.gameId ?? '').trim().toLowerCase()
+  ].join('|');
+}
+
+function cleanParsedLegs(legs: TrackedTicketLeg[]): TrackedTicketLeg[] {
+  // Preserve every OCR candidate. Identical selections on two screenshots may
+  // be duplicate captures, but may also represent two intentionally distinct
+  // wagers. Only the user can remove or confirm a row.
+  return legs.map((leg, index) => ({
+    ...leg,
+    legId: 'leg-' + (index + 1),
+    needsReview: Boolean(leg.needsReview)
+  }));
+}
+
+function duplicateOf(leg: TrackedTicketLeg, index: number, legs: TrackedTicketLeg[]): number {
+  if (!leg.player.trim() || leg.player === 'Needs review') return -1;
+  const key = keyForLeg(leg);
+  return legs.findIndex((item, earlier) =>
+    earlier < index && item.player !== 'Needs review' && keyForLeg(item) === key
+  );
+}
+
+function reviewProblem(leg: TrackedTicketLeg): string | null {
+  if (!leg.player.trim() || leg.player === 'Needs review') return 'Player or team is missing';
+  if (leg.unsupportedMarket && leg.marketLabel && leg.marketLabel !== 'Needs review') {
+    // Users can confirm exact wording even when the contract has no market adapter.
+    return null;
+  }
+  if (!leg.league || leg.league === 'Unknown') return 'Sport/league needs review';
+  if (!SUPPORTED_MARKET_TYPES.includes(leg.marketType)) return 'Market is unsupported';
+  if (leg.marketLabel === 'Needs review') return 'Market needs review';
+  if (leg.marketType !== 'moneyline' && leg.directionObserved === false) return 'Direction was not visible. Choose Over or Under to confirm.';
+  if (leg.marketType !== 'moneyline' && leg.thresholdObserved === false) return 'Threshold was not visible. Enter the exact line to confirm.';
+  if (leg.marketType !== 'moneyline' && (!Number.isFinite(leg.threshold) || leg.threshold < 0)) return 'Threshold is missing';
+  if (leg.odds && !/^[+-](?:[1-9]\d{2,4})$/.test(leg.odds)) return 'Odds are invalid. Clear them if unreadable';
+  return null;
+}
 
 export default function IngestionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefill = useMemo(() => searchParams.get('prefill') ?? DEFAULT_SLIP, [searchParams]);
-  const [slipText, setSlipText] = useState(prefill);
-  const [sourceType, setSourceType] = useState<'self' | 'shared'>('self');
   const nervous = useNervousSystem();
   const { replaceState } = useDraftSlip();
-  const [loading, setLoading] = useState(false);
-  const [xrayLoading, setXrayLoading] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const [submittedSlipId, setSubmittedSlipId] = useState<string | null>(null);
-  const [submittedTraceId, setSubmittedTraceId] = useState<string | null>(null);
-  const [hasHistoricalDate, setHasHistoricalDate] = useState(false);
+  const fromBender = searchParams.get('entry') === 'bender';
+  const prefill = useMemo(() => searchParams.get('prefill') ?? '', [searchParams]);
+  const [slipText, setSlipText] = useState(prefill);
+  const [showText, setShowText] = useState(Boolean(prefill));
+  const [textByImage, setTextByImage] = useState<string[]>([]);
+  const [origin, setOrigin] = useState<'screenshot' | 'paste'>('paste');
+  const [ticketStatus, setTicketStatus] = useState<TicketStatus>('proposed');
+  const [ticketMetadata, setTicketMetadata] = useState<ScreenshotTicketMetadata | null>(null);
+  const [observedSportsbook, setObservedSportsbook] = useState('Unknown');
+  const [selectedSportsbook, setSelectedSportsbook] = useState('Unknown');
+  const [parsedCandidate, setParsedCandidate] = useState<TrackedTicketLeg[]>([]);
+  const [reviewedLegs, setReviewedLegs] = useState<TrackedTicketLeg[]>([]);
+  const [confirmedIds, setConfirmedIds] = useState<string[]>([]);
+  const [hasParsed, setHasParsed] = useState(false);
+  const [isReading, setIsReading] = useState(false);
   const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [failedScreenshots, setFailedScreenshots] = useState<number[]>([]);
+  const [failedScreenshotsReviewed, setFailedScreenshotsReviewed] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
-  const [ocrError, setOcrError] = useState<string | null>(null);
-  const [artifactStatus, setArtifactStatus] = useState<string | null>(null);
-  const [artifactType, setArtifactType] = useState<'slip_screenshot' | 'account_activity_screenshot' | 'bet_result_screenshot' | 'unknown_betting_artifact'>('slip_screenshot');
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [savingNotice, setSavingNotice] = useState<string | null>(null);
+  const [saveOriginal, setSaveOriginal] = useState(false);
+  const [sourceArtifactId, setSourceArtifactId] = useState<string | undefined>();
+  const [sourceArtifactIds, setSourceArtifactIds] = useState<string[]>([]);
+  const [canRetry, setCanRetry] = useState(false);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const uploadInput = useRef<HTMLInputElement | null>(null);
+  const replacementInput = useRef<HTMLInputElement | null>(null);
+  const replacementIndex = useRef(0);
+  const filesRef = useRef<File[]>([]);
+  const extractedByFile = useRef(new Map<File, string>());
+  const savedByFile = useRef(new Map<File, string>());
+  const cameraInput = useRef<HTMLInputElement | null>(null);
   const ocrWorkerRef = useRef<{ terminate: () => Promise<unknown> } | null>(null);
-  const ocrAbortControllerRef = useRef<AbortController | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const ocrControllerRef = useRef<AbortController | null>(null);
+  const urlsRef = useRef<string[]>([]);
+  const identityRef = useRef<{ slipId?: string; traceId?: string }>({});
 
-  const prepareXRay = async (slipId: string, traceId: string | null) => {
-    if (!slipText.trim()) return;
-    setXrayLoading(true);
-    setStatus('Reading the ticket and building X-Ray…');
+  const shouldResume = searchParams.get('resume') === '1';
+  useEffect(() => {
+    if (!shouldResume) return;
+    const stored = DraftSlipStore.getState();
+    const reviewed = stored.ingestion;
+    if (!reviewed?.reviewedLegs?.length || !stored.slip_id) return;
+    identityRef.current = { slipId: stored.slip_id, traceId: stored.trace_id };
+    setReviewedLegs(reviewed.reviewedLegs);
+    setParsedCandidate(reviewed.reviewedLegs);
+    setConfirmedIds(reviewed.confirmedLegs.map((leg) => leg.legId));
+    setTicketMetadata(reviewed.ticketMetadata ?? null);
+    setTicketStatus(reviewed.userTicketStatus);
+    setObservedSportsbook(reviewed.observedSportsbook ?? 'Unknown');
+    setSelectedSportsbook(reviewed.userSelectedSportsbook ?? 'Unknown');
+    setOrigin(reviewed.origin);
+    setFailedScreenshots(reviewed.unreadableScreenshots ?? []);
+    setSourceArtifactId(reviewed.sourceArtifactId);
+    setSourceArtifactIds(reviewed.sourceArtifactIds ?? []);
+    setHasParsed(true);
+  }, [shouldResume]);
+
+  useEffect(() => () => {
+    ocrControllerRef.current?.abort();
+    void ocrWorkerRef.current?.terminate().catch(() => undefined);
+    urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
+  }, []);
+
+  const parseForReview = async (text: string, source: 'screenshot' | 'paste', screenshotParts?: Array<{ text: string; imageIndex: number }>, signal?: AbortSignal) => {
+    if (!text.trim()) { setError('Add a screenshot or paste ticket text first.'); return; }
+    setIsReading(true);
+    setError(null);
     try {
-      const response = await fetch('/api/slips/parseText', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: slipText,
-          sourceHint: artifactType === 'slip_screenshot' ? 'screenshot' : 'paste',
-          trace_id: traceId ?? nervous.trace_id,
-          slip_id: slipId,
-        }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as ParseTextResponse;
-      if (!response.ok || !payload.ok || !payload.data) {
-        throw new Error(payload.error?.message ?? 'Unable to prepare this slip for Ticket X-Ray.');
-      }
-      if (payload.data.legs.length === 0 || payload.data.legs.some((leg) => leg.needsReview || leg.parseConfidence === 'low' || leg.player === 'Needs review')) {
-        throw new Error('Some legs could not be read reliably. Edit the text to include each player, market, and threshold, then try again.');
-      }
-
-      replaceState({
-        slip_id: slipId,
-        trace_id: traceId ?? nervous.trace_id,
-        legs: payload.data.legs.map((leg) => ({
-          id: leg.legId,
-          player: leg.player,
-          marketType: leg.marketType,
-          line: leg.ladder ? `${leg.threshold}+` : `${leg.direction === 'under' ? 'Under' : 'Over'} ${leg.threshold}`,
-          odds: leg.odds,
-          game: leg.teams ?? leg.gameId,
-          volatility: leg.needsReview ? 'high' : leg.parseConfidence === 'medium' ? 'medium' : 'low',
-          deadLegRisk: leg.needsReview ? 'high' : undefined,
-          deadLegReasons: leg.needsReview ? ['Parser marked this leg for review before trust.'] : undefined,
-        })),
-      });
-
-      const detectedSport = payload.data.legs[0]?.league === 'NFL' ? 'NFL' : nervous.sport;
-      router.push(nervous.toHref('/stress-test', {
-        sport: detectedSport,
-        slip_id: slipId,
-        trace_id: traceId ?? nervous.trace_id,
+      if (!identityRef.current.slipId) identityRef.current.slipId = crypto.randomUUID();
+      if (!identityRef.current.traceId) identityRef.current.traceId = nervous.trace_id ?? crypto.randomUUID();
+      const segments = source === 'screenshot' && screenshotParts?.length
+        ? screenshotParts : [{ text, imageIndex: 0 }];
+      const responses = await Promise.allSettled(segments.map(async (segment) => {
+        const response = await fetch('/api/slips/parseText', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+          body: JSON.stringify({
+            text: segment.text, sourceHint: source, slip_id: identityRef.current.slipId,
+            trace_id: identityRef.current.traceId
+          })
+        });
+        const payload = await response.json().catch(() => ({})) as ParseTextResponse;
+        if (!response.ok || !payload.ok || !payload.data) {
+          throw new Error(payload.error?.message ?? 'Could not recognize the complete ticket.');
+        }
+        return payload.data.legs.map((leg) => ({
+          ...leg, sourceScreenshotIndex: source === 'screenshot' && screenshotParts ? segment.imageIndex : undefined
+        }));
       }));
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Unable to prepare Ticket X-Ray.');
-    } finally {
-      setXrayLoading(false);
-    }
-  };
-
-  const onSubmit = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      const response = await fetch('/api/slips/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source_type: sourceType,
-          source: 'paste',
-          raw_text: slipText,
-          spine: { sport: nervous.sport, tz: nervous.tz, date: nervous.date, mode: nervous.mode }
-        })
-      });
-      const payload = await response.json();
-      const parsed = parseSlipSubmitEnvelope(payload);
-      if (!response.ok || !parsed.success || !parsed.data.ok) {
-        throw new Error(parsed.success && !parsed.data.ok ? parsed.data.error.message : 'Unable to submit slip.');
+      if (signal?.aborted) return;
+      const successful = responses.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+      const failed = responses.flatMap((result, index) =>
+        result.status === 'rejected' && segments[index]?.imageIndex ? [segments[index].imageIndex] : []
+      );
+      if (responses.every((result) => result.status === 'rejected')) {
+        setCanRetry(source === 'screenshot' && filesRef.current.length > 0);
+        throw new Error('Could not read the ticket selections. Edit the text or retry.');
       }
-      const slipId = parsed.data.data.slip_id;
-      const traceId = parsed.data.data.trace_id ?? null;
-      setSubmittedSlipId(slipId);
-      setSubmittedTraceId(traceId);
-      setHasHistoricalDate(/\b(202[0-5]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(slipText));
-      await prepareXRay(slipId, traceId);
-    } catch (submitError) {
-      setStatus(submitError instanceof Error ? submitError.message : 'Unable to submit slip.');
+      if (failed.length) {
+        setFailedScreenshots((current) => [...new Set([...current, ...failed])].sort((a, b) => a - b));
+        setFailedScreenshotsReviewed(false);
+        setCanRetry(true);
+      }
+      const candidate = cleanParsedLegs(successful);
+      setTicketMetadata(inspectScreenshotTicket(text));
+      setParsedCandidate(candidate.map((leg) => ({ ...leg })));
+      const observed = detectSportsbook(text);
+      setObservedSportsbook(observed);
+      setSelectedSportsbook(observed);
+      setReviewedLegs(candidate);
+      setConfirmedIds([]);
+      setHasParsed(true);
+      setOrigin(source);
+      if (candidate.some((leg, i) => duplicateOf(leg, i, candidate) >= 0)) {
+        setNotice('Possible repeated rows detected. Compare each screenshot and remove duplicates yourself; no leg was deleted.');
+      } else if (!candidate.length || candidate.every((leg) => leg.player === 'Needs review')) {
+        setNotice('No reliable selections found. Compare the screenshot, correct the text, or add each missing leg below.');
+      } else {
+        setNotice(null);
+      }
+    } catch (caught) {
+      if (signal?.aborted) return;
+      setHasParsed(false);
+      setError(caught instanceof Error ? caught.message : 'Ticket extraction failed. Paste or edit the text manually.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setIsReading(false);
     }
   };
 
-  const onOpenXRay = async () => {
-    if (!submittedSlipId) return;
-    await prepareXRay(submittedSlipId, submittedTraceId);
-  };
-
-  const onUploadClick = () => {
-    setOcrError(null);
-    setArtifactStatus(null);
-    fileInputRef.current?.click();
-  };
-
-  const onCancelOcr = async () => {
-    if (!isOcrRunning) return;
-    ocrAbortControllerRef.current?.abort();
-    if (ocrWorkerRef.current) {
-      await ocrWorkerRef.current.terminate().catch(() => undefined);
-      ocrWorkerRef.current = null;
-    }
-    ocrAbortControllerRef.current = null;
-    setIsOcrRunning(false);
-    setOcrProgress(null);
-    setOcrError('OCR canceled. You can upload a screenshot again.');
-  };
-
-  const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setOcrError('Please upload a PNG or JPG screenshot.');
-      return;
-    }
-
-    setIsOcrRunning(true);
-    setOcrProgress('Reading text… 0%');
-    setOcrError(null);
-    setStatus(null);
-    setArtifactStatus('Reading the screenshot locally. Sign-in is optional for analysis.');
-    setSubmittedSlipId(null);
-    setSubmittedTraceId(null);
-    const abortController = new AbortController();
-    ocrAbortControllerRef.current = abortController;
-    let persistedArtifactId: string | null = null;
-
+  const persistOriginal = async (file: File): Promise<string | undefined> => {
+    // Saving is never implicit. Anonymous users may always run OCR locally.
+    if (!saveOriginal) return undefined;
     try {
       const form = new FormData();
       form.append('file', file);
-      form.append('artifact_type', artifactType);
-      const uploadResponse = await fetch('/api/bettor-memory/upload', { method: 'POST', body: form });
-      const uploadPayload = await uploadResponse.json().catch(() => ({}));
-      if (uploadResponse.ok && uploadPayload?.artifact?.artifact_id) {
-        persistedArtifactId = uploadPayload.artifact.artifact_id as string;
-        setArtifactStatus('Original screenshot saved. Extracting text before parser analysis…');
-      } else if (uploadResponse.status === 401) {
-        setArtifactStatus('Not signed in — the screenshot stays local, and analysis still works normally.');
-      } else {
-        setArtifactStatus(uploadPayload?.error ?? 'Upload could not be persisted. Continuing with local OCR only.');
-      }
-    } catch {
-      setArtifactStatus('Upload could not be persisted. Continuing with local OCR only.');
-    }
-
-    try {
-      const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
-      const normalized = await runOcr(file, (progressLabel) => {
-        setOcrProgress(progressLabel);
-      }, {
-        signal: abortController.signal,
-        onWorkerChange: (worker) => {
-          ocrWorkerRef.current = worker;
-        }
-      });
-
-      setSlipText(normalized);
-      setStatus('Screenshot text extracted. Review it, then tap Analyze ticket.');
-
-      if (persistedArtifactId) {
-        setArtifactStatus('Screenshot saved. Running sportsbook parser on the extracted text…');
-        const parseResponse = await fetch('/api/bettor-memory/parse-demo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            artifact_id: persistedArtifactId,
-            artifact_type: artifactType,
-            raw_text: normalized,
-            source_sportsbook: null,
-          })
-        });
-        const parsePayload = await parseResponse.json().catch(() => ({}));
-        if (parseResponse.ok) {
-          setArtifactStatus(`Saved to bettor history. Parser mode: ${parsePayload?.parser_mode ?? 'unknown'}. Review unverified fields before trusting them.`);
-        } else {
-          setArtifactStatus(parsePayload?.error ?? 'Screenshot saved, but parser analysis did not complete. The extracted text is still available for review.');
-        }
-      }
-    } catch (uploadError) {
-      if (uploadError instanceof DOMException && uploadError.name === 'AbortError') {
-        setOcrError('OCR canceled. You can upload a screenshot again.');
-      } else if (uploadError instanceof Error) {
-        setOcrError(uploadError.message);
-      } else {
-        setOcrError('Could not read the screenshot. Try another image or paste your slip manually.');
-      }
-    } finally {
-      ocrAbortControllerRef.current = null;
-      ocrWorkerRef.current = null;
-      setIsOcrRunning(false);
-      setOcrProgress(null);
+      form.append('artifact_type', 'slip_screenshot');
+      const response = await fetch('/api/bettor-memory/upload', { method: 'POST', body: form });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(
+        response.status === 401 ? 'Sign in to save the original screenshot. Local analysis is still available.'
+        : payload.error ?? 'Original image could not be saved.'
+      );
+      return typeof payload.artifact?.artifact_id === 'string' ? payload.artifact.artifact_id : undefined;
+    } catch (caught) {
+      setSavingNotice(caught instanceof Error ? caught.message : 'Image saving unavailable. Continuing locally.');
+      return undefined;
     }
   };
 
+  const readScreenshots = async (files: File[]) => {
+    if (!files.length) return;
+    if (files.length > MAX_SCREENSHOTS) {
+      setError('Choose up to four screenshots for one ticket.');
+      return;
+    }
+    if (files.some((file) => !ACCEPTED_IMAGES.has(file.type) || file.size > MAX_SCREENSHOT_BYTES || file.size === 0)) {
+      setError('Choose PNG, JPEG, or WebP images up to 8 MB each. Convert HEIC before uploading.');
+      return;
+    }
+    ocrControllerRef.current?.abort();
+    filesRef.current = files;
+    for (const cachedFile of extractedByFile.current.keys()) {
+      if (!files.includes(cachedFile)) extractedByFile.current.delete(cachedFile);
+    }
+    for (const savedFile of savedByFile.current.keys()) {
+      if (!files.includes(savedFile)) savedByFile.current.delete(savedFile);
+    }
+    const controller = new AbortController();
+    ocrControllerRef.current = controller;
+    setError(null); setNotice(null); setSavingNotice(null); setIsOcrRunning(true); setCanRetry(false);
+    setSlipText(''); setTextByImage([]); setShowText(false);
+    setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
+    setTicketStatus('proposed'); setTicketMetadata(null); setSourceArtifactId(undefined); setSourceArtifactIds([]);
+    setFailedScreenshots([]); setFailedScreenshotsReviewed(false);
+    setObservedSportsbook('Unknown'); setSelectedSportsbook('Unknown');
+    setOrigin('screenshot');
+    urlsRef.current.forEach((url) => URL.revokeObjectURL?.(url));
+    const urls = files.map((file) => typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '');
+    urlsRef.current = urls.filter(Boolean);
+    setPreviewUrls(urls.filter(Boolean));
+
+    try {
+      const { runOcr } = await import('@/src/features/ingest/ocr/ocrClient');
+      const parts: Array<{text: string; imageIndex: number}> = [];
+      const savedIds: string[] = [];
+      const failedIndexes: number[] = [];
+      for (const [index, file] of files.entries()) {
+        if (controller.signal.aborted) return;
+        setOcrProgress('Screenshot ' + (index + 1) + ' of ' + files.length);
+        try {
+          const extracted = extractedByFile.current.get(file) ?? await runOcr(file, (progress) => {
+            if (!controller.signal.aborted) setOcrProgress('Screenshot ' + (index + 1) + '/' + files.length + ': ' + progress);
+          }, {
+            signal: controller.signal,
+            onWorkerChange: (worker) => {
+              if (ocrControllerRef.current === controller) ocrWorkerRef.current = worker;
+            }
+          });
+          if (controller.signal.aborted) return;
+          extractedByFile.current.set(file, extracted);
+          parts.push({ text: extracted, imageIndex: index + 1 });
+        } catch {
+          if (controller.signal.aborted) return;
+          failedIndexes.push(index + 1);
+        }
+        if (controller.signal.aborted) return;
+        const artifactId = savedByFile.current.get(file) ?? await persistOriginal(file);
+        if (artifactId && filesRef.current.includes(file)) savedByFile.current.set(file, artifactId);
+        if (controller.signal.aborted) return;
+        if (artifactId) { savedIds.push(artifactId); setSourceArtifactId(artifactId); }
+      }
+      if (controller.signal.aborted) return;
+      setFailedScreenshots(failedIndexes);
+      setCanRetry(failedIndexes.length > 0);
+      setFailedScreenshotsReviewed(false);
+      setSourceArtifactIds(savedIds);
+      if (parts.length === 0) {
+        setError('None of the screenshots could be read. Paste ticket text or try a clearer image.');
+        return;
+      }
+      const allText = parts.map((part) => part.text).join('\n');
+      setTextByImage(files.map((file) => extractedByFile.current.get(file) ?? ''));
+      await parseForReview(allText, 'screenshot', parts, controller.signal);
+    } catch (caught) {
+      if (!controller.signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Could not read the screenshot. Edit or paste the ticket text.');
+      }
+    } finally {
+      if (ocrControllerRef.current === controller) {
+        ocrControllerRef.current = null;
+        setIsOcrRunning(false); setOcrProgress(null); ocrWorkerRef.current = null;
+      }
+    }
+  };
+
+  const onFilesChange = (event: ChangeEvent<HTMLInputElement>, replaceIndex?: number) => {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!selected.length) return;
+    const files = replaceIndex === undefined
+      ? selected
+      : filesRef.current.map((file, index) => index === replaceIndex ? selected[0]! : file);
+    void readScreenshots(files);
+  };
+
+  const onCancelOcr = () => {
+    ocrControllerRef.current?.abort();
+    void ocrWorkerRef.current?.terminate().catch(() => undefined);
+    ocrControllerRef.current = null;
+    ocrWorkerRef.current = null;
+    setIsOcrRunning(false);
+    setIsReading(false);
+    setCanRetry(true);
+    setOcrProgress(null);
+    setError('OCR canceled. Your screenshots remain available for reference; paste the ticket text or try again.');
+  };
+
+  const updateLeg = (legId: string, patch: Partial<TrackedTicketLeg>) => {
+    setReviewedLegs((current) => current.map((leg) => leg.legId === legId
+      ? { ...leg, ...patch, needsReview: false } : leg
+    ));
+    setConfirmedIds((current) => current.filter((id) => id !== legId));
+  };
+
+  const addMissingLeg = () => {
+    const id = 'manual-' + crypto.randomUUID();
+    setReviewedLegs((current) => [...current, {
+      legId: id, league: 'Unknown', player: '', marketType: 'points',
+      marketLabel: 'Needs review', threshold: -1, thresholdObserved: false, direction: 'over', directionObserved: false,
+      source: 'manual_review', parseConfidence: 'low', needsReview: true
+    }]);
+    setHasParsed(true);
+    setConfirmedIds((current) => current.filter((candidate) => candidate !== id));
+  };
+
+  const recognizedLegs = reviewedLegs.filter((leg) => leg.player.trim() && leg.player !== 'Needs review');
+  const identifiedLegCount = recognizedLegs.length;
+  const completeness = ticketMetadata ? screenshotCoverage(ticketMetadata, identifiedLegCount) : null;
+  const unresolvedScreenshots = failedScreenshots.length > 0 && !failedScreenshotsReviewed;
+  const isPartial = Boolean(completeness?.incomplete || unresolvedScreenshots || confirmedIds.length !== reviewedLegs.length);
+
+  const onAnalyze = () => {
+    setError(null);
+    if (!reviewedLegs.length) {
+      setError('No ticket legs to analyze. Add or review a selection.'); return;
+    }
+    const confirmed = reviewedLegs.filter((leg) => confirmedIds.includes(leg.legId) && !reviewProblem(leg));
+    if (confirmed.length === 0) {
+      setError(completeness?.note ?? (unresolvedScreenshots
+        ? 'Some screenshots could not be read. Compare them and confirm the visible selections for partial research.'
+        : 'Review every leg before analysis or confirm at least one selection for Partial Research.'));
+      return;
+    }
+    const analysisMode: TicketAnalysisMode = isPartial
+      ? 'incomplete'
+      : !ticketMetadata || ticketMetadata.pricingKind !== 'american_odds' ||
+        ticketMetadata.screenshotState === 'closed_position' ||
+        selectedSportsbook === 'Kalshi' || selectedSportsbook === 'PrizePicks' ||
+        confirmed.some((leg) => leg.unsupportedMarket || !leg.odds)
+        ? 'research_only'
+        : 'full';
+    const coverageNote = completeness?.note ?? (unresolvedScreenshots
+      ? 'Some screenshots could not be read. Compare the originals for missing selections.'
+      : confirmed.length !== reviewedLegs.length
+        ? 'Some recognized selections still need confirmation.'
+        : undefined);
+    const slipId = identityRef.current.slipId ?? crypto.randomUUID();
+    const traceId = identityRef.current.traceId ?? nervous.trace_id ?? crypto.randomUUID();
+    identityRef.current = { slipId, traceId };
+    const timestamp = new Date().toISOString();
+    replaceState({
+      slip_id: slipId,
+      trace_id: traceId,
+      legs: confirmed.map((leg) => ({
+        id: leg.legId, player: leg.player, marketType: leg.marketType,
+        line: leg.unsupportedMarket ? leg.marketLabel ?? 'Review exact contract'
+          : leg.marketType === 'moneyline' ? leg.contractSide?.toUpperCase() ?? 'To win'
+          : leg.ladder ? String(leg.threshold) + '+'
+          : (leg.direction === 'under' ? 'Under ' : 'Over ') + leg.threshold,
+        odds: analysisMode === 'full' ? leg.odds : undefined, game: leg.teams ?? leg.gameId
+      })),
+      ingestion: {
+        origin, userTicketStatus: ticketStatus,
+        observedSportsbook, userSelectedSportsbook: selectedSportsbook,
+        ticketMetadata: ticketMetadata ?? undefined, analysisMode, coverageNote, recognizedLegCount: identifiedLegCount,
+        reviewedLegs: reviewedLegs.map((leg) => ({ ...leg, rawText: undefined })),
+        unreadableScreenshots: unresolvedScreenshots ? failedScreenshots : undefined,
+        rawExtractedText: origin === 'screenshot' ? '' : slipText,
+        parsedCandidate: parsedCandidate.map((leg) => ({
+          legId: leg.legId, sourceScreenshotIndex: leg.sourceScreenshotIndex, player: leg.player,
+          league: leg.league, marketType: leg.marketType,
+          threshold: leg.threshold, odds: leg.odds
+        })),
+        confirmedLegs: confirmed.map((leg) => ({
+          legId: leg.legId, sourceScreenshotIndex: leg.sourceScreenshotIndex, league: leg.league, player: leg.player,
+          marketType: leg.marketType, threshold: leg.threshold,
+          direction: leg.direction, odds: leg.odds, teams: leg.teams ?? leg.gameId,
+          marketLabel: leg.marketLabel, unsupportedMarket: leg.unsupportedMarket, ladder: leg.ladder,
+          quotedContractPercent: leg.quotedContractPercent, contractSide: leg.contractSide
+        })),
+        confirmedAt: timestamp, sourceArtifactId, sourceArtifactIds
+      }
+    });
+    // Only a reviewed draft is created. No bet placement, settlement or historical performance record.
+    const leagues = new Set(confirmed.map((leg) => leg.league));
+    const sport = leagues.size === 1 ? confirmed[0]?.league : nervous.sport;
+    router.push(nervous.toHref('/stress-test', { sport, slip_id: slipId, trace_id: traceId }));
+  };
+
+  const editedParts = textByImage.flatMap((text, index) => text.trim() ? [{ text, imageIndex: index + 1 }] : []);
+  const textToReview = textByImage.length ? editedParts.map((part) => part.text).join('\n') : slipText;
+  const preflight = ticketMetadata ? summarizeScreenshotPreflight(ticketMetadata, recognizedLegs) : null;
   return (
-    <div className="mx-auto max-w-3xl space-y-4 py-4 pb-28 md:py-8">
+    <div className="mx-auto max-w-3xl space-y-4 px-3 py-4 pb-24 sm:px-5 md:py-8">
       <header className="space-y-2">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/60">Screenshot → structure → X-Ray</div>
-        <h1 className="text-3xl font-semibold">Scan my bet slip</h1>
-        <p className="text-sm text-slate-300">Upload a sportsbook screenshot or paste the text. ResearchBets preserves the source, parses the legs, then sends the reviewed structure into Ticket X-Ray.</p>
+        <p className="text-xs font-semibold text-cyan-100/70">
+          {fromBender ? 'Bender / ResearchBets' : 'ResearchBets'}
+        </p>
+        <h1 className="text-3xl font-semibold">Upload Your Parlay</h1>
+        <p className="text-sm text-slate-300">Add screenshots of one ticket. Crop out chats or account details before uploading.</p>
       </header>
 
-      <div className="flex flex-wrap gap-2 text-xs">
-        <button type="button" onClick={() => setSourceType('self')} className={`rounded-full px-3 py-1 ${sourceType === 'self' ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>My slip</button>
-        <button type="button" onClick={() => setSourceType('shared')} className={`rounded-full px-3 py-1 ${sourceType === 'shared' ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>Shared slip/text</button>
-      </div>
-
       <Surface className="space-y-4">
-        <div className="flex flex-wrap gap-2 text-xs">
-          {(['slip_screenshot', 'account_activity_screenshot', 'bet_result_screenshot', 'unknown_betting_artifact'] as const).map((type) => (
-            <button key={type} type="button" onClick={() => setArtifactType(type)} className={`rounded-full px-3 py-1 ${artifactType === type ? 'bg-cyan-400 text-slate-950' : 'border border-white/20 text-slate-200'}`}>{type.replace(/_/g, ' ')}</button>
-          ))}
+        <Button className="min-h-12 w-full" intent="primary" onClick={() => uploadInput.current?.click()} disabled={isOcrRunning || isReading}>
+          Upload Your Parlay
+        </Button>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Button className="min-h-11" intent="secondary" onClick={() => cameraInput.current?.click()} disabled={isOcrRunning || isReading}>
+            Take a picture
+          </Button>
+          <Button className="min-h-11" intent="secondary" aria-expanded={showText} onClick={() => setShowText(!showText)} disabled={isOcrRunning || isReading}>
+            {textByImage.length ? 'Edit extracted text' : 'Paste ticket'}
+          </Button>
+          <Link className="inline-flex min-h-11 items-center justify-center rounded border border-white/20 px-3 py-2 text-sm" href={nervous.toHref('/slip')}>
+            Build manually
+          </Link>
         </div>
-        <textarea className="h-56 w-full rounded-lg border border-default bg-canvas p-3 font-mono text-xs" value={slipText} onChange={(event) => { setSlipText(event.target.value); setSubmittedSlipId(null); setSubmittedTraceId(null); }} placeholder="Upload a sportsbook screenshot, or paste each leg on a new line" />
-        <input ref={fileInputRef} hidden type="file" accept="image/png,image/jpeg" onChange={(event) => { void onFileChange(event); }} />
-        {ocrProgress !== null ? <p className="text-sm text-slate-300">{ocrProgress}</p> : null}
-        {status ? <p className="text-sm text-slate-300">{status}</p> : null}
-        {artifactStatus ? <p className="text-sm text-slate-300">{artifactStatus}</p> : null}
-        {ocrError ? <p className="text-sm text-danger">{ocrError}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          <Button intent="secondary" onClick={onUploadClick} disabled={loading || isOcrRunning || xrayLoading}>Upload screenshot</Button>
-          {isOcrRunning ? <Button intent="secondary" onClick={() => void onCancelOcr()}>Cancel OCR</Button> : null}
-          <Button intent="primary" onClick={() => void onSubmit()} disabled={loading || isOcrRunning || xrayLoading || !slipText.trim()}>{loading || xrayLoading ? 'Building X-Ray…' : 'Analyze ticket'}</Button>
-        </div>
+        <input ref={uploadInput} aria-label="Select screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(event) => onFilesChange(event)} />
+        <input ref={cameraInput} aria-label="Take a ticket photo" type="file" accept="image/*" capture="environment" hidden onChange={(event) => onFilesChange(event)} />
+        <input ref={replacementInput} aria-label="Select cropped screenshot" type="file" accept="image/png,image/jpeg,image/webp" hidden
+          onChange={(event) => onFilesChange(event, replacementIndex.current)} />
+        <p className="text-xs text-slate-400">Choose up to four PNG, JPEG or WebP images, up to 8 MB each.</p>
+        <details className="text-xs text-slate-300">
+          <summary className="min-h-11 cursor-pointer py-3">Screenshot privacy and saving</summary>
+          <p className="my-2">Images stay on your device by default. Extracted text is sent to ResearchBets to find the selections.</p>
+          <label className="flex min-h-11 items-center gap-2">
+            <input type="checkbox" checked={saveOriginal} onChange={(event) => setSaveOriginal(event.target.checked)} disabled={isOcrRunning || isReading} />
+            Save screenshots to my signed-in history
+          </label>
+        </details>
+        {previewUrls.length > 0 ? (
+          <details className="text-sm">
+            <summary className="min-h-11 cursor-pointer py-3">View or replace screenshots ({previewUrls.length})</summary>
+            <p className="mb-2 text-xs text-slate-300">In Photos, crop to the ticket to remove chats and other surrounding content. Then replace that screenshot here.</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {previewUrls.map((url, index) => (
+                <figure key={url} className="min-w-0 space-y-2">
+                  <img src={url} alt={'Screenshot ' + (index + 1)} className="max-h-56 w-full rounded-lg border border-white/15 object-contain" />
+                  <Button intent="secondary" className="min-h-11 w-full px-2" disabled={isOcrRunning || isReading} onClick={() => {
+                    replacementIndex.current = index;
+                    replacementInput.current?.click();
+                  }}>Replace image {index + 1}</Button>
+                </figure>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {savingNotice ? <p className="text-sm text-amber-100" role="status">{savingNotice}</p> : null}
+        {ocrProgress ? <p className="text-sm text-slate-300" role="status">{ocrProgress}</p> : null}
+        {isOcrRunning ? <Button intent="secondary" onClick={onCancelOcr}>Cancel OCR</Button> : null}
+        {canRetry && !isOcrRunning ? (
+          <Button intent="secondary" disabled={isReading} onClick={() => { void readScreenshots(filesRef.current); }}>Retry OCR</Button>
+        ) : null}
+        {showText ? (
+          <div className="space-y-2">
+            {(textByImage.length ? textByImage : [slipText]).map((value, index) => (
+              <label key={index} className="block text-sm font-semibold">
+                {textByImage.length ? 'Text from screenshot ' + (index + 1) : 'Paste ticket text'}
+                <textarea
+                  rows={4} maxLength={20_000}
+                  className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base text-slate-100"
+                  placeholder="Paste each leg on a new line"
+                  value={value}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    if (textByImage.length) setTextByImage((current) => current.map((entry, i) => i === index ? text : entry));
+                    else setSlipText(text);
+                    setHasParsed(false); setConfirmedIds([]); setReviewedLegs([]);
+                  }}
+                />
+              </label>
+            ))}
+            <Button intent="secondary" disabled={isOcrRunning || isReading || !textToReview.trim()} onClick={() => {
+              void parseForReview(textToReview, textByImage.length ? 'screenshot' : 'paste', editedParts);
+            }}>{isReading ? 'Reading ticket…' : 'Review extracted ticket'}</Button>
+          </div>
+        ) : null}
+        {error && !hasParsed ? <p className="rounded-lg border border-rose-400/40 bg-rose-950/20 p-3 text-sm text-rose-200" role="alert">{error}</p> : null}
       </Surface>
 
+      {hasParsed ? (
+        <Surface className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">Your Ticket · {reviewedLegs.length} legs</h2>
+            <p className="mt-1 text-sm text-slate-300">Check the selections against your original and correct any missing fields.</p>
+            {notice ? <p className="mt-2 text-sm text-slate-300" role="status">{notice}</p> : null}
+          </div>
+          {ticketMetadata ? (
+            <div className="space-y-2 rounded-lg border border-white/20 bg-white/[0.04] p-3">
+              {preflight ? (
+                <div className="space-y-1 border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-semibold">{preflight.title}</h3>
+                  <p className="text-xs text-slate-300">{preflight.read}</p>
+                  <p className="text-xs text-amber-100"><strong>Primary pressure:</strong> {preflight.primaryPressure}</p>
+                  <p className="text-xs text-slate-200"><strong>Suggested next action:</strong> {preflight.nextAction}</p>
+                </div>
+              ) : null}
+              <h3 className="text-sm font-semibold">Ticket structure</h3>
+              <p className="text-xs text-slate-300">
+                Detected format: {ticketMetadata.format.replace(/_/g, ' ')} ·
+                Quoting: {ticketMetadata.pricingKind.replace(/_/g, ' ')}
+              </p>
+              <p className="text-xs text-slate-300">
+                Declared selections: {ticketMetadata.declaredLegCount ?? 'Unknown'} ·
+                Recognized selections: {recognizedLegs.length}
+              </p>
+              {ticketMetadata.cost != null ? <p className="text-xs text-slate-300">Screenshot cost: ${ticketMetadata.cost.toFixed(2)} (historical observation)</p> : null}
+              {ticketMetadata.statedMaxPayout != null ? <p className="text-xs text-slate-300">Screenshot stated maximum payout: ${ticketMetadata.statedMaxPayout.toFixed(2)} (not independently verified)</p> : null}
+              {ticketMetadata.officialCombinedAmericanOdds ? <p className="text-xs text-slate-300">Screenshot SGP+ combined price: {ticketMetadata.officialCombinedAmericanOdds} (not a per-leg price)</p> : null}
+              {ticketMetadata.statedMultiplier != null ? <p className="text-xs text-slate-300">Screenshot displayed multiplier: {ticketMetadata.statedMultiplier}× (terms unverified)</p> : null}
+              {ticketMetadata.displayedPotentialReturn != null ? (
+                <p className="text-xs text-slate-300">Displayed potential return {'$' + ticketMetadata.displayedPotentialReturn.toFixed(2)}. Final result unavailable.</p>
+              ) : null}
+              {ticketMetadata.closedPositionObservations?.length ? (
+                <ul className="space-y-1 text-xs text-slate-300" aria-label="Displayed closed positions">
+                  {ticketMetadata.closedPositionObservations.map((position, index) => (
+                    <li key={index}>
+                      {position.declaredLegCount}-market closed position · {position.displayedAmount == null ? 'Amount unavailable' : '$' + position.displayedAmount.toFixed(2)} · Settlement unverified
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {ticketMetadata.warnings.map((warning, index) => (
+                <p key={index} className="text-xs text-amber-100">{warning}</p>
+              ))}
+              {ticketMetadata.pricingKind !== 'american_odds' || ticketMetadata.format === 'unknown' ? (
+                <p className="text-xs text-amber-200">Research-Only X-Ray: specialized ticket pricing and conventional X-Ray calculations are not enabled for this format.</p>
+              ) : null}
+            </div>
+          ) : null}
+          <label htmlFor="rb-sportsbook" className="block text-sm">
+            Sportsbook (OCR suggestion: {observedSportsbook}, not verified)
+          </label>
+          <select id="rb-sportsbook" className="w-full rounded-lg border border-white/20 bg-slate-900 p-3 text-sm"
+            value={selectedSportsbook} onChange={(event) => setSelectedSportsbook(event.target.value)}>
+            {SPORTSBOOKS.map((book) => <option key={book} value={book}>{book}</option>)}
+          </select>
+          <label htmlFor="rb-ticket-status" className="block text-sm">
+            What is the ticket status? (your confirmation)
+          </label>
+          <select id="rb-ticket-status" value={ticketStatus} onChange={(event) => setTicketStatus(event.target.value as TicketStatus)}
+            className="w-full rounded-lg border border-white/20 bg-slate-900 p-3 text-sm">
+            <option value="proposed">Potential ticket · not placed</option>
+            <option value="placed">Placed · outcome not verified</option>
+            <option value="live">In progress · outcome not verified</option>
+            <option value="settled">Settled · outcome needs review</option>
+            <option value="unknown">Status unknown</option>
+          </select>
+          {reviewedLegs.map((leg, index) => {
+            const problem = reviewProblem(leg);
+            const duplicateIndex = duplicateOf(leg, index, reviewedLegs);
+            const checked = confirmedIds.includes(leg.legId);
+            return (
+              <section key={leg.legId} className="min-w-0 space-y-3 rounded-xl border border-white/15 bg-white/[0.035] p-3" aria-label={'Leg ' + (index + 1)}>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="min-w-0 break-words text-sm font-semibold">Leg {index + 1}{leg.player && leg.player !== 'Needs review' ? ' · ' + leg.player : ''}</h3>
+                  <button type="button" className="min-h-11 px-2 text-xs text-rose-200" onClick={() => {
+                    setReviewedLegs((current) => current.filter((item) => item.legId !== leg.legId));
+                    setConfirmedIds((current) => current.filter((id) => id !== leg.legId));
+                  }}>Remove row</button>
+                </div>
+                {duplicateIndex >= 0 ? <p role="status" className="rounded-lg border border-amber-300/40 p-2 text-xs text-amber-200">Possible duplicate of leg {duplicateIndex + 1}. Compare the screenshot before keeping both.</p> : null}
+                {leg.sourceScreenshotIndex ? <p className="text-xs text-slate-300">Source: screenshot {leg.sourceScreenshotIndex}</p> : null}
+                {leg.rawText ? <p className="break-words rounded bg-slate-900 p-2 text-xs text-slate-400">Source text: {leg.rawText}</p> : <p className="text-xs text-slate-400">Manually added leg</p>}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block text-xs">Player / team
+                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
+                      value={leg.player} onChange={(event) => updateLeg(leg.legId, { player: event.target.value })} />
+                  </label>
+                  <label className="block text-xs">League
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={LEAGUES.includes(leg.league as typeof LEAGUES[number]) ? leg.league : 'Unknown'}
+                      onChange={(event) => updateLeg(leg.legId, { league: event.target.value })}>
+                      {LEAGUES.map((league) => <option key={league} value={league}>{league}</option>)}
+                    </select>
+                  </label>
+                  {leg.unsupportedMarket && leg.marketLabel !== 'Needs review' ? (
+                    <div className="text-xs text-slate-300">Contract market<p className="mt-1 break-words text-sm text-slate-100">{leg.marketLabel}</p></div>
+                  ) : <label className="block text-xs">Market
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
+                      value={leg.marketLabel === 'Needs review' ? '' : leg.marketType}
+                      onChange={(event) => updateLeg(leg.legId, { marketType: event.target.value as MarketType, marketLabel: event.target.value.replace(/_/g, ' '), unsupportedMarket: undefined })}>
+                      <option value="" disabled>Choose a market</option>
+                      {SUPPORTED_MARKET_TYPES.map((market) => <option key={market} value={market}>{market.replace(/_/g, ' ')}</option>)}
+                    </select>
+                  </label>}
+                  <label className="block text-xs">Event / matchup (if known)
+                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={leg.teams ?? ''}
+                      onChange={(event) => updateLeg(leg.legId, { teams: event.target.value, gameId: undefined })} placeholder="Unknown" />
+                  </label>
+                  {!leg.unsupportedMarket && leg.marketType !== 'moneyline' ? <>
+                  <label className="block text-xs">Direction
+                    <select className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3 text-base" value={leg.directionObserved === false ? '' : leg.direction}
+                      onChange={(event) => updateLeg(leg.legId, { direction: event.target.value as 'over' | 'under', directionObserved: true })}>
+                      <option value="" disabled>Choose direction</option>
+                      <option value="over">Over / at least</option><option value="under">Under</option>
+                    </select>
+                  </label>
+                  <label className="block text-xs">Threshold
+                    <input type="number" min="0" step="any" className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
+                      value={leg.thresholdObserved === false || leg.threshold < 0 ? '' : leg.threshold}
+                      onChange={(event) => updateLeg(leg.legId, { threshold: event.target.value === '' ? -1 : Number(event.target.value), thresholdObserved: event.target.value !== '' })} />
+                  </label>
+                  </> : null}
+                  {!leg.unsupportedMarket && (!ticketMetadata || ticketMetadata.pricingKind === 'american_odds') ? <label className="block text-xs">American odds (optional / unknown)
+                    <input className="mt-1 w-full min-w-0 rounded-lg border border-white/20 bg-slate-950 p-3 text-base"
+                      placeholder="Unknown" inputMode="numeric" value={leg.odds ?? ''}
+                      onChange={(event) => updateLeg(leg.legId, { odds: event.target.value })} />
+                  </label> : null}
+                </div>
+                {leg.quotedContractPercent != null ? (
+                  <p className="text-xs text-amber-100">Screenshot contract quote: {leg.quotedContractPercent}% · not American odds or a calibrated win probability</p>
+                ) : null}
+                {leg.contractSide ? <p className="text-xs text-slate-300">Contract side: {leg.contractSide.toUpperCase()}</p> : null}
+                <p className="text-xs text-slate-400">Source: {leg.source} · Parser confidence: {leg.parseConfidence}. Odds are from the screenshot, not current verified prices.</p>
+                {problem ? <p className="text-xs text-amber-200" role="status">{problem}</p> : null}
+                {leg.unsupportedMarket && !problem ? <p className="text-xs text-amber-200">Confirm the displayed contract wording. Research will flag the unsupported terms.</p> : null}
+                <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={checked} disabled={Boolean(problem)} onChange={(event) => setConfirmedIds((current) => event.target.checked
+                    ? [...current.filter((id) => id !== leg.legId), leg.legId]
+                    : current.filter((id) => id !== leg.legId))} />
+                  Confirm leg {index + 1} against original
+                </label>
+              </section>
+            );
+          })}
+          <Button intent="secondary" onClick={addMissingLeg}>+ Add missing leg</Button>
+          {failedScreenshots.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-amber-400/40 bg-amber-950/20 p-3">
+              <p className="text-sm text-amber-100" role="alert">
+                Could not read screenshot {failedScreenshots.join(', ')}. The ticket may be incomplete.
+                Compare the originals and add or correct any missing selections.
+              </p>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input type="checkbox" checked={failedScreenshotsReviewed}
+                  onChange={(event) => setFailedScreenshotsReviewed(event.target.checked)} />
+                I reviewed the unreadable screenshot(s) and added any missing legs.
+              </label>
+            </div>
+          ) : null}
+          <p className="text-xs text-slate-400">{confirmedIds.length} of {reviewedLegs.length} legs confirmed. Missing prices remain unknown; no payout is inferred.</p>
+          {error ? <p className="rounded-lg border border-rose-400/40 bg-rose-950/20 p-3 text-sm text-rose-200" role="alert">{error}</p> : null}
+          <Button intent="primary" onClick={onAnalyze} disabled={isReading || isOcrRunning}>{confirmedIds.length > 0 && isPartial ? 'Open Partial Research' : 'Analyze My Ticket'}</Button>
+          <p className="text-xs text-slate-400">Creates a reviewed research draft, not a wager or verified betting-history record. Ticket X-Ray remains the canonical engine.</p>
+        </Surface>
+      ) : null}
+
       <section className="rounded-xl border border-white/15 bg-white/5 p-3">
-        <p className="text-xs text-slate-300">Other paths</p>
+        <p className="text-xs text-slate-300">Other ways to research</p>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/cockpit'), { mode: 'demo' })}>Try sample slip</Link>
-          <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/history'), {})}>Open history</Link>
-          <Link className="rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/today'), { tab: 'board' })}>Build from Board</Link>
+          <Link className="inline-flex min-h-11 items-center rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/today'), { tab: 'board' })}>Discover + Build</Link>
+          <Link className="inline-flex min-h-11 items-center rounded border border-white/20 px-3 py-2" href={appendQuery(nervous.toHref('/history'), {})}>Reviewed history</Link>
         </div>
       </section>
-
-      {submittedSlipId ? (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-slate-950/95 p-3 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-3xl gap-2">
-            <Button intent="primary" onClick={() => void onOpenXRay()} disabled={xrayLoading}>
-              {xrayLoading ? 'Building X-Ray…' : 'Open Ticket X-Ray'}
-            </Button>
-            {hasHistoricalDate ? (
-              <Button intent="secondary" onClick={() => void router.push(appendQuery(nervous.toHref('/history'), { settle: submittedSlipId }))}>
-                Run settle
-              </Button>
-            ) : (
-              <Button intent="secondary" onClick={() => void router.push(withTraceId(nervous.toHref('/research'), submittedTraceId ?? nervous.trace_id ?? ''))}>
-                Deep analysis
-              </Button>
-            )}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

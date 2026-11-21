@@ -47,6 +47,16 @@ describe('bettor memory parser adapters', () => {
     expect(result.normalized.slip?.legs[0]?.market_type.value).toBe('Points');
   });
 
+  it('does not treat Settled as Won without an explicit result', () => {
+    const result = runParser(context([
+      'FanDuel Sportsbook',
+      'Settled',
+      'Jayson Tatum over 20.5 points (-110)',
+      'Total Bet $10.00'
+    ].join('\n')));
+    expect(result.normalized.slip?.status.value).toBe('unknown');
+  });
+
   it('marks missing OCR text as a recoverable parse failure', () => {
     const result = runParser(context(''));
     expect(result.parse_status).toBe('failed');

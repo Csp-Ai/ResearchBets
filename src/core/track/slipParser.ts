@@ -1,5 +1,6 @@
 import { asMarketType, type MarketType } from '@/src/core/markets/marketType';
 import type { ParseConfidence, TrackedTicketLeg } from '@/src/core/track/types';
+import { inspectScreenshotTicket } from '@/src/core/track/screenshotTicketMetadata';
 
 const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: string }> = [
   { pattern: /\b(?:rushing|rush)\s*\+\s*(?:receiving|rec)\s+(?:yards?|yds?)\b/i, marketType: 'rushing_receiving_yards', label: 'Rushing + receiving yards' },
@@ -11,11 +12,12 @@ const MARKET_TOKEN_MAP: Array<{ pattern: RegExp; marketType: MarketType; label: 
   { pattern: /\b(?:carries|rush(?:ing)?\s+attempts?)\b/i, marketType: 'carries', label: 'Carries' },
   { pattern: /\b(?:any\s*time|anytime)\s+(?:touchdown|td)(?:\s+scorer)?\b|\battd\b|\bto\s+score(?:\s+a)?\s+touchdown\b/i, marketType: 'anytime_td', label: 'Anytime TD' },
   { pattern: /\bmoneyline\b/i, marketType: 'moneyline', label: 'Moneyline' },
-  { pattern: /\bpra\b|points\s*\+\s*rebounds\s*\+\s*assists/i, marketType: 'pra', label: 'PRA' },
+  { pattern: /\bpra\b|points\s*\+\s*rebounds\s*\+\s*assists|pts?\s*\+\s*reb\s*\+\s*ast/i, marketType: 'pra', label: 'PRA' },
+  { pattern: /\b(?:rebs?|rebounds?)\s*\+\s*(?:asts?|assists?)\b/i, marketType: 'ra', label: 'Rebounds + assists' },
   { pattern: /\b3\s*(pt|pointer)|threes?\b/i, marketType: 'threes', label: 'Threes' },
   { pattern: /\bassists?\b/i, marketType: 'assists', label: 'Assists' },
   { pattern: /\brebounds?\b/i, marketType: 'rebounds', label: 'Rebounds' },
-  { pattern: /\bpoints?\b/i, marketType: 'points', label: 'Points' },
+  { pattern: /\bpoints?|\bpts?\b/i, marketType: 'points', label: 'Points' },
 ];
 
 const NFL_MARKETS = new Set<MarketType>([
@@ -92,10 +94,38 @@ function descriptorMarket(line: string): { player: string; market: string } | nu
   return { player: normalizePlayerName(match[1]), market };
 }
 
+// Merge only adjacent recognizable split-row OCR fragments.
+function isStandalonePlayer(row: string): boolean {
+  if (!/^[A-Z][A-Za-z'.-]+(?:\s+(?:[A-Z][A-Za-z'.-]+|II|III|IV)){1,3}$/.test(row)) return false;
+  if (/\b(?:sportsbook|parlay|draftkings|fanduel|prizepicks|my bets|open|settled|cash out|payout|game total|same game|total wager|total return|your bets|bet slip)\b/i.test(row)) return false;
+  return true;
+}
+function isDirectionalMarketRow(row: string): boolean {
+  return /^(?:(?:over|under)\s+\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*\+)\s+/i.test(row) &&
+    !canonicalMarket(row).inferred;
+}
+function isIsolatedOdds(row: string): boolean {
+  return /^[+-]\d{3,5}$/.test(row);
+}
+
 function coalesceSportsbookFragments(lines: string[]): string[] {
   const output: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const current = sanitizeSportsbookLine(lines[index]!);
+    const following = index + 1 < lines.length ? sanitizeSportsbookLine(lines[index + 1]!) : '';
+    if (isStandalonePlayer(current) && isDirectionalMarketRow(following)) {
+      const third = index + 2 < lines.length ? lines[index + 2]!.trim() : '';
+      const standaloneOdds = isIsolatedOdds(third) ? ' ' + third : '';
+      output.push(current + ' ' + following + standaloneOdds);
+      index += standaloneOdds ? 2 : 1;
+      continue;
+    }
+    // DraftKings often puts MONEYLINE and PRA ladder targets on their own row.
+    if (isStandalonePlayer(current) && /^moneyline$/i.test(following)) {
+      output.push(current + ' moneyline');
+      index += 1;
+      continue;
+    }
     const main = current.match(GENERIC_PLUS_PROP);
     let descriptor: ReturnType<typeof descriptorMarket> = null;
     let descriptorEnd = index;
@@ -172,9 +202,10 @@ function inferPlayer(input: string): string {
     .replace(/\b(OVER|UNDER)\b.*$/i, '')
     .replace(/\bTO\s+(SCORE|RECORD)\b.*$/i, '')
     .replace(/\b\d+(?:\.\d+)?\+?\b/g, '')
-    .replace(/\b(POINTS?|ASSISTS?|REBOUNDS?|PRA|THREES?|MONEYLINE|PASS(?:ING)?\s+(?:YARDS?|YDS?|TDS?|TOUCHDOWNS?)|RUSH(?:ING)?\s+(?:YARDS?|YDS?|ATTEMPTS?)|RECEIV(?:ING)?\s+(?:YARDS?|YDS?)|REC\s+(?:YARDS?|YDS?)|RECEPTIONS?|CATCHES|CARRIES|ANYTIME\s+(?:TD|TOUCHDOWN))\b/gi, '')
+    .replace(/\b(POINTS?|PTS?|ASSISTS?|ASTS?|REBOUNDS?|REBS?|PRA|THREES?|MONEYLINE|PASS(?:ING)?\s+(?:YARDS?|YDS?|TDS?|TOUCHDOWNS?)|RUSH(?:ING)?\s+(?:YARDS?|YDS?|ATTEMPTS?)|RECEIV(?:ING)?\s+(?:YARDS?|YDS?)|REC\s+(?:YARDS?|YDS?)|RECEPTIONS?|CATCHES|CARRIES|ANYTIME\s+(?:TD|TOUCHDOWN))\b/gi, '')
     .replace(/\bALT\b/gi, '')
     .replace(/\b([A-Z]{2,4})\s*@\s*([A-Z]{2,4})\b/g, '')
+    .replace(/\s*\+\s*/g, ' ')
     .trim();
 
   const cleaned = normalizePlayerName(stripped);
@@ -195,7 +226,11 @@ function nonEmptyLines(rawText: string): string[] {
   return rawText.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
+const PARLAY_HEADING = /^(?:\d{1,2}(?:\s+|-)legs?\s+)?(?:same game parlay|sgp|parlay)(?=\s|\+|$)/i;
+
 function looksLikeCandidateLeg(line: string): boolean {
+  if (PARLAY_HEADING.test(line)) return false;
+  if (/^\d{1,2}\s+leg\s+same game parlay\+|\bmarkets?\s+combo\b|^combo\s*[·•]|^\+\d+\s+more markets?\b/i.test(line)) return false;
   if (!canonicalMarket(line).inferred) return true;
   if (/\b(over|under)\s+\d+(?:\.\d+)?\b/i.test(line)) return true;
   if (/\b\d+(?:\.\d+)?\+\s+(?:yards?|receptions?|carries|passing\s+touchdowns?)\b/i.test(line)) return true;
@@ -223,17 +258,186 @@ function unresolvedFallback(rawText: string, sourceHint: string): TrackedTicketL
   }];
 }
 
+/**
+ * Kalshi's displayed percentages represent contract quotes, not conventional
+ * American odds. Return review-only candidates with quotedContractPercent,
+ * never an invented implied probability or a synthetic betting payout.
+ */
+function parseKalshiCandidates(rawLines: string[], sourceHint: string): TrackedTicketLeg[] {
+  const candidates: TrackedTicketLeg[] = [];
+  let league = 'Unknown';
+  let matchup: string | undefined;
+  for (const raw of rawLines) {
+    const row = raw.replace(/\s+/g, ' ').trim();
+    if (/^(?:NCAA Football|College Football|CFB)$/i.test(row)) { league = 'NCAAF'; matchup = undefined; continue; }
+    if (/^NBA$/i.test(row)) { league = 'NBA'; matchup = undefined; continue; }
+    if (/^NHL$/i.test(row)) { league = 'NHL'; matchup = undefined; continue; }
+    if (/^NFL$/i.test(row)) { league = 'NFL'; matchup = undefined; continue; }
+    if (/^(?:NCAA Basketball|College Basketball)$/i.test(row)) { league = 'NCAAB'; matchup = undefined; continue; }
+    if (/\b(?:at|vs\.?|versus)\b/i.test(row) && !/\bto win\b|\bpoints\b/i.test(row) &&
+        row.length >= 8 && row.length <= 100) {
+      matchup = row;
+      continue;
+    }
+    const sidePrefix = row.match(/^(yes|no)\s*[·:–-]\s*/i);
+    const contractSide = sidePrefix?.[1]?.toLowerCase() === 'no' ? 'no' : 'yes';
+    const selection = sidePrefix ? row.slice(sidePrefix[0].length) : row;
+    const contractNo = selection.match(/^(.+?)\s+(win by over)\s+(\d+(?:\.\d+)?)\s+points(?:\s+(\d{1,3})\s*%)?$/i);
+    if (contractNo && contractSide === 'no') {
+      candidates.push({
+        legId: 'leg-' + (candidates.length + 1), league, player: contractNo[1]!,
+        rawPlayer: contractNo[1]!, marketType: 'spread',
+        marketLabel: 'No on proposition: win by over ' + contractNo[3] + ' points',
+        threshold: Number(contractNo[3]), thresholdObserved: true,
+        direction: 'over', directionObserved: false,
+        contractSide: 'no', unsupportedMarket: true,
+        quotedContractPercent: contractNo[4] ? Number(contractNo[4]) : undefined,
+        odds: undefined, source: sourceHint, parseConfidence: 'low',
+        needsReview: true, rawText: row, teams: matchup
+      });
+      continue;
+    }
+    const win = selection.match(/^(.+?)\s+to\s+win(?:\s*:?\s*(\d{1,3})\s*%)?$/i);
+    if (win && !/^(?:cost|max payout|cash|open|position)/i.test(win[1]!)) {
+      candidates.push({
+        legId: 'leg-' + (candidates.length + 1), league,
+        player: win[1]!, rawPlayer: win[1]!,
+        marketType: 'moneyline', marketLabel: 'Moneyline (contract: ' + contractSide.toUpperCase() + ')',
+        threshold: 0, thresholdObserved: true, direction: 'over',
+        directionObserved: contractSide === 'yes', contractSide, unsupportedMarket: contractSide === 'no',
+        quotedContractPercent: win[2] ? Number(win[2]) : undefined,
+        source: sourceHint, parseConfidence: 'medium', needsReview: true,
+        rawText: row, teams: matchup
+      });
+      continue;
+    }
+    const prop = selection.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*\+\s+(threes?|pts?|points?|assists?|rebounds?|pra|touchdowns?|(?:rebs?|rebounds?)\s*\+\s*(?:asts?|assists?))(?:\s+(\d{1,3})\s*%)?$/i);
+    if (prop) {
+      const touchdownContract = /^touchdowns?$/i.test(prop[3]!);
+      const market = touchdownContract
+        ? { marketType: 'anytime_td' as MarketType, marketLabel: 'Touchdowns: ' + prop[2] + '+ (special contract)', inferred: false }
+        : canonicalMarket(prop[3]!);
+      const unsupported = touchdownContract || contractSide === 'no';
+      candidates.push({
+        legId: 'leg-' + (candidates.length + 1), league,
+        player: prop[1]!, rawPlayer: prop[1]!,
+        marketType: market.marketType, marketLabel: market.marketLabel,
+        unsupportedMarket: unsupported,
+        threshold: Number(prop[2]), thresholdObserved: true,
+        direction: 'over', directionObserved: contractSide === 'yes', contractSide,
+        quotedContractPercent: prop[4] ? Number(prop[4]) : undefined,
+        source: sourceHint, parseConfidence: unsupported ? 'low' : 'medium', needsReview: true,
+        rawText: row, teams: matchup
+      });
+    }
+  }
+  return candidates;
+}
+
+/**
+ * PrizePicks "fantasy score" and special pick'em projections are not
+ * silently coerced into points or conventional American odds.
+ */
+function parsePrizePicksCandidates(rawLines: string[], sourceHint: string): TrackedTicketLeg[] {
+  const candidates: TrackedTicketLeg[] = [];
+  let league = 'Unknown';
+  for (let index = 0; index < rawLines.length; index += 1) {
+    const raw = rawLines[index]!.replace(/\s+/g, ' ').trim();
+    if (/^NBA$/i.test(raw)) { league = 'NBA'; continue; }
+    if (/^(?:CFB|NCAAF)$/i.test(raw)) { league = 'NCAAF'; continue; }
+    const direct = raw.match(/^(.+?)\s*[:–-]?\s+(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+    const candidatePlayer = isStandalonePlayer(raw) ? raw : null;
+    let next = '';
+    let split: RegExpMatchArray | null = null;
+    let consumed = 0;
+    if (candidatePlayer && !direct) {
+      for (let offset = 1; offset <= 3 && index + offset < rawLines.length; offset += 1) {
+        const row = rawLines[index + offset]!.replace(/\s+/g, ' ').trim();
+        if (/^(↑|⬆|↓|⬇|more|over|less|under)\s*\d+(?:\.\d+)?\s+.+/i.test(row)) {
+          next = row;
+          split = row.match(/^(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+          consumed = offset;
+          break;
+        }
+        const standaloneNumber = row.match(/^(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)$/i);
+        if (standaloneNumber && index + offset + 1 < rawLines.length) {
+          const nextMarket = rawLines[index + offset + 1]!.trim();
+          if (/^(?:fantasy score|(?:rebs?|rebounds?)\s*\+\s*(?:asts?|assists?)|pra|points?|threes?|assists?)$/i.test(nextMarket)) {
+            next = row + ' ' + nextMarket;
+            split = next.match(/^(↑|⬆|↓|⬇|more|over|less|under)\s*(\d+(?:\.\d+)?)\s+(.+)$/i);
+            consumed = offset + 1;
+            break;
+          }
+        }
+        if (/^(?:NBA|CFB|NCAAF|NFL|NHL)$/i.test(row)) break;
+        if (isStandalonePlayer(row)) break;
+        if (!/^[A-Z0-9#.\s-]{1,28}$/i.test(row)) break;
+      }
+    }
+    const player = direct?.[1] ?? (split ? candidatePlayer : null);
+    const side = direct?.[2] ?? split?.[1];
+    const line = direct?.[3] ?? split?.[2];
+    const marketRaw = direct?.[4] ?? split?.[3];
+    if (!player || !side || !line || !marketRaw) continue;
+    const market = canonicalMarket(marketRaw);
+    const unsupported = /fantasy\s*score|demon|goblin|special/i.test(marketRaw) || market.inferred;
+    const normalizedPlayer = normalizePlayerName(player);
+    candidates.push({
+      legId: 'leg-' + (candidates.length + 1), league, player: normalizedPlayer, rawPlayer: player,
+      marketType: market.marketType,
+      marketLabel: unsupported ? 'Unsupported pick’em market: ' + marketRaw : market.marketLabel,
+      unsupportedMarket: unsupported, threshold: Number(line),
+      thresholdObserved: true, direction: /^(?:↓|⬇|less|under)$/i.test(side) ? 'under' : 'over', directionObserved: true,
+      source: sourceHint, parseConfidence: unsupported ? 'low' : 'medium',
+      needsReview: true, rawText: direct ? raw : raw + ' ' + next
+    });
+    if (split) index += consumed;
+  }
+  return candidates;
+}
+
 export function parseSlipTextToLegs(rawText: string, sourceHint: string): TrackedTicketLeg[] {
   const rawLines = nonEmptyLines(rawText);
   if (rawLines.length === 0) return unresolvedFallback(rawText, sourceHint);
+  const ticketFormat = inspectScreenshotTicket(rawText).format;
+  if (ticketFormat === 'kalshi_combo') {
+    const legs = parseKalshiCandidates(rawLines, sourceHint);
+    return legs.length ? legs : unresolvedFallback(rawText, sourceHint);
+  }
+  if (ticketFormat === 'prizepicks_lineup') {
+    const legs = parsePrizePicksCandidates(rawLines, sourceHint);
+    return legs.length ? legs : unresolvedFallback(rawText, sourceHint);
+  }
 
-  const lines = coalesceSportsbookFragments(rawLines).filter(looksLikeCandidateLeg);
-  if (lines.length === 0) return unresolvedFallback(rawText, sourceHint);
+  const leagueHeaders = new Set(
+    rawLines.filter((row) => /^(?:NFL|NBA)$/i.test(row.trim()))
+      .map((row) => row.trim().toUpperCase())
+  );
+  const uniqueHeaderLeague = leagueHeaders.size === 1 ? [...leagueHeaders][0] : undefined;
+  const isSgp = ticketFormat === 'same_game_parlay' || ticketFormat === 'draftkings_sgp_plus';
+  let matchup: string | undefined;
+  const candidates = coalesceSportsbookFragments(rawLines).flatMap((line) => {
+    const isCandidate = looksLikeCandidateLeg(line);
+    if (isSgp) {
+      // Keep the visible matchup as reviewable source context.
+      if (!isCandidate && /^.{3,70}\s+@\s+.{3,70}$/.test(line)) {
+        matchup = line;
+        return [];
+      }
+      if (PARLAY_HEADING.test(line) || /^(?:includes:|other selections|(?:single|straight) bets?)\b/i.test(line)) {
+        matchup = undefined;
+      }
+    }
+    return isCandidate ? [{ line, matchup }] : [];
+  });
+  if (candidates.length === 0) return unresolvedFallback(rawText, sourceHint);
 
-  return lines.map((line, index) => {
+  return candidates.map(({ line, matchup }, index) => {
     const { marketType, marketLabel, inferred } = canonicalMarket(line);
     const direction = parseDirection(line);
-    const parsedThreshold = marketType === 'anytime_td'
+    const parsedThreshold = marketType === 'moneyline'
+      ? { threshold: 0, ladder: false }
+      : marketType === 'anytime_td'
       ? { threshold: 1, ladder: false }
       : parseThreshold(line);
     const odds = parseOdds(line);
@@ -246,7 +450,13 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       threshold: parsedThreshold.threshold,
       unresolved,
     });
-    const league = NFL_MARKETS.has(marketType) || /\bNFL\b/i.test(line) ? 'NFL' : 'NBA';
+    const league = /\bNFL\b/i.test(line) ? 'NFL' : /\bNBA\b/i.test(line) ? 'NBA'
+      : NFL_MARKETS.has(marketType) ? 'NFL' : uniqueHeaderLeague ?? 'Unknown';
+    const directionObserved = marketType === 'anytime_td' || marketType === 'moneyline' ||
+      /\b(?:over|under)\b|\d+(?:\.\d+)?\s*\+/i.test(line);
+    const thresholdObserved = parsedThreshold.threshold != null;
+    const requiresReview = league === 'Unknown' || parseConfidence === 'low' ||
+      !directionObserved || !thresholdObserved;
 
     return {
       legId: `leg-${index + 1}`,
@@ -257,14 +467,17 @@ export function parseSlipTextToLegs(rawText: string, sourceHint: string): Tracke
       marketLabel,
       threshold: parsedThreshold.threshold ?? 0,
       direction,
+      directionObserved,
+      thresholdObserved,
       odds,
       source: sourceHint,
       parseConfidence,
-      needsReview: parseConfidence === 'low',
+      needsReview: requiresReview,
+      unsupportedMarket: inferred || undefined,
       rawText: line,
       ladder: parsedThreshold.ladder,
-      teams: teamDetails.teams,
-      gameId: teamDetails.gameId,
+      teams: teamDetails.teams ?? matchup,
+      gameId: teamDetails.gameId ?? (matchup ? 'screenshot:' + matchup.toLowerCase().replace(/\s+/g, ' ').trim() : undefined),
     };
   });
 }

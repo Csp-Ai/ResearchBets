@@ -34,7 +34,7 @@ export interface StatsProvider {
 
 export interface OddsProvider {
   id: string;
-  fetchEvents(input: { sport: string }): Promise<{ events: Array<{ id: string }>; provenance: DataProvenance; fallbackReason?: string }>;
+  fetchEvents(input: { sport: string; fresh?: boolean }): Promise<{ events: Array<{ id: string }>; provenance: DataProvenance; fallbackReason?: string }>;
   fetchEventOdds(input: { sport: string; eventIds: string[]; marketType: MarketType }): Promise<{
     platformLines: PlatformLine[];
     provenance: DataProvenance;

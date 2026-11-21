@@ -143,7 +143,14 @@ export async function saveUploadedArtifact(input: { bettorId: string; file: File
     preview_metadata: { width: input.width ?? null, height: input.height ?? null, mime_type: input.file.type || null, size_bytes: input.file.size },
   };
   const inserted = await supabase.from('bettor_artifacts').insert(record).select('*').single();
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) {
+    // Remove the object after a definite database rejection. A transport error
+    // can leave the write outcome unknown, so keep the object in that case.
+    if (/^(22|23|42)[A-Z0-9]{3}$/.test(inserted.error.code)) {
+      await supabase.storage.from(BUCKET).remove([storagePath]).then(undefined, () => undefined);
+    }
+    throw inserted.error;
+  }
   return normalizeArtifact(inserted.data as BettorArtifactRecord);
 }
 
@@ -214,7 +221,13 @@ export async function parseArtifact(input: { bettorId: string; artifactId: strin
 export async function createArtifactPreviewUrl(bettorId: string, artifactId: string) {
   const supabase = getSupabaseServiceClient();
   const { data: artifact, error } = await supabase.from('bettor_artifacts').select('artifact_id, bettor_id, storage_path').eq('artifact_id', artifactId).eq('bettor_id', bettorId).single();
-  if (error || !artifact) throw error ?? new Error('Artifact not found.');
+  if (error || !artifact) throw new Error('Artifact not found.');
+  const prefix = `${bettorId}/${artifactId}.`;
+  // Rows are editable by their owners. Bind the service-role signer to the
+  // canonical object's owner and artifact ID before using the stored path.
+  if (!artifact.storage_path.startsWith(prefix) || !/^[a-z0-9]+$/i.test(artifact.storage_path.slice(prefix.length))) {
+    throw new Error('Artifact not found.');
+  }
   const signed = await supabase.storage.from(BUCKET).createSignedUrl(artifact.storage_path, 60 * 10);
   if (signed.error) throw signed.error;
   return signed.data.signedUrl;
