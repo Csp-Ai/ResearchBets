@@ -56,7 +56,7 @@ export function inspectScreenshotTicket(rawText: string): ScreenshotTicketMetada
     /\bdraft\s*kings\b/i.test(text) ? 'draftkings' : null
   ].filter(Boolean);
   const brandConflict = brands.length > 1;
-  const quotedWinContracts = (text.match(/\bto\s+win\s+\d{1,3}\s*%\b/gi) ?? []).length;
+  const quotedWinContracts = (text.match(/\bto\s+win\s+\d{1,3}\s*%(?!\w)/gi) ?? []).length;
   const isKalshi = !brandConflict &&
     (brands[0] === 'kalshi' ||
       (brands.length === 0 && (
