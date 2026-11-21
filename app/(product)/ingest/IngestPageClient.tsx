@@ -10,6 +10,7 @@ import { Button } from '@/src/components/ui/button';
 import { Surface } from '@/src/components/ui/surface';
 import { SUPPORTED_MARKET_TYPES, type MarketType } from '@/src/core/markets/marketType';
 import type { TrackedTicket, TrackedTicketLeg } from '@/src/core/track/types';
+import { inspectScreenshotTicket, screenshotCoverage, type ScreenshotTicketMetadata } from '@/src/core/track/screenshotTicketMetadata';
 
 type ParseTextResponse = {
   ok: boolean;
@@ -21,13 +22,14 @@ const MAX_SCREENSHOTS = 4;
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_IMAGES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const LEAGUES = ['Unknown', 'NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'Soccer', 'Other'] as const;
-const SPORTSBOOKS = ['Unknown', 'FanDuel', 'DraftKings', 'PrizePicks', 'Other'] as const;
+const SPORTSBOOKS = ['Unknown', 'FanDuel', 'DraftKings', 'PrizePicks', 'Kalshi', 'Other'] as const;
 
 function detectSportsbook(rawText: string): string {
   const found = [
     /\bfan\s*duel\b/i.test(rawText) ? 'FanDuel' : null,
     /\bdraft\s*kings\b/i.test(rawText) ? 'DraftKings' : null,
-    /\bprize\s*picks\b/i.test(rawText) ? 'PrizePicks' : null
+    /\bprize\s*picks\b/i.test(rawText) ? 'PrizePicks' : null,
+    /\bkalshi\b/i.test(rawText) ? 'Kalshi' : null
   ].filter(Boolean);
   return found.length === 1 ? found[0]! : 'Unknown';
 }
@@ -63,6 +65,7 @@ function reviewProblem(leg: TrackedTicketLeg): string | null {
   if (!leg.league || leg.league === 'Unknown') return 'Sport/league needs review';
   if (!SUPPORTED_MARKET_TYPES.includes(leg.marketType)) return 'Market is unsupported';
   if (leg.marketLabel === 'Needs review') return 'Market needs review';
+  if (leg.unsupportedMarket) return 'This contract requires a dedicated market adapter; a generic prop interpretation is unsafe.';
   if (leg.directionObserved === false) return 'Direction was not visible. Choose Over or Under to confirm.';
   if (leg.thresholdObserved === false) return 'Threshold was not visible. Enter the exact line to confirm.';
   if (!Number.isFinite(leg.threshold) || leg.threshold < 0) return 'Threshold is missing';
@@ -81,6 +84,7 @@ export default function IngestionPage() {
   const [rawExtractedText, setRawExtractedText] = useState('');
   const [origin, setOrigin] = useState<'screenshot' | 'paste'>('paste');
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('proposed');
+  const [ticketMetadata, setTicketMetadata] = useState<ScreenshotTicketMetadata | null>(null);
   const [observedSportsbook, setObservedSportsbook] = useState('Unknown');
   const [selectedSportsbook, setSelectedSportsbook] = useState('Unknown');
   const [parsedCandidate, setParsedCandidate] = useState<TrackedTicketLeg[]>([]);
@@ -137,6 +141,7 @@ export default function IngestionPage() {
         }));
       }));
       const candidate = cleanParsedLegs(responses.flat());
+      setTicketMetadata(inspectScreenshotTicket(text));
       setParsedCandidate(candidate.map((leg) => ({ ...leg })));
       const observed = detectSportsbook(text);
       setObservedSportsbook(observed);
@@ -197,7 +202,7 @@ export default function IngestionPage() {
     ocrControllerRef.current = controller;
     setError(null); setNotice(null); setIsOcrRunning(true);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
-    setTicketStatus('proposed'); setSourceArtifactId(undefined); setSourceArtifactIds([]);
+    setTicketStatus('proposed'); setTicketMetadata(null); setSourceArtifactId(undefined); setSourceArtifactIds([]);
     setFailedScreenshots([]); setFailedScreenshotsReviewed(false);
     setObservedSportsbook('Unknown'); setSelectedSportsbook('Unknown');
     setOrigin('screenshot');
@@ -281,6 +286,16 @@ export default function IngestionPage() {
     setError(null);
     if (!reviewedLegs.length) {
       setError('No ticket legs to analyze. Add or review a selection.'); return;
+    }
+    const completeness = ticketMetadata ? screenshotCoverage(ticketMetadata, reviewedLegs.length) : null;
+    if (completeness?.incomplete) {
+      setError(completeness.note ?? 'The screenshot ticket is incomplete. Review its declared count and missing selections.');
+      return;
+    }
+    if (ticketMetadata && (ticketMetadata.pricingKind !== 'american_odds' ||
+        ticketMetadata.declaredCountConflict || ticketMetadata.format === 'unknown')) {
+      setError('This ticket uses specialized contract or combination pricing. You can review its extracted selections, but canonical X-Ray analysis is paused until the appropriate pricing adapter is validated. No conventional parlay odds will be fabricated.');
+      return;
     }
     if (failedScreenshots.length && !failedScreenshotsReviewed) {
       setError('Some screenshots could not be read. Compare them and confirm any missing selections were added.'); return;
@@ -389,6 +404,34 @@ export default function IngestionPage() {
             <h2 className="mt-2 text-xl font-semibold">Your Ticket · {reviewedLegs.length} legs</h2>
             <p className="mt-1 text-xs text-slate-300">Parser-derived candidates are not provider-verified facts. Correct and confirm each row before analyzing.</p>
           </div>
+          {ticketMetadata ? (
+            <div className="space-y-2 rounded-lg border border-white/20 bg-white/[0.04] p-3">
+              <h3 className="text-sm font-semibold">Ticket structure</h3>
+              <p className="text-xs text-slate-300">
+                Detected format: {ticketMetadata.format.replace(/_/g, ' ')} ·
+                Quoting: {ticketMetadata.pricingKind.replace(/_/g, ' ')}
+              </p>
+              <p className="text-xs text-slate-300">
+                Declared selections: {ticketMetadata.declaredLegCount ?? 'Unknown'} ·
+                Extracted candidates: {reviewedLegs.length}
+              </p>
+              {ticketMetadata.cost != null ? <p className="text-xs text-slate-300">Screenshot cost: ${ticketMetadata.cost.toFixed(2)} (historical observation)</p> : null}
+              {ticketMetadata.statedMaxPayout != null ? <p className="text-xs text-slate-300">Screenshot stated maximum payout: ${ticketMetadata.statedMaxPayout.toFixed(2)} (not independently verified)</p> : null}
+              {ticketMetadata.officialCombinedAmericanOdds ? <p className="text-xs text-slate-300">Screenshot SGP+ combined price: {ticketMetadata.officialCombinedAmericanOdds} (not a per-leg price)</p> : null}
+              {ticketMetadata.statedMultiplier != null ? <p className="text-xs text-slate-300">Screenshot displayed multiplier: {ticketMetadata.statedMultiplier}× (terms unverified)</p> : null}
+              {screenshotCoverage(ticketMetadata, reviewedLegs.length).note ? (
+                <p role="alert" className="text-xs font-medium text-amber-200">
+                  {screenshotCoverage(ticketMetadata, reviewedLegs.length).note}
+                </p>
+              ) : null}
+              {ticketMetadata.warnings.map((warning, index) => (
+                <p key={index} className="text-xs text-amber-100">{warning}</p>
+              ))}
+              {ticketMetadata.pricingKind !== 'american_odds' || ticketMetadata.format === 'unknown' ? (
+                <p className="text-xs text-amber-200">Review-only mode: specialized ticket pricing and conventional X-Ray calculations are not enabled for this format.</p>
+              ) : null}
+            </div>
+          ) : null}
           <label htmlFor="rb-sportsbook" className="block text-sm">
             Sportsbook (OCR suggestion: {observedSportsbook}, not verified)
           </label>
@@ -464,6 +507,10 @@ export default function IngestionPage() {
                       onChange={(event) => updateLeg(leg.legId, { odds: event.target.value })} />
                   </label>
                 </div>
+                {leg.quotedContractPercent != null ? (
+                  <p className="text-xs text-amber-100">Screenshot contract quote: {leg.quotedContractPercent}% · not American odds or a calibrated win probability</p>
+                ) : null}
+                {leg.contractSide ? <p className="text-xs text-slate-300">Contract side: {leg.contractSide.toUpperCase()}</p> : null}
                 <p className="text-xs text-slate-400">Source: {leg.source} · Parser confidence: {leg.parseConfidence}. Odds are from the screenshot, not current verified prices.</p>
                 {problem ? <p className="text-xs text-amber-200" role="status">{problem}</p> : null}
                 <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
