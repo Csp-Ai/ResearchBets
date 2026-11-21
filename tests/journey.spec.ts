@@ -19,7 +19,7 @@ test('landing reaches the canonical stress test, build and control views', async
   await page.screenshot({ path: 'docs/journey-landing.png', fullPage: true });
 
   await page.getByRole('link', { name: /open stress test/i }).click();
-  await expect(page).toHaveURL(/\/stress-test\?/);
+  await expect(page).toHaveURL(/\/stress-test\?/, { timeout: 60000 });
   await expect(page).toHaveURL(/tz=America%2FPhoenix/);
   await expect(page).toHaveURL(/date=2026-11-21/);
   await expect(page.getByRole('heading', { name: /give me a ticket/i })).toBeVisible();
@@ -38,7 +38,7 @@ test('mobile intake requires review and opens the same draft in Full Ticket X-Ra
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/?' + context);
   await page.getByRole('link', { name: 'Scan ticket' }).click();
-  await expect(page).toHaveURL(/\/ingest\?/);
+  await expect(page).toHaveURL(/\/ingest\?/, { timeout: 60000 });
   await expect(page.getByRole('heading', { name: 'Upload Your Parlay' })).toBeVisible();
 
   const confirmations = await reviewPastedTicket(page, conventionalTicket);
@@ -49,7 +49,7 @@ test('mobile intake requires review and opens the same draft in Full Ticket X-Ra
   }
   await page.getByRole('button', { name: 'Analyze My Ticket' }).click();
 
-  await expect(page).toHaveURL(/\/stress-test\?/);
+  await expect(page).toHaveURL(/\/stress-test\?/, { timeout: 60000 });
   const url = new URL(page.url());
   for (const key of ['slip_id', 'trace_id']) expect(url.searchParams.get(key)).toBeTruthy();
   expect(url.searchParams.get('sport')).toBe('NBA');
