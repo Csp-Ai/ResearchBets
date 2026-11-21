@@ -53,7 +53,7 @@ describe('bettor memory parser adapters', () => {
       'Settled',
       'Jayson Tatum over 20.5 points (-110)',
       'Total Bet $10.00'
-    ].join('\\n')));
+    ].join('\n')));
     expect(result.normalized.slip?.status.value).toBe('unknown');
   });
 
