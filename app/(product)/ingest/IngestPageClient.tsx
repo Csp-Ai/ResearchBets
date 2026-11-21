@@ -88,7 +88,6 @@ export default function IngestionPage() {
   const [slipText, setSlipText] = useState(prefill);
   const [showText, setShowText] = useState(Boolean(prefill));
   const [textByImage, setTextByImage] = useState<string[]>([]);
-  const [rawExtractedText, setRawExtractedText] = useState('');
   const [origin, setOrigin] = useState<'screenshot' | 'paste'>('paste');
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('proposed');
   const [ticketMetadata, setTicketMetadata] = useState<ScreenshotTicketMetadata | null>(null);
@@ -256,7 +255,7 @@ export default function IngestionPage() {
     const controller = new AbortController();
     ocrControllerRef.current = controller;
     setError(null); setNotice(null); setSavingNotice(null); setIsOcrRunning(true); setCanRetry(false);
-    setSlipText(''); setRawExtractedText(''); setTextByImage([]); setShowText(false);
+    setSlipText(''); setTextByImage([]); setShowText(false);
     setHasParsed(false); setReviewedLegs([]); setParsedCandidate([]); setConfirmedIds([]);
     setTicketStatus('proposed'); setTicketMetadata(null); setSourceArtifactId(undefined); setSourceArtifactIds([]);
     setFailedScreenshots([]); setFailedScreenshotsReviewed(false);
@@ -307,7 +306,6 @@ export default function IngestionPage() {
         return;
       }
       const allText = parts.map((part) => part.text).join('\n');
-      setRawExtractedText(allText);
       setTextByImage(files.map((file) => extractedByFile.current.get(file) ?? ''));
       await parseForReview(allText, 'screenshot', parts, controller.signal);
     } catch (caught) {
@@ -412,7 +410,7 @@ export default function IngestionPage() {
         origin, userTicketStatus: ticketStatus,
         observedSportsbook, userSelectedSportsbook: selectedSportsbook,
         ticketMetadata: ticketMetadata ?? undefined, analysisMode, coverageNote, recognizedLegCount: identifiedLegCount,
-        reviewedLegs: reviewedLegs.map(({ rawText: _rawText, ...safeLeg }) => safeLeg),
+        reviewedLegs: reviewedLegs.map((leg) => ({ ...leg, rawText: undefined })),
         unreadableScreenshots: unresolvedScreenshots ? failedScreenshots : undefined,
         rawExtractedText: origin === 'screenshot' ? '' : slipText,
         parsedCandidate: parsedCandidate.map((leg) => ({
