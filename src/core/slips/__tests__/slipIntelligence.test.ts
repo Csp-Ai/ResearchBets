@@ -51,6 +51,16 @@ describe('computeSlipIntelligence', () => {
     expect(intel.correlationSeverity).toBe('none');
   });
 
+  it('ignores unknown game IDs and unknown player labels in dependency scoring', () => {
+    const intel = computeSlipIntelligence([
+      { game_id: 'game:unlabeled', player: 'Needs review', line: '19.5', odds: '-110' },
+      { game_id: 'game:unlabeled', player: 'Needs review', line: '6.5', odds: '-115' }
+    ]);
+    expect(intel.sameGameStack).toBe(false);
+    expect(intel.exposureSummary.topGames).toEqual([]);
+    expect(intel.correlationSeverity).toBe('none');
+  });
+
   it('returns empty-state hints for empty slips', () => {
     const intel = computeSlipIntelligence([]);
 
