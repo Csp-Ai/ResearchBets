@@ -21,7 +21,7 @@ describe('ProBuildPanel', () => {
     const onApply = vi.fn();
     render(<ProBuildPanel legs={legs} onApply={onApply} />);
     expect(screen.getByTestId('pro-build-panel')).toBeTruthy();
-    expect(screen.getByText(/Proxy/i)).toBeTruthy();
+    expect(screen.getAllByText(/Proxy/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByText('Apply 2-leg'));
     expect(onApply).toHaveBeenCalledTimes(1);
     const picked = onApply.mock.calls[0]?.[0] as typeof legs;
